@@ -3,7 +3,7 @@
 **Status:** v2, reduced to MVP only · 2026-09-28
 **Hackathon:** Colosseum Crypto World's Fair, Solana track. Deadline **Oct 12, 11:59pm PT (Oct 13, 5:59pm Melbourne)**
 **Tracking issue:** #1 · **Everything that was cut:** [ROADMAP.md](./ROADMAP.md)
-**Lineage:** a rebuild of the Waterlily.ai concept (2023: artists opted in, AI generated images in their style, and the artist was paid). Rebuilt for writing and voices, with no Waterlily code reused. Disclose the lineage in the submission.
+**Lineage:** a rebuild of the Waterlily.ai concept (2023: artists opted in, AI generated images in their style, and the artist was paid). Rebuilt for writing and voices, with no Waterlily code reused. The founder owns the Waterlily name. Disclose the lineage in the submission.
 
 ---
 
@@ -126,7 +126,7 @@ The platform takes a 10% take rate on every commission and narration, with a cos
 | Rules §12 content | SFW only |
 | Prior-code rule | Fresh repo; disclose Waterlily lineage and lifted snippets |
 | Team eligibility | One submission per builder; confirm the roster with your friend |
-| Waterlily name/IP | Ship as "Story Studio" unless Lilypad approves the name |
+| Naming | The founder owns the Waterlily name (not Lilypad), so it can be used, e.g. branding as Waterlily. Final name still to decide: "Story Studio" or Waterlily |
 
 ## 13. Demo script (≤3 min)
 
