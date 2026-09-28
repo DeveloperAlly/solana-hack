@@ -3,7 +3,7 @@
 **Status:** v2, reduced to MVP only · 2026-09-28
 **Hackathon:** Colosseum Crypto World's Fair, Solana track. Deadline **Oct 12, 11:59pm PT (Oct 13, 5:59pm Melbourne)**
 **Tracking issue:** #1 · **Everything that was cut:** [ROADMAP.md](./ROADMAP.md)
-**Hosting:** **waterlily.ai** (founder-owned domain, not currently in use), with **waterlily.world** (also founder-owned) as the alternative
+**Hosting:** **waterlily.ai** (founder-owned domain, not currently in use), with **waterlily.world** (also founder-owned) as the alternative. Hosted on **Cloudflare** (no Vercel)
 **Lineage:** a rebuild of the Waterlily.ai concept (2023: artists opted in, AI generated images in their style, and the artist was paid). Rebuilt for writing and voices, with no Waterlily code reused. The founder owns the Waterlily name. Disclose the lineage in the submission.
 
 ---
@@ -88,7 +88,9 @@ The generate → check → retry pattern is lifted from `ai-and-agents/n8n-agent
 
 ## 8. Stack
 
-Next.js (`create-solana-dapp`) · Phantom Connect embedded wallet (email sign-in) · `@solana/kit` + `@solana/spl-token` · Solana Pay transaction request · Supabase · Claude API · ElevenLabs API · Helius free RPC (devnet, devnet USDC) · Vercel with custom domain **waterlily.ai** (fallback: waterlily.world).
+Next.js on **Cloudflare Workers** via vinext (Cloudflare's recommended Next.js path; scaffold with `npm create cloudflare@latest -- <app> --framework=next`, then add Solana deps) · Phantom Connect embedded wallet (email sign-in) · `@solana/kit` + `@solana/spl-token` · Solana Pay transaction request · Supabase · Claude API · ElevenLabs API · Helius free RPC (devnet, devnet USDC) · Cloudflare custom domain **waterlily.ai** (fallback: waterlily.world) · narration audio in R2 or Supabase Storage.
+
+**Cloudflare Workers Free plan limits to design around:** 100k requests/day and **10 ms CPU per request**. Waiting on the Claude, ElevenLabs and RPC calls is I/O and doesn't count toward CPU time, but heavy server-side rendering or crypto work can. Keep pages mostly client-rendered and do light server work only (building transactions, verification). Max 50 subrequests per request, so chunk narration within that. If the CPU limit bites, Workers Paid is the fallback. [limits](https://developers.cloudflare.com/workers/platform/limits/) · [Next.js on Workers](https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs/)
 
 ## 9. Build plan (≤18h)
 
@@ -100,7 +102,7 @@ Next.js (`create-solana-dapp`) · Phantom Connect embedded wallet (email sign-in
 | Payments | Transaction-request endpoint for all 4 modes, confirmation, unlock | 4 |
 | Narration | Paid narration, owner clone + stock voice | 2.5 |
 | Story + ledger pages | Provenance line, per-voice and per-cause totals, transaction list | 1.5 |
-| Deploy | Vercel + point waterlily.ai (or waterlily.world) DNS at it, README (architecture, lineage/prior-code disclosure) | 1 |
+| Deploy | Cloudflare Workers + attach waterlily.ai (or waterlily.world) as a custom domain, README (architecture, lineage/prior-code disclosure) | 1 |
 | Videos | 2–3 min pitch + ≤3 min demo | 1.5 |
 | **Total** | | **18** |
 
