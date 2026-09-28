@@ -37,6 +37,7 @@ Everything cut from the hackathon MVP ([PRD.md](./PRD.md)), grouped by when it m
 ## Parking lot / open questions
 
 - Final name: "Story Studio" or Waterlily (the founder owns the Waterlily name, so no approval needed)
+- Domain: waterlily.ai (preferred, founder-owned, currently unused) or waterlily.world (founder-owned)
 - Which literacy causes are on the curated list
 - Devnet-only demo vs one small mainnet transaction for credibility
 - Take rate (10%) and Free-mode cost fee (0.2 USDC): validate with the first 10 voice owners
