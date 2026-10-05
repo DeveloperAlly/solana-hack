@@ -146,3 +146,8 @@ The platform takes a 10% take rate on every commission and narration, with a cos
 ## Sources
 
 [Colosseum rules](https://colosseum.com/legal/Crypto%20World's%20Fair%20Hackathon%20Rules.pdf) · [Colosseum FAQ](https://colosseum.com/hackathon#faqs) · [Batch payments (atomic)](https://solana.com/docs/payments/send-payments/payment-processing/batch-payments) · [Solana Pay spec](https://solana.com/docs/tools/solana-pay/specification/version1) · [Phantom Connect](https://docs.phantom.com/phantom-connect) · [ElevenLabs instant voice cloning](https://elevenlabs.io/docs/eleven-creative/voices/voice-cloning/instant-voice-cloning) · [Waterlily repo](https://github.com/Lilypad-Tech/Waterlily) · [Waterlily build write-up](https://developerally.hashnode.dev/waterlily-ai)
+
+
+## Example Usage
+
+Resolved parameter handling for issue #2.
