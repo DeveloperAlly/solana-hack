@@ -34,7 +34,9 @@ The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose:
 | [.agentic/what/decisions/adr_004_docs_use_adna.md](./.agentic/what/decisions/adr_004_docs_use_adna.md) | accepted | ADR-004: docs use aDNA embedded form |
 | [.agentic/what/context/compendium_2026_10_06.md](./.agentic/what/context/compendium_2026_10_06.md) | active | Decision compendium 2026-10-06 (v2); source for the PRD rewrite |
 | [.agentic/what/context/brand_builder_architecture.md](./.agentic/what/context/brand_builder_architecture.md) | accepted | Brand Builder architecture, data model and per-section input spec |
-| [.agentic/what/context/wireframe_audit_2026_10_06.md](./.agentic/what/context/wireframe_audit_2026_10_06.md) | active | Audit of the UI wireframes canvas against the spec; input to the rework |
+| [.agentic/what/context/backend_map.md](./.agentic/what/context/backend_map.md) | proposed | Backend map: endpoints, data sources, jobs and external APIs per screen; architecture gaps |
+| [spec/api/README.md](./spec/api/README.md) | proposed | Backend boilerplate stubs (comments only) and Supabase schema |
+| [.agentic/what/context/wireframe_audit_2026_10_06.md](./.agentic/what/context/wireframe_audit_2026_10_06.md) | active | Audit of the UI wireframes canvas against the spec (v1 and v2 re-review); input to the rework |
 | [.agentic/what/context/swot.md](./.agentic/what/context/swot.md) | historical | SWOT of the licensing-era concept; still informs risks |
 | [.agentic/what/context/links.md](./.agentic/what/context/links.md) | active | Working links: wireframes, deck, PRD, research |
 | [.agentic/what/context/research/README.md](./.agentic/what/context/research/README.md) | active | Research index |
