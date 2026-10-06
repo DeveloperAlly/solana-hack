@@ -1,0 +1,14 @@
+// Cloudflare Worker that serves the built SPA (ADR-005). Static assets only, no Worker script yet.
+// Docs: https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/
+//       https://developers.cloudflare.com/workers/configuration/routing/custom-domains/
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "waterlily",
+  "compatibility_date": "2026-10-06",
+  "assets": {
+    "directory": "./dist/",
+    "not_found_handling": "single-page-application"
+  },
+  // Owner decision 2026-10-06: the app runs on the apex of jamjam.tech. Deploying creates the DNS record and certificate.
+  "routes": [{ "pattern": "jamjam.tech", "custom_domain": true }]
+}

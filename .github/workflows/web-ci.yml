@@ -1,0 +1,45 @@
+name: web CI
+on:
+  pull_request:
+    paths: ['web/**', '.github/workflows/web-*.yml']
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/web-*.yml']
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint:tokens
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      # Names only: confirms every deploy setting exists without printing a value.
+      - name: Deploy settings present
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          missing=0
+          for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SUPABASE_SECRET_KEY SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            if [ -n "${!n}" ]; then echo "present: $n"; else echo "MISSING: $n"; missing=1; fi
+          done
+          case "$SUPABASE_PUBLISHABLE_KEY" in sb_publishable_*) echo "format ok: SUPABASE_PUBLISHABLE_KEY";; *) echo "WRONG FORMAT: SUPABASE_PUBLISHABLE_KEY"; missing=1;; esac
+          case "$SUPABASE_SECRET_KEY" in sb_secret_*) echo "format ok: SUPABASE_SECRET_KEY";; *) echo "WRONG FORMAT: SUPABASE_SECRET_KEY"; missing=1;; esac
+          exit $missing
