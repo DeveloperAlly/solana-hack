@@ -33,7 +33,7 @@ last_edited_by: agent
 
 ## Next
 0. Owner reviews the remaining [backend map](./.agentic/what/context/backend_map.md) gaps.
-1. UI slice S0 per the [UI build mission](./.agentic/how/missions/mission_ui_build.md), once these exist: the deploy and database secrets (Q5; the Cloudflare and Supabase accounts exist, the owner has no Phantom account), a funded devnet Registrar key in the secret store, and the G-SAS registry choice. The local half of S0 is built and checked.
+1. UI slice S0 per the [UI build mission](./.agentic/how/missions/mission_ui_build.md), once these exist: the deploy and database secrets (Q5; the Cloudflare and Supabase accounts exist and the owner has no Phantom account: [owner answers](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6014295120)), a funded devnet Registrar key in the secret store, and the G-SAS registry choice. The local half of S0 is built and checked.
 2. Phase W of [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4): rework and complete the wireframes from the [audit](./.agentic/what/context/wireframe_audit_2026_10_06.md), then mark each screen need or boilerplate.
 3. P0: SAS devnet spike (G-SAS); rewrite the PRD in issue #2; gap research (questionnaire UX; verify OpenRouter free tier, X and LinkedIn posting, Cloudflare limits).
 4. P1: system component map.
