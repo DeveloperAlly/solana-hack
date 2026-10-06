@@ -76,7 +76,7 @@ Tests: <render per variant, interaction, axe>
 | **B1 Primitives** | P1–P28 | 4 h | **G3:** all primitives meet the definition of done |
 | **B2 Composites** | C1–C28 | 6 h | **G4:** all composites meet the definition of done |
 | **B3 Shells and config** | L1–L10; M1 routes and nav (with tags), M2 channels, M3 voice model, M4 kit sections, M5 checks, M6 types, M7 mock adapter + fixtures (4 demo brands), M8 formatters | 4 h | **G5:** every route in M1 renders inside its shell (placeholder body); nav, sub-nav, mobile tab bar and tag badges come from config only |
-| **B4 Domain patterns** | Approval family D1–D10 first, then D32 ReceiptLink (D18 uses it), then Brand Builder D11–D23 and D49 KitExport, campaigns D24–D31, the rest of proof D33–D37; inbox and experimental D38–D48 last | 8 h | **G6:** D1 renders all six kinds from fixtures; D20 renders both voice dimension sets from config without code change |
+| **B4 Domain patterns** | Approval family D1–D10 first, then D32 ReceiptLink, D36 OfficialStatus and D37 DnsRecordCard (D18 and the onboarding screens use them), then Brand Builder D11–D23 and D49 KitExport, campaigns D24–D31, the rest of proof D33–D35; inbox and experimental D38–D48 last | 8 h | **G6:** D1 renders all six kinds from fixtures; D20 renders both voice dimension sets from config without code change |
 | **B5 Screens (hackathon tag)** | Brand Builder flow (first, because kit v1 is due Oct 9), including the aDNA kit export (D49, thin: download); Voices; Content dashboard + Draft review; Campaign v2; Engage queue; Ambassadors + payout flow (desktop and mobile); Claims with evidence (D19, thin); Landing (Main; copy to be rewritten for the hub model); Verify; Ledger; Official registry; Hub home | 6 h | **G7:** every hackathon screen built from library only, on mock data; every hackathon-tagged flow on the canvas is clickable end to end, including error states via the demo state switcher (C28). Experimental, coming-soon and roadmap flows are checked at G9 |
 | **B6 Wire to live services** | Live adapter behind M7, calling the services built in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P4 (agents, polish), P5 (publish) and P6 (registry, verify, ledger, payout). Building those services is issue #4's scope, not this mission's | 3 h | **G8:** the demo path runs on live data; no screen code changed when switching mock to live |
 | **B7 Brand, remaining screens, ship** | `waterlily` theme from the brand work; coming-soon / roadmap / experimental screens as static compositions; deploy; demo recording states | 3 h | **G9:** theme switch to `waterlily` needs no component edits; experimental, coming-soon and roadmap screens render from the library (static where tagged); deployed URL works; demo path recorded |
@@ -89,12 +89,19 @@ Tests: <render per variant, interaction, axe>
 | Date | Issue #4 phase | This mission | Gate |
 |---|---|---|---|
 | Tue Oct 6 | P0 PRD and gap research | G1 sign-off; B0 foundations | G2 |
-| Wed Oct 7 | P1 system map; P2 and P3 start | B1 and B3 config in parallel; then B2 and B3 shells as their dependencies pass; then B4 approval family (D1–D10), D32, Brand Builder (D11–D23) and D49, because P2 and P3 need them | G3–G5 |
-| Thu Oct 8 | P2 questionnaire UI; P3 voices; P4 agents | B5 questionnaire, voice and kit-export screens on mock data (their components passed Wednesday); owner signs off this group, then B6 wires it to P4 as P4 lands; in parallel, B4 remainder D24–D31, D33–D48 | G6; G7 group 1 |
+| Wed Oct 7 | P1 system map; P2 and P3 start | B1 and B3 config in parallel; then B2 and B3 shells as their dependencies pass; then B4 approval family (D1–D10), D32, D36, D37, Brand Builder (D11–D23) and D49, because P2 and P3 need them | G3–G5 |
+| Thu Oct 8 | P2 questionnaire UI; P3 voices; P4 agents | B5 questionnaire, voice and kit-export screens on mock data (their components passed Wednesday); owner signs off this group, then B6 wires it to P4 as P4 lands; in parallel, B4 remainder D24–D31, D33–D35, D38–D48 | G6; G7 group 1 |
 | Fri Oct 9 | P4; P7 kit v1 | Kit v1 through the product; B5 content dashboard, draft review, campaign v2 (all six steps), engage queue, claims, hub home, landing; sign-off, then B6 wiring for this group | G7 group 2 |
 | Sat Oct 10 | P5 accounts; P6 proof layer | B5 publish, verify, ledger, registry, payout and ambassador screens; sign-off, then B6 wiring for this group | G7 group 3 (G7 complete); G8 |
 | Sun Oct 11 | P7 demo flow | B7 theme, static coming-soon screens, deploy | G9 |
 | Mon Oct 12 | Mission phase E | Videos and submission ([mission](./mission_hackathon_submission.md)) | Submitted |
+
+**G7 screen groups** (every hackathon screen in the [inventory](../../what/context/component_inventory.md) §8 belongs to exactly one group):
+| Group | Day | Screens |
+|---|---|---|
+| 1 | Thu Oct 8 | Brand Builder (intake, interview, coverage, gates); Brand-Build with kit export; Onboard-1-SignIn; Onboard-2-Domain / 2b; Onboard-3-Sources / 3b; Onboard-4-VoicePack; Onboard-6-Published; Voice-Templates; Voice-Editor |
+| 2 | Fri Oct 9 | Content-Dashboard / Empty; Draft-Review; Campaign v2 steps 1–6; Engage-Queue; Claims; Hub-Home; Main (landing) |
+| 3 | Sat Oct 10 | Dashboard (Grow > Ambassadors) / Empty; Amb-1 to Amb-5 with mobile M-1 to M-5; Verify-1/2/3; Ledger; Official registry |
 
 **Relation to issue #4 P1:** P1 maps the **system** components (workers, agents, LLM gateway, stores, registrar). The [component inventory](../../what/context/component_inventory.md) maps the **UI** components. They meet at the data adapters (M7) and domain types (M6), which should use the same names as P1's map.
 
