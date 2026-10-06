@@ -91,7 +91,7 @@ Tests: <render per variant, interaction, axe>
 | Tue Oct 6 | P0 PRD and gap research | G1 sign-off; B0 foundations | G2 |
 | Wed Oct 7 | P1 system map; P2 and P3 start | B1 and B3 config in parallel; then B2 and B3 shells as their dependencies pass; then B4 approval family (D1–D10), D32, Brand Builder (D11–D23) and D49, because P2 and P3 need them | G3–G5 |
 | Thu Oct 8 | P2 questionnaire UI; P3 voices; P4 agents | B5 questionnaire, voice and kit-export screens on mock data (their components passed Wednesday); owner signs off this group, then B6 wires it to P4 as P4 lands; in parallel, B4 remainder D24–D31, D33–D48 | G6; G7 group 1 |
-| Fri Oct 9 | P4; P7 kit v1 | Kit v1 through the product; B5 content dashboard, draft review, campaign v2, claims, hub home, landing; sign-off, then B6 wiring for this group | G7 group 2 |
+| Fri Oct 9 | P4; P7 kit v1 | Kit v1 through the product; B5 content dashboard, draft review, campaign v2 (all six steps), engage queue, claims, hub home, landing; sign-off, then B6 wiring for this group | G7 group 2 |
 | Sat Oct 10 | P5 accounts; P6 proof layer | B5 publish, verify, ledger, registry, payout and ambassador screens; sign-off, then B6 wiring for this group | G7 group 3 (G7 complete); G8 |
 | Sun Oct 11 | P7 demo flow | B7 theme, static coming-soon screens, deploy | G9 |
 | Mon Oct 12 | Mission phase E | Videos and submission ([mission](./mission_hackathon_submission.md)) | Submitted |

@@ -256,8 +256,12 @@ Every screen below is a composition of inventory items only. Tags from the [back
 | Claims (no wireframe) | H (thin) | L1 | D19, D14, D32 |
 | Content-Dashboard / Empty | H | L1 + L9 | C4, C5, D1, C3 |
 | Draft-Review | H | L1 + L9 | D5, D6, D7, D3, D8, D2 |
-| Campaign-v2-1-Goal | H | L6 | C7 (purpose), C7 (platforms), P15 |
-| Campaign-v2-2-Measure | H | L6 | D27, D28, D26, D31 |
+| Campaign-v2-1-Goal (step 1: goal and platforms) | H | L6 | C7 (purpose), C7 (platforms), P15 |
+| Campaign v2 step 2: audience (no wireframe) | H | L6 | C7 (segments from the kit's audiences), D16 PersonaCard |
+| Campaign-v2-2-Measure (step 3: success) | H | L6 | D27 |
+| Campaign v2 step 4: content plan (wireframed as a preview on Measure) | H | L6 | D28, D8 |
+| Campaign v2 step 5: people and budget (wireframed as a preview on Measure) | H | L6 | D26, D31, D25, P17 |
+| Campaign v2 step 6: review and launch (no wireframe) | H | L6 | C11, D25, C17 (approve the spending cap) |
 | Engage-Queue | H | L1 + L9 | C4, D1 (reply), D42 |
 | Dashboard (Grow > Ambassadors) / Empty | H | L1 | C12, D1 (ambassador post), C10, D25, C3 |
 | Amb-1-Campaigns / 1b, M-1 | H | L10 / L4 | D24, C5, C3 |
