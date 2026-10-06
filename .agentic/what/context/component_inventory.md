@@ -39,19 +39,19 @@ tags: [ui, components, design-tokens, inventory, dry]
 | Removed | C21 SplitBreakdown: licensing fee splits are dropped ([ADR-003](../decisions/adr_003_superhub_business_model.md)). Not built; budget allocation uses D25 BudgetBar |
 
 ## 1b. First slice per component
-Components are built in the slice where a screen first needs them ([UI build mission](../../how/missions/mission_ui_build.md) §4), not as a library up front. A later slice that needs a new variant adds a prop to the existing component.
+Components are built in the slice where a screen first needs them ([UI build mission](../../how/missions/mission_ui_build.md) §4), not as a library up front. A later slice that needs a new variant adds a prop to the existing component. Rule: a component's slice is no later than the first screen (§8) or component that requires it. Optional slots (for example D10's overlay, filled by D46) and the controls P17 Field wraps are not ordering dependencies.
 
 | Slice | Built first in this slice |
 |---|---|
 | S0 Preflight | T1–T12 tokens and the `wireframe` theme; M1 routes; L10 PublicShell; workbench and theme editor at `/system` |
 | S1 Land and sign in | P1–P8, P11, P17, P18; C1, C2, C8, C13; L6; D36, D37 |
-| S2 Basics and ingest | P12–P15, P21, P22, P24; C14; D11, D12; M6, M7 |
-| S3 Interview, gates, coverage | C6, C7, C10; D13, D14, D15, D16, D17, D51; M3, M4 |
-| S4 Kit v1 | C11, C25; D18, D32, D49, D50; L1, L2, L3, L8, D48 |
-| S5 Create | P25, P27; C4, C5, C23, C29; D1–D7, D9, D20–D23; M2, M5 |
-| S6 Prove | C3, C19; D19, D30, D33, D34, D35, D52; M8 |
-| S7 Grow | P19, P20, P26; C9, C12, C15–C18, C20, C24, C26, C27, C28; L4, L5, L9; D8, D10, D24–D29, D31, D40, D42, D47 |
-| S8 Everything else | P9, P10, P16, P23, P28; C22; L7; D38, D39, D41, D43–D46, D53, D54, D55 |
+| S2 Basics and ingest | P12–P15, P21, P22, P24; C7, C14; D11, D12; M6, M7 |
+| S3 Interview, gates, coverage | C6, C10; D13, D14, D15, D16, D17, D20, D51; M3, M4 |
+| S4 Kit v1 | C11, C16, C25; D18, D32, D49, D50; L1, L2, L3, L8, D48 |
+| S5 Create | P25, P27; C3, C4, C5, C23, C29; L9; D1–D9, D21–D23; M2, M5 |
+| S6 Prove | C12, C19; D19, D30, D33, D34, D35, D52; M8 |
+| S7 Grow | P19, P20, P26; C9, C15, C17, C18, C20, C22, C24, C26, C27, C28; L4, L5; D10, D24–D29, D31, D40, D42, D47 |
+| S8 Everything else | P9, P10, P16, P23, P28; L7; D38, D39, D41, D43–D46, D53, D54, D55 |
 
 ## 2. Layer 0: design tokens and themes
 Components read only **semantic** tokens. Themes remap semantic tokens to primitive values.
@@ -324,7 +324,7 @@ Resolved by the 2026-10-06 canvas rework: Brand Builder screens drawn (old gap 1
 | # | Gap | Proposal |
 |---|---|---|
 | 1 | Voices, Draft-Review with polish actions, Ledger, Verify-1, Claims, Quests, Settings and the screen states come from canvas rework batches 2–5 | Each batch is drawn and signed off before the slice that needs it ([mission](../../how/missions/mission_ui_build.md) §3) |
-| 2 | Campaign v2 steps 2, 4, 5 and 6 have no artboards of their own | Build from this inventory in S7, or add artboards in canvas batch 5. Owner choice |
+| 2 | Campaign v2 steps 2, 4, 5 and 6 have no artboards of their own | Draw them in canvas batch 5; S7 starts only once they are signed off, per the mission's entry rule. Building them from this inventory alone would need an owner-approved exception |
 | 3 | App framework: vinext is experimental ([InfoQ](https://infoq.com/news/2026/03/cloudflare-vinext-experimental)) | Library is framework-independent ([ADR-005](../decisions/adr_005_ui_component_system.md)); S0 runs a timed spike and records the choice (mission Q3) |
 | 4 | Bring-your-own key storage is undecided (issue #4 P4) | D54 waits for the decision (mission Q4) |
 
