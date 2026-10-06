@@ -6,7 +6,7 @@ updated: 2026-10-06
 last_edited_by: agent
 tags: [mission, ui, build, components, design-tokens]
 ---
-> **Status: proposed.** Phased plan to identify the UI component system and build Waterlily on it. Awaiting owner sign-off. Live progress goes in [STATE.md](../../../STATE.md), not here.
+> **Status: proposed.** Phased plan to identify the UI component system and build Waterlily on it. Live progress goes in [STATE.md](../../../STATE.md), not here.
 
 # Mission: UI component system and build
 
@@ -73,9 +73,9 @@ Tests: <render per variant, interaction, axe>
 | **B2 Composites** | C1–C28 | 6 h | **G4:** all composites meet the definition of done |
 | **B3 Shells and config** | L1–L10; M1 routes and nav (with tags), M2 channels, M3 voice model, M4 kit sections, M5 checks, M6 types, M7 mock adapter + fixtures (4 demo brands), M8 formatters | 4 h | **G5:** every route in M1 renders inside its shell (placeholder body); nav, sub-nav, mobile tab bar and tag badges come from config only |
 | **B4 Domain patterns** | Approval family D1–D10 first, then Brand Builder D11–D23, campaigns D24–D31, proof D32–D37; inbox and experimental D38–D48 last | 8 h | **G6:** D1 renders all six kinds from fixtures; D20 renders both voice dimension sets from config without code change |
-| **B5 Screens (hackathon tag)** | Brand Builder flow (first, because kit v1 is due Oct 9), including the aDNA kit export (D49, thin: download); Voices; Content dashboard + Draft review; Campaign v2; Engage queue; Ambassadors + payout flow (desktop and mobile); Verify; Ledger; Official registry; Hub home | 6 h | **G7:** every hackathon screen built from library only, on mock data; every flow on the canvas is clickable end to end, including error states via the demo state switcher (C28) |
+| **B5 Screens (hackathon tag)** | Brand Builder flow (first, because kit v1 is due Oct 9), including the aDNA kit export (D49, thin: download); Voices; Content dashboard + Draft review; Campaign v2; Engage queue; Ambassadors + payout flow (desktop and mobile); Verify; Ledger; Official registry; Hub home | 6 h | **G7:** every hackathon screen built from library only, on mock data; every hackathon-tagged flow on the canvas is clickable end to end, including error states via the demo state switcher (C28). Experimental, coming-soon and roadmap flows are checked at G9 |
 | **B6 Wire to live services** | Live adapter behind M7, calling the services built in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P4 (agents, polish), P5 (publish) and P6 (registry, verify, ledger, payout). Building those services is issue #4's scope, not this mission's | 3 h | **G8:** the demo path runs on live data; no screen code changed when switching mock to live |
-| **B7 Brand, remaining screens, ship** | `waterlily` theme from the brand work; coming-soon / roadmap / experimental screens as static compositions; deploy; demo recording states | 3 h | **G9:** theme switch to `waterlily` needs no component edits; deployed URL works; demo path recorded |
+| **B7 Brand, remaining screens, ship** | `waterlily` theme from the brand work; coming-soon / roadmap / experimental screens as static compositions; deploy; demo recording states | 3 h | **G9:** theme switch to `waterlily` needs no component edits; experimental, coming-soon and roadmap screens render from the library (static where tagged); deployed URL works; demo path recorded |
 
 **Estimated total for the UI track: about 35 hours**, on top of the system work in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P4–P6. The PRD's build budget was 22 hours for everything ([issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2) §12), written for the smaller licensing-era scope. To fit the deadline:
 - run each layer across parallel background agents, in the dependency order above, and
@@ -123,4 +123,4 @@ Each component folder holds `Component.tsx`, `Component.module.css`, `Component.
 | Accessibility | 0 axe violations on workbench and hackathon screens | CI |
 | Reuse | ApprovalItem used by 6+ screens; no duplicated organism markup | Inventory §8 and code review |
 | Mock to live | 0 screen edits when the live adapter replaces mocks | Diff of `screens/` in B6 |
-| Flows | Every canvas flow clickable, including error states | G7 walkthrough |
+| Flows | Every canvas flow clickable, including error states | Hackathon flows at G7; the rest at G9 |

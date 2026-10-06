@@ -6,7 +6,7 @@ updated: 2026-10-06
 last_edited_by: agent
 tags: [ui, components, design-tokens, inventory, dry]
 ---
-> **Status: proposed.** Full inventory of reusable UI components for Waterlily, with every screen mapped to them. Awaiting owner sign-off (gate G1 in the [UI build mission](../../how/missions/mission_ui_build.md)).
+> **Status: proposed.** Full inventory of reusable UI components for Waterlily, with every screen mapped to them. Reviewed at gate G1 of the [UI build mission](../../how/missions/mission_ui_build.md); progress is in [STATE.md](../../../STATE.md).
 
 # Component inventory
 
@@ -29,13 +29,13 @@ tags: [ui, components, design-tokens, inventory, dry]
 - **ID** is the stable reference used in the build plan (T, P, C, L, D, M).
 - **States** lists what the workbench must show for the component. Every interactive component also has focus-visible and disabled states unless noted.
 - **Used by** lists screens (by wireframe artboard name) or other components. A component used by one screen only is allowed only if it is domain-specific and listed here.
-- **Tag** follows the [backlog](../../how/backlog/backlog.md): H = hackathon, E = experimental, CS = coming soon, R = roadmap, with priority H > E > CS > R. A component's tag is the highest tag of any screen that uses it (screen tags: §8). **Every component is H except those listed here**, so these are the only ones the cut order can drop:
+- **Tag** follows the [backlog](../../how/backlog/backlog.md): H = hackathon, E = experimental, CS = coming soon, R = roadmap, with priority H > E > CS > R. A component's tag is the highest tag of any screen that uses it (screen tags: §8). **Every component is H except those listed here**, so these are the only ones the cut order can drop. D40 NeedsReplyItem and D47 BreakdownCard (with C22 BarList) are H because the hackathon Hub-Home uses them:
 
 | Tag | Components |
 |---|---|
 | E | D44 LeadRow / ScoreBadge / ConfidenceChip, D45 PersonaSetup, D46 WatermarkOverlay |
-| CS | L7 SplitPane, D38 MessageRow, D39 ThreadView, D40 NeedsReplyItem, D41 SourceConnectionRow |
-| R | C22 BarList, D43 RuleRow, D47 BreakdownCard |
+| CS | L7 SplitPane, D38 MessageRow, D39 ThreadView, D41 SourceConnectionRow |
+| R | D43 RuleRow |
 | Parked | C21 SplitBreakdown (licensing split; kept for a possible revival) |
 
 ## 2. Layer 0: design tokens and themes
