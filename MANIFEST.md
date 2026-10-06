@@ -32,7 +32,8 @@ The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose:
 | [.agentic/what/decisions/adr_002_purpose_build_run_prove.md](./.agentic/what/decisions/adr_002_purpose_build_run_prove.md) | accepted | ADR-002: purpose, "build your brand, run it, prove it" |
 | [.agentic/what/decisions/adr_003_superhub_business_model.md](./.agentic/what/decisions/adr_003_superhub_business_model.md) | accepted | ADR-003: superhub business model, principles, product map |
 | [.agentic/what/decisions/adr_004_docs_use_adna.md](./.agentic/what/decisions/adr_004_docs_use_adna.md) | accepted | ADR-004: docs use aDNA embedded form |
-| [.agentic/what/context/compendium_2026_10_06.md](./.agentic/what/context/compendium_2026_10_06.md) | active | Decision compendium 2026-10-06; source for the PRD rewrite |
+| [.agentic/what/context/compendium_2026_10_06.md](./.agentic/what/context/compendium_2026_10_06.md) | active | Decision compendium 2026-10-06 (v2); source for the PRD rewrite |
+| [.agentic/what/context/brand_builder_architecture.md](./.agentic/what/context/brand_builder_architecture.md) | proposed | Brand Builder architecture, data model and per-section input spec |
 | [.agentic/what/context/swot.md](./.agentic/what/context/swot.md) | historical | SWOT of the licensing-era concept; still informs risks |
 | [.agentic/what/context/links.md](./.agentic/what/context/links.md) | active | Working links: wireframes, deck, PRD, research |
 | [.agentic/what/context/research/README.md](./.agentic/what/context/research/README.md) | active | Research index |
@@ -44,6 +45,7 @@ The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose:
 | [.agentic/what/context/research/06_voice_templates.md](./.agentic/what/context/research/06_voice_templates.md) | active | Voice templates and a measurable preset model |
 | [.agentic/what/context/research/07_gamerslab_leadfinder.md](./.agentic/what/context/research/07_gamerslab_leadfinder.md) | active | GamersLab lead finder review and reuse |
 | [.agentic/what/context/research/08_adna_evaluation.md](./.agentic/what/context/research/08_adna_evaluation.md) | active | aDNA evaluation for project context |
+| [.agentic/what/context/research/09_demo_brands.md](./.agentic/what/context/research/09_demo_brands.md) | active | Demo brands: public presence and what is ingested vs asked |
 | [.agentic/how/AGENTS.md](./.agentic/how/AGENTS.md) | active | What belongs in `how/` (process) |
 | [.agentic/how/missions/mission_hackathon_submission.md](./.agentic/how/missions/mission_hackathon_submission.md) | active | Mission: submit to Colosseum, phases A to E |
 | [.agentic/how/backlog/backlog.md](./.agentic/how/backlog/backlog.md) | active | Product-map items with build tags |
