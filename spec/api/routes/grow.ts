@@ -87,13 +87,15 @@ export async function brandAmbassadors(req: Request, env: any) {}
  *      the owner to link a wallet and set it (walletLink, then brandPayoutWallet in public_settings_inbox.ts).
  *      If the ambassador's profiles.payout_wallet is null, refuse with 409 {code: 'recipient_wallet_missing'} and
  *      notify the ambassador to link one (Amb-5b).
- *   1. The server inserts payouts (from_address = brands.payout_wallet, to_address = the ambassador's
- *      profiles.payout_wallet at this moment) and builds an UNSIGNED v0 transaction to exactly that to_address:
+ *   1. The server generates the payout id first (crypto.randomUUID), then builds an UNSIGNED v0 transaction to exactly
+ *      the ambassador's profiles.payout_wallet at this moment (to_address), from brands.payout_wallet (from_address):
  *      getCreateAssociatedTokenIdempotentInstruction (recipient ATA) +
  *      getTransferCheckedInstruction({source, mint: USDC devnet 4zMMC9…DncDU, destination, authority: brand wallet,
  *      amount, decimals: 6 (TO VERIFY)}) + getAddMemoInstruction("wl1|payout|<payoutId>") (the payout row, not the submission,
- *      so a replacement payout can never be confirmed by an earlier transaction). Before returning it, the server
- *      stores the serialized transaction (payouts.unsigned_tx), its recent_blockhash and lastValidBlockHeight on the row.
+ *      so a replacement payout can never be confirmed by an earlier transaction). Only when the transaction is complete does the server
+ *      INSERT the payouts row, in one statement with every field (id, submission, amount, from/to address,
+ *      unsigned_tx, recent_blockhash, last_valid_block_height; all NOT NULL). If anything fails before that insert, no
+ *      row exists and the next /pay simply starts again, so a half-built payout can never block the submission.
  *      Fee payer = the brand wallet = brands.payout_wallet (ADR-006).
  *   2. The browser has the brand's payout wallet sign and send it (injected provider, ADR-006).
  *   3. POST /api/payouts/:id/confirm {signature} → refused if the signature is already on another payout
