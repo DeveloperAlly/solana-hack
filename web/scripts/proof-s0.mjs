@@ -16,7 +16,7 @@ const executablePath = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
 const port = Number(process.env.PROOF_PORT || 4173);
 const base = `http://127.0.0.1:${port}`;
 const TOKEN = 'action.primary.bg';
-const NEW_VALUE = '#00bb55';
+const NEW_VALUE = '#006633'; // white text on it is about 7:1, so the contrast gate passes
 const ts = new Date().toISOString().replace(/[:.]/g, '-');
 
 mkdirSync(proofDir, { recursive: true });
@@ -94,7 +94,7 @@ try {
   await page.screenshot({ path: shot('landing-after'), fullPage: true });
   log(`after: computed background-color of "Build my brand" = ${after}; screenshot ${rel(shot('landing-after'))}`);
 
-  const expected = 'rgb(0, 187, 85)';
+  const expected = 'rgb(0, 102, 51)';
   if (before === after) throw new Error(`ASSERT FAILED: background did not change (${before})`);
   if (after !== expected) throw new Error(`ASSERT FAILED: expected ${expected}, got ${after}`);
   log(`ASSERT PASS: background changed ${before} -> ${after}`);
