@@ -21,8 +21,8 @@ export async function openCampaigns(req: Request, env: any) {}
  * POST /api/campaigns/:id/join
  * Screens: Amb-2 ("Sign in with email to join"), M-2.
  * Auth: signed in (Supabase OTP). Writes memberships(role 'ambassador').
- * Payout needs a wallet: POST /api/wallets/link {address, signature} (G-WALLET: provider TBD;
- *   injected-wallet signMessage challenge is the fallback).
+ * Payout needs a wallet: POST /api/wallets/link (public_settings_inbox.ts walletLink); injected wallet,
+ *   signMessage challenge (ADR-006).
  */
 export async function joinCampaign(req: Request, env: any) {}
 
@@ -71,8 +71,11 @@ export async function brandAmbassadors(req: Request, env: any) {}
  *   1. The server builds an UNSIGNED v0 transaction: getCreateAssociatedTokenIdempotentInstruction (recipient ATA) +
  *      getTransferCheckedInstruction({source, mint: USDC devnet 4zMMC9…DncDU, destination, authority: brand wallet,
  *      amount, decimals: 6 (TO VERIFY)}) + getAddMemoInstruction("wl1|payout|<submissionId>").
- *      Fee payer = the brand wallet.
- *   2. The browser has the brand's connected wallet sign and send it (injected provider; embedded provider TBD).
+ *      Fee payer = the brand wallet = brands.payout_wallet (ADR-006).
+ *   0. If brands.payout_wallet is null, refuse with 409 {code: 'payout_wallet_missing'}; the Dashboard then prompts
+ *      the owner to link a wallet and set it (walletLink, then brandPayoutWallet in public_settings_inbox.ts).
+ *   2. The browser has the brand's payout wallet sign and send it (injected provider, ADR-006); the server checks the
+ *      signer matches brands.payout_wallet when confirming.
  *   3. POST /api/payouts/:id/confirm {signature} → the server checks the transaction on RPC (getTransaction) →
  *      payouts.status 'confirmed' → registrations(type 'content') for the ambassador post, with campaign_id.
  * Cap check: the server refuses to build if amount > remaining cap (offchain enforcement; escrow is roadmap).

@@ -48,6 +48,24 @@ export async function ledger(req: Request, env: any) {}
 export async function connections(req: Request, env: any) {}
 
 /**
+ * Wallet link (ADR-006)   Screens: Amb-2, M-2, Settings › Connections, the Dashboard "Approve and pay" prompt.
+ * POST /api/wallets/link {address}            → returns a one-time challenge message (nonce, user id, expiry), stored server-side.
+ * POST /api/wallets/link {address, signature} → verifies the ed25519 signature of the challenge against the address,
+ *        consumes the nonce, upserts wallets(user_id, address, provider 'injected', verified_at).
+ * DELETE /api/wallets/:address                → removes the caller's wallet; refused while it is any brand's payout_wallet.
+ */
+export async function walletLink(req: Request, env: any) {}
+
+/**
+ * Brand payout wallet (ADR-006)   Screens: Settings › Connections, the Dashboard "Approve and pay" prompt.
+ * Auth: owner of :id (memberships.role 'owner').
+ * PUT    /api/brands/:id/payout-wallet {address} → address must be a verified wallets row of the caller;
+ *        sets brands.payout_wallet. Scoped to this brand only (multi-brand owners set one per brand).
+ * DELETE /api/brands/:id/payout-wallet           → sets brands.payout_wallet to null (the next "Approve and pay" prompts again).
+ */
+export async function brandPayoutWallet(req: Request, env: any) {}
+
+/**
  * AI model + bring-your-own key   Screens: Settings › AI (missing).
  * GET/PUT /api/brands/:id/ai-settings {provider:'openrouter'|'anthropic'|'openai', model?, key?}
  * Default: an OpenRouter ':free' model (chosen in P0; 50 req/day until the account has bought ≥10 credits, then 1000/day).

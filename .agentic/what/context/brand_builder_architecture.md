@@ -139,7 +139,7 @@ Beliefs, values, messaging and vocabulary are then drafted from these answers an
 ## 7. Proof layer (what gets registered, when)
 | Event | Registered | Why |
 |---|---|---|
-| Brand verified (DNS) | Identity memo: brand id, domain, owner wallet | Proves who controls the brand |
+| Brand verified (DNS) | Identity registration: brand id and a hash of the domain, signed by the Registrar ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) | Proves who controls the brand |
 | Kit v1 approved | Kit hash and version | Makes "this is our official voice and positioning" checkable |
 | Claim approved | Claim hash plus evidence hashes and expiry | Claims with evidence |
 | Official account linked | Account handle hash | "Is this account official?" |
