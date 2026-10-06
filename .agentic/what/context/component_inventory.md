@@ -34,12 +34,12 @@ tags: [ui, components, design-tokens, inventory, dry]
 | Tag | Components |
 |---|---|
 | E | D44 LeadRow / ScoreBadge / ConfidenceChip, D45 PersonaSetup, D46 WatermarkOverlay |
-| CS | L7 SplitPane, D38 MessageRow, D39 ThreadView, D41 SourceConnectionRow, D53 QuestCard |
+| CS | L7 SplitPane, D38 MessageRow, D39 ThreadView, D41 SourceConnectionRow, D53 QuestCard (becomes H, with the Quests screen, if mission Q2 includes the paid quest) |
 | R | D43 RuleRow |
 | Removed | C21 SplitBreakdown: licensing fee splits are dropped ([ADR-003](../decisions/adr_003_superhub_business_model.md)). Not built; budget allocation uses D25 BudgetBar |
 
 ## 1b. First slice per component
-Components are built in the slice where a screen first needs them ([UI build mission](../../how/missions/mission_ui_build.md) §4), not as a library up front. A later slice that needs a new variant adds a prop to the existing component. Rule: a component's slice is no later than the first screen (§8) or component that requires it. Optional slots (for example D10's overlay, filled by D46) and the controls P17 Field wraps are not ordering dependencies. If the owner includes a paid quest in the demo (mission Q2), D53 and the Quests screen move from S8 to S7.
+Components are built in the slice where a screen first needs them ([UI build mission](../../how/missions/mission_ui_build.md) §4), not as a library up front. A later slice that needs a new variant adds a prop to the existing component. Rule: a component's slice is no later than the first screen (§8) or component that requires it. Optional slots (for example D10's overlay, filled by D46) and the controls P17 Field wraps are not ordering dependencies. If the owner includes a paid quest in the demo (mission Q2), D53 and the Quests screen move from S8 to S7 and are tagged H.
 
 | Slice | Built first in this slice |
 |---|---|
