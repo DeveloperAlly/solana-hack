@@ -27,5 +27,5 @@ last_edited_by: agent
 ## Next
 1. P0 of [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4): rewrite the PRD in issue #2; gap research (questionnaire UX; verify OpenRouter free tier, X and LinkedIn posting, Cloudflare limits).
 2. P1: system component map. The UI half is drafted as the [component inventory](./.agentic/what/context/component_inventory.md); P1 adds the system and agent half.
-3. Owner signs off gate G1 of the [UI build mission](./.agentic/how/missions/mission_ui_build.md) (inventory, ADR-005, plan) and decides inventory gaps 2 and 6; then UI phase B0.
+3. Owner signs off gate G1 of the [UI build mission](./.agentic/how/missions/mission_ui_build.md) (inventory, ADR-005, plan), decides inventory gaps 1 and 2, and approves the framework spike (gap 6) as B0's first task; then UI phase B0.
 4. Update the wireframes and deck; rewrite the design prompts (mission phase C).

@@ -291,7 +291,7 @@ Every screen below is a composition of inventory items only. Tags from the [back
 | 4 | Polish actions (Review / Shorten / Clarify / Beautify) are not on the canvas | Specified as D6; add one artboard or build from spec |
 | 5a | aDNA export of the Brand Kit is a hackathon (thin) item ([backlog](../../how/backlog/backlog.md)) with no wireframe | Specified as D49; an Export action on Brand-Build plus a download; no separate screen needed |
 | 5 | Quests are "coming soon" with no screen | Use the Coming soon page template (M1 tag + C3) |
-| 6 | App framework: vinext is experimental ([InfoQ](https://infoq.com/news/2026/03/cloudflare-vinext-experimental)) | Library is framework-independent ([ADR-005](../decisions/adr_005_ui_component_system.md)); decide in B0 with a 60-minute spike |
+| 6 | App framework: vinext is experimental ([InfoQ](https://infoq.com/news/2026/03/cloudflare-vinext-experimental)) | Library is framework-independent ([ADR-005](../decisions/adr_005_ui_component_system.md)). G1 approves a 60-minute spike as B0's first task; the choice is recorded at G2 |
 
 ## 10. DRY rules
 1. **One concept, one component.** Variants are props, never copies. If two screens need "the same thing but slightly different", add a variant.
