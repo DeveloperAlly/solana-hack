@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import wireframe from '../tokens/themes/wireframe.json';
-import { contrastPairs, resolvedThemes, tokenMeta, tokenNames, type TokenName } from '../tokens/tokens';
+import { contrastPairs, resolveTokenValue, resolvedThemes, tokenMeta, tokenNames, type TokenName } from '../tokens/tokens';
 import { contrastRatio, contrastThreshold, parseHex } from '../lib/contrast';
 import { Button, Heading, Stack, Text } from '../ui/primitives';
 import styles from './Workbench.module.css';
@@ -38,6 +38,11 @@ export function syncThemeOverrides(frame: HTMLIFrameElement) {
 export function ThemeEditor() {
   const [edits, setEdits] = useState<Partial<Record<TokenName, string>>>({});
   const current = useMemo(() => ({ ...base, ...edits }), [edits]);
+  // What the page actually renders: {primitive} references resolved; an unknown reference resolves to null.
+  const rendered = useMemo(
+    () => Object.fromEntries(tokenNames.map((n) => [n, resolveTokenValue(current[n])])) as Record<TokenName, string | null>,
+    [current],
+  );
   // Every token this editor has overridden on the document, so the overrides never outlive the editor.
   const touched = useRef(new Set<TokenName>());
 
@@ -51,7 +56,11 @@ export function ThemeEditor() {
   function setToken(name: TokenName, value: string) {
     setEdits((e) => ({ ...e, [name]: value }));
     touched.current.add(name);
-    for (const r of themeRoots()) r.style.setProperty(tokenMeta[name].cssVar, value);
+    const resolved = resolveTokenValue(value);
+    for (const r of themeRoots()) {
+      if (resolved === null) r.style.removeProperty(tokenMeta[name].cssVar);
+      else r.style.setProperty(tokenMeta[name].cssVar, resolved);
+    }
   }
   function reset() {
     clearOverrides();
@@ -97,7 +106,7 @@ export function ThemeEditor() {
           </thead>
           <tbody>
             {contrastPairs.map((p) => {
-              const r = contrastRatio(current[p.fg], current[p.bg]);
+              const r = contrastRatio(rendered[p.fg] ?? '', rendered[p.bg] ?? '');
               const need = contrastThreshold[p.kind];
               const ok = r !== null && r >= need;
               return (
@@ -128,7 +137,7 @@ export function ThemeEditor() {
               .filter((n) => tokenMeta[n].group === g)
               .map((n) => {
                 const id = `tok-${n.replace(/\./g, '-')}`;
-                const hex = tokenMeta[n].type === 'color' ? toSixHex(current[n]) : null;
+                const hex = tokenMeta[n].type === 'color' ? toSixHex(rendered[n] ?? '') : null;
                 return (
                   <div key={n} className={styles.tokenRow}>
                     <label htmlFor={id} className={styles.tokenLabel}>
@@ -143,7 +152,19 @@ export function ThemeEditor() {
                         onChange={(e) => setToken(n, e.target.value)}
                       />
                     )}
-                    <input id={id} className={styles.input} value={current[n]} onChange={(e) => setToken(n, e.target.value)} />
+                    <input
+                      id={id}
+                      className={styles.input}
+                      value={current[n]}
+                      aria-invalid={rendered[n] === null || undefined}
+                      aria-describedby={rendered[n] === null ? `${id}-err` : undefined}
+                      onChange={(e) => setToken(n, e.target.value)}
+                    />
+                    {rendered[n] === null && (
+                      <Text id={`${id}-err`} as="span" variant="small" tone="danger">
+                        Unknown primitive. Use a path from primitives.json, such as {'{color.neutral.600}'}.
+                      </Text>
+                    )}
                   </div>
                 );
               })}

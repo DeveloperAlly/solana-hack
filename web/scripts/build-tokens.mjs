@@ -98,6 +98,14 @@ export const themeNames = ${JSON.stringify(themes.map((t) => t.name))} as const;
 export type ThemeName = (typeof themeNames)[number];
 /** Theme values with primitive references resolved, for the theme editor. */
 export const resolvedThemes: Record<ThemeName, Record<TokenName, string>> = ${JSON.stringify(resolvedThemes, null, 2)};
+/** Every primitive by path, so the theme editor can resolve {path} references the same way this build does. */
+export const primitiveValues: Record<string, string> = ${JSON.stringify(flat, null, 2)};
+/** Resolves a {primitive.path} reference; returns null for an unknown reference, the value itself otherwise. */
+export function resolveTokenValue(value: string): string | null {
+  const m = /^\\{([^}]+)\\}$/.exec(value.trim());
+  if (!m) return value;
+  return Object.prototype.hasOwnProperty.call(primitiveValues, m[1]) ? primitiveValues[m[1]] : null;
+}
 export interface ContrastPair { fg: TokenName; bg: TokenName; kind: 'text' | 'large' | 'ui' }
 export const contrastPairs: ContrastPair[] = ${JSON.stringify(semantic.contrastPairs, null, 2)};
 `;

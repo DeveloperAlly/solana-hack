@@ -50,8 +50,10 @@ try {
   const res = await gotoWithRetry(page, base + '/system', 3);
   await page.getByRole('heading', { name: 'Workbench' }).waitFor({ timeout: 10000 });
   log(`PASS: ${base}/system deep link loads the app (HTTP ${res.status()})`);
+  const axeSystem = await axe(page, '/system');
 
   if (axeLanding !== 0) throw new Error(`ASSERT FAILED: axe found ${axeLanding} violations on /`);
+  if (axeSystem !== 0) throw new Error(`ASSERT FAILED: axe found ${axeSystem} violations on /system`);
   ok = true;
   log('check-deployed PASS');
 } catch (e) {

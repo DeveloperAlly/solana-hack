@@ -26,6 +26,10 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # S0 proof: token edit changes the page, theme edits reach the shell preview, axe on / and /system.
+      - name: Install Chromium
+        run: npx --yes playwright@$(node -p "require('playwright-core/package.json').version") install --with-deps chromium
+      - run: npm run proof
       # Names only: confirms every deploy setting exists without printing a value.
       - name: Deploy settings present
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
