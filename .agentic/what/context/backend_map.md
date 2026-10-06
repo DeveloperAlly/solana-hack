@@ -35,7 +35,7 @@ tags: [architecture, backend, api, gaps]
 
 ## 3. Data model additions (proposed; extends §3)
 `spec/api/schema.sql` adds the entities the UI shows but §3 doesn't model (UI review g1–g15):
-- **Accounts:** `profiles`, `memberships` (seats and roles), `wallets`.
+- **Accounts:** `profiles`, `memberships` (seats and roles), `wallets`, `wallet_challenges` (one-time signMessage challenges, ADR-006).
 - **Content:** `drafts` (draft or post, slop fixes, scores, polish history, content hash), `connections` (encrypted OAuth tokens).
 - **Ambassadors:** `campaigns`, `submissions`, `payouts`.
 - **Settings:** `ai_settings`.
@@ -82,7 +82,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | Screen | Endpoints | Tables | External / jobs |
 |---|---|---|---|
 | Amb-1, Amb-1b, M-1 | `GET /api/campaigns/open`, `POST …/notify` | campaigns, payouts | none |
-| Amb-2, M-2 | `POST /api/campaigns/:id/join`, `POST /api/wallets/link` | memberships, wallets | Wallet sign-message challenge ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
+| Amb-2, M-2 | `POST /api/campaigns/:id/join`, `POST /api/wallets/link` | memberships, wallets, wallet_challenges | Wallet sign-message challenge ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
 | Amb-3, M-3 | `POST /api/campaigns/:id/drafts`, `GET /api/drafts/:id/checks` | drafts | J: DraftWorkflow via OpenRouter |
 | Amb-4, M-4 | `POST /api/submissions` (LinkedIn or pasted URL; **no X**) | submissions, connections | E: LinkedIn. J: `verify_submission` |
 | Amb-5a, 5b, 5c, 5d, M-5 | Realtime on `submissions`; `GET /api/me/earnings`; `PUT /api/me/payout-wallet` (choose which linked wallet is paid) | submissions, payouts, profiles, wallets | E: Exa `/contents` (verify), RPC balance. No "Withdraw": payouts go straight to the ambassador's own wallet ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
@@ -96,7 +96,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 |---|---|---|---|
 | Verify-1, Verify-2, Verify-3 | `POST /api/verify`, `GET /api/verify/{kit,account,claim}`, `POST /api/verify/report` | registrations, drafts | E: Exa `/contents`. "Edited" needs a similarity match (G-MATCH) |
 | Ledger | `GET /api/ledger` | registrations, payouts | Explorer links |
-| Settings › Connections (missing) | `GET /api/connect/{x,linkedin}/start` and `/callback`, `DELETE /api/connections/:id`; brand payout wallet (owner only, scoped to the active brand): `POST /api/wallets/link`, then `PUT /api/brands/:id/payout-wallet {address}`; `DELETE /api/brands/:id/payout-wallet` | connections, wallets, brands | E: X and LinkedIn OAuth. Encrypting tokens at rest (G-SECRETS) |
+| Settings › Connections (missing) | `GET /api/connect/{x,linkedin}/start` and `/callback`, `DELETE /api/connections/:id`; brand payout wallet (owner only, scoped to the active brand): `POST /api/wallets/link`, then `PUT /api/brands/:id/payout-wallet {address}`; `DELETE /api/brands/:id/payout-wallet` | connections, wallets, wallet_challenges, brands | E: X and LinkedIn OAuth. Encrypting tokens at rest (G-SECRETS) |
 | Settings › AI (missing) | `GET/PUT …/ai-settings` | ai_settings | E: OpenRouter, Anthropic or OpenAI key test. Where bring-your-own keys are stored is still open (P4) |
 | Settings › Plan (missing) | `GET …/plan` | brands, memberships | Billing provider not chosen (G-BILLING) |
 | Inbox-All, Inbox-NeedsReply, Inbox-Connect (coming soon) | Sketch only | inbox_threads | Email, Telegram bot, X DMs. Sending is always done by a person |
@@ -124,7 +124,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 
 ## 6. Coverage check (run 2026-10-06, by script)
 - **Screens:** 60 of 60 non-parked, non-superseded artboards are mapped in §4. 0 are unmapped.
-- **Tables:** all 25 tables in `schema.sql` are used by at least one endpoint or job. 0 are orphaned.
+- **Tables:** all 26 tables in `schema.sql` are used by at least one endpoint or job. 0 are orphaned.
 - **Pipeline stages:** all 10 stages in §2, plus the voice compiler, have an endpoint or job (§5).
 - **External services:** every one has a primary-doc link in §9 except the DNS-over-HTTPS lookup, which is flagged TO VERIFY.
 
