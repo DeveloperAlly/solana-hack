@@ -75,8 +75,9 @@ export async function brandAmbassadors(req: Request, env: any) {}
  *   the Dashboard says which owner can pay, or lets the caller set their own verified wallet as the payout wallet.
  * Refused unless the submission is approved and verified. "Approve and pay" = approve then pay in one owner action.
  * Idempotent: at most one live payout per submission (unique partial index on payouts(submission_id) where status in
- *   ('pending','sent','confirmed'), schema.sql). A retry or double click returns the existing pending payout and its
- *   unsigned transaction instead of building a second one; a confirmed payout is refused with 409 already_paid.
+ *   ('pending','sent','confirmed'), schema.sql). A retry or double click returns the existing pending payout and the
+ *   exact stored payouts.unsigned_tx (same bytes, same blockhash), never a rebuilt one, so only one transaction can
+ *   exist per payout until it expires; a confirmed payout is refused with 409 already_paid.
  *   Expiry check first: if a pending or sent payout's last_valid_block_height has passed, run the settle check below;
  *   if no matching transaction landed, mark it 'failed' and build a fresh payout (new row, new blockhash). So a
  *   cancelled wallet prompt or an expired transaction never leaves the submission unpayable.
@@ -91,8 +92,8 @@ export async function brandAmbassadors(req: Request, env: any) {}
  *      getCreateAssociatedTokenIdempotentInstruction (recipient ATA) +
  *      getTransferCheckedInstruction({source, mint: USDC devnet 4zMMC9…DncDU, destination, authority: brand wallet,
  *      amount, decimals: 6 (TO VERIFY)}) + getAddMemoInstruction("wl1|payout|<payoutId>") (the payout row, not the submission,
- *      so a replacement payout can never be confirmed by an earlier transaction). The server also stores the
- *      blockhash's lastValidBlockHeight on the payout.
+ *      so a replacement payout can never be confirmed by an earlier transaction). Before returning it, the server
+ *      stores the serialized transaction (payouts.unsigned_tx), its recent_blockhash and lastValidBlockHeight on the row.
  *      Fee payer = the brand wallet = brands.payout_wallet (ADR-006).
  *   2. The browser has the brand's payout wallet sign and send it (injected provider, ADR-006).
  *   3. POST /api/payouts/:id/confirm {signature} → refused if the signature is already on another payout

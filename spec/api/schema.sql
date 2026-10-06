@@ -219,6 +219,8 @@ create table public.payouts (                -- [NEW] g2
   amount_usdc numeric(12,2) not null,
   from_address text, to_address text,        -- to_address = the ambassador's profiles.payout_wallet when the payout is built (ADR-006)
   tx_signature text unique,                  -- one transaction confirms at most one payout
+  unsigned_tx text,                          -- base64 of the exact unsigned transaction returned by /pay; retries return these bytes
+  recent_blockhash text,                     -- the blockhash inside unsigned_tx
   last_valid_block_height bigint,            -- from the blockhash used to build it; 'sent' becomes 'failed' only after this height
   status text default 'pending' check (status in ('pending','sent','confirmed','failed')),
   created_at timestamptz default now()
