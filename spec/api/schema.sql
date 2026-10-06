@@ -17,6 +17,7 @@ create table public.profiles (               -- [NEW] g3: "Approved by", owner, 
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   display_name text,
+  payout_wallet text,                        -- [NEW] ADR-006: the wallet an ambassador is paid to; a verified wallets.address of this user. Set on the first link, changeable
   created_at timestamptz default now()
 );
 
@@ -198,6 +199,7 @@ create table public.submissions (            -- [NEW] g2: an ambassador's piece
   draft_id uuid references public.drafts(id),
   url text,
   verify_status text default 'pending' check (verify_status in ('pending','verifying','verified','failed','budget_reached')),
+  -- approval and payment are separate (ADR-006): approved_by/at is set by an owner or approver; payouts holds the owner-signed payment
   verify_detail jsonb,                       -- which check failed (Amb-5c)
   approved_by uuid references public.profiles(id), approved_at timestamptz
 );
@@ -206,7 +208,7 @@ create table public.payouts (                -- [NEW] g2
   id uuid primary key default gen_random_uuid(),
   submission_id uuid references public.submissions(id),
   amount_usdc numeric(12,2) not null,
-  from_address text, to_address text,
+  from_address text, to_address text,        -- to_address = the ambassador's profiles.payout_wallet when the payout is built (ADR-006)
   tx_signature text,
   status text default 'pending' check (status in ('pending','sent','confirmed','failed')),
   created_at timestamptz default now()

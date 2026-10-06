@@ -66,21 +66,29 @@ export async function brandAmbassadors(req: Request, env: any) {}
 
 /**
  * POST /api/submissions/:id/approve
- * Screens: Dashboard ("Approve and pay"). Auth: owner or approver (principle 1: no auto-approve, UI review #12).
+ * Screens: Dashboard ("Approve", and "Approve and pay" for owners). Auth: owner or approver (principle 1: no
+ * auto-approve, UI review #12). Sets submissions.approved_by/at only. An approver's approval waits for an owner to pay.
+ * POST /api/submissions/:id/reject {reason} → shown to the ambassador.
+ *
+ * POST /api/submissions/:id/pay     Auth: owner only (the payout wallet belongs to an owner, ADR-006).
+ * Refused unless the submission is approved and verified. "Approve and pay" = approve then pay in one owner action.
  * Hackathon payment flow (G-WALLET decision):
- *   1. The server builds an UNSIGNED v0 transaction: getCreateAssociatedTokenIdempotentInstruction (recipient ATA) +
+ *   0. If brands.payout_wallet is null, refuse with 409 {code: 'payout_wallet_missing'}; the Dashboard then prompts
+ *      the owner to link a wallet and set it (walletLink, then brandPayoutWallet in public_settings_inbox.ts).
+ *      If the ambassador's profiles.payout_wallet is null, refuse with 409 {code: 'recipient_wallet_missing'} and
+ *      notify the ambassador to link one (Amb-5b).
+ *   1. The server inserts payouts (from_address = brands.payout_wallet, to_address = the ambassador's
+ *      profiles.payout_wallet at this moment) and builds an UNSIGNED v0 transaction to exactly that to_address:
+ *      getCreateAssociatedTokenIdempotentInstruction (recipient ATA) +
  *      getTransferCheckedInstruction({source, mint: USDC devnet 4zMMC9…DncDU, destination, authority: brand wallet,
  *      amount, decimals: 6 (TO VERIFY)}) + getAddMemoInstruction("wl1|payout|<submissionId>").
  *      Fee payer = the brand wallet = brands.payout_wallet (ADR-006).
- *   0. If brands.payout_wallet is null, refuse with 409 {code: 'payout_wallet_missing'}; the Dashboard then prompts
- *      the owner to link a wallet and set it (walletLink, then brandPayoutWallet in public_settings_inbox.ts).
- *   2. The browser has the brand's payout wallet sign and send it (injected provider, ADR-006); the server checks the
- *      signer matches brands.payout_wallet when confirming.
- *   3. POST /api/payouts/:id/confirm {signature} → the server checks the transaction on RPC (getTransaction) →
- *      payouts.status 'confirmed' → registrations(type 'content') for the ambassador post, with campaign_id.
+ *   2. The browser has the brand's payout wallet sign and send it (injected provider, ADR-006).
+ *   3. POST /api/payouts/:id/confirm {signature} → the server checks the transaction on RPC (getTransaction): signer =
+ *      payouts.from_address, recipient = payouts.to_address, amount → payouts.status 'confirmed' →
+ *      registrations(type 'content') for the ambassador post, with campaign_id.
  * Cap check: the server refuses to build if amount > remaining cap (offchain enforcement; escrow is roadmap).
  * Errors: transaction failed or not found → payouts 'failed' (Dashboard error state missing).
- * POST /api/submissions/:id/reject {reason} → shown to the ambassador.
  */
 export async function approveAndPay(req: Request, env: any) {}
 

@@ -51,8 +51,12 @@ export async function connections(req: Request, env: any) {}
  * Wallet link (ADR-006)   Screens: Amb-2, M-2, Settings › Connections, the Dashboard "Approve and pay" prompt.
  * POST /api/wallets/link {address}            → returns a one-time challenge message (nonce, user id, expiry), stored server-side.
  * POST /api/wallets/link {address, signature} → verifies the ed25519 signature of the challenge against the address,
- *        consumes the nonce, upserts wallets(user_id, address, provider 'injected', verified_at).
- * DELETE /api/wallets/:address                → removes the caller's wallet; refused while it is any brand's payout_wallet.
+ *        consumes the nonce, upserts wallets(user_id, address, provider 'injected', verified_at); if the caller has no
+ *        profiles.payout_wallet yet, sets it to this address.
+ * PUT /api/me/payout-wallet {address}         → address must be a verified wallets row of the caller; sets profiles.payout_wallet
+ *        (the one wallet payouts go to; Amb-5b shows it).
+ * DELETE /api/wallets/:address                → removes the caller's wallet; refused while it is any brand's payout_wallet or
+ *        the caller's profiles.payout_wallet.
  */
 export async function walletLink(req: Request, env: any) {}
 
