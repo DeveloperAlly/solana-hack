@@ -63,7 +63,7 @@ Components read only **semantic** tokens. Themes remap semantic tokens to primit
 | `waterlily` | The brand identity, once ratified | B7 |
 | `dark` | Optional | After the hackathon |
 
-Creating a theme = one JSON file in `tokens/themes/`. Every theme must pass the automatic contrast check (text 4.5:1, large text and UI 3:1).
+Creating a theme = one JSON file in `tokens/themes/`. Every theme must pass the automatic contrast check: text 4.5:1 and large text 3:1 ([WCAG 2.2 SC 1.4.3](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum)); UI components and graphical objects 3:1 ([SC 1.4.11](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast)).
 
 ## 3. Layer 1: primitives
 No domain knowledge. Each is a thin, accessible wrapper over HTML.

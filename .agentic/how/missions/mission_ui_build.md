@@ -23,7 +23,8 @@ tags: [mission, ui, build, components, design-tokens]
   - B1 (primitives) and B3 config and types (M1–M8, no UI dependencies) run in parallel after G2.
   - B2 (composites) starts per component once the primitives it uses pass G3; L shells in B3 start once their composites pass.
   - B4 (domain) starts per component once every component it lists (for example D20 needs C6, C26 and M3) has passed its gate.
-  - Within a layer, components are independent, so each layer can be split across parallel background agents.
+  - The same rule applies inside a layer: a component starts once the same-layer components it composes have passed (for example D1 ApprovalItem after D2, D3 and D9; D5 DraftEditor after D6). Components with no same-layer dependencies can be split across parallel background agents.
+  - Each component passes its own check when its definition of done is met; a layer's gate (G3–G6) passes when all its components have.
 
 ## Part 1: Identify the system components
 
@@ -72,8 +73,8 @@ Tests: <render per variant, interaction, axe>
 | **B1 Primitives** | P1–P28 | 4 h | **G3:** all primitives meet the definition of done |
 | **B2 Composites** | C1–C28 | 6 h | **G4:** all composites meet the definition of done |
 | **B3 Shells and config** | L1–L10; M1 routes and nav (with tags), M2 channels, M3 voice model, M4 kit sections, M5 checks, M6 types, M7 mock adapter + fixtures (4 demo brands), M8 formatters | 4 h | **G5:** every route in M1 renders inside its shell (placeholder body); nav, sub-nav, mobile tab bar and tag badges come from config only |
-| **B4 Domain patterns** | Approval family D1–D10 first, then Brand Builder D11–D23, campaigns D24–D31, proof D32–D37; inbox and experimental D38–D48 last | 8 h | **G6:** D1 renders all six kinds from fixtures; D20 renders both voice dimension sets from config without code change |
-| **B5 Screens (hackathon tag)** | Brand Builder flow (first, because kit v1 is due Oct 9), including the aDNA kit export (D49, thin: download); Voices; Content dashboard + Draft review; Campaign v2; Engage queue; Ambassadors + payout flow (desktop and mobile); Claims with evidence (D19, thin); Verify; Ledger; Official registry; Hub home | 6 h | **G7:** every hackathon screen built from library only, on mock data; every hackathon-tagged flow on the canvas is clickable end to end, including error states via the demo state switcher (C28). Experimental, coming-soon and roadmap flows are checked at G9 |
+| **B4 Domain patterns** | Approval family D1–D10 first, then Brand Builder D11–D23 and D49 KitExport, campaigns D24–D31, proof D32–D37; inbox and experimental D38–D48 last | 8 h | **G6:** D1 renders all six kinds from fixtures; D20 renders both voice dimension sets from config without code change |
+| **B5 Screens (hackathon tag)** | Brand Builder flow (first, because kit v1 is due Oct 9), including the aDNA kit export (D49, thin: download); Voices; Content dashboard + Draft review; Campaign v2; Engage queue; Ambassadors + payout flow (desktop and mobile); Claims with evidence (D19, thin); Landing (Main; copy to be rewritten for the hub model); Verify; Ledger; Official registry; Hub home | 6 h | **G7:** every hackathon screen built from library only, on mock data; every hackathon-tagged flow on the canvas is clickable end to end, including error states via the demo state switcher (C28). Experimental, coming-soon and roadmap flows are checked at G9 |
 | **B6 Wire to live services** | Live adapter behind M7, calling the services built in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P4 (agents, polish), P5 (publish) and P6 (registry, verify, ledger, payout). Building those services is issue #4's scope, not this mission's | 3 h | **G8:** the demo path runs on live data; no screen code changed when switching mock to live |
 | **B7 Brand, remaining screens, ship** | `waterlily` theme from the brand work; coming-soon / roadmap / experimental screens as static compositions; deploy; demo recording states | 3 h | **G9:** theme switch to `waterlily` needs no component edits; experimental, coming-soon and roadmap screens render from the library (static where tagged); deployed URL works; demo path recorded |
 
@@ -119,7 +120,7 @@ Each component folder holds `Component.tsx`, `Component.module.css`, `Component.
 | Stylesheets in `screens/` | 0 | CI check |
 | Change a colour | 1 edit in one token file | Theme editor demo |
 | Create a theme | 1 new JSON file, no code change | Add `waterlily` in B7 |
-| Contrast | Every theme passes text 4.5:1, large text and UI 3:1 | Automatic check in workbench and CI |
+| Contrast | Every theme passes text 4.5:1, large text and UI components 3:1 ([WCAG 2.2 SC 1.4.3](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum), [SC 1.4.11](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast)) | Automatic check in workbench and CI |
 | Accessibility | 0 axe violations on workbench and hackathon screens | CI |
 | Reuse | ApprovalItem used by 6+ screens; no duplicated organism markup | Inventory §8 and code review |
 | Mock to live | 0 screen edits when the live adapter replaces mocks | Diff of `screens/` in B6 |
