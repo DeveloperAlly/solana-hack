@@ -24,7 +24,7 @@ Adopt the G-WALLET proposal in the [backend map](../context/backend_map.md#7-arc
 ## Consequences
 - The core demo (intake to verify) needs no user wallet.
 - The Registrar key is a server secret: it lives only in the platform's secret store, never in the browser or the repo.
-- Screens that mention a wallet at sign-in or "Withdraw" change copy: Onboard-1, Amb-2 and M-2 ([backend map](../context/backend_map.md#7-architecture-gaps-and-decisions-needed)). Architecture §12.1 step 0 already reflects this.
+- Copy changes: Onboard-1 (sign-in promises no wallet); Amb-2 and M-2 (link a wallet by `signMessage`); Amb-5a–d and M-5 (remove "Withdraw") ([backend map](../context/backend_map.md#7-architecture-gaps-and-decisions-needed)). Architecture §12.1 step 0 already reflects this.
 - [Architecture §7](../context/brand_builder_architecture.md#7-proof-layer-what-gets-registered-when) lists "owner wallet" in the identity memo. Under this decision there is no owner wallet at sign-in: the identity registration is signed by the Registrar and records the brand id and domain.
 - UI build slice S0 proves email sign-in and a Registrar-signed devnet registration ([UI build mission](../../how/missions/mission_ui_build.md) §4, R26).
 - Other embedded-wallet providers can still be evaluated later; this ADR does not depend on one.
