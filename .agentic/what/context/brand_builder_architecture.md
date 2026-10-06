@@ -146,7 +146,7 @@ Beliefs, values, messaging and vocabulary are then drafted from these answers an
 | Post approved and published | Content hash, kit version, approver | Verify page and badge |
 | AI persona created | Persona id, disclosure flag, kit link | Labelled, attested AI influencer |
 
-Only hashes and ids go onchain. Content stays offchain.
+Only hashes and ids go onchain. Content stays offchain. They are written as **Solana Attestation Service** attestations issued by the Registrar, with the memo program as the fallback (owner decision 2026-10-06; see [backend map](./backend_map.md) G-SAS).
 
 ## 8. aDNA export
 The Brand Kit exports as an aDNA-structured folder:
@@ -196,7 +196,7 @@ Example: a founder setting up a company brand. Differences between a brand with 
 
 | # | Step | What's asked or done | Required? | Status |
 |---|---|---|---|---|
-| 0 | Sign in | Email and a 6-digit code. An embedded wallet (Phantom Connect) is created; no seed phrase, no extension | Yes | Hackathon |
+| 0 | Sign in | Email and a 6-digit code (Supabase OTP). ⚠ **No embedded wallet**: Phantom Connect isn't accepting new apps (2026-10-06). Registrations are signed by the server Registrar. A wallet is linked only for USDC payouts. See [backend map G-WALLET](./backend_map.md#7-architecture-gaps-and-decisions-needed) | Yes | Hackathon |
 | 1 | Basics (~2 min) | Name; type (company / person / founder-linked); one-line description; 12-month goal; primary channel; links | Yes, links optional | Hackathon |
 | 2 | Sources | Owned site, docs, blog and README URLs; uploads (deck, brief, guidelines, case studies); domain check by DNS TXT record (optional in the PoC, unverified brands are flagged); connected social history | Optional; skipping goes straight to the interview | URLs and uploads: hackathon. Social history: coming soon (needs official API access) |
 | 2a | Founder profile | CV or LinkedIn export for person and founder-linked brands, plus how others see them (Avery & Greenwald's perception audit, [01](./research/01_brand_pillars.md) §2) | Optional | **[proposed]**: closes a gap in §4 and §5 |
@@ -250,5 +250,7 @@ After that, all optional: claims with evidence, an ambassador campaign with USDC
 
 ### 12.4 Infrastructure (open; settled in P0 and P1 of [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4))
 - **LLM gateway:** an OpenRouter free model by default, plus bring your own Claude or OpenAI key. Every call logs its prompt version.
+- **Search:** Exa (default, behind a swappable adapter; owner decision 2026-10-06) for Gate 2 competitor research, reading owned URLs during ingest, reading URLs pasted into Verify, and lead signals.
 - **Storage:** Supabase for the evidence, kit and voice tables.
+- **Full backend map, endpoints and gaps:** [backend_map.md](./backend_map.md); stubs in `spec/api/`.
 - **Runtime:** ingest and agent runs probably on Cloudflare Queues or Workflows. The Workers free plan allows 10 ms of CPU per request, but time spent waiting on LLM calls doesn't count toward it. Still to be verified.
