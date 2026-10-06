@@ -19,7 +19,7 @@ last_edited_by: agent
 - Registry: Solana Attestation Service, with memo as the fallback (owner, 2026-10-06). The spike that opens S0 settles it (backend map G-SAS).
 - Exa is the default search provider, behind an adapter (owner, 2026-10-06). The backend map and `spec/api/` stubs are drafted (proposed).
 - UI framework: Vite + React SPA on Cloudflare (owner, 2026-10-06; [ADR-005](./.agentic/what/decisions/adr_005_ui_component_system.md)).
-- Hosting: the app runs on the apex of jamjam.tech as a Cloudflare Worker custom domain, deployed from GitHub Actions on merge to main (owner, 2026-10-06; supersedes the waterlily.ai hosting in R30). The repo deploy settings exist and are checked by name in CI.
+- Hosting: the app runs on the apex of jamjam.tech as a Cloudflare Worker custom domain, deployed from GitHub Actions on merge to main (owner, 2026-10-06, [recorded on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6014295120); supersedes the waterlily.ai hosting in R30). The repo deploy settings exist and are checked by name in CI.
 - ADR-006: email sign-in (Supabase OTP); a server Registrar keypair signs registrations; a wallet only for USDC payouts (owner, 2026-10-06; G-WALLET decided).
 - Wireframes: voices follow research 06 (12 templates, 9 dimensions, claims gate); licensing screens stay parked; aDNA stays the sample brand.
 - Demo: Waterlily builds its own brand from scratch, live (headline). aDNA is the second case (strong written brand, no social). film.fun and GamersLab are semi-established case studies. Polish actions include Beautify.
