@@ -33,6 +33,7 @@ The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose:
 | [.agentic/what/decisions/adr_003_superhub_business_model.md](./.agentic/what/decisions/adr_003_superhub_business_model.md) | accepted | ADR-003: superhub business model, principles, product map |
 | [.agentic/what/decisions/adr_004_docs_use_adna.md](./.agentic/what/decisions/adr_004_docs_use_adna.md) | accepted | ADR-004: docs use aDNA embedded form |
 | [.agentic/what/decisions/adr_005_ui_component_system.md](./.agentic/what/decisions/adr_005_ui_component_system.md) | proposed | ADR-005: UI in React on design tokens; components built slice by slice |
+| [.agentic/what/decisions/adr_006_wallet_identity_split.md](./.agentic/what/decisions/adr_006_wallet_identity_split.md) | accepted | ADR-006: email sign-in; Registrar signs registrations; wallet only for payouts |
 | [.agentic/what/context/component_inventory.md](./.agentic/what/context/component_inventory.md) | proposed | UI component inventory, first slice per component, screen-to-component map |
 | [.agentic/what/context/compendium_2026_10_06.md](./.agentic/what/context/compendium_2026_10_06.md) | active | Decision compendium 2026-10-06 (v2); source for the PRD rewrite |
 | [.agentic/what/context/brand_builder_architecture.md](./.agentic/what/context/brand_builder_architecture.md) | accepted | Brand Builder architecture, data model and per-section input spec |
