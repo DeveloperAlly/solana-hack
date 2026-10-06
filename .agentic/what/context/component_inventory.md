@@ -44,8 +44,8 @@ Components are built in the slice where a screen first needs them ([UI build mis
 | Slice | Built first in this slice |
 |---|---|
 | S0 Preflight | T1–T12 tokens and the `wireframe` theme; M1 routes; L10 PublicShell; workbench and theme editor at `/system` |
-| S1 Land and sign in | P1–P8, P11, P17, P18; C1, C2, C8, C13; L6; D36, D37 |
-| S2 Basics and ingest | P12–P15, P21, P22, P24; C7, C14; D11, D12; M6, M7 |
+| S1 Land and sign in | P1–P8, P11, P17, P18; C1, C2, C8, C13; L6; D36, D37; M6, M7 |
+| S2 Basics and ingest | P12–P15, P21, P22, P24; C7, C14; D11, D12 |
 | S3 Interview, gates, coverage | C6, C10; D13, D14, D15, D16, D17, D20, D51; M3, M4 |
 | S4 Kit v1 | C3, C11, C16, C25, C29; D18, D32, D49, D50; L1, L2, L3, L8, D48 |
 | S5 Create | P25, P27; C4, C5, C23; L9; D1–D9, D21–D23; M2, M5 |
@@ -292,8 +292,12 @@ Every screen below is a composition of inventory items only. Tags follow the can
 | Ledger | H | S6 (batch 3) | L10 | C12, C5, D35 |
 | Claims / Claims-Empty | H(thin) | S6 (batch 4) | L1 | D19, D14, D32, C3 |
 | Official registry | H | S6 | L10 | D36, D18, D32, C10 |
-| Campaign-v2-1-Goal; v2 steps 2, 4, 5, 6 | H | S7 | L6 | C7, D16 PersonaCard, D27, D28, D8, D26, D31, D25, C11, C17 |
-| Campaign-v2-2-Measure | H | S7 | L6 | D27 |
+| Campaign-v2-1-Goal (step 1: goal and platforms) | H | S7 | L6 | C7 (purpose), C7 (platforms), P15 |
+| Campaign v2 step 2: audience (canvas batch 5) | H | S7 | L6 | C7 (segments from the kit's audiences), D16 PersonaCard |
+| Campaign-v2-2-Measure (step 3: success metrics; the "2" is the canvas artboard number) | H | S7 | L6 | D27 |
+| Campaign v2 step 4: content plan (canvas batch 5) | H | S7 | L6 | D28, D8 |
+| Campaign v2 step 5: people and budget (canvas batch 5) | H | S7 | L6 | D26, D31, D25, P17 |
+| Campaign v2 step 6: review and launch (canvas batch 5) | H | S7 | L6 | C11, D25, C17 (approve the spending cap) |
 | Engage-Queue | H | S7 | L1 + L9 | C4, D1 (reply), D42 |
 | Dashboard (Grow > Ambassadors) / Empty | H | S7 | L1 | C12, D1 (ambassador post), C10, D25, C3 |
 | Amb-1-Campaigns / 1b, M-1 | H | S7 | L10 / L4 | D24, C5, C3 |
