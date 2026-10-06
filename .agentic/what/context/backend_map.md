@@ -28,7 +28,7 @@ tags: [architecture, backend, api, gaps]
 | Auth | Supabase **email OTP** | ⚠ The built-in email service sends only 2 emails an hour, so custom SMTP is needed (G-AUTH-2) |
 | LLM | **OpenRouter** gateway, default a `:free` model with a fallback in `models[]` | 20 requests a minute, and 50 a day until 10 credits are bought (then 1,000 a day). Use `data_collection:"deny"` |
 | Search and reading pages | **Exa** `/search` and `/contents` via plain `fetch()` | It isn't verified that exa-js runs on Workers |
-| Chain | Solana **devnet** through **@solana/kit**, the memo program and USDC devnet. RPC via Helius free | Public devnet RPC is limited per IP and "not intended for production" |
+| Chain | Solana **devnet** through **@solana/kit**, SAS (memo fallback) and USDC devnet. RPC via Helius free | Public devnet RPC is limited per IP and "not intended for production" |
 | Registrations | **SAS** attestations via `@solana/attestation` 2.1.0, issued by a server-side **Registrar** keypair that is the payer, credential authority and sole authorized signer. Memo fallback | Brands never sign. The subject's address or a random address is the attestation nonce. Rent is about 0.002–0.0035 SOL per attestation and can be reclaimed by closing it (computed from the account size, confirm at runtime) |
 | Payouts | The **brand's wallet** signs a USDC `transferChecked` built by the server | Wallet provider is the open decision G-WALLET (§7) |
 | Publishing | X API v2 (OAuth 2.0 PKCE) and LinkedIn Share on LinkedIn (`w_member_social`), plus a copy-and-paste fallback | X charges **$0.015 a post, or $0.20 if the post has a URL**. LinkedIn tokens last 60 days with no refresh |
@@ -55,7 +55,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 |---|---|---|---|
 | Main | `POST /api/verify` (inline check); brand name carried to `POST /api/brands` | registrations | E: Exa `/contents` for a URL |
 | Onboard-1-SignIn | Supabase `signInWithOtp` and `verifyOtp` (client), `POST /api/profile` | profiles | E: Supabase Auth with custom SMTP (G-AUTH-2). ⚠ Copy promises a wallet (G-WALLET) |
-| Onboard-2-Domain, Onboard-2b-DomainFailed | `POST /api/brands/:id/domain/token`, `POST /api/brands/:id/domain/check` | brands, registrations | E: DNS-over-HTTPS (**TO VERIFY**); on success the Registrar writes an identity memo |
+| Onboard-2-Domain, Onboard-2b-DomainFailed | `POST /api/brands/:id/domain/token`, `POST /api/brands/:id/domain/check` | brands, registrations | E: DNS-over-HTTPS (**TO VERIFY**); on success the Registrar writes an identity attestation |
 | BB-1-Basics | `POST /api/brands` | brands, memberships, evidence, sources | none |
 | Onboard-3-Sources | `POST /api/brands/:id/sources`, `DELETE …/sources/:id`, link "Connect for publishing" to `GET /api/connect/x/start` | sources | E: Supabase Storage `createSignedUploadUrl` |
 | Onboard-3b-Profiling, Ingest-Error | `POST /api/brands/:id/ingest`, `POST /api/sources/:id/retry`, Realtime on `jobs` and `sources` | jobs, sources, evidence | J: IngestWorkflow. E: Exa `/contents`, OpenRouter (extractor) |
@@ -63,9 +63,9 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | BB-2 to BB-6 | `GET …/interview/next`, `POST …/interview/answer`, `POST …/draft-section` (BB-4 options, BB-5 personas, BB-6 samples) | evidence, audiences | E: OpenRouter (drafter and critic); Exa `/search` at BB-4. ⚠ Voice recording needs speech-to-text (G-VOICE-INPUT) |
 | Gate 1, Gate 2, Gate 3 | `POST …/draft-section` (variants), `POST …/gates/:gate/approve` | decisions, kit_sections, voices | E: OpenRouter |
 | Brand-Build | `GET …/kit/current`, `PATCH …/sections/:section`, `POST …/draft-section`, `POST …/ingest` (re-read) | kit_versions, kit_sections, evidence | E: OpenRouter |
-| Onboard-6-Published, Kit-RegisterFailed | `POST …/kit/approve`, `POST /api/registrations/:id/retry` | kit_versions, registrations | E: Solana memo through the Registrar via Helius RPC. Explorer link |
+| Onboard-6-Published, Kit-RegisterFailed | `POST …/kit/approve`, `POST /api/registrations/:id/retry` | kit_versions, registrations | E: SAS attestation (memo fallback) by the Registrar via Helius RPC. Explorer link |
 | Kit-Export | `GET …/kit/:version` (JSON); zip built in the browser | kit tables, evidence, voices | Zipping inside a 10 ms CPU limit is risky (G-ZIP) |
-| Claims (screen missing) | `GET/POST/PATCH …/claims`, `GET …/claims/suggest` | claims, evidence, registrations | E: Solana memo when a claim is approved |
+| Claims (screen missing) | `GET/POST/PATCH …/claims`, `GET …/claims/suggest` | claims, evidence, registrations | E: SAS attestation when a claim is approved |
 
 ### Create (`create.ts`)
 | Screen | Endpoints | Tables | External / jobs |
@@ -75,7 +75,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | Content-Dashboard (and its empty state), Hub-Home | `GET …/drafts?status=&channel=` | drafts | none |
 | Create-NewDraft (screen missing) | `POST …/drafts` | drafts | J: DraftWorkflow (writer, slop pass, checks, scores) via OpenRouter |
 | Draft-Review | `GET`/`PATCH /api/drafts/:id`, `POST …/polish`, `POST …/polish/undo`, `POST …/approve` | drafts | E: OpenRouter. "Best slot" uses a static default until analytics exist |
-| Publish and Registered (screens missing) | `POST /api/drafts/:id/publish` (x, linkedin or manual) | drafts, connections, registrations | E: X `POST /2/tweets`; LinkedIn `/v2/ugcPosts`; Solana memo (content) |
+| Publish and Registered (screens missing) | `POST /api/drafts/:id/publish` (x, linkedin or manual) | drafts, connections, registrations | E: X `POST /2/tweets`; LinkedIn `/v2/ugcPosts`; SAS attestation (content) |
 | Campaign-v2-1, Campaign-v2-2 (steps 4–6 missing) | `POST …/campaigns`, `PATCH /api/campaigns/:id`, `POST …/plan`, `POST …/launch` | campaigns, drafts | E: OpenRouter (plan). The API rejects a paid X format |
 
 ### Grow (`grow.ts`)
@@ -89,7 +89,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | Dashboard (and its empty state) | `GET …/ambassadors`, `POST /api/submissions/:id/approve` and `/reject`, `POST /api/payouts/:id/confirm` | submissions, payouts, registrations | E: USDC `transferChecked` plus a memo, signed by the brand wallet; RPC `getTransaction` |
 | Engage-Queue | `GET …/replies`, `POST /api/replies/:id/send` | drafts | E: X mention reads (pay-per-use) and X reply posts. Cron. No LinkedIn comments (`r_member_social` closed) |
 | Leads (experimental) | `POST …/leads/search`, `GET …/leads.csv` | leads | E: Exa `/search` (company and people categories, public only) |
-| Influencer-Setup, Influencer-Queue (experimental) | `POST …/personas`, `GET /api/personas/:id/queue` | personas, drafts, registrations | Storage, Solana memo. Watermarking not chosen (G-WATERMARK) |
+| Influencer-Setup, Influencer-Queue (experimental) | `POST …/personas`, `GET /api/personas/:id/queue` | personas, drafts, registrations | Storage, SAS attestation. Watermarking not chosen (G-WATERMARK) |
 
 ### Public, settings, inbox (`public_settings_inbox.ts`)
 | Screen | Endpoints | Tables | External / jobs |
@@ -119,7 +119,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | 7 Decision gates | `POST …/gates/:gate/approve` |
 | 8 Brand Kit vN | `POST …/kit/approve` (canonical JSON, then SHA-256) |
 | 9 Validation loop | Roadmap: the `metrics` cron feeds evidence |
-| 10 Registry (Registrar) | `registerMemo()`, used by identity, kit, claim, account, content and persona |
+| 10 Registry (Registrar) | `registerAttestation()` (SAS; `registerMemo()` is the fallback), used by identity, kit, claim, account, content and persona |
 | Voice compiler | `POST …/voices` (rules table) |
 
 ## 6. Coverage check (run 2026-10-06, by script)
