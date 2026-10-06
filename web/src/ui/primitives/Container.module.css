@@ -1,0 +1,9 @@
+.container {
+  margin-inline: auto;
+  padding: var(--wl-layout-page-padY) var(--wl-layout-page-padX);
+  width: 100%;
+}
+.reading { max-width: var(--wl-layout-width-reading); }
+.wizard { max-width: var(--wl-layout-width-wizard); }
+.app { max-width: var(--wl-layout-width-app); }
+.full { max-width: none; }
