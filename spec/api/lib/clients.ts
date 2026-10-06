@@ -169,6 +169,26 @@ export async function registerMemo(env: Env, memo: string): Promise<{ signature:
   // return { signature: getSignatureFromTransaction(signed) };
   return { signature: "" };
 }
+/**
+ * PRIMARY registry: Solana Attestation Service (owner decision 2026-10-06). The memo path above is the FALLBACK.
+ * Verified (@solana/attestation 2.1.0, peer @solana/kit ^8; SAS program 22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG):
+ *  - One-time setup by the Registrar (payer + credential authority + sole authorized signer):
+ *      findCredentialPda({authority, name:"WATERLILY"}) → getCreateCredentialInstruction({payer, credential, authority, name, signers:[registrar.address]})
+ *      per type: findSchemaPda({credential, name:"WL-KIT"|"WL-CONTENT"|"WL-CLAIM"|"WL-ACCOUNT"|"WL-IDENTITY"|"WL-PERSONA", version:1})
+ *      → getCreateSchemaInstruction({payer, authority, credential, schema, name, description,
+ *           fieldNames:["brand_id","hash","kit_version","approver","domain_verified"], layout:[SchemaDataType.String, ...]})
+ *  - Per registration: nonce = a fresh random address (store it in registrations, since it is the PDA seed)
+ *      findAttestationPda({credential, schema, nonce}) → fetchSchema(rpc, schema)
+ *      → getCreateAttestationInstruction({payer, authority, credential, schema, attestation, nonce, expiry:0,
+ *           data: serializeAttestationData(schema.data, {...fields})})
+ *  - Verify (public): fetchMaybeAttestation(rpc, attestation) → exists, signer === Registrar, credential/schema match,
+ *      expiry 0 or in the future → deserializeAttestationData. Revoke: getCloseAttestationInstruction (rent goes back to payer).
+ *  - Workers: enable nodejs_compat; use HTTP RPC and poll for confirmation (kit's WebSocket channel imports `ws`).
+ *    TO VERIFY in the P0 spike (G-SAS): devnet deployment, wrangler bundling, pkcs8 key import.
+ */
+export async function registerAttestation(env: Env, type: string, fields: Record<string, string>): Promise<{ signature: string; attestation: string; nonce: string }> {
+  return { signature: "", attestation: "", nonce: "" };
+}
 /** Memo format (proposed): "wl1|<type>|<brandId>|v<kitVersion>|sha256:<hex>". Under 566 bytes; no personal data. */
 export function memoString(type: string, brandId: string, hash: string, kitVersion?: number) {
   return `wl1|${type}|${brandId}|v${kitVersion ?? 0}|sha256:${hash}`;
