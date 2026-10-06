@@ -36,6 +36,7 @@ The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose:
 | [.agentic/what/context/component_inventory.md](./.agentic/what/context/component_inventory.md) | proposed | Full UI component inventory and screen-to-component map |
 | [.agentic/what/context/compendium_2026_10_06.md](./.agentic/what/context/compendium_2026_10_06.md) | active | Decision compendium 2026-10-06 (v2); source for the PRD rewrite |
 | [.agentic/what/context/brand_builder_architecture.md](./.agentic/what/context/brand_builder_architecture.md) | accepted | Brand Builder architecture, data model and per-section input spec |
+| [.agentic/what/context/wireframe_audit_2026_10_06.md](./.agentic/what/context/wireframe_audit_2026_10_06.md) | active | Audit of the UI wireframes canvas against the spec; input to the rework |
 | [.agentic/what/context/swot.md](./.agentic/what/context/swot.md) | historical | SWOT of the licensing-era concept; still informs risks |
 | [.agentic/what/context/links.md](./.agentic/what/context/links.md) | active | Working links: wireframes, deck, PRD, research |
 | [.agentic/what/context/research/README.md](./.agentic/what/context/research/README.md) | active | Research index |

@@ -66,6 +66,7 @@ Navigation: **Brand / Create / Grow / Inbox / Analytics / Ledger-Verify**.
 | Grow | **Find your customer** | GamersLab lead finder, generalised; no harvesting or sending ([07](./research/07_gamerslab_leadfinder.md)) | Experimental |
 | Grow | **Create an influencer** | The founder's own AI persona; avatars by a collaborator; visible AI watermark; attested onchain | Experimental |
 | Grow | **Partner invites** | Partners write in the brand voice as seats | Roadmap |
+| Grow | **Ambassador program (open to all creators)** | Extends the ambassador program so brands can reward any creator, not only signed ambassadors, from a capped USDC pool: bounties (fixed reward for set work), brand-picked rewards for good organic content, and a performance pool for verified results. Every payout is approved by a person and disclosed by the creator. **No rewards for X activity** (X's Jan 2026 ban on reward-for-posting apps; ADR-002). Performance pool needs fraud checks for fake views. No public money-linked engagement leaderboard. Platform rules for reading view counts and allowing paid rewards are not yet verified (added 2026-10-06) | Roadmap |
 | Inbox | **Unified inbox** | Gmail-style "All inboxes" across messaging and social DMs (§7) | Coming soon |
 | Inbox | **Needs reply** | Flags messages that need a response; drafts a reply for review | Coming soon |
 | Analytics | **Analytics** | Performance per platform and per voice | Roadmap (UI shown) |

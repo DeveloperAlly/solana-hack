@@ -35,6 +35,7 @@ Source and descriptions: [compendium §5](../../what/context/compendium_2026_10_
 | Grow | Find your customer (lead finder) | experimental |
 | Grow | Create an influencer | experimental |
 | Grow | Partner invites | roadmap |
+| Grow | Ambassador program open to all creators: bounties, brand-picked rewards, performance pool (no X activity) | roadmap |
 | Inbox | Unified inbox | coming soon |
 | Inbox | Needs reply | coming soon |
 | Analytics | Analytics (UI shown) | roadmap |

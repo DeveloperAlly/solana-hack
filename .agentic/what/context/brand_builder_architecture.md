@@ -185,4 +185,70 @@ Tone presets, the audio kit and governance must be asked for **every** brand. Vi
 ## 11. Open questions
 - **Ingest limits:** X, Instagram and TikTok pages can't be fetched without official API access. For the hackathon, ingest owned sites, docs and uploads; social history is coming soon.
 - **Calibration:** calibrate template values and the voice-fit score (research 06).
+- **Ratify §12.3 and step 2a in §12.1** (proposed 2026-10-06): the coverage cut-off, section dependencies and stale redrafts, drafter and writer inputs, canonical JSON hashing, and founder-profile ingest with a perception audit.
 - **Resolved 2026-10-06, GamersLab:** confirmed as gamerslab.gg. The founder's lead finder already holds an owner-supplied product brief and case studies for it. That makes a good demo of the upload path, and it closes the loop with **Find your customer**.
+
+## 12. End-to-end walkthrough: user flow and pipeline
+This ties §2–§7 together. Lines tagged **[proposed]** fill gaps the spec leaves open. They wait for owner ratification. Everything else restates decided spec.
+
+### 12.1 User flow
+Example: a founder setting up a company brand. Differences between a brand with no public presence (Waterlily) and an established one (film.fun) are noted where they apply.
+
+| # | Step | What's asked or done | Required? | Status |
+|---|---|---|---|---|
+| 0 | Sign in | Email and a 6-digit code. An embedded wallet (Phantom Connect) is created; no seed phrase, no extension | Yes | Hackathon |
+| 1 | Basics (~2 min) | Name; type (company / person / founder-linked); one-line description; 12-month goal; primary channel; links | Yes, links optional | Hackathon |
+| 2 | Sources | Owned site, docs, blog and README URLs; uploads (deck, brief, guidelines, case studies); domain check by DNS TXT record (optional in the PoC, unverified brands are flagged); connected social history | Optional; skipping goes straight to the interview | URLs and uploads: hackathon. Social history: coming soon (needs official API access) |
+| 2a | Founder profile | CV or LinkedIn export for person and founder-linked brands, plus how others see them (Avery & Greenwald's perception audit, [01](./research/01_brand_pillars.md) §2) | Optional | **[proposed]**: closes a gap in §4 and §5 |
+| 3 | Reading sources | Each source shows progress; Retry or Skip on failure; safe to leave, email when done | n/a | Hackathon |
+| 4 | Coverage map | All 17 sections shown as Evidenced / Inferred / Missing: "here's what we found, here are the N questions left". film.fun: mostly E and I. Waterlily: almost all M | n/a | Hackathon |
+| 5 | Interview (only the gaps) | The §5 steps 2–6: origin; what/how/why then **Gate 1 Purpose**; alternatives and edge, 3 positioning options, then **Gate 2 Positioning**; audience with personas labelled as assumptions; voice by example, then **Gate 3 Voice**. Where a source already answers a question, the step becomes "confirm this", with the source cited. Every question can be skipped and resumed | Gates required | Hackathon |
+| 6 | Quick review | Beliefs, values (card sort), messaging pillars and vocabulary are drafted for quick edits. Claims start empty until evidence is attached. Visuals, behaviour, examples and audio can wait | No | Hackathon (claims thin) |
+| 7 | Approve kit v1 | The kit locks as v1; its hash is registered on Solana devnet with an explorer link; the aDNA export unlocks | Yes | Hackathon |
+| 8 | Voices | Templates (12 templates on 9 dimensions, [06](./research/06_voice_templates.md)) with per-channel overrides; claims strictness as a gate | Yes, at least one | Hackathon |
+| 9 | First post | Brief → draft → no-AI-slop pass → voice-fit and platform scores → polish (Review / Shorten / Clarify / Beautify) → approve → publish (connected X or LinkedIn, or copy and paste the URL back) → content hash registered → checkable on the Verify page | n/a | Hackathon |
+
+After that, all optional: claims with evidence, an ambassador campaign with USDC payouts, quests (coming soon), inbox and engagement.
+
+### 12.2 How each user action runs through the pipeline
+**The core idea:** one evidence store holds everything the system knows. Every fact keeps its source. The interview, the drafters and the coverage map all read from and write to that store. The kit is compiled only from approved sections.
+
+| User action | Stage and agent | Writes |
+|---|---|---|
+| Fills in Basics | Intake | `Brand`; each answer stored as `Evidence` with source "owner answer, date" |
+| Adds URLs or uploads | **Ingestor:** fetch, parse, dedupe; respects robots.txt and platform terms | `Source` (uploads marked `owner_supplied`) |
+| (automatic) | **Extractor:** maps text to kit sections | `Evidence`: fact, short quote, source, section, confidence |
+| (automatic) | **Gap analyst** | E / I / M per section, which drives the coverage map |
+| Answers a question | **Interviewer:** picks the next best question from the gaps | `Evidence` (status: answered) |
+| Reaches a gate | **Section drafters** + **Critic** (no-AI-slop pass, consistency check, citation check) | Drafts that cite evidence ids |
+| Approves a gate | Gate | `Decision` (mirrors an ADR); the section locks |
+| Approves the kit | Kit compiler + **Registrar** (deterministic code, no AI) | `KitVersion` + hash → Solana memo → `Registration` |
+| Creates a voice | Voice compiler | `Voice` = template + overrides, compiled into a plain-language rule set for the writer |
+| Writes a post | Drafter → Critic → scorers → polish | Draft, scores, approval; content hash → `Registration` |
+
+### 12.3 Pipeline rules [proposed]
+1. **Coverage cut-off.** A section is **E** if it has at least one high-confidence fact from an owned source, or a direct owner answer. It is **I** if it has only medium or low confidence facts, or derived ones. It is **M** if it has nothing.
+2. **Section dependencies.** Following §1 principle 4, nothing past a gate is generated until the gate is approved:
+   ```
+   Identity ─┬─> Purpose [Gate 1] ──> Beliefs, Values ──────────────┐
+             ├─> Audience ─────────┐                                ├─> Messaging ─> Examples
+             └─> Alternatives ─────┴─> Positioning [Gate 2] ─> Value props, Claims ┘
+   Audience + Positioning ─> Voice [Gate 3] ─> Tone presets, Vocabulary
+   ```
+   The interviewer asks the required sections in this order. If an approved gate is edited, every section downstream of it is flagged **stale** and redrafted. Nothing is overwritten silently.
+3. **Drafter inputs.** Each drafter gets the section's evidence, the approved sections it depends on, and the section rules from §4. It returns text that cites evidence ids. Anything it can't cite is labelled "assumption".
+4. **Kit compilation.** Approved sections go into canonical JSON with sorted keys, which is hashed with SHA-256. Only the hash and ids go onchain. A new version gets a new hash, and existing posts keep the version they were made with.
+5. **Writer inputs for each post:**
+   - approved positioning, messaging and vocabulary
+   - the voice rule set
+   - the **claims allow-list** (only approved claims may state numbers)
+   - platform rules ([03](./research/03_platform_performance.md))
+   - the brief
+
+   The Critic checks the draft against the same inputs. Claims that aren't on the list are blocked, and terms on the avoid list are flagged.
+6. **Validation loop (coming soon).** Post performance and real customer interviews become new evidence. That evidence produces suggested kit updates, which go back through the gates.
+
+### 12.4 Infrastructure (open; settled in P0 and P1 of [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4))
+- **LLM gateway:** an OpenRouter free model by default, plus bring your own Claude or OpenAI key. Every call logs its prompt version.
+- **Storage:** Supabase for the evidence, kit and voice tables.
+- **Runtime:** ingest and agent runs probably on Cloudflare Queues or Workflows. The Workers free plan allows 10 ms of CPU per request, but time spent waiting on LLM calls doesn't count toward it. Still to be verified.
