@@ -32,6 +32,8 @@ The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose:
 | [.agentic/what/decisions/adr_002_purpose_build_run_prove.md](./.agentic/what/decisions/adr_002_purpose_build_run_prove.md) | accepted | ADR-002: purpose, "build your brand, run it, prove it" |
 | [.agentic/what/decisions/adr_003_superhub_business_model.md](./.agentic/what/decisions/adr_003_superhub_business_model.md) | accepted | ADR-003: superhub business model, principles, product map |
 | [.agentic/what/decisions/adr_004_docs_use_adna.md](./.agentic/what/decisions/adr_004_docs_use_adna.md) | accepted | ADR-004: docs use aDNA embedded form |
+| [.agentic/what/decisions/adr_005_ui_component_system.md](./.agentic/what/decisions/adr_005_ui_component_system.md) | proposed | ADR-005: UI in React on design tokens; components built slice by slice |
+| [.agentic/what/context/component_inventory.md](./.agentic/what/context/component_inventory.md) | proposed | UI component inventory, first slice per component, screen-to-component map |
 | [.agentic/what/context/compendium_2026_10_06.md](./.agentic/what/context/compendium_2026_10_06.md) | active | Decision compendium 2026-10-06 (v2); source for the PRD rewrite |
 | [.agentic/what/context/brand_builder_architecture.md](./.agentic/what/context/brand_builder_architecture.md) | accepted | Brand Builder architecture, data model and per-section input spec |
 | [.agentic/what/context/backend_map.md](./.agentic/what/context/backend_map.md) | proposed | Backend map: endpoints, data sources, jobs and external APIs per screen; architecture gaps |
@@ -51,6 +53,7 @@ The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose:
 | [.agentic/what/context/research/09_demo_brands.md](./.agentic/what/context/research/09_demo_brands.md) | active | Demo brands: public presence and what is ingested vs asked |
 | [.agentic/how/AGENTS.md](./.agentic/how/AGENTS.md) | active | What belongs in `how/` (process) |
 | [.agentic/how/missions/mission_hackathon_submission.md](./.agentic/how/missions/mission_hackathon_submission.md) | active | Mission: submit to Colosseum, phases A to E |
+| [.agentic/how/missions/mission_ui_build.md](./.agentic/how/missions/mission_ui_build.md) | proposed | Mission: UI build in timed chunks, slices S0 to S8 along the critical path |
 | [.agentic/how/backlog/backlog.md](./.agentic/how/backlog/backlog.md) | active | Product-map items with build tags |
 | [.agentic/how/templates/template_adr.md](./.agentic/how/templates/template_adr.md) | active | ADR template |
 | [.agentic/how/sessions/AGENTS.md](./.agentic/how/sessions/AGENTS.md) | active | Sessions folder (stub) |
