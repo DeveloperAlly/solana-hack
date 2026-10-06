@@ -49,7 +49,8 @@ export async function connections(req: Request, env: any) {}
 
 /**
  * Wallet link (ADR-006)   Screens: Amb-2, M-2, Settings › Connections, the Dashboard "Approve and pay" prompt.
- * POST /api/wallets/link {address}            → returns a one-time challenge message (nonce, user id, expiry), stored server-side.
+ * POST /api/wallets/link {address}            → returns a one-time challenge message (nonce, user id, address, expiry),
+ *        stored in wallet_challenges (schema.sql) so any Worker instance can verify it; expires after 5 minutes.
  * POST /api/wallets/link {address, signature} → verifies the ed25519 signature of the challenge against the address,
  *        consumes the nonce, upserts wallets(user_id, address, provider 'injected', verified_at); if the caller has no
  *        profiles.payout_wallet yet, sets it to this address.

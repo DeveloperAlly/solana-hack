@@ -70,7 +70,9 @@ export async function brandAmbassadors(req: Request, env: any) {}
  * auto-approve, UI review #12). Sets submissions.approved_by/at only. An approver's approval waits for an owner to pay.
  * POST /api/submissions/:id/reject {reason} → shown to the ambassador.
  *
- * POST /api/submissions/:id/pay     Auth: owner only (the payout wallet belongs to an owner, ADR-006).
+ * POST /api/submissions/:id/pay     Auth: owner only, and brands.payout_wallet must be a verified wallets row of the
+ *   caller (the caller has to sign with it). If it belongs to another owner: 409 {code: 'payout_wallet_not_yours'};
+ *   the Dashboard says which owner can pay, or lets the caller set their own verified wallet as the payout wallet.
  * Refused unless the submission is approved and verified. "Approve and pay" = approve then pay in one owner action.
  * Idempotent: at most one live payout per submission (unique partial index on payouts(submission_id) where status in
  *   ('pending','sent','confirmed'), schema.sql). A retry or double click returns the existing pending payout and its
@@ -85,18 +87,22 @@ export async function brandAmbassadors(req: Request, env: any) {}
  *      profiles.payout_wallet at this moment) and builds an UNSIGNED v0 transaction to exactly that to_address:
  *      getCreateAssociatedTokenIdempotentInstruction (recipient ATA) +
  *      getTransferCheckedInstruction({source, mint: USDC devnet 4zMMC9…DncDU, destination, authority: brand wallet,
- *      amount, decimals: 6 (TO VERIFY)}) + getAddMemoInstruction("wl1|payout|<submissionId>").
+ *      amount, decimals: 6 (TO VERIFY)}) + getAddMemoInstruction("wl1|payout|<payoutId>") (the payout row, not the submission,
+ *      so a replacement payout can never be confirmed by an earlier transaction). The server also stores the
+ *      blockhash's lastValidBlockHeight on the payout.
  *      Fee payer = the brand wallet = brands.payout_wallet (ADR-006).
  *   2. The browser has the brand's payout wallet sign and send it (injected provider, ADR-006).
  *   3. POST /api/payouts/:id/confirm {signature} → refused if the signature is already on another payout
  *      (payouts.tx_signature is unique). The server fetches the transaction on RPC (getTransaction) and requires all of:
  *      it succeeded; signer and fee payer = payouts.from_address; exactly one transferChecked under the SPL Token
  *      program with mint = devnet USDC, source = the ATA of from_address, destination = the ATA of to_address,
- *      amount = payouts.amount_usdc in base units; and the memo is exactly "wl1|payout|<submissionId>" for this
- *      payout's submission. Any mismatch → 'failed'. All pass → payouts.tx_signature set, status 'confirmed' →
+ *      amount = payouts.amount_usdc in base units; and the memo is exactly "wl1|payout|<payoutId>" for this
+ *      payout. Any mismatch → 'failed'. All pass → payouts.tx_signature set, status 'confirmed' →
  *      registrations(type 'content') for the ambassador post, with campaign_id.
  * Cap check: the server refuses to build if amount > remaining cap (offchain enforcement; escrow is roadmap).
- * Errors: transaction failed or not found → payouts 'failed' (Dashboard error state missing).
+ * Errors: transaction failed on chain → payouts 'failed'. Not found on RPC → stays 'sent' and is re-checked; it becomes
+ *   'failed' only once the current block height passes the stored lastValidBlockHeight (the transaction can no longer
+ *   land), so a delayed transaction is never replaced while it could still be confirmed. (Dashboard error state missing.)
  */
 export async function approveAndPay(req: Request, env: any) {}
 

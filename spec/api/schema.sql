@@ -52,6 +52,15 @@ create table public.wallets (                -- [NEW] g3/h: a connected wallet p
   primary key (user_id, address)
 );
 
+create table public.wallet_challenges (      -- [NEW] ADR-006: one-time signMessage challenges, shared by every Worker instance
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete cascade,
+  address text not null,                     -- the address the challenge was issued for
+  nonce text not null unique,                -- random, embedded in the message the wallet signs
+  expires_at timestamptz not null,           -- issued_at + 5 minutes
+  consumed_at timestamptz                    -- set atomically on successful verify; a consumed or expired row is refused
+);
+
 -- ---------- brand builder (sources, evidence, kit) ----------
 create table public.sources (                -- [§3] Source
   id uuid primary key default gen_random_uuid(),
@@ -210,6 +219,7 @@ create table public.payouts (                -- [NEW] g2
   amount_usdc numeric(12,2) not null,
   from_address text, to_address text,        -- to_address = the ambassador's profiles.payout_wallet when the payout is built (ADR-006)
   tx_signature text unique,                  -- one transaction confirms at most one payout
+  last_valid_block_height bigint,            -- from the blockhash used to build it; 'sent' becomes 'failed' only after this height
   status text default 'pending' check (status in ('pending','sent','confirmed','failed')),
   created_at timestamptz default now()
 );
