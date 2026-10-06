@@ -329,7 +329,7 @@ Decided: the voice model is research 06, 9 dimensions with claims strictness as 
 |---|---|---|
 | 1 | A slice can need screens that come from a later canvas rework batch (§8 names the batch per screen) | Each batch is drawn and signed off before the slice that needs it ([mission](../../how/missions/mission_ui_build.md) §3) |
 | 2 | Campaign v2 steps 2, 4, 5 and 6 have no artboards of their own | Draw them in canvas batch 5; S7 starts only once they are signed off, per the mission's entry rule. Building them from this inventory alone would need an owner-approved exception |
-| 3 | App framework: vinext is experimental ([InfoQ](https://infoq.com/news/2026/03/cloudflare-vinext-experimental)) | Library is framework-independent ([ADR-005](../decisions/adr_005_ui_component_system.md)); S0 runs a timed spike and records the choice (mission Q3) |
+| 3 | App framework | Resolved: Vite + React SPA on Cloudflare (owner, 2026-10-06; [ADR-005](../decisions/adr_005_ui_component_system.md)) |
 | 4 | Bring-your-own key storage is undecided (issue #4 P4) | D54 waits for the decision (mission Q4) |
 
 ## 10. DRY rules
