@@ -10,7 +10,7 @@
 
 ## What the research changed
 - **"Pay to write in a brand's voice" is dropped.** Nobody needs it; the founder's instinct is right.
-- **Voice is the whole brand, not tone.** It covers purpose, beliefs/POV, values, positioning, value propositions, audience, messaging, voice attributes, tone presets per context, vocabulary, claims with evidence, visual, audio and behaviour ([02](./research/02-brand-voice-elements.md)). Existing tools merge all of this into one generic \"voice\" blob, and they leave out beliefs, claims tied to evidence, and founder-vs-company voice.
+- **Voice is the whole brand, not tone.** It covers purpose, beliefs/POV, values, positioning, value propositions, audience, messaging, voice attributes, tone presets per context, vocabulary, claims with evidence, visual, audio and behaviour ([02](./research/02-brand-voice-elements.md)). Existing tools merge all of this into one generic "voice" blob, and they leave out beliefs, claims tied to evidence, and founder-vs-company voice.
 - **Cold start is solvable without data.** Run an interview-led workflow, 9 steps, all zero-data ([01](./research/01-brand-pillars.md)). No competitor runs strategy-first onboarding; they all need existing content ([04](./research/04-brand-hub-landscape.md)).
 - **What does well on each platform is now known**, and can be scored as rules ([03](./research/03-platform-performance.md)).
 - **Automation limits shape the product.**
