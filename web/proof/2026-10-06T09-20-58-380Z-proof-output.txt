@@ -1,0 +1,14 @@
+2026-10-06T09:20:58.381Z proof-s0 start; token action.primary.bg -> #00bb55; chromium from CHROMIUM_PATH or the default path
+2026-10-06T09:20:59.392Z build (original): exit 0
+2026-10-06T09:20:59.495Z vite preview ready at http://127.0.0.1:4173
+2026-10-06T09:21:00.209Z before: computed background-color of "Build my brand" = rgb(26, 26, 26); screenshot proof/2026-10-06T09-20-58-380Z-landing-before.png
+2026-10-06T09:21:00.427Z axe in chromium (/, colour contrast on): 0 violations, 29 rules passed 
+2026-10-06T09:21:00.427Z edit themes/wireframe.json: action.primary.bg "{color.neutral.900}" -> "#00bb55"
+2026-10-06T09:21:01.351Z build (edited): exit 0
+2026-10-06T09:21:01.556Z after: computed background-color of "Build my brand" = rgb(0, 187, 85); screenshot proof/2026-10-06T09-20-58-380Z-landing-after.png
+2026-10-06T09:21:01.556Z ASSERT PASS: background changed rgb(26, 26, 26) -> rgb(0, 187, 85)
+2026-10-06T09:21:01.557Z reverted themes/wireframe.json
+2026-10-06T09:21:02.548Z build (reverted): exit 0
+2026-10-06T09:21:02.644Z ASSERT PASS: reverted background = rgb(26, 26, 26)
+2026-10-06T09:21:03.206Z /system screenshot proof/2026-10-06T09-20-58-380Z-system.png
+2026-10-06T09:21:03.206Z proof-s0 PASS
