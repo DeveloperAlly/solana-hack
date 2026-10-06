@@ -77,7 +77,10 @@ export async function brandAmbassadors(req: Request, env: any) {}
  * Idempotent: at most one live payout per submission (unique partial index on payouts(submission_id) where status in
  *   ('pending','sent','confirmed'), schema.sql). A retry or double click returns the existing pending payout and its
  *   unsigned transaction instead of building a second one; a confirmed payout is refused with 409 already_paid.
- *   Only after a payout is 'failed' (step 3) can a new one be created.
+ *   Expiry check first: if a pending or sent payout's last_valid_block_height has passed, run the settle check below;
+ *   if no matching transaction landed, mark it 'failed' and build a fresh payout (new row, new blockhash). So a
+ *   cancelled wallet prompt or an expired transaction never leaves the submission unpayable.
+ *   A new payout is created only after the previous one is 'failed'.
  * Hackathon payment flow (G-WALLET decision):
  *   0. If brands.payout_wallet is null, refuse with 409 {code: 'payout_wallet_missing'}; the Dashboard then prompts
  *      the owner to link a wallet and set it (walletLink, then brandPayoutWallet in public_settings_inbox.ts).
@@ -97,12 +100,17 @@ export async function brandAmbassadors(req: Request, env: any) {}
  *      it succeeded; signer and fee payer = payouts.from_address; exactly one transferChecked under the SPL Token
  *      program with mint = devnet USDC, source = the ATA of from_address, destination = the ATA of to_address,
  *      amount = payouts.amount_usdc in base units; and the memo is exactly "wl1|payout|<payoutId>" for this
- *      payout. Any mismatch → 'failed'. All pass → payouts.tx_signature set, status 'confirmed' →
+ *      payout. A signature that is missing, unrelated or mismatched is refused (422) and the payout is NOT changed,
+ *      because the real transaction may still land. On success the payout moves 'pending' → 'sent' when the client
+ *      reports a signature, then → 'confirmed' with payouts.tx_signature set →
  *      registrations(type 'content') for the ambassador post, with campaign_id.
  * Cap check: the server refuses to build if amount > remaining cap (offchain enforcement; escrow is roadmap).
- * Errors: transaction failed on chain → payouts 'failed'. Not found on RPC → stays 'sent' and is re-checked; it becomes
- *   'failed' only once the current block height passes the stored lastValidBlockHeight (the transaction can no longer
- *   land), so a delayed transaction is never replaced while it could still be confirmed. (Dashboard error state missing.)
+ * Settle check (the only path to 'failed'): a payout becomes 'failed' only when (a) a transaction that matches this
+ *   payout (its memo and the checks above) is found on chain with an error, or (b) the current block height has passed
+ *   payouts.last_valid_block_height and getSignaturesForAddress(from_address) since the payout was created shows no
+ *   successful transaction carrying this payout's memo (if one is found, it is confirmed instead). A client request can
+ *   never fail a payout, so a delayed transaction is never replaced while it could still land. (Dashboard error state
+ *   missing.)
  */
 export async function approveAndPay(req: Request, env: any) {}
 
