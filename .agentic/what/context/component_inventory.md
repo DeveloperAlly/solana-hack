@@ -48,9 +48,9 @@ Components are built in the slice where a screen first needs them ([UI build mis
 | S2 Basics and ingest | P12–P15, P21, P22, P24; C7, C14; D11, D12 |
 | S3 Interview, gates, coverage | C6, C10; D13, D14, D15, D16, D17, D20, D51; M3, M4 |
 | S4 Kit v1 | C3, C11, C16, C25, C29; D18, D32, D49, D50; L1, L2, L3, L4, L8, D48; M8 |
-| S5 Create | P25, P27; C4, C5, C23; L9; D1–D9, D21–D23; M2, M5 |
+| S5 Create | P25, P27; C4, C5, C23; L9; D1–D10, D21–D23; M2, M5 |
 | S6 Prove | C12, C19, C20; D19, D30, D33, D34, D35, D52 |
-| S7 Grow | P19, P20, P26; C9, C15, C17, C18, C22, C24, C26, C27, C28; D10, D24–D29, D31, D40, D42, D47 |
+| S7 Grow | P19, P20, P26; C9, C15, C17, C18, C22, C24, C26, C27, C28; D24–D29, D31, D40, D42, D47 |
 | S8 Everything else | P9, P10, P16, P23, P28; L7; D38, D39, D41, D43–D46, D53, D54, D55 |
 
 ## 2. Layer 0: design tokens and themes
