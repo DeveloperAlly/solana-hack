@@ -4,108 +4,125 @@ status: proposed
 created: 2026-10-06
 updated: 2026-10-06
 last_edited_by: agent
-tags: [mission, ui, build, components, design-tokens]
+tags: [mission, ui, build, components, design-tokens, proof-driven-delivery]
 ---
-> **Status: proposed.** Phased plan to identify the UI component system and build Waterlily on it. Live progress goes in [STATE.md](../../../STATE.md), not here.
+> **Status: proposed.** Plan to build the Waterlily UI in React, slice by slice along the critical path, each slice proven on the deployed site. Live progress goes in [STATE.md](../../../STATE.md), not here.
 
-# Mission: UI component system and build
+# Mission: UI build
 
-**Parent:** [hackathon submission](./mission_hackathon_submission.md), phase D (build). This is the **UI track of the build plan in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4)**. Issue #4 stays the canonical checklist and owns the system side (agents, LLM gateway, connectors, registrar); this mission owns the component library and screens those phases need.
+**Parent:** [hackathon submission](./mission_hackathon_submission.md), phase D (build). This is the **UI track of the build plan in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4)**, which stays the canonical checklist and the tracking issue. Issue #4 owns the system side (agents, LLM gateway, connectors, registrar); this mission owns the screens and components those phases need.
 **Approach:** [ADR-005](../../what/decisions/adr_005_ui_component_system.md) (proposed).
-**Component list:** [component inventory](../../what/context/component_inventory.md) (proposed).
-**Scope tags:** [backlog](../backlog/backlog.md).
+**Component list:** [component inventory](../../what/context/component_inventory.md) (proposed); §8 maps every screen to its components and its slice.
+**Reference design:** the wireframe canvas ([links](../../what/context/links.md)). The canvas is the spec; a slice is built only from screens that are drawn and signed off.
 **Deadline:** Oct 12, 11:59pm PT ([mission](./mission_hackathon_submission.md)). Waterlily's own kit v1 is due by Oct 9 ([STATE](../../../STATE.md)).
 
-## How the work runs
-- Every phase is split into **short timed tasks** (30–120 minutes). Each task has a timebox, a deliverable and a check. Running over a timebox is reported, not absorbed.
-- Each phase ends at a **gate**. **Owner gates** (G1, G2, G7, G9) need the owner's sign-off before the next phase starts, matching the repo's phase discipline ([mission](./mission_hackathon_submission.md)). **Check gates** (G3–G6, G8) pass automatically when the listed checks are green, so dependent work is not held for a sign-off.
-- **Parallel work follows the layer dependencies** in the [inventory](../../what/context/component_inventory.md) §1, never ahead of them:
-  - B1 (primitives) and B3 config and types (M1–M8, no UI dependencies) run in parallel after G2.
-  - B2 (composites) starts per component once the primitives it uses pass G3; L shells in B3 start once their composites pass.
-  - B4 (domain) starts per component once every component it lists (for example D20 needs C6, C26 and M3) has passed its gate.
-  - The same rule applies inside a layer: a component starts once the same-layer components it composes have passed (for example D1 ApprovalItem after D2, D3 and D9; D5 DraftEditor after D6). Components with no same-layer dependencies can be split across parallel background agents.
-  - Each component passes its own check when its definition of done is met; a layer's gate (G3–G6) passes when all its components have.
-  - **Optional parts are slots, not dependencies.** When a component only optionally shows another (for example D10 PostPreview's watermark, which D46 provides), it exposes a typed slot and is done without it; the later component plugs in. Only required composition creates an ordering dependency.
-  - **B5 screens start per screen**, once every component that screen composes ([inventory](../../what/context/component_inventory.md) §8) has passed. G6 (whole domain layer) closes when its last component passes, so screens and the remaining domain components can overlap.
-  - **G7 is signed off per screen group** as each group lands (see the calendar). B6 wiring for a group starts only after that group's sign-off; G7 is complete when the last group is signed off.
+## 1. How the work runs
+The method is proof-driven delivery: done means every requirement has a proof on the deployed site, not that code exists.
+- **Timed chunks.** Every slice is split into chunks of 5 minutes or less. Each chunk names its visible output, pass criteria, maximum tool calls and fallback. The riskiest chunk goes first.
+- **Real clock.** Each status message opens with `[T+mm:ss | chunk n/N: name | budget left mm:ss]`, computed from a real time source.
+- **PASS or FAILED.** A chunk without its named output is FAILED, never "in progress". A chunk that hits its time or call limit stops, reports its exact state and proposes the next move.
+- **Proof on the live site.** Each slice's done-when check (§4) runs against the deployed URL, with raw output and a timestamp posted to [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4).
+- **Critical path first, in batches** (owner, 2026-10-06): batch A is S0–S4, batch B is S5–S6, batch C is S7–S8. The owner signs off each batch on the deployed site before the next batch starts.
+- **Components are built when a screen first needs them** (owner, 2026-10-06), not as a library up front. The inventory is the checklist that keeps them DRY; each component's first slice is listed in [inventory §1b](../../what/context/component_inventory.md#1b-first-slice-per-component).
+- **No durations without measurements.** Chunk timings come from measured S0 chunks. Dates below are deadlines from issue #4, not estimates.
 
-## Part 1: Identify the system components
+## 2. Frozen requirements (owner's words)
+Numbered, verbatim, with sources. The owner confirms this list is complete before S0 runs. Owner chat requests are recorded in [PR #5](https://github.com/DeveloperAlly/solana-hack/pull/5).
 
-| # | Task | Timebox | Deliverable | Check |
-|---|---|---|---|---|
-| 1.1 | Inventory from the wireframes (v1 and v2 canvas) | 60 min | [Inventory](../../what/context/component_inventory.md) §2–§6 | Every artboard decomposed |
-| 1.2 | Inventory from the Brand Builder architecture, backlog and research 06 / 07 | 45 min | Inventory D11–D19, M1–M8 | Every hackathon backlog item has components |
-| 1.3 | Merge duplicates; assign each component one layer | 30 min | Inventory §3–§6 | No concept appears twice |
-| 1.4 | Screen-to-component map | 30 min | Inventory §8 | Every hackathon screen maps only to inventory items |
-| 1.5 | List gaps and decisions | 15 min | Inventory §9 | Each gap has a proposal |
-| 1.6 | **Gate G1:** owner reviews inventory, ADR-005 and this plan | Owner | Sign-off or changes | Gaps 1 and 2 decided; the framework spike (gap 6) approved to run first in B0 |
-
-**Part 1 success metrics**
-- 100% of hackathon-tagged screens mapped to inventory components (measured in inventory §8).
-- 0 screen-specific components outside the domain layer.
-- Each component lists variants, states and users.
-- The most-shared pattern (ApprovalItem) is used by at least 6 screens.
-
-## Part 2: Build to a phased spec
-Each component is built against this spec template, kept next to its code and shown in the workbench:
-
-```
-Component: <name> (<ID>)   Layer: <T/P/C/L/D>
-Purpose: <one line>
-Props: <typed list; required marked>
-Variants: <list>
-States: <list, incl. loading / empty / error where relevant>
-Tokens used: <semantic tokens only>
-Accessibility: <role, keyboard, labels, contrast notes>
-Used by: <screens / components>
-Tests: <render per variant, interaction, axe>
-```
-
-**Definition of done (every component)**
-1. In the workbench with every variant and state.
-2. Uses semantic tokens only (CI check passes).
-3. Keyboard operable; visible focus; labelled; axe reports 0 violations.
-4. Unit test per variant plus one interaction test where interactive.
-5. Props typed and documented.
-
-### Phases
-
-| Phase | Builds (inventory IDs) | Est. | Gate and acceptance |
-|---|---|---|---|
-| **B0 Foundations** | Repo scaffold; app framework spike (vinext vs Vite SPA, 60 min); token files T1–T12; token build to CSS variables + TypeScript names; ThemeProvider; `wireframe` theme; workbench shell and **theme editor** at `/system`; CI checks (lint, types, tests, axe, no raw style values, no stylesheets in `screens/`) | 4 h | **G2:** framework choice recorded from the spike (gap 6); changing one semantic token in the theme editor visibly updates every workbench item; a new theme file appears in the switcher with no other code change; contrast check runs on every theme; all CI checks green |
-| **B1 Primitives** | P1–P28 | 4 h | **G3:** all primitives meet the definition of done |
-| **B2 Composites** | C1–C28 | 6 h | **G4:** all composites meet the definition of done |
-| **B3 Shells and config** | L1–L10; M1 routes and nav (with tags), M2 channels, M3 voice model, M4 kit sections, M5 checks, M6 types, M7 mock adapter + fixtures (4 demo brands), M8 formatters | 4 h | **G5:** every route in M1 renders inside its shell (placeholder body); nav, sub-nav, mobile tab bar and tag badges come from config only |
-| **B4 Domain patterns** | Approval family D1–D10 first, then D32 ReceiptLink, D36 OfficialStatus and D37 DnsRecordCard (D18 and the onboarding screens use them), then Brand Builder D11–D23 and D49 KitExport, campaigns D24–D31, the rest of proof D33–D35; inbox and experimental D38–D48 last | 8 h | **G6:** D1 renders all six kinds from fixtures; D20 renders both voice dimension sets from config without code change |
-| **B5 Screens (hackathon tag)** | Brand Builder flow (first, because kit v1 is due Oct 9), including the aDNA kit export (D49, thin: download); Voices; Content dashboard + Draft review; Campaign v2; Engage queue; Ambassadors + payout flow (desktop and mobile); Claims with evidence (D19, thin); Landing (Main; copy to be rewritten for the hub model); Verify; Ledger; Official registry; Hub home | 6 h | **G7:** every hackathon screen built from library only, on mock data; every hackathon-tagged flow on the canvas is clickable end to end, including error states via the demo state switcher (C28). Experimental, coming-soon and roadmap flows are checked at G9 |
-| **B6 Wire to live services** | Live adapter behind M7, calling the services built in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P4 (agents, polish), P5 (publish) and P6 (registry, verify, ledger, payout). Building those services is issue #4's scope, not this mission's | 3 h | **G8:** the demo path runs on live data; no screen code changed when switching mock to live |
-| **B7 Brand, remaining screens, ship** | `waterlily` theme from the brand work; coming-soon / roadmap / experimental screens as static compositions; deploy; demo recording states | 3 h | **G9:** theme switch to `waterlily` needs no component edits; experimental, coming-soon and roadmap screens render from the library (static where tagged); deployed URL works; demo path recorded |
-
-**Estimated total for the UI track: about 38 hours** (B0–B7 above), on top of the system work in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P4–P6. The PRD's build budget is 23 hours for everything ([issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2) §13), written for the smaller licensing-era scope. To fit the deadline:
-- run each layer across parallel background agents, in the dependency order above, and
-- if still short, cut in this order: inbox / analytics / engagement-rules screens to static "coming soon" (already the backlog tag), then experimental screens to static, then mobile ambassador screens to responsive desktop only.
-
-### Alignment with issue #4 and proposed calendar (owner to confirm)
-| Date | Issue #4 phase | This mission | Gate |
-|---|---|---|---|
-| Tue Oct 6 | P0 PRD and gap research | G1 sign-off; B0 foundations | G2 |
-| Wed Oct 7 | P1 system map; P2 and P3 start | B1 and B3 config in parallel; then B2 and B3 shells as their dependencies pass; then B4 approval family (D1–D10), D32, D36, D37, Brand Builder (D11–D23) and D49, because P2 and P3 need them | G3–G5 |
-| Thu Oct 8 | P2 questionnaire UI; P3 voices; P4 agents | B5 questionnaire, voice and kit-export screens on mock data (their components passed Wednesday); owner signs off this group, then B6 wires it to P4 as P4 lands; in parallel, B4 remainder D24–D31, D33–D35, D38–D48 | G6; G7 group 1 |
-| Fri Oct 9 | P4; P7 kit v1 | Kit v1 through the product; B5 content dashboard, draft review, campaign v2 (all six steps), engage queue, claims, hub home, landing; sign-off, then B6 wiring for this group | G7 group 2 |
-| Sat Oct 10 | P5 accounts; P6 proof layer | B5 publish, verify, ledger, registry, payout and ambassador screens; sign-off, then B6 wiring for this group | G7 group 3 (G7 complete); G8 |
-| Sun Oct 11 | P7 demo flow | B7 theme, static coming-soon screens, deploy | G9 |
-| Mon Oct 12 | Mission phase E | Videos and submission ([mission](./mission_hackathon_submission.md)) | Submitted |
-
-**G7 screen groups** (every hackathon screen in the [inventory](../../what/context/component_inventory.md) §8 belongs to exactly one group):
-| Group | Day | Screens |
+**From the owner (chat, 2026-10-06):**
+| # | Requirement | Source |
 |---|---|---|
-| 1 | Thu Oct 8 | Brand Builder (intake, interview, coverage, gates); Brand-Build with kit export; Onboard-1-SignIn; Onboard-2-Domain / 2b; Onboard-3-Sources / 3b; Onboard-4-VoicePack; Onboard-6-Published; Voice-Templates; Voice-Editor |
-| 2 | Fri Oct 9 | Content-Dashboard / Empty; Draft-Review; Campaign v2 steps 1–6; Engage-Queue; Claims; Hub-Home; Main (landing) |
-| 3 | Sat Oct 10 | Dashboard (Grow > Ambassadors) / Empty; Amb-1 to Amb-5 with mobile M-1 to M-5; Verify-1/2/3; Ledger; Official registry |
+| R1 | "Its essential you first break it down into repeatable, reusable DRY components." | Owner chat, PR #5 |
+| R2 | "I want to see the full component items before we start building." | Owner chat, PR #5 (met by the [inventory](../../what/context/component_inventory.md)) |
+| R3 | "It should be built in react." | Owner chat, PR #5 |
+| R4 | "It should allow us to easily CREATE / CHANGE the style elements (eg colours etc.)" | Owner chat, PR #5 |
+| R5 | "Landing page should be based on what the clearest value prop is -> build your brand and start creating content. Land -> build brand -> branding" | Owner chat, 2026-10-06 |
+| R6 | "yes buld components as needed" | Owner chat, 2026-10-06 |
+| R7 | "start on critical path screens first and do in batches" | Owner chat, 2026-10-06 |
+| R8 | "all items should require human review" | Owner chat, 2026-10-06 ([ADR-003](../../what/decisions/adr_003_superhub_business_model.md) principle 1) |
+| R9 | "all posts will be run through no-ai-slop skills before a human sees them." | Owner chat, 2026-10-06 ([ADR-003](../../what/decisions/adr_003_superhub_business_model.md) principle 2) |
 
-**Relation to issue #4 P1:** P1 maps the **system** components (workers, agents, LLM gateway, stores, registrar). The [component inventory](../../what/context/component_inventory.md) maps the **UI** components. They meet at the data adapters (M7) and domain types (M6), which should use the same names as P1's map.
+**From the canvas rework brief (owner, 2026-10-06):**
+| # | Requirement | Source |
+|---|---|---|
+| R10 | "Keep the existing look: ink-only greyscale, system-ui, the shared classes (.nav .box .btn .btn2 .chip .in .tbl), 44px touch targets, and real buttons, links and labels." | Canvas brief, Rules |
+| R11 | "Keep the top nav: Home / Inbox / Brand / Create / Grow / Analytics / Ledger, plus the brand switcher." | Canvas brief, Rules |
+| R12 | "The brand switcher lists: Waterlily, aDNA, film.fun, GamersLab." | Canvas brief, Rules |
+| R13 | "Don't invent stats or claims. Put sample figures in [brackets] or mark them with a "Sample data" chip." | Canvas brief, Rules |
+| R14 | "Brand Builder intake, about 15 minutes of owner time, with a progress indicator and skip / save and resume on every step" (6 steps, 3 gates, as listed in the brief) | Canvas brief, Add |
+| R15 | "every hub screen needs empty, loading, success and error states" | Canvas brief, Add |
+| R16 | "No active screen mentions licensing." | Canvas brief, Done when |
+| R17 | "landing → sign in → intake 1–6 with gates → coverage map → kit v1 registered → new draft → polish → approve → verify" | Canvas brief, Done when (Play walkthrough) |
 
-## Proposed code layout
+**From issue #4 (definition of done and acceptance):**
+| # | Requirement | Source |
+|---|---|---|
+| R18 | "A new brand can go from intake to an approved kit v1 with a hash registered on Solana devnet, in **15 minutes of owner time or less**" | [Issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4), definition of done |
+| R19 | "Waterlily's own kit v1 is built with the product, and one launch post goes through polish, approval, registration and verify." | Issue #4, definition of done |
+| R20 | "A semi-established brand (film.fun) gets no question that its ingested sources already answer." | Issue #4, P2 acceptance |
+| R21 | "Every polish action is reversible." | Issue #4, P4 acceptance |
+| R22 | "Tokens are never exposed to the browser beyond the OAuth flow." | Issue #4, P5 acceptance |
+| R23 | "Verify returns the correct result for one registered post and one altered post." / "Every transaction links to an explorer." | Issue #4, P6 acceptance |
+| R24 | "The full demo story runs without manual database edits." | Issue #4, P7 acceptance |
+
+**Non-functional (from the repo):**
+| # | Requirement | Source |
+|---|---|---|
+| R25 | Deadline Oct 12, 11:59pm PT; Waterlily kit v1 by Oct 9 | [STATE](../../../STATE.md) |
+| R26 | Sign in: "Email and a 6-digit code. An embedded wallet (Phantom Connect) is created; no seed phrase, no extension" | [Architecture §12.1](../../what/context/brand_builder_architecture.md#121-user-flow), step 0 |
+| R27 | "Only hashes and ids go onchain. Content stays offchain." Registration on Solana devnet | [Architecture §7](../../what/context/brand_builder_architecture.md#7-proof-layer-what-gets-registered-when), §12.1 step 7 |
+| R28 | "Public-repo firewall. Never reference private repositories, private vaults, local paths, personal data or secrets." | [AGENTS.md](../../../AGENTS.md) rule 5 |
+| R29 | "Demo content is SFW" | [ADR-003](../../what/decisions/adr_003_superhub_business_model.md) principle 6 |
+| R30 | Hosting: "Cloudflare Workers on **waterlily.ai** (fallback waterlily.world)"; storage: "Supabase for the evidence, kit and voice tables" (both still to verify in P0) | [Issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2) PRD v2.1; [architecture §12.4](../../what/context/brand_builder_architecture.md#124-infrastructure-open-settled-in-p0-and-p1-of-issue-4) |
+| R31 | Default model is an OpenRouter free model, plus bring-your-own Claude or OpenAI key | Architecture §12.4; issue #4 P4 |
+
+### Open questions (owner to resolve before the slice that needs them)
+| # | Question | Conflict found | Needed by |
+|---|---|---|---|
+| Q1 | Where does the coverage map sit? | Architecture §12.1 puts it at step 4, before the interview; the canvas draws it after intake | S3 |
+| Q2 | Is one paid quest in the demo, or are quests coming soon? | ADR-002 hackathon cut, compendium §4 and issue #4 P7 include one paid quest; ADR-003, the backlog and the canvas brief tag quests "coming soon" | S7 |
+| Q3 | App framework: vinext (as the PRD plans) or a Vite + React SPA on Cloudflare? | vinext is experimental ([ADR-005](../../what/decisions/adr_005_ui_component_system.md)); S0 runs a timed spike and records the choice | S0 |
+| Q4 | Bring-your-own keys: browser only, or encrypted on the server? | Open decision in issue #4 P4 | S8 |
+| Q5 | Where do live checks run, and who adds the credentials? | This workspace cannot reach Cloudflare, Supabase or Solana devnet (connection refused by network policy, checked 2026-10-06). Proposal: deploy and run Playwright checks from GitHub Actions; the owner adds the deploy and database secrets to the repo's Actions secrets | S0 |
+| Q6 | One walkthrough brand or two? | The canvas intake uses Waterlily and the hub screens use aDNA | S1 |
+| Q7 | Can a slice pass on mock data while its issue #4 service is not live? | Slices S3–S7 depend on P4–P6 services. Proposal: such a slice is marked **PASS (mock)** and re-proven on live data before its batch is signed off | S3 |
+| Q8 | Where does the evidence file live? | The method asks for a dated evidence file in the repo; no evidence folder exists yet. Proposal: `.agentic/how/evidence/`, created in S0 | S0 |
+
+## 3. Batches and canvas readiness
+A batch starts only when its canvas screens are drawn and signed off; which are done is tracked in [STATE.md](../../../STATE.md).
+
+| Batch | Slices | Deadline | Canvas screens needed | Canvas rework batch |
+|---|---|---|---|---|
+| A | S0–S4 | Oct 9 (kit v1) | Landing; sign in and domain; intake 1–6 and gates; ingest; coverage map; kit v1 and its failure; Brand-Build; export | 1, plus the landing |
+| B | S5–S6 | Oct 10 | Voices; Draft-Review with polish; Settings: publishing; Verify; Ledger; Claims | 2–4 |
+| C | S7–S8 | Oct 11 | Campaign v2; ambassadors; reply queue; Hub-Home; every coming soon, experimental and roadmap screen; states | 5 (states and tags); ambassador and campaign screens exist from earlier canvas pages |
+
+## 4. Slices
+Each slice is deployed, then its done-when check runs on the deployed URL. The components each slice builds first are listed once, in [inventory §1b](../../what/context/component_inventory.md#1b-first-slice-per-component).
+
+| Slice | Screens (canvas names) | Done when (on the deployed site) | Depends on |
+|---|---|---|---|
+| **S0 Preflight** (riskiest first) | none | (1) a blank app is deployed and loads from a GitHub Actions Playwright run; (2) email sign-in creates an embedded wallet; (3) one devnet memo is written and its explorer link resolves; (4) changing one token value changes the page | Q3, Q5, Q8; deploy and database credentials from the owner |
+| **S1 Land and sign in** | Main; Onboard-1-SignIn; Onboard-2-Domain; Onboard-2b-DomainFailed | "Build my brand" reaches intake step 1; skipping the domain shows the Unverified flag; a wrong code shows its error | S0 |
+| **S2 Basics and ingest** | BB-1-Basics; Onboard-3-Sources; Onboard-3b-Profiling; Ingest-Error | Basics survive a reload; one real URL is read with progress per source; a failing URL shows Retry and Skip | S1; issue #4 P4 ingest (else PASS (mock), Q7) |
+| **S3 Interview, gates, coverage** | BB-2 to BB-6; BB-Gate1/2/3; Coverage-Map | Every step can be skipped and resumed; each gate records who, when and why; the coverage map shows E / I / M per section, with sources | S2; issue #4 P4 drafters; Q1 |
+| **S4 Kit v1** | Onboard-6-Published; Kit-RegisterFailed; Brand-Build; Kit-Export | **Waterlily's kit v1 is approved, its hash is registered on devnet, the explorer link resolves, and the aDNA zip downloads** (R18) | S3; issue #4 P6 registrar |
+| **S5 Create** | Voice-Templates; Voice-Editor; Draft-Review; Content-Dashboard / Empty | One post is drafted in a voice, passes the slop check, shows voice-fit and platform scores, and every polish action undoes (R21) | Batch A signed off; canvas batch 2; issue #4 P3, P4 |
+| **S6 Prove** | Settings: publishing; Verify-1/2/3; Ledger; Claims / Empty; official registry | The approved post is published or pasted back by URL, its hash registered; Verify says official for it and flags an edited copy (R23); the ledger groups registrations by type | S5; canvas batches 3–4; issue #4 P5, P6 |
+| **S7 Grow** | Campaign v2 steps; Dashboard (Ambassadors) / Empty; Amb-*; M-*; Engage-Queue; Hub-Home | One ambassador post is verified and paid in USDC on devnet, with an explorer link; the reply queue approves one reply | Batch B signed off; Q2; issue #4 P6 payout |
+| **S8 Everything else** | Inbox-*; Engage-Rules; Partners; Leads; Influencer-*; Analytics / Empty; Quests; Settings: AI model, plan and seats; every remaining state | Every canvas page renders with its tag and four states (R15); no active screen mentions licensing (R16); a theme change is one file edit (R4) | Canvas batch 5; Q4 |
+
+**Critical-path proof (end of batch B):** the R17 walkthrough runs on the deployed site from landing to verify, recorded by an Actions Playwright run.
+
+## 5. Component definition of done
+Built in the slice where a screen first needs it, in the same change:
+1. Uses semantic tokens only (CI check).
+2. Has a workbench entry at `/system` with every variant and state it supports so far.
+3. Keyboard operable, visible focus, labelled; axe reports 0 violations.
+4. Typed props; one render test per variant, plus one interaction test if interactive.
+5. A later slice that needs a new variant adds it as a prop, never a copy ([inventory §10](../../what/context/component_inventory.md#10-dry-rules)).
+
+## 6. Proposed code layout
 ```
 web/
   src/
@@ -121,17 +138,17 @@ web/
     screens/       one folder per area; composition only, no stylesheets
     system/        workbench and theme editor (/system)
 ```
-Each component folder holds `Component.tsx`, `Component.module.css`, `Component.test.tsx` and `Component.examples.tsx` (its workbench entry and spec).
 
-## Overall success metrics
+## 7. Success metrics
 | Metric | Target | How measured |
 |---|---|---|
+| Critical path | R17 walkthrough passes on the deployed site | Actions Playwright run, end of batch B |
+| Kit v1 | Waterlily kit v1 registered on devnet by Oct 9 | Explorer link in issue #4 |
+| Change a colour | 1 edit in one token file | Workbench theme editor, S0 and S8 |
 | Raw style values outside `tokens/` | 0 | CI check |
 | Stylesheets in `screens/` | 0 | CI check |
-| Change a colour | 1 edit in one token file | Theme editor demo |
-| Create a theme | 1 new JSON file, no code change | Add `waterlily` in B7 |
-| Contrast | Every theme passes text 4.5:1, large text and UI components 3:1 ([WCAG 2.2 SC 1.4.3](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum), [SC 1.4.11](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast)) | Automatic check in workbench and CI |
-| Accessibility | 0 axe violations on workbench and hackathon screens | CI |
-| Reuse | ApprovalItem used by 6+ screens; no duplicated organism markup | Inventory §8 and code review |
-| Mock to live | 0 screen edits when the live adapter replaces mocks | Diff of `screens/` in B6 |
-| Flows | Every canvas flow clickable, including error states | Hackathon flows at G7; the rest at G9 |
+| Contrast | Text 4.5:1; large text and UI components 3:1 ([WCAG 2.2 SC 1.4.3](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum), [SC 1.4.11](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast)) | Workbench and CI |
+| Accessibility | 0 axe violations on every built screen | CI |
+| Licensing | 0 active screens mention licensing | Text check in CI |
+| Mock to live | 0 screen edits when a live adapter replaces a mock | Diff of `screens/` |
+| Deployed equals repo | Deployed bundle hash matches the build from the merged commit | Check after each deploy |

@@ -6,11 +6,11 @@ updated: 2026-10-06
 last_edited_by: agent
 tags: [ui, components, design-tokens, inventory, dry]
 ---
-> **Status: proposed.** Full inventory of reusable UI components for Waterlily, with every screen mapped to them. Reviewed at gate G1 of the [UI build mission](../../how/missions/mission_ui_build.md); progress is in [STATE.md](../../../STATE.md).
+> **Status: proposed.** Full inventory of reusable UI components for Waterlily, with every screen mapped to its components and its build slice. Components are built in the slice where a screen first needs them ([UI build mission](../../how/missions/mission_ui_build.md)); progress is in [STATE.md](../../../STATE.md).
 
 # Component inventory
 
-**Sources:** the wireframes (v2 canvas, "Superhub (v2)" page plus the v1 pages, [links](./links.md)), the [Brand Builder architecture](./brand_builder_architecture.md), the [backlog](../../how/backlog/backlog.md), [research 06](./research/06_voice_templates.md) (voice model) and [research 07](./research/07_gamerslab_leadfinder.md) (lead-finder UI reuse). Approach: [ADR-005](../decisions/adr_005_ui_component_system.md).
+**Sources:** the wireframe canvas as reworked on 2026-10-06 (Brand Builder page, landing, hub pages; [links](./links.md)), the [Brand Builder architecture](./brand_builder_architecture.md), the [backlog](../../how/backlog/backlog.md), [research 06](./research/06_voice_templates.md) (voice model) and [research 07](./research/07_gamerslab_leadfinder.md) (lead-finder UI reuse). Approach: [ADR-005](../decisions/adr_005_ui_component_system.md).
 
 ## Contents
 1. [How to read this](#1-how-to-read-this)
@@ -34,9 +34,24 @@ tags: [ui, components, design-tokens, inventory, dry]
 | Tag | Components |
 |---|---|
 | E | D44 LeadRow / ScoreBadge / ConfidenceChip, D45 PersonaSetup, D46 WatermarkOverlay |
-| CS | L7 SplitPane, D38 MessageRow, D39 ThreadView, D41 SourceConnectionRow |
+| CS | L7 SplitPane, D38 MessageRow, D39 ThreadView, D41 SourceConnectionRow, D53 QuestCard |
 | R | D43 RuleRow |
-| Parked | C21 SplitBreakdown (licensing split; kept for a possible revival) |
+| Removed | C21 SplitBreakdown: licensing fee splits are dropped ([ADR-003](../decisions/adr_003_superhub_business_model.md)). Not built; budget allocation uses D25 BudgetBar |
+
+## 1b. First slice per component
+Components are built in the slice where a screen first needs them ([UI build mission](../../how/missions/mission_ui_build.md) §4), not as a library up front. A later slice that needs a new variant adds a prop to the existing component.
+
+| Slice | Built first in this slice |
+|---|---|
+| S0 Preflight | T1–T12 tokens and the `wireframe` theme; M1 routes; L10 PublicShell; workbench and theme editor at `/system` |
+| S1 Land and sign in | P1–P8, P11, P17, P18; C1, C2, C8, C13; L6; D36, D37 |
+| S2 Basics and ingest | P12–P15, P21, P22, P24; C14; D11, D12; M6, M7 |
+| S3 Interview, gates, coverage | C6, C7, C10; D13, D14, D15, D16, D17, D51; M3, M4 |
+| S4 Kit v1 | C11, C25; D18, D32, D49, D50; L1, L2, L3, L8, D48 |
+| S5 Create | P25, P27; C4, C5, C23, C29; D1–D7, D9, D20–D23; M2, M5 |
+| S6 Prove | C3, C19; D19, D30, D33, D34, D35, D52; M8 |
+| S7 Grow | P19, P20, P26; C9, C12, C15–C18, C20, C24, C26, C27, C28; L4, L5, L9; D8, D10, D24–D29, D31, D40, D42, D47 |
+| S8 Everything else | P9, P10, P16, P23, P28; C22; L7; D38, D39, D41, D43–D46, D53, D54, D55 |
 
 ## 2. Layer 0: design tokens and themes
 Components read only **semantic** tokens. Themes remap semantic tokens to primitive values.
@@ -59,8 +74,8 @@ Components read only **semantic** tokens. Themes remap semantic tokens to primit
 **Themes**
 | Theme | Purpose | When |
 |---|---|---|
-| `wireframe` | Grayscale, matches the canvas; lets the build start now | B0 |
-| `waterlily` | The brand identity, once ratified | B7 |
+| `wireframe` | Grayscale, matches the canvas; lets the build start now | S0 |
+| `waterlily` | The brand identity, once ratified | S8 |
 | `dark` | Optional | After the hackathon |
 
 Creating a theme = one JSON file in `tokens/themes/`. Every theme must pass the automatic contrast check: text 4.5:1 and large text 3:1 ([WCAG 2.2 SC 1.4.3](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum)); UI components and graphical objects 3:1 ([SC 1.4.11](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast)).
@@ -124,13 +139,14 @@ Generic combinations; still no Waterlily data types.
 | C18 | Sheet | bottom sheet on mobile, side panel on desktop | open | mobile flags, receipt details |
 | C19 | Toast | success / error; undo action | n/a | approve, send, copy |
 | C20 | LoadMore | count shown / total | loading | ledger, inbox |
-| C21 | SplitBreakdown | legs `[{label, pct, amount}]` + bar | n/a | payment splits (parked licensing), budget allocation |
+| C21 | SplitBreakdown | removed: licensing fee splits are dropped; not built | n/a | none |
 | C22 | BarList | label, bar, value rows | loading | analytics breakdowns |
 | C23 | DiffView | inline (del / ins) and side by side | n/a | slop fixes, polish actions, verify "edited" |
 | C24 | TimeChip | relative time, countdown, overdue | overdue | campaigns, needs reply |
 | C25 | EditableSection | title, state badge, Edit / Regenerate actions, citations slot | view, editing, regenerating | brand pack sections, kit sections |
 | C26 | LockedSetting | disabled control + reason | n/a | influencer disclosure, policy gates |
 | C27 | ListEditor | add, remove, reorder items | n/a | pillars, vocabulary, facts to include |
+| C29 | StatePanel | loading / error / success panel for a whole screen or section; title, body, retry or next action; pairs with C3 EmptyState so every hub screen has four states | n/a | every hub screen (R15 in the mission) |
 | C28 | DemoStateSwitcher | jump between screen states; hidden outside demo mode | n/a | demo and video recording (replaces the wireframe "Prototype" notes) |
 
 ## 5. Layer 3: shells and layouts
@@ -141,7 +157,7 @@ Generic combinations; still no Waterlily data types.
 | L3 | SubNav | children of the active section | active item, hidden (section has no children) | AppShell |
 | L4 | MobileTabBar | items from route config | active item | AppShell on mobile, ambassador mobile |
 | L5 | PageHeader | back link, title, meta line, status badges, actions | actions wrap on narrow screens | all screens |
-| L6 | WizardLayout | Stepper, body, footer (Back / Next / Save and exit) | first step, middle, last step, resumed (opens at last saved step), saving, step error | onboarding, Brand Builder, campaign v2, (parked) studio |
+| L6 | WizardLayout | Stepper (C8) with time estimate ("about 15 minutes in all"), body, footer (Back / Skip for now / Continue), "Save and finish later" in the header, Unverified flag slot (D36) | first step, middle, last step, resumed (opens at last saved step), saving, step error | sign in and domain, Brand Builder intake and gates, campaign v2 |
 | L7 | SplitPane | rail + list + reader | three panes (desktop), list only and reader only (mobile), empty reader | inbox |
 | L8 | SideRail | section list with state markers; also used as TOC | active item, collapsed into a select on mobile | Build your brand, inbox rail |
 | L9 | TwoColumn | main + aside | side by side, stacked (aside under main) | most hub screens |
@@ -168,19 +184,21 @@ Know Waterlily data types (M6). Grouped by area.
 | ID | Component | Variants and props | States | Used by |
 |---|---|---|---|---|
 | D11 | IntakeForm | minimum viable intake form (architecture §5 step 1) | n/a | Brand Builder (no wireframe yet) |
-| D12 | SourceList | rows: source, kind, status done / reading / failed (Retry, Skip) | per row | Onboard-3-Sources, Onboard-3b-Profiling |
-| D13 | CoverageMap | 17 sections with state E / I / M, required marker, gate marker; click to section | per section | Brand Builder (no wireframe yet), Brand-Build TOC (L8) |
+| D12 | SourceList | rows: source, kind (link / upload / connected account), origin ("from step 1"), status done (facts found) / reading / waiting / failed (Retry, Skip, upload instead); connected accounts show "reading history: coming soon" | per row | Onboard-3-Sources, Onboard-3b-Profiling, Ingest-Error |
+| D13 | CoverageMap | 17 sections with state (D51), gate marker and what the builder will do (confirm / confirm draft / ask in step n / drafted from answers / not asked); `compare` variant shows two brands side by side with totals | per section | Coverage-Map, Brand-Build TOC (L8) |
 | D14 | EvidenceList + Citation | fact, short quote, source link, confidence badge, status (evidenced / inferred / answered / rejected) | rejected | kit sections, claims (no wireframe yet) |
 | D15 | InterviewCard | question, why we ask, answer by text (voice later), skip | answered, skipped | Brand Builder (no wireframe yet) |
-| D16 | Exercises | CardSort (values), ThisNotThat, PickByExample (uses C7), PersonaCard, ValuePropCanvas | n/a | Brand Builder (no wireframe yet) |
-| D17 | DecisionGate | gate (purpose / positioning / voice), drafts with citations, Approve / Edit; records a Decision | pending, approved | Brand Builder (no wireframe yet) |
-| D18 | KitVersionBadge | version, approved date, hash, registered receipt (D32) | draft, approved, registered | Brand-Build, Hub-Home, Onboard-4-VoicePack |
-| D19 | ClaimTable | claim, evidence count, owner, expiry, status, Register | pending, approved, expired | Claims (no wireframe yet) |
-| D20 | VoiceDials | dimensions from config (M3) rendered with C6; claims strictness rendered as a gate (C26 style), not a slider | locked by channel cap | Voice-Editor |
+| D16 | Exercises | GoldenCircle (what / how / why), PositioningOptions (3 AI options with sources, uses C7), PickByExample (2 rounds of 3, uses C7), PersonaCard (dashed, "Assumption" until validated), CardSort (values), ValuePropCanvas | n/a | BB-3-GoldenCircle, BB-4-Alternatives, BB-5-Audience, BB-6-Voice, Brand-Build |
+| D17 | DecisionGate | gate (purpose / positioning / voice), "Gate n of 3", AI draft with "based on" sources, Try another draft, optional "why" field; Approve / Save, decide later; records a Decision (who, when, why) | pending, deferred, approved, stale (an upstream gate changed) | BB-Gate1-Purpose, BB-Gate2-Positioning, BB-Gate3-Voice |
+| D18 | KitVersionBadge | version, approved date and approver, hash, registered receipt (D32), download link (D49) | draft, approved, registered, registration failed | Brand-Build, Hub-Home, Onboard-6-Published, Kit-Export |
+| D19 | ClaimTable | claim, evidence links, owner, expiry, status (approved / pending / expired), registered tx (D32), Register | empty, pending, approved, expired | Claims, Claims-Empty (canvas batch 4) |
+| D20 | VoiceDials | 8 dimensions from config (M3) rendered with C6; claims strictness rendered as a gate of rule checkboxes, not a slider; a subset (e.g. 3 dials) for intake step 6 | locked by channel cap | Voice-Editor, BB-6-Voice, BB-Gate3-Voice |
 | D21 | TemplateGallery | template cards from M3 | selected | Voice-Templates |
 | D22 | PresetMatrix | templates × dimensions table from M3 | n/a | Voice-Templates |
 | D23 | VoiceRulesPreview | sample output + plain-language rules derived from dials | regenerating | Voice-Editor |
-| D49 | KitExport | export an approved kit version as an aDNA-structured folder ([architecture §8](./brand_builder_architecture.md#8-adna-export)); thin for the hackathon: download only | preparing, ready, failed | Brand-Build (Export action; no separate screen) |
+| D49 | KitExport | export an approved kit version as an aDNA-structured folder ([architecture §8](./brand_builder_architecture.md#8-adna-export)): folder tree preview (what/brand, what/decisions, what/context/sources, how/templates), version picker, include options, hash; thin for the hackathon: zip download only | preparing, ready, failed | Kit-Export, Brand-Build (Download action) |
+| D50 | RegistrationResult | what was registered (kit, claim, account, content), version, hash, approver, tx (D32) with explorer link; failure shows plain reason, Retry, Copy error details, continue unregistered | registering, registered, failed | Onboard-6-Published, Kit-RegisterFailed, claim and post registration |
+| D51 | CoverageBadge | E / I / M (Evidenced, Inferred, Missing) with an accessible label; solid, grey and dashed styles from tokens; legend variant | n/a | D13, Brand-Build sections, Coverage-Map |
 
 ### 6.3 Campaigns, ambassadors and payments
 | ID | Component | Variants and props | States | Used by |
@@ -199,8 +217,8 @@ Know Waterlily data types (M6). Grouped by area.
 |---|---|---|---|---|
 | D32 | ReceiptLink | opens the public record; never shows raw hashes by default | pending, confirmed | everywhere money or registration appears |
 | D33 | VerifyInput | text or URL | checking | Main (landing), Verify-1/2/3 |
-| D34 | VerifyResult | match / not found / edited (uses C11, C23) | loading | Verify-1-Match, Verify-2-NoMatch, Verify-3-Edited |
-| D35 | LedgerTable | C10 preset; totals equal the sum of rows | empty, loading | Ledger |
+| D34 | VerifyResult | match / not found / edited (uses C11, C23); match shows brand, kit version, approver, where it was published and an explorer link (D32) | loading | Verify-1-Match, Verify-2-NoMatch, Verify-3-Edited |
+| D35 | LedgerTable | C10 preset; registrations grouped by type (identity, account, kit, claim, content, persona) plus ambassador payouts; totals equal the sum of rows; no fees or splits | empty, loading, error | Ledger |
 | D36 | OfficialStatus | verified / unverified (PoC skip) / pending; badge + explanation | n/a | brand switcher, Hub-Home, Onboard-2, registry |
 | D37 | DnsRecordCard | C13 value + Check now + status | waiting, checking, verified, not found | Onboard-2-Domain, Onboard-2b-DomainFailed |
 
@@ -221,7 +239,15 @@ Know Waterlily data types (M6). Grouped by area.
 | D45 | PersonaSetup | persona fields + disclosure (C26 locked items) | draft, created | Influencer-Setup |
 | D46 | WatermarkOverlay | P28 overlay "AI-generated"; blocks approval when missing | present, missing | Influencer-Setup, Influencer-Queue, D10 |
 | D47 | BreakdownCard | C22 with title and sample-data flag | loading, empty | Analytics, Hub-Home (snapshot) |
-| D48 | BrandSwitcher | C16 with D36 status per brand | n/a | L1 |
+| D48 | BrandSwitcher | C16 with D36 status per brand; brands come from the account (demo fixtures: Waterlily, aDNA, film.fun, GamersLab) | n/a | L1 |
+
+### 6.7 Quests and settings
+| ID | Component | Variants and props | States | Used by |
+|---|---|---|---|---|
+| D52 | PublishingConnection | per channel (X, LinkedIn from M2): connect for publishing, status; fallback row: copy to clipboard plus "paste the post URL" so verify still works | connected, not connected, expired, error | Settings: publishing, Amb-4-Publish, Draft-Review publish step |
+| D53 | QuestCard | paid task (for example "write a tutorial about the brand"), USDC reward, slots, deadline; COMING SOON tag | coming soon | Quests |
+| D54 | ModelSettings | default free model; bring-your-own Claude or OpenAI key (storage per mission Q4); test key | default, key added, key invalid | Settings: AI model |
+| D55 | PlanSeats | plan, seats (partners, agencies, ambassadors), billing summary | n/a | Settings: plan and seats |
 
 ## 7. Shared config and data modules
 Not visual, but they are what keeps the UI DRY.
@@ -238,63 +264,69 @@ Not visual, but they are what keeps the UI DRY.
 | M8 | Formatters: USDC amounts, relative times, receipt URLs, percentages | everywhere |
 
 ## 8. Screen-to-component map
-Every screen below is a composition of inventory items only. Tags from the [backlog](../../how/backlog/backlog.md).
+Every screen below is a composition of inventory items only. Tags follow the canvas: H = HACKATHON, H(thin) = HACKATHON (THIN), E = EXPERIMENTAL, CS = COMING SOON, R = ROADMAP. **Slice** is the [mission](../../how/missions/mission_ui_build.md) slice that builds the screen; "batch n" names the canvas rework batch that draws the screen; the slice waits for it.
 
-| Screen (artboard) | Tag | Shell | Main components |
-|---|---|---|---|
-| Main (landing) | H | L10 | C1, D33, P8, (copy to be rewritten for the hub model) |
-| Hub-Home | H | L1 | L5, C12 ×4, D1 (compact) / D40, D24, D25, D18, D47 |
-| Brand Builder: intake, interview, coverage, gates (no wireframe) | H | L1 + L6 | D11, D15, D16, D13, D14, D17, D18 |
-| Brand-Build | H | L1 + L8 | C25, C10, C27, D14, D18, D49, ProgressBar (P24) |
-| Onboard-1-SignIn | H | L6 | P17, P8 |
-| Onboard-2-Domain / 2b | H | L6 | D37, D36, C2 |
-| Onboard-3-Sources / 3b | H | L6 | P17, C14, D12, P24 |
-| Onboard-4-VoicePack | H | L6 | C25, C10, D18 |
-| Onboard-6-Published | H | L6 | C11, D32 |
-| Voice-Templates | H | L1 | D21, D22, C1 |
-| Voice-Editor | H | L1 + L9 | D20, D23, C26 |
-| Claims (no wireframe) | H (thin) | L1 | D19, D14, D32 |
-| Content-Dashboard / Empty | H | L1 + L9 | C4, C5, D1, C3 |
-| Draft-Review | H | L1 + L9 | D5, D6, D7, D3, D8, D2 |
-| Campaign-v2-1-Goal (step 1: goal and platforms) | H | L6 | C7 (purpose), C7 (platforms), P15 |
-| Campaign v2 step 2: audience (no wireframe) | H | L6 | C7 (segments from the kit's audiences), D16 PersonaCard |
-| Campaign-v2-2-Measure (step 3: success) | H | L6 | D27 |
-| Campaign v2 step 4: content plan (wireframed as a preview on Measure) | H | L6 | D28, D8 |
-| Campaign v2 step 5: people and budget (wireframed as a preview on Measure) | H | L6 | D26, D31, D25, P17 |
-| Campaign v2 step 6: review and launch (no wireframe) | H | L6 | C11, D25, C17 (approve the spending cap) |
-| Engage-Queue | H | L1 + L9 | C4, D1 (reply), D42 |
-| Dashboard (Grow > Ambassadors) / Empty | H | L1 | C12, D1 (ambassador post), C10, D25, C3 |
-| Amb-1-Campaigns / 1b, M-1 | H | L10 / L4 | D24, C5, C3 |
-| Amb-2-Detail, M-2 | H | L10 | D26, D25, P17 |
-| Amb-3-Generate, M-3 | H | L10 | D5, D3, D4, C18 (mobile flags) |
-| Amb-4-Publish, M-4 | H | L10 | D30, D10 |
-| Amb-5a/b/c/d, M-5 | H | L10 | D29, C2, C11, D32 |
-| Verify-1/2/3 | H | L10 | D33, D34 |
-| Ledger | H | L10 | C12, C5, D35 |
-| Official registry (no wireframe) | H | L10 | D36, D18, D32, C10 |
-| Leads | E | L1 | D44, C10, D1 (outreach) |
-| Influencer-Setup / Queue | E | L1 | D45, D46, D1 (influencer post), D10 |
-| Inbox-All | CS | L1 + L7 | L8, D38, D39, D1 |
-| Inbox-NeedsReply | CS | L1 + L7 | D40 |
-| Inbox-Connect | CS | L1 | D41, C2 |
-| Engage-Rules | R | L1 | D43, D42, C10 |
-| Partners | R | L1 | P17, C10 |
-| Analytics / Empty | R | L1 | C12, D47, C10, D42, D41 |
-| Lic-1 … Lic-6, Onboard-5-License | parked | L6 | not built; components C21, C7 already cover them if revived |
-| Campaign-Builder (v1) | superseded | n/a | replaced by Campaign v2 |
+| Screen (canvas name) | Tag | Slice | Shell | Main components |
+|---|---|---|---|---|
+| Main (landing: build your brand, then create) | H | S1 | L10 | P17, P8 (start field and "Build my brand"), C1 + P18 (sample kit and first-draft preview), C8 (how it works), P7 (secondary links: check a post, ambassadors) |
+| Onboard-1-SignIn | H | S1 | L6 | P17, P8, C2 |
+| Onboard-2-Domain / Onboard-2b-DomainFailed | H | S1 | L6 | D37, D36, C2 |
+| BB-1-Basics | H | S2 | L6 | D11, C7, P17 |
+| Onboard-3-Sources | H | S2 | L6 | D12, C14, P17 |
+| Onboard-3b-Profiling (loading) / Ingest-Error | H | S2 | L6 | D12, P24 |
+| BB-2-Origin | H | S3 | L6 | D15, D14 (found fact to confirm) |
+| BB-3-GoldenCircle | H | S3 | L6 | D16 GoldenCircle |
+| BB-4-Alternatives | H | S3 | L6 | D15, D16 PositioningOptions |
+| BB-5-Audience | H | S3 | L6 | D15, D16 PersonaCard |
+| BB-6-Voice | H | S3 | L6 | D16 PickByExample, D20 (3 dials) |
+| BB-Gate1-Purpose / BB-Gate2-Positioning / BB-Gate3-Voice | H | S3 | L6 | D17, D14, D20 (gate 3) |
+| Coverage-Map | H | S3 | L6 | D13 (compare), D51 |
+| Onboard-6-Published (kit v1 approved) / Kit-RegisterFailed | H | S4 | L6 | D50, D18, D32 |
+| Brand-Build (17-section kit) | H | S4 | L1 + L8 | C25, D51, D14, D16 PersonaCard, D18, D49 |
+| Kit-Export | H(thin) | S4 | L1 | D49, D18 |
+| Voice-Templates / Voice-Editor | H | S5 (batch 2) | L1 + L9 | D20, D21, D22, D23 |
+| Draft-Review (polish, voice-fit and platform scores) | H | S5 (batch 2) | L1 + L9 | D5, D6, D7, D3, D4, D8, D2 |
+| Content-Dashboard / Empty | H | S5 | L1 + L9 | C4, C5, D1, C3 |
+| Settings: publishing | H | S6 (batch 4) | L1 | D52 |
+| Verify-1/2/3 | H | S6 (batch 3) | L10 | D33, D34 |
+| Ledger | H | S6 (batch 3) | L10 | C12, C5, D35 |
+| Claims / Claims-Empty | H(thin) | S6 (batch 4) | L1 | D19, D14, D32, C3 |
+| Official registry | H | S6 | L10 | D36, D18, D32, C10 |
+| Campaign-v2-1-Goal; v2 steps 2, 4, 5, 6 | H | S7 | L6 | C7, D16 PersonaCard, D27, D28, D8, D26, D31, D25, C11, C17 |
+| Campaign-v2-2-Measure | H | S7 | L6 | D27 |
+| Engage-Queue | H | S7 | L1 + L9 | C4, D1 (reply), D42 |
+| Dashboard (Grow > Ambassadors) / Empty | H | S7 | L1 | C12, D1 (ambassador post), C10, D25, C3 |
+| Amb-1-Campaigns / 1b, M-1 | H | S7 | L10 / L4 | D24, C5, C3 |
+| Amb-2-Detail, M-2 | H | S7 | L10 | D26, D25, P17 |
+| Amb-3-Generate, M-3 | H | S7 | L10 | D5, D3, D4, C18 (mobile flags) |
+| Amb-4-Publish, M-4 | H | S7 | L10 | D30, D52, D10 |
+| Amb-5a/b/c/d, M-5 | H | S7 | L10 | D29, C2, C11, D32 |
+| Hub-Home | H | S7 | L1 | L5, C12 ×4, D1 (compact) / D40, D24, D25, D18, D47 |
+| Quests | CS | S8 (batch 4) | L1 | D53, C3 |
+| Settings: AI model; plan and seats | H(thin) | S8 (batch 4) | L1 | D54, D55 |
+| Leads | E | S8 | L1 | D44, C10, D1 (outreach) |
+| Influencer-Setup / Queue | E | S8 | L1 | D45, D46, D1 (influencer post), D10 |
+| Inbox-All | CS | S8 | L1 + L7 | L8, D38, D39, D1 |
+| Inbox-NeedsReply | CS | S8 | L1 + L7 | D40 |
+| Inbox-Connect | CS | S8 | L1 | D41, C2 |
+| Engage-Rules | R | S8 | L1 | D43, D42, C10 |
+| Partners | R | S8 | L1 | P17, C10 |
+| Analytics / Empty | R | S8 | L1 | C12, D47, C10, D42, D41 |
+| Every hub screen: empty, loading, success, error | per screen | with its screen | n/a | C3, C29 |
+| Onboard-4-VoicePack | superseded | not built | n/a | replaced by the intake, gates and Brand-Build |
+| Lic-1 … Lic-6, Onboard-5-License, Campaign-Builder (v1) | parked | not built | n/a | on the canvas "Licensee (parked)" page; licensing is dropped ([ADR-003](../decisions/adr_003_superhub_business_model.md)) |
 
-**Reuse check:** D1 ApprovalItem appears on 9 screens; D3 ChecksPanel on 5; C7 ChoiceCards on 6; C10 DataTable on 10.
+**Reuse check:** D1 ApprovalItem appears on 9 screens; D16 Exercises on 6; C7 ChoiceCards on 6; D17 DecisionGate on 3; C10 DataTable on 10.
 
 ## 9. Gaps and decisions needed
+Resolved by the 2026-10-06 canvas rework: Brand Builder screens drawn (old gap 1); voice model is research 06, 9 dimensions with claims strictness as a gate (old gap 2); landing rewritten (old gap 3); aDNA export has a screen (old gap 5a); building components slice by slice replaces the up-front library (owner, 2026-10-06).
+
 | # | Gap | Proposal |
 |---|---|---|
-| 1 | Brand Builder screens (intake, interview, coverage map, evidence, decision gates), claims and the official registry have no wireframes. They are hackathon items ([backlog](../../how/backlog/backlog.md)); the questionnaire screens are [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P2 | Components are specified above (D11–D19, D36). Either add artboards to the canvas before B5, or build straight from this inventory. Owner choice |
-| 2 | Voice model mismatch: canvas uses 10 dials (adds irreverence, suggestiveness; no claims dial); research 06 uses 9 dimensions with claims strictness as a gate and 12 templates | D20–D22 read M3, so either set works. Owner picks the set; default to research 06 |
-| 3 | Landing copy still pitches licensing | Rewrite after the PRD rewrite; layout is unaffected |
-| 4 | Polish actions (Review / Shorten / Clarify / Beautify) are not on the canvas | Specified as D6; add one artboard or build from spec |
-| 5a | aDNA export of the Brand Kit is a hackathon (thin) item ([backlog](../../how/backlog/backlog.md)) with no wireframe | Specified as D49; an Export action on Brand-Build plus a download; no separate screen needed |
-| 5 | Quests are "coming soon" with no screen | Use the Coming soon page template (M1 tag + C3) |
-| 6 | App framework: vinext is experimental ([InfoQ](https://infoq.com/news/2026/03/cloudflare-vinext-experimental)) | Library is framework-independent ([ADR-005](../decisions/adr_005_ui_component_system.md)). G1 approves a 60-minute spike as B0's first task; the choice is recorded at G2 |
+| 1 | Voices, Draft-Review with polish actions, Ledger, Verify-1, Claims, Quests, Settings and the screen states come from canvas rework batches 2–5 | Each batch is drawn and signed off before the slice that needs it ([mission](../../how/missions/mission_ui_build.md) §3) |
+| 2 | Campaign v2 steps 2, 4, 5 and 6 have no artboards of their own | Build from this inventory in S7, or add artboards in canvas batch 5. Owner choice |
+| 3 | App framework: vinext is experimental ([InfoQ](https://infoq.com/news/2026/03/cloudflare-vinext-experimental)) | Library is framework-independent ([ADR-005](../decisions/adr_005_ui_component_system.md)); S0 runs a timed spike and records the choice (mission Q3) |
+| 4 | Bring-your-own key storage is undecided (issue #4 P4) | D54 waits for the decision (mission Q4) |
 
 ## 10. DRY rules
 1. **One concept, one component.** Variants are props, never copies. If two screens need "the same thing but slightly different", add a variant.
@@ -302,5 +334,5 @@ Every screen below is a composition of inventory items only. Tags from the [back
 3. **Screens have no stylesheets.** A screen file only composes components and passes data and copy.
 4. **Repeated structure comes from config** (M1–M5), not repeated JSX.
 5. **Domain components take typed data (M6), not markup.**
-6. **Every component appears in the workbench** with all variants and states before a screen uses it.
+6. **Every component gets its workbench entry in the same change that builds it**, with every variant and state it supports so far.
 7. **Lifted code is re-themed first.** Lead-finder components enter the library only after moving onto tokens.
