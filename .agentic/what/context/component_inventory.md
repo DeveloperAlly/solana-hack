@@ -180,7 +180,7 @@ Know Waterlily data types (M6). Grouped by area.
 | D21 | TemplateGallery | template cards from M3 | selected | Voice-Templates |
 | D22 | PresetMatrix | templates × dimensions table from M3 | n/a | Voice-Templates |
 | D23 | VoiceRulesPreview | sample output + plain-language rules derived from dials | regenerating | Voice-Editor |
-| D49 | KitExport | export an approved kit version as an aDNA-structured folder ([architecture §8](./brand_builder_architecture.md#8-adna-export)); thin for the hackathon: download only | preparing, ready, failed | Brand-Build, kit version page (no wireframe yet) |
+| D49 | KitExport | export an approved kit version as an aDNA-structured folder ([architecture §8](./brand_builder_architecture.md#8-adna-export)); thin for the hackathon: download only | preparing, ready, failed | Brand-Build (Export action; no separate screen) |
 
 ### 6.3 Campaigns, ambassadors and payments
 | ID | Component | Variants and props | States | Used by |
@@ -220,7 +220,7 @@ Know Waterlily data types (M6). Grouped by area.
 | D44 | LeadRow, ScoreBadge, ConfidenceChip | lifted from the lead finder ([research 07](./research/07_gamerslab_leadfinder.md)) and re-themed onto tokens | new, draft in queue | Leads |
 | D45 | PersonaSetup | persona fields + disclosure (C26 locked items) | draft, created | Influencer-Setup |
 | D46 | WatermarkOverlay | P28 overlay "AI-generated"; blocks approval when missing | present, missing | Influencer-Setup, Influencer-Queue, D10 |
-| D47 | BreakdownCard | C22 with title and sample-data flag | loading, empty | Analytics |
+| D47 | BreakdownCard | C22 with title and sample-data flag | loading, empty | Analytics, Hub-Home (snapshot) |
 | D48 | BrandSwitcher | C16 with D36 status per brand | n/a | L1 |
 
 ## 7. Shared config and data modules
@@ -246,7 +246,6 @@ Every screen below is a composition of inventory items only. Tags from the [back
 | Hub-Home | H | L1 | L5, C12 ×4, D1 (compact) / D40, D24, D25, D18, D47 |
 | Brand Builder: intake, interview, coverage, gates (no wireframe) | H | L1 + L6 | D11, D15, D16, D13, D14, D17, D18 |
 | Brand-Build | H | L1 + L8 | C25, C10, C27, D14, D18, D49, ProgressBar (P24) |
-| aDNA kit export (no wireframe) | H (thin) | L1 | D49, D18, C11 |
 | Onboard-1-SignIn | H | L6 | P17, P8 |
 | Onboard-2-Domain / 2b | H | L6 | D37, D36, C2 |
 | Onboard-3-Sources / 3b | H | L6 | P17, C14, D12, P24 |
