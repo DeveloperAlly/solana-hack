@@ -11,8 +11,8 @@ tags: [adr, ui, react, design-tokens, theming, components]
 # ADR-005: UI component system (React, design tokens, layered library)
 
 ## Context
-- The owner asked for the build to start from "repeatable, reusable DRY components", in React, with style elements such as colours easy to create and change (owner, chat, 2026-10-06).
-- The wireframes repeat the same patterns across many screens. For example, a draft with checks and Approve / Edit / Reject appears on the content dashboard, the reply queue, the inbox, ambassador approvals, lead outreach and the influencer queue ([wireframes](../context/links.md); [component inventory](../context/component_inventory.md) §5).
+- The owner asked for the build to start from "repeatable, reusable DRY components", in React, with style elements such as colours easy to create and change (owner request recorded in [PR #5](https://github.com/DeveloperAlly/solana-hack/pull/5), 2026-10-06).
+- The wireframes repeat the same patterns across many screens. For example, a draft with checks and Approve / Edit / Reject appears on the content dashboard, the reply queue, the inbox, ambassador approvals, lead outreach and the influencer queue ([wireframes](../context/links.md); [component inventory](../context/component_inventory.md) §6.1 and §8).
 - The visual brand does not exist yet. The deck has draft fonts but no ratified identity ([links](../context/links.md)), so the build must start on a neutral theme and take the brand later without code changes.
 - The PRD names Cloudflare Workers with Next.js via vinext ([issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2), §12). vinext is Cloudflare's Vite-based reimplementation of the Next.js API ([cloudflare/vinext](https://github.com/cloudflare/vinext)) and is described as experimental ([InfoQ, 2026-03](https://infoq.com/news/2026/03/cloudflare-vinext-experimental)).
 - The GamersLab lead finder has a React 18 + Vite dashboard with reusable components (LeadRow, ProspectCard, ScoreBadge, ConfidenceChip, GateBanner, theming) marked for reuse ([research 07](../context/research/07_gamerslab_leadfinder.md)).

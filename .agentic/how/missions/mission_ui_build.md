@@ -18,25 +18,29 @@ tags: [mission, ui, build, components, design-tokens]
 
 ## How the work runs
 - Every phase is split into **short timed tasks** (30–120 minutes). Each task has a timebox, a deliverable and a check. Running over a timebox is reported, not absorbed.
-- Each phase ends at a **gate**. The owner signs off before the next phase starts, matching the repo's phase discipline ([mission](./mission_hackathon_submission.md)).
-- After B0, component work is independent per component, so B1–B4 can run as parallel background agents, each owning a slice of the inventory.
+- Each phase ends at a **gate**. **Owner gates** (G1, G2, G7, G9) need the owner's sign-off before the next phase starts, matching the repo's phase discipline ([mission](./mission_hackathon_submission.md)). **Check gates** (G3–G6, G8) pass automatically when the listed checks are green, so dependent work is not held for a sign-off.
+- **Parallel work follows the layer dependencies** in the [inventory](../../what/context/component_inventory.md) §1, never ahead of them:
+  - B1 (primitives) and B3 config and types (M1–M8, no UI dependencies) run in parallel after G2.
+  - B2 (composites) starts per component once the primitives it uses pass G3; L shells in B3 start once their composites pass.
+  - B4 (domain) starts per component once every component it lists (for example D20 needs C6, C26 and M3) has passed its gate.
+  - Within a layer, components are independent, so each layer can be split across parallel background agents.
 
 ## Part 1: Identify the system components
 
-| # | Task | Timebox | Deliverable | Check | State |
-|---|---|---|---|---|---|
-| 1.1 | Inventory from the wireframes (v1 and v2 canvas) | 60 min | [Inventory](../../what/context/component_inventory.md) §2–§6 | Every artboard decomposed | Done (draft) |
-| 1.2 | Inventory from the Brand Builder architecture, backlog and research 06 / 07 | 45 min | Inventory D11–D19, M1–M8 | Every hackathon backlog item has components | Done (draft) |
-| 1.3 | Merge duplicates; assign each component one layer | 30 min | Inventory §3–§6 | No concept appears twice | Done (draft) |
-| 1.4 | Screen-to-component map | 30 min | Inventory §8 | Every hackathon screen maps only to inventory items | Done (draft) |
-| 1.5 | List gaps and decisions | 15 min | Inventory §9 | Each gap has a proposal | Done (draft) |
-| 1.6 | **Gate G1:** owner reviews inventory, ADR-005 and this plan | Owner | Sign-off or changes | Gaps 1, 2 and 6 decided | Waiting |
+| # | Task | Timebox | Deliverable | Check |
+|---|---|---|---|---|
+| 1.1 | Inventory from the wireframes (v1 and v2 canvas) | 60 min | [Inventory](../../what/context/component_inventory.md) §2–§6 | Every artboard decomposed |
+| 1.2 | Inventory from the Brand Builder architecture, backlog and research 06 / 07 | 45 min | Inventory D11–D19, M1–M8 | Every hackathon backlog item has components |
+| 1.3 | Merge duplicates; assign each component one layer | 30 min | Inventory §3–§6 | No concept appears twice |
+| 1.4 | Screen-to-component map | 30 min | Inventory §8 | Every hackathon screen maps only to inventory items |
+| 1.5 | List gaps and decisions | 15 min | Inventory §9 | Each gap has a proposal |
+| 1.6 | **Gate G1:** owner reviews inventory, ADR-005 and this plan | Owner | Sign-off or changes | Gaps 1, 2 and 6 decided |
 
 **Part 1 success metrics**
-- 100% of hackathon-tagged screens mapped to inventory components (target met in draft: inventory §8).
+- 100% of hackathon-tagged screens mapped to inventory components (measured in inventory §8).
 - 0 screen-specific components outside the domain layer.
 - Each component lists variants, states and users.
-- The most-shared pattern (ApprovalItem) is used by at least 6 screens (draft: 9).
+- The most-shared pattern (ApprovalItem) is used by at least 6 screens.
 
 ## Part 2: Build to a phased spec
 Each component is built against this spec template, kept next to its code and shown in the workbench:
@@ -69,19 +73,19 @@ Tests: <render per variant, interaction, axe>
 | **B2 Composites** | C1–C28 | 6 h | **G4:** all composites meet the definition of done |
 | **B3 Shells and config** | L1–L10; M1 routes and nav (with tags), M2 channels, M3 voice model, M4 kit sections, M5 checks, M6 types, M7 mock adapter + fixtures (4 demo brands), M8 formatters | 4 h | **G5:** every route in M1 renders inside its shell (placeholder body); nav, sub-nav, mobile tab bar and tag badges come from config only |
 | **B4 Domain patterns** | Approval family D1–D10 first, then Brand Builder D11–D23, campaigns D24–D31, proof D32–D37; inbox and experimental D38–D48 last | 8 h | **G6:** D1 renders all six kinds from fixtures; D20 renders both voice dimension sets from config without code change |
-| **B5 Screens (hackathon tag)** | Brand Builder flow (first, because kit v1 is due Oct 9); Voices; Content dashboard + Draft review; Campaign v2; Engage queue; Ambassadors + payout flow (desktop and mobile); Verify; Ledger; Official registry; Hub home | 6 h | **G7:** every hackathon screen built from library only, on mock data; every flow on the canvas is clickable end to end, including error states via the demo state switcher (C28) |
+| **B5 Screens (hackathon tag)** | Brand Builder flow (first, because kit v1 is due Oct 9), including the aDNA kit export (D49, thin: download); Voices; Content dashboard + Draft review; Campaign v2; Engage queue; Ambassadors + payout flow (desktop and mobile); Verify; Ledger; Official registry; Hub home | 6 h | **G7:** every hackathon screen built from library only, on mock data; every flow on the canvas is clickable end to end, including error states via the demo state switcher (C28) |
 | **B6 Wire to live services** | Live adapter behind M7, calling the services built in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P4 (agents, polish), P5 (publish) and P6 (registry, verify, ledger, payout). Building those services is issue #4's scope, not this mission's | 3 h | **G8:** the demo path runs on live data; no screen code changed when switching mock to live |
 | **B7 Brand, remaining screens, ship** | `waterlily` theme from the brand work; coming-soon / roadmap / experimental screens as static compositions; deploy; demo recording states | 3 h | **G9:** theme switch to `waterlily` needs no component edits; deployed URL works; demo path recorded |
 
 **Estimated total for the UI track: about 35 hours**, on top of the system work in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P4–P6. The PRD's build budget was 22 hours for everything ([issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2) §12), written for the smaller licensing-era scope. To fit the deadline:
-- run B1–B4 as parallel background agents after G2 (components are independent), and
+- run each layer across parallel background agents, in the dependency order above, and
 - if still short, cut in this order: inbox / analytics / engagement-rules screens to static "coming soon" (already the backlog tag), then experimental screens to static, then mobile ambassador screens to responsive desktop only.
 
 ### Alignment with issue #4 and proposed calendar (owner to confirm)
 | Date | Issue #4 phase | This mission | Gate |
 |---|---|---|---|
 | Tue Oct 6 | P0 PRD and gap research | G1 sign-off; B0 foundations | G2 |
-| Wed Oct 7 | P1 system map; P2 and P3 start | B1–B3 in parallel; B4 Brand Builder (D11–D23) and approval family (D1–D10) first, because P2 and P3 need them | G3–G5 |
+| Wed Oct 7 | P1 system map; P2 and P3 start | B1 and B3 config in parallel; then B2 and B3 shells as their dependencies pass; then B4 Brand Builder (D11–D23) and approval family (D1–D10) first, because P2 and P3 need them | G3–G5 |
 | Thu Oct 8 | P2 questionnaire UI; P3 voices; P4 agents | B5 questionnaire and voice screens on mock data, then wired to P4 as it lands | G6 |
 | Fri Oct 9 | P4; P7 kit v1 | Kit v1 through the product; B5 content dashboard, draft review, campaign v2 | G7 |
 | Sat Oct 10 | P5 accounts; P6 proof layer | B5 publish, verify, ledger, payout screens; B6 wiring | G8 |

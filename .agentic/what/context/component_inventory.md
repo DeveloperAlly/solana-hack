@@ -173,6 +173,7 @@ Know Waterlily data types (M6). Grouped by area.
 | D21 | TemplateGallery | template cards from M3 | selected | Voice-Templates |
 | D22 | PresetMatrix | templates × dimensions table from M3 | n/a | Voice-Templates |
 | D23 | VoiceRulesPreview | sample output + plain-language rules derived from dials | regenerating | Voice-Editor |
+| D49 | KitExport | export an approved kit version as an aDNA-structured folder ([architecture §8](./brand_builder_architecture.md#8-adna-export)); thin for the hackathon: download only | preparing, ready, failed | Brand-Build, kit version page (no wireframe yet) |
 
 ### 6.3 Campaigns, ambassadors and payments
 | ID | Component | Variants and props | States | Used by |
@@ -237,7 +238,8 @@ Every screen below is a composition of inventory items only. Tags from the [back
 | Main (landing) | H | L10 | C1, D33, P8, (copy to be rewritten for the hub model) |
 | Hub-Home | H | L1 | L5, C12 ×4, D1 (compact) / D40, D24, D25, D18, D47 |
 | Brand Builder: intake, interview, coverage, gates (no wireframe) | H | L1 + L6 | D11, D15, D16, D13, D14, D17, D18 |
-| Brand-Build | H | L1 + L8 | C25, C10, C27, D14, D18, ProgressBar (P24) |
+| Brand-Build | H | L1 + L8 | C25, C10, C27, D14, D18, D49, ProgressBar (P24) |
+| aDNA kit export (no wireframe) | H (thin) | L1 | D49, D18, C11 |
 | Onboard-1-SignIn | H | L6 | P17, P8 |
 | Onboard-2-Domain / 2b | H | L6 | D37, D36, C2 |
 | Onboard-3-Sources / 3b | H | L6 | P17, C14, D12, P24 |
@@ -280,6 +282,7 @@ Every screen below is a composition of inventory items only. Tags from the [back
 | 2 | Voice model mismatch: canvas uses 10 dials (adds irreverence, suggestiveness; no claims dial); research 06 uses 9 dimensions with claims strictness as a gate and 12 templates | D20–D22 read M3, so either set works. Owner picks the set; default to research 06 |
 | 3 | Landing copy still pitches licensing | Rewrite after the PRD rewrite; layout is unaffected |
 | 4 | Polish actions (Review / Shorten / Clarify / Beautify) are not on the canvas | Specified as D6; add one artboard or build from spec |
+| 5a | aDNA export of the Brand Kit is a hackathon (thin) item ([backlog](../../how/backlog/backlog.md)) with no wireframe | Specified as D49; an Export action on Brand-Build plus a download; no separate screen needed |
 | 5 | Quests are "coming soon" with no screen | Use the Coming soon page template (M1 tag + C3) |
 | 6 | App framework: vinext is experimental ([InfoQ](https://infoq.com/news/2026/03/cloudflare-vinext-experimental)) | Library is framework-independent ([ADR-005](../decisions/adr_005_ui_component_system.md)); decide in B0 with a 60-minute spike |
 
