@@ -7,64 +7,75 @@ last_edited_by: agent
 tags: [compendium, decisions, product-map, business-model]
 supersedes: [archive/prd_story_studio, archive/roadmap_story_studio, archive/influencer_scope, archive/ai_creator_angles]
 ---
-> **Status: active.** Decision compendium for 2026-10-06; ratified as [ADR-002](../decisions/adr_002_purpose_build_run_prove.md) and [ADR-003](../decisions/adr_003_superhub_business_model.md); the source for the PRD rewrite.
+> **Status: active.** Decision compendium for 2026-10-06 (v2: adds the dogfooding demo, the brand maturity split and polish actions). Ratified as [ADR-002](../decisions/adr_002_purpose_build_run_prove.md) and [ADR-003](../decisions/adr_003_superhub_business_model.md); the source for the PRD rewrite.
 
 # Compendium 2026-10-06: Waterlily becomes a brand superhub
 
-> **Status:** CURRENT. This is the decision record for 2026-10-06 and the source for the next PRD rewrite.
 > **Supersedes:** the licensing-centred PRD v2.1 (issue #2), the story PRD ([archive/prd_story_studio.md](./archive/prd_story_studio.md)) and its [roadmap](./archive/roadmap_story_studio.md), [influencer scope](./archive/influencer_scope.md) and [AI creator angles](./archive/ai_creator_angles.md) as product direction (they stay as history).
-> **Sources:** the founder's design-chat thread (2026-10-05/06), founder answers in chat, [the purpose decision (ADR-002)](../decisions/adr_002_purpose_build_run_prove.md), and research [01–08](./research/README.md).
+> **Sources:** the founder's design-chat thread (2026-10-05/06), founder answers in chat, [ADR-002](../decisions/adr_002_purpose_build_run_prove.md), research [01–09](./research/README.md), and the [Brand Builder architecture](./brand_builder_architecture.md).
 
 ## 1. Purpose (decided)
-**Waterlily: build your brand, run it, prove it.** A brand superhub. It is both the product vision and the hackathon build, scoped by the hackathon / roadmap tags in §5.
+**Waterlily: build your brand, run it, prove it.** A brand superhub. It is both the product vision and the hackathon build, scoped by the tags in §5.
 
 ## 2. Business model (decided)
 - **The brand pays** a subscription for the hub.
 - **Partners, agencies and ambassadors** get access to the brand's voice as **seats or invites** on the brand's account. They are not paying customers.
 - **Ambassador payouts in USDC stay.** This is the one money flow brands already spend on, and where Solana does real work: cross-border payments, per verified post, from a capped budget.
 - **Consent and provenance are features of what brands pay for, not the business on their own.**
-- **Licensing ("pay to write in a brand's voice") is dropped as a headline flow** and becomes at most a roadmap line. The evidence: brands pay for voice tools (Jasper's voice tools sit in its paid tiers), but nothing showed outsiders paying a brand per piece. When brands want partners on-message, they hand them the assets free.
-- **Pitch:** a brand hub that writes in your voice, runs your campaigns, pays your community per verified post, and proves what's official. Voice and drafting are table stakes. Paid community plus provenance are what set it apart.
+- **Licensing ("pay to write in a brand's voice") is dropped as a headline flow** and becomes at most a roadmap line. Brands pay for voice tools, but nothing showed outsiders paying a brand per piece.
+- **Pitch:** a brand hub that writes in your voice, runs your campaigns, pays your community per verified post, and proves what's official.
 
 ## 3. Principles (decided)
 1. **Human review on everything.** Nothing posts, replies, follows or sends without a person approving it.
 2. **Every draft runs through a no-AI-slop pass** before a human sees it.
-3. **X's rules are not the product's governing constraint, but platform rules are respected per platform.** Engagement features are built as draft-and-approve. The research behind this:
-   - X bans bulk follow/unfollow, automated likes and untargeted auto-replies ([X automation rules](https://help.x.com/en/rules-and-policies/x-automation)).
-   - LinkedIn reportedly closes accounts that use automation tools. This is secondary-source only; LinkedIn's own pages couldn't be fetched.
-4. **AI personas are always labelled.** The experimental influencer carries a visible AI watermark.
-5. **Claims carry evidence.** This brings the evidence-and-source rule from the founder's brand database onchain as "claims with evidence".
-6. **Demo content is SFW.** Colosseum rules §12 ban "indecent, obscene" content. "Flirty" exists as a voice template, but demo brands stay SFW.
+3. **Platform rules are respected per platform.** X's rules don't govern the product, but engagement features are draft-and-approve. X bans bulk follow/unfollow, automated likes and untargeted auto-replies ([X automation rules](https://help.x.com/en/rules-and-policies/x-automation)). LinkedIn's automation stance is secondary-source only.
+4. **AI personas are always labelled**, with a visible AI watermark.
+5. **Claims carry evidence**, the founder's brand-database rule, registered onchain.
+6. **Demo content is SFW.** Colosseum rules §12. "Flirty" exists as a template only.
 
-## 4. Demo brands (decided)
-- **Primary:** aDNA, and the founder's personal brand.
-- **Extras:** GamersLab and film.fun.
+## 4. Demo brands and demo story (decided)
+- **Headline: Waterlily builds its own brand from scratch, live.**
+  - Run Waterlily through the minimum viable intake.
+  - Get kit v1 through the three gates.
+  - Create voices.
+  - Score and polish a launch post, then approve it.
+  - Register it as official, then verify it.
+  - Run one paid quest (a tutorial about Waterlily).
+  - Waterlily's own launch metrics become traction.
+- **Second zero-presence case: aDNA.** It has a strong written brand but no social presence. It shows the builder confirming rather than asking, and taking a brand onto social for the first time.
+- **Semi-established case studies: film.fun and GamersLab.**
+  - These are the ingest-led path.
+  - film.fun has a live product, site and five networks.
+  - **GamersLab's identity must be confirmed** ([09](./research/09_demo_brands.md)).
+- **The founder's personal brand** stays as a user of the product, not a demo case.
+- **Timing:** Waterlily's own kit v1 is due by Oct 9, leaving time to post, register and run a quest before the deadline.
 
 ## 5. Product map (decided structure; tags drive the build)
 Navigation: **Brand / Create / Grow / Inbox / Analytics / Ledger-Verify**.
 
 | Area | Page | What it does | Tag |
 |---|---|---|---|
-| Brand | **Build your brand** | Guided, interview-led brand pack that works with zero content and adds to what's already public: purpose, beliefs, values, positioning, value props, audience, messaging, core voice, then tone presets on top ([01](./research/01_brand_pillars.md), [02](./research/02_brand_voice_elements.md)) | Hackathon |
-| Brand | **Voices (templates)** | Voice templates as presets over fixed, measurable dimensions (§6); multiple voices per pack | Hackathon |
+| Brand | **Build your brand** | Infer-first, interview-the-gaps builder producing a 17-section Brand Kit with evidence and three decision gates ([architecture](./brand_builder_architecture.md)) | Hackathon |
+| Brand | **Voices (templates)** | Templates as presets over 9 measurable dimensions; multiple voices per kit ([06](./research/06_voice_templates.md)) | Hackathon |
 | Brand | **Claims with evidence** | Each claim has evidence, an owner and an expiry, and can be registered onchain | Hackathon (thin) |
 | Create | **Campaign builder v2** | Platform(s), purpose, success metrics, then a content plan | Hackathon |
-| Create | **Content dashboard** | Posted, replies, and drafts awaiting approval; scheduled posting; per-platform scoring ([03](./research/03_platform_performance.md)) | Hackathon |
-| Grow | **Engagement assist** (formerly "10x your impact") | Reply queue in the brand voice with one-click human approval; who-to-engage suggestions; suggested lists the user applies themselves; scheduled posting; opt-in auto-replies only (e.g. to people who mention the brand) | Hackathon (reply queue) / roadmap (rest) |
-| Grow | **Ambassadors and paid quests** | Curated ambassadors, briefs, verified posts, USDC payouts from a capped budget. Quest mechanics follow the Lilypad quest data model, rebuilt and rewarding off-X work ([05](./research/05_lilypad_quest_api.md)) | Hackathon (one payout) / **quests: coming soon** |
-| Grow | **Find your customer** (lead finder) | Reuses the founder's GamersLab lead finder, generalised so the brand kit drives ICP, keywords and weights ([07](./research/07_gamerslab_leadfinder.md)) | Experimental |
-| Grow | **Create an influencer** | The founder's own AI persona, with avatars by a collaborator and a visible AI watermark, tied to the verified brand pack and attested onchain | Experimental |
-| Grow | **Partner invites** | Partners and agencies write in the brand voice as seats (what's left of licensing) | Roadmap |
-| Inbox | **Unified inbox** | One Gmail-style inbox across Telegram, WhatsApp, X DMs, LinkedIn, email, Discord and Slack, with an "All inboxes" view ([§7](#7-unified-inbox-new)) | Coming soon |
-| Inbox | **Needs reply** | Flags messages that need a response, ranked; AI drafts a reply for human review | Coming soon |
-| Analytics | **Analytics** | What's performing and what isn't, per platform and per voice | Roadmap (UI shown) |
-| Ledger-Verify | **Official registry + verify** | Onchain records of the brand identity, official accounts, official content, claims and AI personas; verify page and badge | Hackathon |
-| Ledger-Verify | **Ledger** | Payouts, cause giving, registrations | Hackathon |
+| Create | **Content dashboard** | Posted, replies, and drafts awaiting approval; scheduling; per-platform scoring ([03](./research/03_platform_performance.md)) | Hackathon |
+| Create | **Polish actions** | Review, Shorten, Clarify, **Beautify**, applied to any draft ([architecture §6](./brand_builder_architecture.md)) | Hackathon |
+| Grow | **Engagement assist** | Reply queue in the brand voice with one-click approval; who-to-engage suggestions; suggested lists; scheduled posting; opt-in auto-replies only | Hackathon (reply queue) / roadmap |
+| Grow | **Ambassadors and paid quests** | Curated ambassadors, verified posts, USDC payouts from a capped budget; quest mechanics from the Lilypad quest data model, off-X work ([05](./research/05_lilypad_quest_api.md)) | Hackathon (one payout) / quests: coming soon |
+| Grow | **Find your customer** | GamersLab lead finder, generalised; no harvesting or sending ([07](./research/07_gamerslab_leadfinder.md)) | Experimental |
+| Grow | **Create an influencer** | The founder's own AI persona; avatars by a collaborator; visible AI watermark; attested onchain | Experimental |
+| Grow | **Partner invites** | Partners write in the brand voice as seats | Roadmap |
+| Inbox | **Unified inbox** | Gmail-style "All inboxes" across messaging and social DMs (§7) | Coming soon |
+| Inbox | **Needs reply** | Flags messages that need a response; drafts a reply for review | Coming soon |
+| Analytics | **Analytics** | Performance per platform and per voice | Roadmap (UI shown) |
+| Ledger-Verify | **Official registry + verify** | Identity, accounts, kit versions, content, claims and personas onchain; verify page and badge | Hackathon |
+| Ledger-Verify | **Ledger** | Payouts and registrations | Hackathon |
 
-Every page gets an artboard with empty, loading, success and error states and annotated interactions, and is tagged hackathon / experimental / coming soon / roadmap.
+Every page gets an artboard with empty, loading, success and error states and annotated interactions, and is tagged.
 
 ## 6. Voice templates (decided model; values to calibrate)
-- **Do these exist?** Partly. Products ship tone *labels* or rewrite verbs: ChatGPT (Default, Professional, Friendly, Candid, Quirky, Efficient, Cynical, plus More/Less controls for warmth, enthusiasm and emoji), Copilot, Google, Canva, Wordtune, QuillBot, Grammarly. HubSpot, Jasper and Copy.ai learn voice from samples. **No mainstream product publishes measurable parameter presets, offers per-post template mixing, or treats claims as part of the preset.** Small open-source precedents exist: Grain (numeric parameters with channel overrides) and VOICE.md. No product offers "flirty" ([06](./research/06_voice_templates.md)).
+- **Existing tools:** they offer tone labels or rewrite verbs. None publishes measurable presets, mixes templates per post, or treats claims as part of the preset, and none offers "flirty" ([06](./research/06_voice_templates.md)).
 - **Dimensions** (1–5):
   - formality
   - energy
@@ -74,35 +85,32 @@ Every page gets an artboard with empty, loading, success and error states and an
   - jargon
   - emoji and punctuation
   - CTA intensity
-  - **claims strictness**, which is a policy gate, not a slider
-- **Starter templates:** Academic, Enterprise, Professional, Friendly, Plainspoken, Efficient, Candid/Founder, **Playful**, **Flirty** (suggestive, never explicit, behind a content-policy gate), Sales, Hype/Launch, Empathetic/Support.
-- **Scoring:** each preset is a set of numeric targets with tolerance bands, with per-channel overrides. Drafts are scored automatically: formality by F-score or a classifier, sentence length by readability, emoji and exclamation rates, CTA lexicon, and claims against the approved list. Humour and warmth need an LLM rater plus human spot checks.
+  - claims strictness (a gate)
+- **Starter templates:** Academic, Enterprise, Professional, Friendly, Plainspoken, Efficient, Candid/Founder, Playful, Flirty (suggestive, never explicit, behind a content-policy gate), Sales, Hype/Launch, Empathetic/Support.
 
-## 7. Unified inbox (new)
-- **Founder need:** one Gmail-style inbox for all social and messaging DMs, plus a "needs reply" view.
-- **Feasibility by channel:**
-  - **Email:** official APIs (Gmail, Outlook).
-  - **Telegram:** reading your own chats needs the MTProto client API (api_id/api_hash). It's allowed, but Telegram watches unofficial clients and bans spam ([guide](https://www.upload-post.com/telegram-api/)).
-  - **X DMs:** API, pay-per-use.
-  - **Discord:** bots only see servers they're added to; self-bots are against the terms.
-  - **Slack:** official.
-  - **WhatsApp:** only the **Business Platform** is officially supported, for business numbers, with opt-in and a 24h window. Personal WhatsApp has no official API, and automating the consumer client violates WhatsApp's terms, with permanent bans ([CodeWords](https://www.codewords.ai/blog/whatsapp-business-api-vs-unofficial-api)).
-  - **LinkedIn messages:** no member API; aggregators use credentials, cookies or a QR code.
-  - **Third-party aggregator:** Unipile offers one API across LinkedIn, WhatsApp, Instagram and Telegram ([Unipile](https://www.unipile.com/communication-api/messaging-api/)). Account-ban risk for personal WhatsApp and LinkedIn still applies.
-- **Decision:** tagged **coming soon**. The full UI is drawn. Build order when it is built:
+## 7. Unified inbox (coming soon)
+- **Channels by feasibility:**
+  - Email, Telegram (MTProto client) and X DMs: feasible.
+  - Discord: bots only.
+  - Slack: official API.
+  - WhatsApp: only the Business Platform is official, and personal-client automation breaks WhatsApp's terms ([CodeWords](https://www.codewords.ai/blog/whatsapp-business-api-vs-unofficial-api)).
+  - LinkedIn messages: no member API.
+  - Aggregators such as Unipile exist ([Unipile](https://www.unipile.com/communication-api/messaging-api/)).
+- **Build order:**
   1. Email, Telegram and X
   2. WhatsApp Business
-  3. Personal WhatsApp and LinkedIn only with the user's explicit opt-in to the ban risk
+  3. Personal WhatsApp and LinkedIn by explicit opt-in to the ban risk
 
 ## 8. Reuse (decided)
-- **Personal-brand process and research** (founder-owned): summarise the ideas publicly, with no private data.
-- **Brand database proof layer** (claim, metric, evidence, provenance): becomes the onchain "claims with evidence".
-- **Lilypad quest API:** reuse the data model only. It has no auth, has been dormant for 14 months, and its quest list rewards X actions, which X now bans.
-- **GamersLab lead finder:** reuse the UI kit, scoring and budget patterns. **Drop email harvesting, WHOIS lookup and guessed addresses** (Australian Spam Act and privacy exposure). The demo produces a scored list and drafted messages, with no sending.
+- **Personal-brand process:** ideas summarised publicly, with no private data.
+- **Brand database proof layer:** becomes onchain claims with evidence.
+- **Lilypad quest API:** data model only.
+- **GamersLab lead finder:** UI kit, scoring and budget patterns. Email harvesting, WHOIS lookup and guessed addresses are dropped.
 
 ## 9. Open items
-- Calibrate voice template values with a small user test.
-- Verify LinkedIn's automation policy from primary pages (blocked from fetching).
-- Fully read the Lilypad quest repo (needs connector approval for the Lilypad-Tech org).
-- Decide the docs/aDNA structure ([08](./research/08_adna_evaluation.md)).
-- Rewrite the PRD (issue #2), update the wireframes and deck to this compendium.
+- **GamersLab:** confirm which entity is meant, or swap in another semi-established brand.
+- **Ratify the Brand Builder architecture** (status: proposed).
+- **Calibrate** the voice template values.
+- **Verify** LinkedIn's automation policy from primary pages.
+- **Fully read** the Lilypad quest repo (needs connector approval).
+- **Rewrite** the PRD (issue #2), the wireframes, the deck and the design prompts.
