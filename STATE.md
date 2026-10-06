@@ -29,11 +29,11 @@ last_edited_by: agent
 ## Proposed (awaiting owner)
 - ADR-005: UI in React on design tokens (one file changes the look); components are built slice by slice, when a screen first needs them (owner, 2026-10-06), not as a library up front; Vite chosen (owner, 2026-10-06).
 - [Component inventory](./.agentic/what/context/component_inventory.md) with each component's first slice.
-- [UI build mission](./.agentic/how/missions/mission_ui_build.md): proof-driven delivery in timed chunks; slices S0–S8 along the critical path, each checked on the deployed site. S0 live half waits on the deploy and database secrets (mission Q5).
+- [UI build mission](./.agentic/how/missions/mission_ui_build.md): proof-driven delivery in timed chunks; slices S0–S8 along the critical path, each checked on the deployed site. S0 live half waits on the secrets, the Registrar key and G-SAS (see Next).
 
 ## Next
 0. Owner reviews the remaining [backend map](./.agentic/what/context/backend_map.md) gaps.
-1. UI slice S0 per the [UI build mission](./.agentic/how/missions/mission_ui_build.md), once the deploy and database secrets are added (Q5; the Cloudflare and Supabase accounts exist). The local half of S0 is built and checked.
+1. UI slice S0 per the [UI build mission](./.agentic/how/missions/mission_ui_build.md), once these exist: the deploy and database secrets (Q5; the Cloudflare and Supabase accounts exist, the owner has no Phantom account), a funded devnet Registrar key in the secret store, and the G-SAS registry choice. The local half of S0 is built and checked.
 2. Phase W of [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4): rework and complete the wireframes from the [audit](./.agentic/what/context/wireframe_audit_2026_10_06.md), then mark each screen need or boilerplate.
 3. P0: SAS devnet spike (G-SAS); rewrite the PRD in issue #2; gap research (questionnaire UX; verify OpenRouter free tier, X and LinkedIn posting, Cloudflare limits).
 4. P1: system component map.

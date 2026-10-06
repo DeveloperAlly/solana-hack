@@ -30,7 +30,7 @@ tags: [architecture, backend, api, gaps]
 | Search and reading pages | **Exa** `/search` and `/contents` via plain `fetch()` | It isn't verified that exa-js runs on Workers |
 | Chain | Solana **devnet** through **@solana/kit**, SAS (memo fallback) and USDC devnet. RPC via Helius free | Public devnet RPC is limited per IP and "not intended for production" |
 | Registrations | **SAS** attestations via `@solana/attestation` 2.1.0, issued by a server-side **Registrar** keypair that is the payer, credential authority and sole authorized signer. Memo fallback | Brands never sign. The subject's address or a random address is the attestation nonce. Rent is about 0.002–0.0035 SOL per attestation and can be reclaimed by closing it (computed from the account size, confirm at runtime) |
-| Payouts | The **brand's wallet** signs a USDC `transferChecked` built by the server | Wallet provider is the open decision G-WALLET (§7) |
+| Payouts | The **brand's wallet** signs a USDC `transferChecked` built by the server | Brand wallet is an injected wallet linked by `signMessage` ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
 | Publishing | X API v2 (OAuth 2.0 PKCE) and LinkedIn Share on LinkedIn (`w_member_social`), plus a copy-and-paste fallback | X charges **$0.015 a post, or $0.20 if the post has a URL**. LinkedIn tokens last 60 days with no refresh |
 
 ## 3. Data model additions (proposed; extends §3)
@@ -54,7 +54,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | Screen | Endpoints | Tables | External / jobs |
 |---|---|---|---|
 | Main | `POST /api/verify` (inline check); brand name carried to `POST /api/brands` | registrations | E: Exa `/contents` for a URL |
-| Onboard-1-SignIn | Supabase `signInWithOtp` and `verifyOtp` (client), `POST /api/profile` | profiles | E: Supabase Auth with custom SMTP (G-AUTH-2). ⚠ Copy promises a wallet (G-WALLET) |
+| Onboard-1-SignIn | Supabase `signInWithOtp` and `verifyOtp` (client), `POST /api/profile` | profiles | E: Supabase Auth with custom SMTP (G-AUTH-2). Sign-in creates no wallet ([ADR-006](../decisions/adr_006_wallet_identity_split.md)); the copy must not promise one |
 | Onboard-2-Domain, Onboard-2b-DomainFailed | `POST /api/brands/:id/domain/token`, `POST /api/brands/:id/domain/check` | brands, registrations | E: DNS-over-HTTPS (**TO VERIFY**); on success the Registrar writes an identity attestation |
 | BB-1-Basics | `POST /api/brands` | brands, memberships, evidence, sources | none |
 | Onboard-3-Sources | `POST /api/brands/:id/sources`, `DELETE …/sources/:id`, link "Connect for publishing" to `GET /api/connect/x/start` | sources | E: Supabase Storage `createSignedUploadUrl` |
@@ -82,10 +82,10 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | Screen | Endpoints | Tables | External / jobs |
 |---|---|---|---|
 | Amb-1, Amb-1b, M-1 | `GET /api/campaigns/open`, `POST …/notify` | campaigns, payouts | none |
-| Amb-2, M-2 | `POST /api/campaigns/:id/join`, `POST /api/wallets/link` | memberships, wallets | Wallet sign-message challenge (G-WALLET) |
+| Amb-2, M-2 | `POST /api/campaigns/:id/join`, `POST /api/wallets/link` | memberships, wallets | Wallet sign-message challenge ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
 | Amb-3, M-3 | `POST /api/campaigns/:id/drafts`, `GET /api/drafts/:id/checks` | drafts | J: DraftWorkflow via OpenRouter |
 | Amb-4, M-4 | `POST /api/submissions` (LinkedIn or pasted URL; **no X**) | submissions, connections | E: LinkedIn. J: `verify_submission` |
-| Amb-5a, 5b, 5c, 5d, M-5 | Realtime on `submissions`; `GET /api/me/earnings` | submissions, payouts | E: Exa `/contents` (verify), RPC balance. "Withdraw" depends on G-WALLET |
+| Amb-5a, 5b, 5c, 5d, M-5 | Realtime on `submissions`; `GET /api/me/earnings` | submissions, payouts | E: Exa `/contents` (verify), RPC balance. No "Withdraw": payouts go straight to the ambassador's own wallet ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
 | Dashboard (and its empty state) | `GET …/ambassadors`, `POST /api/submissions/:id/approve` and `/reject`, `POST /api/payouts/:id/confirm` | submissions, payouts, registrations | E: USDC `transferChecked` plus a memo, signed by the brand wallet; RPC `getTransaction` |
 | Engage-Queue | `GET …/replies`, `POST /api/replies/:id/send` | drafts | E: X mention reads (pay-per-use) and X reply posts. Cron. No LinkedIn comments (`r_member_social` closed) |
 | Leads (experimental) | `POST …/leads/search`, `GET …/leads.csv` | leads | E: Exa `/search` (company and people categories, public only) |
@@ -157,7 +157,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 - **Remove paid X ambassador formats** (X Developer Policy: "shouldn't compensate people to take actions on X").
 - **Copy changes:**
   - Sign-in no longer promises an automatic wallet.
-  - "Withdraw" depends on G-WALLET.
+  - No "Withdraw": payouts land in the ambassador's own wallet, so there is nothing to withdraw ([ADR-006](../decisions/adr_006_wallet_identity_split.md)).
   - Unverified brands can register kits and posts; they're flagged, not blocked.
   - Ledger and Verify show registrations and payouts only, with no licensing data.
 
