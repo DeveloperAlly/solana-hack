@@ -26,8 +26,9 @@ tags: [adr, ui, react, design-tokens, theming, components]
 3. **Zero-runtime styling:** CSS Modules reading CSS variables. No component hardcodes a colour, spacing, radius or font value; a CI check enforces this.
 4. **Config drives repeated structure**, not copied markup: navigation and page tags, channels and their limits, voice dimensions and templates, Brand Kit sections, check types. When research changes (for example 9 vs 10 voice dimensions), only config changes.
 5. **In-app workbench and theme editor** (`/system`) instead of a separate Storybook. It shows every component in every variant and state, edits tokens live, checks contrast and exports theme JSON.
-6. **Framework-independent library.** Components do not depend on the app framework, so the app shell can run on vinext as the PRD plans, or fall back to a Vite + React SPA on Cloudflare if vinext blocks us. Framework choice is confirmed in build phase B0 ([UI build mission](../../how/missions/mission_ui_build.md)).
-7. **Data behind adapters.** Screens read typed data through one interface with a `mock` (fixtures) and a `live` implementation, so screens are built and demoed before the backend exists and don't change when it lands.
+6. **Scope boundary.** This ADR covers the UI. The system side (agents, LLM gateway, connectors, registrar) is mapped in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P1; the two meet at the typed data adapters.
+7. **Framework-independent library.** Components do not depend on the app framework, so the app shell can run on vinext as the PRD plans, or fall back to a Vite + React SPA on Cloudflare if vinext blocks us. Framework choice is confirmed in build phase B0 ([UI build mission](../../how/missions/mission_ui_build.md)).
+8. **Data behind adapters.** Screens read typed data through one interface with a `mock` (fixtures) and a `live` implementation, so screens are built and demoed before the backend exists and don't change when it lands.
 
 ## Consequences
 - Screens are fast to add once the library exists; Coming soon and roadmap pages become cheap static compositions.

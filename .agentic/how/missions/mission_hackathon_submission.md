@@ -18,8 +18,8 @@ tags: [mission, hackathon, colosseum]
 ## Phases
 | Phase | Work | State |
 |---|---|---|
-| A | Brand builder architecture | In progress |
-| B | PRD rewrite ([issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2)) | Not started |
+| A | Brand builder architecture | Done (accepted 2026-10-06) |
+| B | PRD rewrite ([issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2)); P0 of [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) | Not started |
 | C | Wireframes and deck update | Not started |
-| D | Build | Not started |
+| D | Build: phases P1–P7 in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) | Not started |
 | E | Videos and submission | Not started |

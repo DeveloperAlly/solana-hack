@@ -10,7 +10,7 @@ tags: [mission, ui, build, components, design-tokens]
 
 # Mission: UI component system and build
 
-**Parent:** [hackathon submission](./mission_hackathon_submission.md), phase D (build).
+**Parent:** [hackathon submission](./mission_hackathon_submission.md), phase D (build). This is the **UI track of the build plan in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4)**. Issue #4 stays the canonical checklist and owns the system side (agents, LLM gateway, connectors, registrar); this mission owns the component library and screens those phases need.
 **Approach:** [ADR-005](../../what/decisions/adr_005_ui_component_system.md) (proposed).
 **Component list:** [component inventory](../../what/context/component_inventory.md) (proposed).
 **Scope tags:** [backlog](../backlog/backlog.md).
@@ -70,23 +70,25 @@ Tests: <render per variant, interaction, axe>
 | **B3 Shells and config** | L1–L10; M1 routes and nav (with tags), M2 channels, M3 voice model, M4 kit sections, M5 checks, M6 types, M7 mock adapter + fixtures (4 demo brands), M8 formatters | 4 h | **G5:** every route in M1 renders inside its shell (placeholder body); nav, sub-nav, mobile tab bar and tag badges come from config only |
 | **B4 Domain patterns** | Approval family D1–D10 first, then Brand Builder D11–D23, campaigns D24–D31, proof D32–D37; inbox and experimental D38–D48 last | 8 h | **G6:** D1 renders all six kinds from fixtures; D20 renders both voice dimension sets from config without code change |
 | **B5 Screens (hackathon tag)** | Brand Builder flow (first, because kit v1 is due Oct 9); Voices; Content dashboard + Draft review; Campaign v2; Engage queue; Ambassadors + payout flow (desktop and mobile); Verify; Ledger; Official registry; Hub home | 6 h | **G7:** every hackathon screen built from library only, on mock data; every flow on the canvas is clickable end to end, including error states via the demo state switcher (C28) |
-| **B6 Wire services (thin)** | Live adapter behind M7: ingest of URLs and uploads, drafting and polish, slop pass, kit hash registration, one USDC payout, verify, ledger | 10–12 h | **G8:** the PRD demo path runs on live data; ledger totals equal onchain sums; no screen code changed when switching mock to live |
+| **B6 Wire to live services** | Live adapter behind M7, calling the services built in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P4 (agents, polish), P5 (publish) and P6 (registry, verify, ledger, payout). Building those services is issue #4's scope, not this mission's | 3 h | **G8:** the demo path runs on live data; no screen code changed when switching mock to live |
 | **B7 Brand, remaining screens, ship** | `waterlily` theme from the brand work; coming-soon / roadmap / experimental screens as static compositions; deploy; demo recording states | 3 h | **G9:** theme switch to `waterlily` needs no component edits; deployed URL works; demo path recorded |
 
-**Estimated total: about 45–47 hours.** The PRD's build budget was 22 hours ([issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2) §12), written for the smaller licensing-era scope. To fit the deadline:
+**Estimated total for the UI track: about 35 hours**, on top of the system work in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P4–P6. The PRD's build budget was 22 hours for everything ([issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2) §12), written for the smaller licensing-era scope. To fit the deadline:
 - run B1–B4 as parallel background agents after G2 (components are independent), and
 - if still short, cut in this order: inbox / analytics / engagement-rules screens to static "coming soon" (already the backlog tag), then experimental screens to static, then mobile ambassador screens to responsive desktop only.
 
-### Proposed calendar (owner to confirm)
-| Date | Work | Gate |
-|---|---|---|
-| Tue Oct 6 | G1 sign-off; B0 | G2 |
-| Wed Oct 7 | B1–B3 in parallel; B4 approval family and Brand Builder components | G3–G5 |
-| Thu Oct 8 | B4 rest; B5 Brand Builder screens; start B6 ingest and drafting | G6 |
-| Fri Oct 9 | Waterlily's kit v1 through the product; B5 remaining screens | G7 |
-| Sat Oct 10 | B6 registry, payout, verify, ledger | G8 |
-| Sun Oct 11 | B7 theme, static screens, deploy | G9 |
-| Mon Oct 12 | Videos and submission ([mission](./mission_hackathon_submission.md) phase E) | Submitted |
+### Alignment with issue #4 and proposed calendar (owner to confirm)
+| Date | Issue #4 phase | This mission | Gate |
+|---|---|---|---|
+| Tue Oct 6 | P0 PRD and gap research | G1 sign-off; B0 foundations | G2 |
+| Wed Oct 7 | P1 system map; P2 and P3 start | B1–B3 in parallel; B4 Brand Builder (D11–D23) and approval family (D1–D10) first, because P2 and P3 need them | G3–G5 |
+| Thu Oct 8 | P2 questionnaire UI; P3 voices; P4 agents | B5 questionnaire and voice screens on mock data, then wired to P4 as it lands | G6 |
+| Fri Oct 9 | P4; P7 kit v1 | Kit v1 through the product; B5 content dashboard, draft review, campaign v2 | G7 |
+| Sat Oct 10 | P5 accounts; P6 proof layer | B5 publish, verify, ledger, payout screens; B6 wiring | G8 |
+| Sun Oct 11 | P7 demo flow | B7 theme, static coming-soon screens, deploy | G9 |
+| Mon Oct 12 | Mission phase E | Videos and submission ([mission](./mission_hackathon_submission.md)) | Submitted |
+
+**Relation to issue #4 P1:** P1 maps the **system** components (workers, agents, LLM gateway, stores, registrar). The [component inventory](../../what/context/component_inventory.md) maps the **UI** components. They meet at the data adapters (M7) and domain types (M6), which should use the same names as P1's map.
 
 ## Proposed code layout
 ```

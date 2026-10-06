@@ -276,7 +276,7 @@ Every screen below is a composition of inventory items only. Tags from the [back
 ## 9. Gaps and decisions needed
 | # | Gap | Proposal |
 |---|---|---|
-| 1 | Brand Builder screens (intake, interview, coverage map, evidence, decision gates), claims and the official registry have no wireframes. They are hackathon items ([backlog](../../how/backlog/backlog.md)) | Components are specified above (D11–D19, D36). Either add artboards to the canvas before B5, or build straight from this inventory. Owner choice |
+| 1 | Brand Builder screens (intake, interview, coverage map, evidence, decision gates), claims and the official registry have no wireframes. They are hackathon items ([backlog](../../how/backlog/backlog.md)); the questionnaire screens are [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) P2 | Components are specified above (D11–D19, D36). Either add artboards to the canvas before B5, or build straight from this inventory. Owner choice |
 | 2 | Voice model mismatch: canvas uses 10 dials (adds irreverence, suggestiveness; no claims dial); research 06 uses 9 dimensions with claims strictness as a gate and 12 templates | D20–D22 read M3, so either set works. Owner picks the set; default to research 06 |
 | 3 | Landing copy still pitches licensing | Rewrite after the PRD rewrite; layout is unaffected |
 | 4 | Polish actions (Review / Shorten / Clarify / Beautify) are not on the canvas | Specified as D6; add one artboard or build from spec |

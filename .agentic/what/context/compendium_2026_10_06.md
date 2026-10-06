@@ -108,8 +108,7 @@ Every page gets an artboard with empty, loading, success and error states and an
 - **GamersLab lead finder:** UI kit, scoring and budget patterns. Email harvesting, WHOIS lookup and guessed addresses are dropped.
 
 ## 9. Open items
-- **Ratify the Brand Builder architecture** (status: proposed).
 - **Calibrate** the voice template values.
 - **Verify** LinkedIn's automation policy from primary pages.
 - **Fully read** the Lilypad quest repo (needs connector approval).
-- **Rewrite** the PRD (issue #2), the wireframes, the deck and the design prompts.
+- **Rewrite** the PRD (issue #2, phase P0 of the [build plan](https://github.com/DeveloperAlly/solana-hack/issues/4)), the wireframes, the deck and the design prompts.
