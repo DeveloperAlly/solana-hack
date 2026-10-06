@@ -16,7 +16,7 @@ last_edited_by: agent
 - Brand Builder architecture accepted (owner, 2026-10-06); build plan in issue #4. Wireframes come first, then priorities.
 - Landing: one value prop, "build your brand, then start creating"; flow land, build brand, branding (owner, 2026-10-06; requirement R5 in the [UI build mission](./.agentic/how/missions/mission_ui_build.md#2-frozen-requirements-owners-words)).
 - **Purpose of the build (owner, 2026-10-06):** Waterlily is for the founder's own use. Winning the hackathon is a bonus. The full phased plan stays (no single-loop cut), the ICP stays broad, there's no outside-traction workstream, and the demo runs on devnet. The [VC and judge review](https://claude.ai/artifact/XwyymJ6rGuofXCCvAcctDK) informs the deck, not the scope.
-- Registry: Solana Attestation Service, with memo as the fallback (owner, 2026-10-06). The P0 spike settles it (backend map G-SAS).
+- Registry: Solana Attestation Service, with memo as the fallback (owner, 2026-10-06). The spike that opens S0 settles it (backend map G-SAS).
 - Exa is the default search provider, behind an adapter (owner, 2026-10-06). The backend map and `spec/api/` stubs are drafted (proposed).
 - UI framework: Vite + React SPA on Cloudflare (owner, 2026-10-06; [ADR-005](./.agentic/what/decisions/adr_005_ui_component_system.md)).
 - ADR-006: email sign-in (Supabase OTP); a server Registrar keypair signs registrations; a wallet only for USDC payouts (owner, 2026-10-06; G-WALLET decided).
@@ -29,12 +29,12 @@ last_edited_by: agent
 ## Proposed (awaiting owner)
 - ADR-005: UI in React on design tokens (one file changes the look); components are built slice by slice, when a screen first needs them (owner, 2026-10-06), not as a library up front; Vite chosen (owner, 2026-10-06).
 - [Component inventory](./.agentic/what/context/component_inventory.md) with each component's first slice.
-- [UI build mission](./.agentic/how/missions/mission_ui_build.md): proof-driven delivery in timed chunks; slices S0–S8 along the critical path, each checked on the deployed site. S0 live half waits on the secrets, the Registrar key and G-SAS (see Next).
+- [UI build mission](./.agentic/how/missions/mission_ui_build.md): proof-driven delivery in timed chunks; slices S0–S8 along the critical path, each checked on the deployed site. S0 live half waits on the secrets and the Registrar key (see Next).
 
 ## Next
 0. Owner reviews the remaining [backend map](./.agentic/what/context/backend_map.md) gaps.
-1. UI slice S0 per the [UI build mission](./.agentic/how/missions/mission_ui_build.md), once these exist: the deploy and database secrets (Q5; the Cloudflare and Supabase accounts exist and the owner has no Phantom account: [owner answers](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6014295120)), a funded devnet Registrar key in the secret store, and the G-SAS registry choice. The local half of S0 is built and checked.
+1. UI slice S0 per the [UI build mission](./.agentic/how/missions/mission_ui_build.md), once these exist: the deploy and database secrets (Q5; the Cloudflare and Supabase accounts exist and the owner has no Phantom account: [owner answers](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6014295120)) and a funded devnet Registrar key in the secret store. S0 runs the G-SAS spike first and uses whichever registry it selects. The local half of S0 is built and checked.
 2. Phase W of [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4): rework and complete the wireframes from the [audit](./.agentic/what/context/wireframe_audit_2026_10_06.md), then mark each screen need or boilerplate.
-3. P0: SAS devnet spike (G-SAS); rewrite the PRD in issue #2; gap research (questionnaire UX; verify OpenRouter free tier, X and LinkedIn posting, Cloudflare limits).
+3. P0: rewrite the PRD in issue #2; gap research (questionnaire UX; verify OpenRouter free tier, X and LinkedIn posting, Cloudflare limits).
 4. P1: system component map.
 5. Owner ratifies the proposed pipeline rules in [architecture §12.3](./.agentic/what/context/brand_builder_architecture.md#12-end-to-end-walkthrough-user-flow-and-pipeline) and the founder-profile step (2a).

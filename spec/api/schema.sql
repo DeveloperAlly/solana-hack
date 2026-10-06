@@ -29,7 +29,8 @@ create table public.brands (                 -- [§3] Brand
   domain_verified boolean default false,     -- DNS TXT check (Onboard-2). Unverified brands are FLAGGED, not blocked
   domain_txt_token text,                     -- the unique value shown on Onboard-2
   founder_brand_id uuid references public.brands(id),  -- the Person link (§3: founder link)
-  plan text default 'trial',                 -- [NEW] g3: subscription plan (billing is boilerplate, see settings)
+  plan text default 'trial',
+  payout_wallet text,                        -- [NEW] ADR-006: this brand's USDC payout wallet; must be a verified wallets.address of an owner. Null = prompt on first "Approve and pay"                 -- [NEW] g3: subscription plan (billing is boilerplate, see settings)
   created_by uuid references public.profiles(id),
   created_at timestamptz default now()
 );

@@ -12,7 +12,7 @@ tags: [architecture, backend, api, gaps]
 
 ## 1. Decisions taken in this pass
 - **Purpose of the build (owner, 2026-10-06):** the founder wants to use Waterlily herself. Winning the hackathon is a bonus, not the goal. So the full phased plan in issue #4 stays: there is no cut to a single demo loop, the ICP stays broad (any brand), and there's no outside-traction workstream. The demo runs on devnet only.
-- **Registry (owner, 2026-10-06):** registrations use the **Solana Attestation Service (SAS)**, with the memo program as the fallback if the P0 devnet spike fails (§7 G-SAS).
+- **Registry (owner, 2026-10-06):** registrations use the **Solana Attestation Service (SAS)**, with the memo program as the fallback if the devnet spike that opens UI slice S0 fails (§7 G-SAS).
 - **Search:** Exa is the default search provider, behind a swappable adapter (owner, 2026-10-06). It does competitor research at Gate 2, reads owned URLs during ingest, reads a URL pasted into Verify, and supplies lead signals.
 - **Format:** a markdown map plus TypeScript stubs. No separate PRD; this feeds the P0 PRD rewrite and the P1 component map (owner, 2026-10-06).
 - **Scope:** full boilerplate for hackathon, coming-soon and experimental screens. Roadmap screens get one line each. Parked and superseded screens are skipped (owner, 2026-10-06).
@@ -86,7 +86,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | Amb-3, M-3 | `POST /api/campaigns/:id/drafts`, `GET /api/drafts/:id/checks` | drafts | J: DraftWorkflow via OpenRouter |
 | Amb-4, M-4 | `POST /api/submissions` (LinkedIn or pasted URL; **no X**) | submissions, connections | E: LinkedIn. J: `verify_submission` |
 | Amb-5a, 5b, 5c, 5d, M-5 | Realtime on `submissions`; `GET /api/me/earnings` | submissions, payouts | E: Exa `/contents` (verify), RPC balance. No "Withdraw": payouts go straight to the ambassador's own wallet ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
-| Dashboard (and its empty state) | `GET …/ambassadors`, `POST /api/submissions/:id/approve` and `/reject`, `POST /api/payouts/:id/confirm`, `POST /api/wallets/link` (prompted on the first "Approve and pay" if the brand has no linked wallet) | submissions, payouts, registrations, wallets | E: USDC `transferChecked` plus a memo, signed by the brand wallet; RPC `getTransaction`. Brand wallet linked by `signMessage` ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
+| Dashboard (and its empty state) | `GET …/ambassadors`, `POST /api/submissions/:id/approve` and `/reject`, `POST /api/payouts/:id/confirm`, `PUT /api/brands/:id/payout-wallet` (prompted on the first "Approve and pay" when `brands.payout_wallet` is empty) | submissions, payouts, registrations, brands, wallets | E: USDC `transferChecked` plus a memo, signed by the brand wallet; RPC `getTransaction`. Brand payout wallet: a wallet the owner verified by `signMessage`, set per brand ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
 | Engage-Queue | `GET …/replies`, `POST /api/replies/:id/send` | drafts | E: X mention reads (pay-per-use) and X reply posts. Cron. No LinkedIn comments (`r_member_social` closed) |
 | Leads (experimental) | `POST …/leads/search`, `GET …/leads.csv` | leads | E: Exa `/search` (company and people categories, public only) |
 | Influencer-Setup, Influencer-Queue (experimental) | `POST …/personas`, `GET /api/personas/:id/queue` | personas, drafts, registrations | Storage, SAS attestation. Watermarking not chosen (G-WATERMARK) |
@@ -96,7 +96,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 |---|---|---|---|
 | Verify-1, Verify-2, Verify-3 | `POST /api/verify`, `GET /api/verify/{kit,account,claim}`, `POST /api/verify/report` | registrations, drafts | E: Exa `/contents`. "Edited" needs a similarity match (G-MATCH) |
 | Ledger | `GET /api/ledger` | registrations, payouts | Explorer links |
-| Settings › Connections (missing) | `GET /api/connect/{x,linkedin}/start` and `/callback`, `DELETE /api/connections/:id`; brand payout wallet: `POST /api/wallets/link`, `DELETE /api/wallets/:id` | connections, wallets | E: X and LinkedIn OAuth. Encrypting tokens at rest (G-SECRETS) |
+| Settings › Connections (missing) | `GET /api/connect/{x,linkedin}/start` and `/callback`, `DELETE /api/connections/:id`; brand payout wallet (owner only, scoped to the active brand): `POST /api/wallets/link`, then `PUT /api/brands/:id/payout-wallet {address}`; `DELETE /api/brands/:id/payout-wallet` | connections, wallets, brands | E: X and LinkedIn OAuth. Encrypting tokens at rest (G-SECRETS) |
 | Settings › AI (missing) | `GET/PUT …/ai-settings` | ai_settings | E: OpenRouter, Anthropic or OpenAI key test. Where bring-your-own keys are stored is still open (P4) |
 | Settings › Plan (missing) | `GET …/plan` | brands, memberships | Billing provider not chosen (G-BILLING) |
 | Inbox-All, Inbox-NeedsReply, Inbox-Connect (coming soon) | Sketch only | inbox_threads | Email, Telegram bot, X DMs. Sending is always done by a person |
