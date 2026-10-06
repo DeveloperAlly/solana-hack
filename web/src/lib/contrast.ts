@@ -1,4 +1,6 @@
-// WCAG 2.2 relative luminance and contrast ratio for hex colours.
+// WCAG 2.2 relative luminance and contrast ratio for hex colours. Definitions, including the 0.04045 sRGB threshold:
+// https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum#dfn-relative-luminance
+// https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum#dfn-contrast-ratio
 // Translucent colours (eight-digit hex with alpha below ff) return null: their contrast depends on what
 // is underneath, so callers report "Cannot check" instead of a false Pass.
 export function parseHex(value: string): [number, number, number] | null {

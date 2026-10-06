@@ -109,7 +109,7 @@ export function Workbench() {
           <Entry id="P6" name="Heading">
             <Stack gap={2}>
               {levels.map((l) => (
-                <Heading key={l} level={l === 1 ? 2 : l} size={l === 1 ? '3xl' : undefined}>
+                <Heading key={l} level={l}>
                   Level {l} size
                 </Heading>
               ))}

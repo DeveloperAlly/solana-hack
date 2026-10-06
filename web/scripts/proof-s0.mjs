@@ -1,6 +1,6 @@
 // S0 proof: changing one token value changes the page.
 // Builds, serves with vite preview, screenshots /, edits one semantic token in the wireframe theme,
-// rebuilds, reloads, asserts the "Build my brand" button background changed, reverts, screenshots /system.
+// rebuilds, reloads, asserts the "Build my brand" button background changed, reverts, screenshots /system, runs axe on / and /system.
 // Browser: set CHROMIUM_PATH to a Chromium binary, or leave it unset and Playwright uses the browser it manages
 // (install it once with `npx playwright install chromium`).
 import { spawn, spawnSync } from 'node:child_process';
@@ -113,8 +113,10 @@ try {
   await page.getByRole('heading', { name: 'Workbench' }).waitFor();
   await page.screenshot({ path: shot('system'), fullPage: true });
   log(`/system screenshot ${rel(shot('system'))}`);
+  const axeSystem = await axeCount(page, '/system');
 
   if (axeLanding !== 0) throw new Error(`ASSERT FAILED: axe found ${axeLanding} violations on /`);
+  if (axeSystem !== 0) throw new Error(`ASSERT FAILED: axe found ${axeSystem} violations on /system`);
   ok = true;
   log('proof-s0 PASS');
 } catch (e) {

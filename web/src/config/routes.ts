@@ -15,6 +15,7 @@ export const routes: RouteDef[] = [
   { path: '/', label: 'Home', section: 'public', tag: 'HACKATHON', screen: 'landing' },
   { path: '/how-it-works', label: 'How it works', section: 'public', tag: 'HACKATHON', screen: 'placeholder' },
   { path: '/verify', label: 'Check a post', section: 'public', tag: 'HACKATHON', screen: 'placeholder' },
+  { path: '/ledger', label: 'Ledger', section: 'public', tag: 'HACKATHON', screen: 'placeholder' },
   { path: '/sign-in', label: 'Sign in', section: 'onboarding', tag: 'HACKATHON', screen: 'placeholder' },
   { path: '/build', label: 'Build your brand', section: 'onboarding', tag: 'HACKATHON', screen: 'placeholder' },
   { path: '/system', label: 'Workbench', section: 'system', tag: 'HACKATHON', screen: 'workbench' },
@@ -27,7 +28,7 @@ export interface NavItem {
 }
 
 /** Public nav (L10). The last item renders as a button. */
-export const publicNav: NavItem[] = ['/how-it-works', '/verify', '/sign-in'].map((p) => {
+export const publicNav: NavItem[] = ['/how-it-works', '/verify', '/ledger', '/sign-in'].map((p) => {
   const r = routes.find((x) => x.path === p);
   if (!r) throw new Error(`publicNav: no route ${p}`);
   return { path: r.path, label: r.label, tag: r.tag };
