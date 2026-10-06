@@ -44,13 +44,13 @@ Components are built in the slice where a screen first needs them ([UI build mis
 | Slice | Built first in this slice |
 |---|---|
 | S0 Preflight | T1–T12 tokens and the `wireframe` theme; M1 routes; L10 PublicShell; workbench and theme editor at `/system` |
-| S1 Land and sign in | P1–P8, P11, P17, P18; C1, C2, C8, C13; L6; D36, D37; M6, M7 |
+| S1 Land and sign in | P1–P8, P11, P17, P18; C1, C2, C8, C13; L5, L6; D36, D37; M6, M7 |
 | S2 Basics and ingest | P12–P15, P21, P22, P24; C7, C14; D11, D12 |
 | S3 Interview, gates, coverage | C6, C10; D13, D14, D15, D16, D17, D20, D51; M3, M4 |
 | S4 Kit v1 | C3, C11, C16, C25, C29; D18, D32, D49, D50; L1, L2, L3, L4, L8, D48; M8 |
 | S5 Create | P25, P27; C4, C5, C23; L9; D1–D9, D21–D23; M2, M5 |
 | S6 Prove | C12, C19, C20; D19, D30, D33, D34, D35, D52 |
-| S7 Grow | P19, P20, P26; C9, C15, C17, C18, C22, C24, C26, C27, C28; L5; D10, D24–D29, D31, D40, D42, D47 |
+| S7 Grow | P19, P20, P26; C9, C15, C17, C18, C22, C24, C26, C27, C28; D10, D24–D29, D31, D40, D42, D47 |
 | S8 Everything else | P9, P10, P16, P23, P28; L7; D38, D39, D41, D43–D46, D53, D54, D55 |
 
 ## 2. Layer 0: design tokens and themes
@@ -192,7 +192,7 @@ Know Waterlily data types (M6). Grouped by area.
 | D17 | DecisionGate | gate (purpose / positioning / voice), "Gate n of 3", AI draft with "based on" sources, Try another draft, optional "why" field; Approve / Save, decide later; records a Decision (who, when, why) | pending, deferred, approved, stale (an upstream gate changed) | BB-Gate1-Purpose, BB-Gate2-Positioning, BB-Gate3-Voice |
 | D18 | KitVersionBadge | version, approved date and approver, hash, registered receipt (D32), download link (D49) | draft, approved, registered, registration failed | Brand-Build, Hub-Home, Onboard-6-Published, Kit-Export |
 | D19 | ClaimTable | claim, evidence links, owner, expiry, status (approved / pending / expired), registered tx (D32), Register | empty, pending, approved, expired | Claims, Claims-Empty (canvas batch 4) |
-| D20 | VoiceDials | 8 dimensions from config (M3) rendered with C6; claims strictness rendered as a gate of rule checkboxes, not a slider; a subset (e.g. 3 dials) for intake step 6 | locked by channel cap | Voice-Editor, BB-6-Voice, BB-Gate3-Voice |
+| D20 | VoiceDials | all 9 dimensions from config (M3, [research 06](./research/06_voice_templates.md)): the 8 scaled ones rendered as C6 dials, and the ninth, claims strictness, rendered as a gate of rule checkboxes, not a slider; a subset (e.g. 3 dials) for intake step 6 | locked by channel cap | Voice-Editor, BB-6-Voice, BB-Gate3-Voice |
 | D21 | TemplateGallery | template cards from M3 | selected | Voice-Templates |
 | D22 | PresetMatrix | templates × dimensions table from M3 | n/a | Voice-Templates |
 | D23 | VoiceRulesPreview | sample output + plain-language rules derived from dials | regenerating | Voice-Editor |
@@ -323,11 +323,11 @@ Every screen below is a composition of inventory items only. Tags follow the can
 **Reuse check:** D1 ApprovalItem appears on 9 screens; D16 Exercises on 6; C7 ChoiceCards on 6; D17 DecisionGate on 3; C10 DataTable on 10.
 
 ## 9. Gaps and decisions needed
-Resolved by the 2026-10-06 canvas rework: Brand Builder screens drawn (old gap 1); voice model is research 06, 9 dimensions with claims strictness as a gate (old gap 2); landing rewritten (old gap 3); aDNA export has a screen (old gap 5a); building components slice by slice replaces the up-front library (owner, 2026-10-06).
+Decided: the voice model is research 06, 9 dimensions with claims strictness as a gate; components are built slice by slice, not as an up-front library (owner, 2026-10-06). Which canvas screens are drawn is tracked in [STATE.md](../../../STATE.md), not here.
 
 | # | Gap | Proposal |
 |---|---|---|
-| 1 | Voices, Draft-Review with polish actions, Ledger, Verify-1, Claims, Quests, Settings and the screen states come from canvas rework batches 2–5 | Each batch is drawn and signed off before the slice that needs it ([mission](../../how/missions/mission_ui_build.md) §3) |
+| 1 | A slice can need screens that come from a later canvas rework batch (§8 names the batch per screen) | Each batch is drawn and signed off before the slice that needs it ([mission](../../how/missions/mission_ui_build.md) §3) |
 | 2 | Campaign v2 steps 2, 4, 5 and 6 have no artboards of their own | Draw them in canvas batch 5; S7 starts only once they are signed off, per the mission's entry rule. Building them from this inventory alone would need an owner-approved exception |
 | 3 | App framework: vinext is experimental ([InfoQ](https://infoq.com/news/2026/03/cloudflare-vinext-experimental)) | Library is framework-independent ([ADR-005](../decisions/adr_005_ui_component_system.md)); S0 runs a timed spike and records the choice (mission Q3) |
 | 4 | Bring-your-own key storage is undecided (issue #4 P4) | D54 waits for the decision (mission Q4) |
