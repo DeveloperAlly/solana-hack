@@ -72,6 +72,10 @@ export async function brandAmbassadors(req: Request, env: any) {}
  *
  * POST /api/submissions/:id/pay     Auth: owner only (the payout wallet belongs to an owner, ADR-006).
  * Refused unless the submission is approved and verified. "Approve and pay" = approve then pay in one owner action.
+ * Idempotent: at most one live payout per submission (unique partial index on payouts(submission_id) where status in
+ *   ('pending','sent','confirmed'), schema.sql). A retry or double click returns the existing pending payout and its
+ *   unsigned transaction instead of building a second one; a confirmed payout is refused with 409 already_paid.
+ *   Only after a payout is 'failed' (step 3) can a new one be created.
  * Hackathon payment flow (G-WALLET decision):
  *   0. If brands.payout_wallet is null, refuse with 409 {code: 'payout_wallet_missing'}; the Dashboard then prompts
  *      the owner to link a wallet and set it (walletLink, then brandPayoutWallet in public_settings_inbox.ts).
@@ -84,8 +88,12 @@ export async function brandAmbassadors(req: Request, env: any) {}
  *      amount, decimals: 6 (TO VERIFY)}) + getAddMemoInstruction("wl1|payout|<submissionId>").
  *      Fee payer = the brand wallet = brands.payout_wallet (ADR-006).
  *   2. The browser has the brand's payout wallet sign and send it (injected provider, ADR-006).
- *   3. POST /api/payouts/:id/confirm {signature} → the server checks the transaction on RPC (getTransaction): signer =
- *      payouts.from_address, recipient = payouts.to_address, amount → payouts.status 'confirmed' →
+ *   3. POST /api/payouts/:id/confirm {signature} → refused if the signature is already on another payout
+ *      (payouts.tx_signature is unique). The server fetches the transaction on RPC (getTransaction) and requires all of:
+ *      it succeeded; signer and fee payer = payouts.from_address; exactly one transferChecked under the SPL Token
+ *      program with mint = devnet USDC, source = the ATA of from_address, destination = the ATA of to_address,
+ *      amount = payouts.amount_usdc in base units; and the memo is exactly "wl1|payout|<submissionId>" for this
+ *      payout's submission. Any mismatch → 'failed'. All pass → payouts.tx_signature set, status 'confirmed' →
  *      registrations(type 'content') for the ambassador post, with campaign_id.
  * Cap check: the server refuses to build if amount > remaining cap (offchain enforcement; escrow is roadmap).
  * Errors: transaction failed or not found → payouts 'failed' (Dashboard error state missing).

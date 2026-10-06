@@ -209,10 +209,13 @@ create table public.payouts (                -- [NEW] g2
   submission_id uuid references public.submissions(id),
   amount_usdc numeric(12,2) not null,
   from_address text, to_address text,        -- to_address = the ambassador's profiles.payout_wallet when the payout is built (ADR-006)
-  tx_signature text,
+  tx_signature text unique,                  -- one transaction confirms at most one payout
   status text default 'pending' check (status in ('pending','sent','confirmed','failed')),
   created_at timestamptz default now()
 );
+-- At most one live payout per submission (idempotent Pay; a failed payout can be retried).
+create unique index payouts_one_live_per_submission on public.payouts (submission_id)
+  where status in ('pending','sent','confirmed');
 
 -- ---------- proof layer ----------
 create table public.registrations (          -- [§3] Registration, widened (g4) to match Verify-1 and §7
