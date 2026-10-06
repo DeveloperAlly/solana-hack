@@ -39,7 +39,7 @@ tags: [ui, components, design-tokens, inventory, dry]
 | Removed | C21 SplitBreakdown: licensing fee splits are dropped ([ADR-003](../decisions/adr_003_superhub_business_model.md)). Not built; budget allocation uses D25 BudgetBar |
 
 ## 1b. First slice per component
-Components are built in the slice where a screen first needs them ([UI build mission](../../how/missions/mission_ui_build.md) §4), not as a library up front. A later slice that needs a new variant adds a prop to the existing component. Rule: a component's slice is no later than the first screen (§8) or component that requires it. Optional slots (for example D10's overlay, filled by D46) and the controls P17 Field wraps are not ordering dependencies.
+Components are built in the slice where a screen first needs them ([UI build mission](../../how/missions/mission_ui_build.md) §4), not as a library up front. A later slice that needs a new variant adds a prop to the existing component. Rule: a component's slice is no later than the first screen (§8) or component that requires it. Optional slots (for example D10's overlay, filled by D46) and the controls P17 Field wraps are not ordering dependencies. If the owner includes a paid quest in the demo (mission Q2), D53 and the Quests screen move from S8 to S7.
 
 | Slice | Built first in this slice |
 |---|---|
@@ -245,7 +245,7 @@ Know Waterlily data types (M6). Grouped by area.
 | ID | Component | Variants and props | States | Used by |
 |---|---|---|---|---|
 | D52 | PublishingConnection | per channel (X, LinkedIn from M2): connect for publishing, status; fallback row: copy to clipboard plus "paste the post URL" so verify still works | connected, not connected, expired, error | Settings: publishing, Amb-4-Publish, Draft-Review publish step |
-| D53 | QuestCard | paid task (for example "write a tutorial about the brand"), USDC reward, slots, deadline; COMING SOON tag | coming soon | Quests |
+| D53 | QuestCard | paid task (for example "write a tutorial about the brand"), USDC reward, slots, deadline; variants: coming soon (tagged) and paid (submit, approve, payout receipt D32) | coming soon, open, submitted, paid | Quests |
 | D54 | ModelSettings | default free model; bring-your-own Claude or OpenAI key (storage per mission Q4); test key | default, key added, key invalid | Settings: AI model |
 | D55 | PlanSeats | plan, seats (partners, agencies, ambassadors), billing summary | n/a | Settings: plan and seats |
 
