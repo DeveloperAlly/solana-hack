@@ -25,7 +25,9 @@ tags: [mission, ui, build, components, design-tokens]
   - B4 (domain) starts per component once every component it lists (for example D20 needs C6, C26 and M3) has passed its gate.
   - The same rule applies inside a layer: a component starts once the same-layer components it composes have passed (for example D1 ApprovalItem after D2, D3 and D9; D5 DraftEditor after D6). Components with no same-layer dependencies can be split across parallel background agents.
   - Each component passes its own check when its definition of done is met; a layer's gate (G3–G6) passes when all its components have.
-  - **B5 screens start per screen**, once every component that screen composes ([inventory](../../what/context/component_inventory.md) §8) has passed. G6 (whole domain layer) and G7 (all hackathon screens) close when their last item passes, so screens and the remaining domain components can overlap.
+  - **Optional parts are slots, not dependencies.** When a component only optionally shows another (for example D10 PostPreview's watermark, which D46 provides), it exposes a typed slot and is done without it; the later component plugs in. Only required composition creates an ordering dependency.
+  - **B5 screens start per screen**, once every component that screen composes ([inventory](../../what/context/component_inventory.md) §8) has passed. G6 (whole domain layer) closes when its last component passes, so screens and the remaining domain components can overlap.
+  - **G7 is signed off per screen group** as each group lands (see the calendar). B6 wiring for a group starts only after that group's sign-off; G7 is complete when the last group is signed off.
 
 ## Part 1: Identify the system components
 
@@ -88,9 +90,9 @@ Tests: <render per variant, interaction, axe>
 |---|---|---|---|
 | Tue Oct 6 | P0 PRD and gap research | G1 sign-off; B0 foundations | G2 |
 | Wed Oct 7 | P1 system map; P2 and P3 start | B1 and B3 config in parallel; then B2 and B3 shells as their dependencies pass; then B4 approval family (D1–D10), D32, Brand Builder (D11–D23) and D49, because P2 and P3 need them | G3–G5 |
-| Thu Oct 8 | P2 questionnaire UI; P3 voices; P4 agents | B5 questionnaire, voice and kit-export screens on mock data (their components passed Wednesday), wired to P4 as it lands; in parallel, B4 remainder D24–D31, D33–D48 | G6 |
-| Fri Oct 9 | P4; P7 kit v1 | Kit v1 through the product; B5 content dashboard, draft review, campaign v2 | G7 |
-| Sat Oct 10 | P5 accounts; P6 proof layer | B5 publish, verify, ledger, payout screens; B6 wiring | G8 |
+| Thu Oct 8 | P2 questionnaire UI; P3 voices; P4 agents | B5 questionnaire, voice and kit-export screens on mock data (their components passed Wednesday); owner signs off this group, then B6 wires it to P4 as P4 lands; in parallel, B4 remainder D24–D31, D33–D48 | G6; G7 group 1 |
+| Fri Oct 9 | P4; P7 kit v1 | Kit v1 through the product; B5 content dashboard, draft review, campaign v2, claims, hub home, landing; sign-off, then B6 wiring for this group | G7 group 2 |
+| Sat Oct 10 | P5 accounts; P6 proof layer | B5 publish, verify, ledger, registry, payout and ambassador screens; sign-off, then B6 wiring for this group | G7 group 3 (G7 complete); G8 |
 | Sun Oct 11 | P7 demo flow | B7 theme, static coming-soon screens, deploy | G9 |
 | Mon Oct 12 | Mission phase E | Videos and submission ([mission](./mission_hackathon_submission.md)) | Submitted |
 

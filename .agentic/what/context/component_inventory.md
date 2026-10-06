@@ -162,7 +162,7 @@ Know Waterlily data types (M6). Grouped by area.
 | D7 | SlopFixList | fixes applied with "Show original" (C23) | n/a | Draft-Review, D1 expanded |
 | D8 | SchedulePicker | suggested best slot, now, custom | n/a | Draft-Review, campaign plan |
 | D9 | ChannelBadge + ChannelPicker | from channel registry (M2) | n/a | everywhere a platform appears |
-| D10 | PostPreview | renders a draft as the platform shows it (M2 formatting rules); optional watermark overlay | n/a | publish, influencer, Beautify preview |
+| D10 | PostPreview | renders a draft as the platform shows it (M2 formatting rules); optional `overlay` slot (D46 plugs in; not a build dependency) | n/a | publish, influencer, Beautify preview |
 
 ### 6.2 Brand Builder and voices
 | ID | Component | Variants and props | States | Used by |
