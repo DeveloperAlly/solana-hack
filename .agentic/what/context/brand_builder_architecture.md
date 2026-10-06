@@ -1,12 +1,12 @@
 ---
 type: architecture
-status: proposed
+status: accepted
 created: 2026-10-06
 updated: 2026-10-06
 last_edited_by: agent
 tags: [architecture, brand-builder, input-spec, data-model]
 ---
-> **Status: proposed.** This is the Brand Builder architecture and input spec. It waits for owner ratification before it feeds the PRD rewrite (issue #2).
+> **Status: accepted.** This is the Brand Builder architecture and input spec. Ratified by Ally Haire in chat, 2026-10-06. It feeds the PRD rewrite (issue #2), and the build follows the phased plan in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4).
 
 # Brand Builder: architecture and input spec
 
