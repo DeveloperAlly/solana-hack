@@ -223,7 +223,9 @@ create table public.registrations (          -- [§3] Registration, widened (g4)
   platform_url text,                         -- g4
   campaign_id uuid,                          -- g4
   domain_verified_at_time boolean,           -- the "unverified domain" flag shown on Verify
-  memo text,                                 -- the exact memo string written onchain
+  attestation_address text,                  -- SAS attestation PDA (primary registry)
+  attestation_nonce text,                    -- the nonce address used as the PDA seed
+  memo text,                                 -- fallback only: the exact memo string written onchain
   tx_signature text, cluster text default 'devnet',
   status text default 'pending' check (status in ('pending','confirmed','failed')),
   at timestamptz default now()
