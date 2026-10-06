@@ -1,4 +1,5 @@
-// Fails if any file under src (except src/tokens) has a raw colour or px value, or if a screen has a stylesheet.
+// Fails if any file under src (except src/tokens) has a raw colour (test files excepted) or px value,
+// a numeric dimension in a style object, a style prop outside ui/primitives, or if a screen has a stylesheet.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +17,10 @@ const files = [];
 const HEX = /(^|[^&\w])#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/;
 const FUNC = /\b(?:rgba?|hsla?)\s*\(/i;
 const PX = /\b\d*\.?\d+px\b/;
-const STYLE_PX = /style=\{\{[^}]*\d+px/s;
+// Dimensional properties given a bare number (React adds px), in inline or referenced style objects.
+const DIM_NUMBER = /\b(?:padding\w*|margin\w*|gap|rowGap|columnGap|width|height|min(?:Width|Height)|max(?:Width|Height)|top|left|right|bottom|inset\w*|fontSize|lineHeight|letterSpacing|borderRadius|border\w*Width|outlineWidth|outlineOffset|flexBasis)\s*:\s*-?\d/;
+// Only primitives may take a style prop, and only to apply token variables.
+const STYLE_PROP = /\bstyle=\{/;
 
 const errors = [];
 for (const file of files) {
@@ -25,11 +29,14 @@ for (const file of files) {
   if (rel.startsWith('screens/') && rel.endsWith('.css')) errors.push(`${rel}: screens must not have stylesheets`);
   const text = readFileSync(file, 'utf8');
   text.split('\n').forEach((line, i) => {
-    if (HEX.test(line)) errors.push(`${rel}:${i + 1}: raw hex colour: ${line.trim()}`);
-    if (FUNC.test(line)) errors.push(`${rel}:${i + 1}: raw rgb()/hsl() colour: ${line.trim()}`);
-    if (rel.endsWith('.css') && PX.test(line)) errors.push(`${rel}:${i + 1}: px value in CSS: ${line.trim()}`);
+    // Test files may name colours as fixture data (they are not shipped or styled).
+    const isTest = /\.test\.(t|j)sx?$/.test(rel);
+    if (!isTest && HEX.test(line)) errors.push(`${rel}:${i + 1}: raw hex colour: ${line.trim()}`);
+    if (!isTest && FUNC.test(line)) errors.push(`${rel}:${i + 1}: raw rgb()/hsl() colour: ${line.trim()}`);
+    if (PX.test(line)) errors.push(`${rel}:${i + 1}: px value: ${line.trim()}`);
+    if (/\.(t|j)sx?$/.test(rel) && DIM_NUMBER.test(line)) errors.push(`${rel}:${i + 1}: numeric dimension in a style object: ${line.trim()}`);
+    if (rel.endsWith('.tsx') && !rel.startsWith('ui/primitives/') && STYLE_PROP.test(line)) errors.push(`${rel}:${i + 1}: style prop outside ui/primitives: ${line.trim()}`);
   });
-  if (rel.endsWith('.tsx') && STYLE_PX.test(text)) errors.push(`${rel}: px value in a style prop`);
 }
 
 if (errors.length) {

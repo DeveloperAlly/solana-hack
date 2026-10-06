@@ -1,8 +1,14 @@
 // WCAG 2.2 relative luminance and contrast ratio for hex colours.
+// Translucent colours (eight-digit hex with alpha below ff) return null: their contrast depends on what
+// is underneath, so callers report "Cannot check" instead of a false Pass.
 export function parseHex(value: string): [number, number, number] | null {
   const m = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(value.trim());
   if (!m) return null;
   let h = m[1];
+  if (h.length === 8) {
+    if (h.slice(6).toLowerCase() !== 'ff') return null;
+    h = h.slice(0, 6);
+  }
   if (h.length === 3) h = h.split('').map((c) => c + c).join('');
   return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number];
 }

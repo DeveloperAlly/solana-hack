@@ -12,6 +12,7 @@
   border-radius: var(--wl-radius-control);
 }
 .list { margin: 0; padding-left: var(--wl-space-5); }
+.tableWrap { overflow-x: auto; max-width: 100%; }
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -25,7 +26,7 @@
 }
 .tokenGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(calc(var(--wl-space-12) * 7), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--wl-space-12) * 7)), 1fr));
   gap: var(--wl-space-2) var(--wl-space-6);
   margin-top: var(--wl-space-3);
 }

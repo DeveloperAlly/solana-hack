@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import wireframe from '../tokens/themes/wireframe.json';
 import { contrastPairs, resolvedThemes, tokenMeta, tokenNames, type TokenName } from '../tokens/tokens';
 import { contrastRatio, contrastThreshold, parseHex } from '../lib/contrast';
@@ -17,13 +17,22 @@ function toSixHex(value: string): string | null {
 export function ThemeEditor() {
   const [edits, setEdits] = useState<Partial<Record<TokenName, string>>>({});
   const current = useMemo(() => ({ ...base, ...edits }), [edits]);
+  // Every token this editor has overridden on the document, so the overrides never outlive the editor.
+  const touched = useRef(new Set<TokenName>());
+
+  function clearOverrides() {
+    for (const n of touched.current) document.documentElement.style.removeProperty(tokenMeta[n].cssVar);
+    touched.current.clear();
+  }
+  useEffect(() => clearOverrides, []);
 
   function setToken(name: TokenName, value: string) {
     setEdits((e) => ({ ...e, [name]: value }));
+    touched.current.add(name);
     document.documentElement.style.setProperty(tokenMeta[name].cssVar, value);
   }
   function reset() {
-    for (const n of Object.keys(edits) as TokenName[]) document.documentElement.style.removeProperty(tokenMeta[n].cssVar);
+    clearOverrides();
     setEdits({});
   }
   const exported = JSON.stringify({ ...wireframe, name: 'wireframe-edited', tokens: { ...wireframe.tokens, ...edits } }, null, 2);
@@ -52,6 +61,7 @@ export function ThemeEditor() {
         <Heading level={3} id="contrast-h">
           Contrast checks
         </Heading>
+        <div className={styles.tableWrap} tabIndex={0} role="region" aria-label="Contrast checks table">
         <table className={styles.table}>
           <thead>
             <tr>
@@ -85,6 +95,7 @@ export function ThemeEditor() {
             })}
           </tbody>
         </table>
+        </div>
       </section>
 
       {groups.map((g) => (

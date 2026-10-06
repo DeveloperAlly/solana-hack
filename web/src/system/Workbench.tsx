@@ -20,8 +20,8 @@ function Entry({ id, name, children }: { id: string; name: string; children: Rea
 
 const variants: TextVariant[] = ['body', 'small', 'caption', 'label', 'mono'];
 const tones: TextTone[] = ['primary', 'secondary', 'success', 'warning', 'danger', 'info'];
-const backgrounds: BoxBackground[] = ['canvas', 'subtle', 'inverse'];
-const borders: BoxBorder[] = ['default', 'strong', 'subtle'];
+const backgrounds: BoxBackground[] = ['none', 'canvas', 'surface', 'subtle', 'inverse'];
+const borders: BoxBorder[] = ['none', 'default', 'strong', 'subtle'];
 const levels: HeadingLevel[] = [1, 2, 3, 4];
 
 /** /system: every built component in every variant, plus the theme editor. */
