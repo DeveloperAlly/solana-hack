@@ -100,6 +100,8 @@ export async function brandAmbassadors(req: Request, env: any) {}
  *   2. The browser has the brand's payout wallet sign and send it (injected provider, ADR-006).
  *   3. POST /api/payouts/:id/confirm {signature} → refused if the signature is already on another payout
  *      (payouts.tx_signature is unique). The server fetches the transaction on RPC (getTransaction) and requires all of:
+ *      its message bytes equal the message in payouts.unsigned_tx (so the blockhash equals payouts.recent_blockhash and
+ *      the stored last_valid_block_height really bounds it; a rebuilt or altered transaction is refused, 422);
  *      it succeeded; signer and fee payer = payouts.from_address; exactly one transferChecked under the SPL Token
  *      program with mint = devnet USDC, source = the ATA of from_address, destination = the ATA of to_address,
  *      amount = payouts.amount_usdc in base units; and the memo is exactly "wl1|payout|<payoutId>" for this

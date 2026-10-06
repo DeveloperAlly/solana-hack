@@ -151,8 +151,9 @@ export async function lookupTxt(domain: string): Promise<string[]> { return []; 
  * WHO SIGNS (decision, see backend_map.md §7):
  *  - Registrations (identity, kit, claim, account, content, persona): a server-side REGISTRAR keypair pays and
  *    signs. Brands never sign. This matches §2 "Registrar (deterministic code)". The key is a Worker secret.
- *  - USDC payouts: the BRAND's wallet must sign (it is their money). Hackathon: the browser builds the
- *    transaction (transferChecked + create-ATA-idempotent + memo) and the brand's connected wallet signs and sends.
+ *  - USDC payouts: the BRAND's wallet must sign (it is their money). The SERVER builds the unsigned transaction
+ *    (transferChecked + create-ATA-idempotent + memo) and stores its exact bytes on the payouts row; the browser only
+ *    has the brand's payout wallet sign and send those bytes, never builds or alters it (grow.ts approveAndPay, ADR-006).
  *    The cap is enforced offchain in the payouts table. Escrow and Kora fee sponsorship are roadmap.
  */
 export async function registerMemo(env: Env, memo: string): Promise<{ signature: string }> {
