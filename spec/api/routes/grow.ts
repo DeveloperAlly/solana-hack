@@ -113,7 +113,8 @@ export async function brandAmbassadors(req: Request, env: any) {}
  * Settle check (the only path to 'failed'): a payout becomes 'failed' only when (a) a transaction that matches this
  *   payout (its memo and the checks above) is found on chain with an error, or (b) the current block height has passed
  *   payouts.last_valid_block_height and getSignaturesForAddress(from_address) since the payout was created shows no
- *   successful transaction carrying this payout's memo (if one is found, it is confirmed instead). A client request can
+ *   successful transaction whose message bytes equal payouts.unsigned_tx (a discovered transaction is confirmed only
+ *   after it passes every step-3 check: same message, signer, USDC mint, ATAs and amount; a memo alone never counts). A client request can
  *   never fail a payout, so a delayed transaction is never replaced while it could still land. (Dashboard error state
  *   missing.)
  */
