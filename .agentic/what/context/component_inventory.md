@@ -161,7 +161,7 @@ Generic combinations; still no Waterlily data types.
 | L7 | SplitPane | rail + list + reader | three panes (desktop), list only and reader only (mobile), empty reader | inbox |
 | L8 | SideRail | section list with state markers; also used as TOC | active item, collapsed into a select on mobile | Build your brand, inbox rail |
 | L9 | TwoColumn | main + aside | side by side, stacked (aside under main) | most hub screens |
-| L10 | PublicShell | public nav (Verify, Ledger, For brands, Sign in) | signed out, signed in | landing, verify, ledger, ambassador browse |
+| L10 | PublicShell | public nav (How it works, Check a post, Ledger, Sign in; matches the reworked landing, which is itself the brand pitch, so there is no separate "For brands" item) | signed out, signed in | landing, verify, ledger, ambassador browse |
 
 ## 6. Layer 4: domain patterns
 Know Waterlily data types (M6). Grouped by area.

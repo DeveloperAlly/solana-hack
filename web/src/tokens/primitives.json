@@ -1,0 +1,46 @@
+{
+  "$description": "T1 raw palette and scale values. Components never read these directly; semantic tokens and themes point at them.",
+  "color": {
+    "neutral": {
+      "0": "#ffffff", "25": "#fafafa", "50": "#f3f3f3", "100": "#e3e3e3", "120": "#e0e0e0",
+      "150": "#dcdcdc", "200": "#cfcfcf", "250": "#bdbdbd", "400": "#8a8a8a", "600": "#595959",
+      "900": "#1a1a1a", "1000": "#000000"
+    },
+    "accent": { "100": "#e6f0ff", "500": "#1f5fd1", "700": "#16449a" },
+    "success": { "100": "#e7f4ea", "700": "#1e6b34" },
+    "warning": { "100": "#fff4dc", "700": "#7a5200" },
+    "danger": { "100": "#fde8e8", "700": "#a3201d" },
+    "info": { "100": "#e6f0ff", "700": "#16449a" },
+    "highlight": { "200": "#fff1a8" },
+    "scrim": { "500": "#00000080" },
+    "series": { "1": "#1a1a1a", "2": "#595959", "3": "#8a8a8a", "4": "#1f5fd1", "5": "#1e6b34", "6": "#a3201d" }
+  },
+  "font": {
+    "family": {
+      "system": "system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "mono": "ui-monospace, SFMono-Regular, Menlo, monospace"
+    },
+    "size": { "12": "12px", "13": "13px", "15": "15px", "18": "18px", "22": "22px", "28": "28px", "36": "36px", "44": "44px" },
+    "weight": { "400": "400", "600": "600", "700": "700" },
+    "lineHeight": { "tight": "1.2", "body": "1.5" },
+    "letterSpacing": { "normal": "0", "tight": "-0.01em" }
+  },
+  "space": {
+    "0": "0px", "1": "4px", "2": "8px", "3": "12px", "4": "16px", "5": "20px", "6": "24px",
+    "7": "28px", "8": "32px", "9": "36px", "10": "40px", "11": "44px", "12": "48px",
+    "half": "2px", "2-5": "10px"
+  },
+  "radius": { "0": "0px", "6": "6px", "8": "8px", "12": "12px", "pill": "999px" },
+  "borderWidth": { "1": "1px", "2": "2px", "3": "3px" },
+  "shadow": {
+    "0": "none",
+    "1": "0 1px 2px #0000001a",
+    "2": "0 2px 8px #0000001f",
+    "3": "0 8px 24px #00000029"
+  },
+  "duration": { "0": "0ms", "fast": "120ms", "base": "200ms", "slow": "320ms" },
+  "easing": { "standard": "cubic-bezier(0.2, 0, 0, 1)" },
+  "z": { "0": "0", "10": "10", "100": "100", "200": "200", "300": "300", "400": "400" },
+  "breakpoint": { "sm": "480px", "md": "768px", "lg": "1024px", "xl": "1280px" },
+  "size": { "36": "36px", "44": "44px", "56": "56px", "64": "64px", "240": "240px", "720": "720px", "1140": "1140px", "1180": "1180px" }
+}

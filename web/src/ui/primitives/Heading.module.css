@@ -1,0 +1,13 @@
+.heading {
+  margin: 0;
+  font-family: var(--wl-font-display);
+  font-weight: var(--wl-font-weight-bold);
+  line-height: var(--wl-font-lineHeight-heading);
+  letter-spacing: var(--wl-font-letterSpacing-heading);
+  color: var(--wl-text-primary);
+}
+.size-lg { font-size: var(--wl-font-size-lg); }
+.size-xl { font-size: var(--wl-font-size-xl); }
+.size-2xl { font-size: var(--wl-font-size-2xl); }
+.size-3xl { font-size: var(--wl-font-size-3xl); }
+.size-4xl { font-size: var(--wl-font-size-4xl); }

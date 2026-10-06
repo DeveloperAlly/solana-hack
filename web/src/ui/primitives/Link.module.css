@@ -1,0 +1,7 @@
+.link {
+  color: var(--wl-text-link);
+  text-decoration: underline;
+  text-underline-offset: var(--wl-space-half);
+}
+.link:visited { color: var(--wl-text-link); }
+.link:hover { text-decoration-thickness: var(--wl-border-width-strong); }

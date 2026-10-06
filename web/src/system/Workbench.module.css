@@ -1,0 +1,64 @@
+.entry {
+  border: var(--wl-border-width-default) solid var(--wl-border-default);
+  border-radius: var(--wl-radius-box);
+  padding: var(--wl-space-4);
+}
+.demo { margin-top: var(--wl-space-3); }
+.narrow { max-width: calc(var(--wl-space-12) * 4); }
+.frame {
+  width: 100%;
+  height: calc(var(--wl-space-12) * 6);
+  border: var(--wl-border-width-default) solid var(--wl-border-subtle);
+  border-radius: var(--wl-radius-control);
+}
+.list { margin: 0; padding-left: var(--wl-space-5); }
+.tableWrap { overflow-x: auto; max-width: 100%; }
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--wl-font-size-sm);
+  margin-top: var(--wl-space-3);
+}
+.table th, .table td {
+  text-align: left;
+  padding: var(--wl-space-2);
+  border-bottom: var(--wl-border-width-default) solid var(--wl-border-rule);
+}
+.tokenGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--wl-space-12) * 7)), 1fr));
+  gap: var(--wl-space-2) var(--wl-space-6);
+  margin-top: var(--wl-space-3);
+}
+.tokenRow { display: flex; align-items: center; gap: var(--wl-space-2); }
+.tokenLabel { flex: 1 1 auto; font-size: var(--wl-font-size-sm); overflow-wrap: anywhere; }
+.swatch {
+  width: var(--wl-control-target-min);
+  height: var(--wl-control-target-min);
+  padding: 0;
+  border: var(--wl-border-width-default) solid var(--wl-border-input);
+  border-radius: var(--wl-radius-control);
+  background: var(--wl-bg-canvas);
+}
+.input {
+  flex: 0 1 calc(var(--wl-space-12) * 4);
+  min-height: var(--wl-control-target-min);
+  min-width: 0;
+  padding: 0 var(--wl-space-2);
+  border: var(--wl-border-width-default) solid var(--wl-border-input);
+  border-radius: var(--wl-radius-control);
+  font-family: var(--wl-font-mono);
+  font-size: var(--wl-font-size-mono);
+  color: var(--wl-text-primary);
+  background: var(--wl-bg-canvas);
+}
+.pre {
+  max-height: calc(var(--wl-space-12) * 8);
+  overflow: auto;
+  padding: var(--wl-space-3);
+  background: var(--wl-bg-subtle);
+  border: var(--wl-border-width-default) solid var(--wl-border-subtle);
+  border-radius: var(--wl-radius-control);
+  font-family: var(--wl-font-mono);
+  font-size: var(--wl-font-size-mono);
+}
