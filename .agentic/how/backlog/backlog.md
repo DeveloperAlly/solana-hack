@@ -16,7 +16,7 @@ Tags:
 - **coming soon:** UI shown, not built
 - **roadmap**
 
-Source and descriptions: [compendium §5](../../what/context/compendium_2026_10_06.md#5-product-map-decided-structure-tags-drive-the-build). Decision: [ADR-003](../../what/decisions/adr_003_superhub_business_model.md).
+Source and descriptions: [compendium §5](../../what/context/compendium_2026_10_06.md#5-product-map-decided-structure-tags-drive-the-build). Decision: [ADR-003](../../what/decisions/adr_003_superhub_business_model.md). Build order: [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4).
 
 | Area | Item | Tag |
 |---|---|---|

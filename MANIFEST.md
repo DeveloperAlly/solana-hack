@@ -19,7 +19,7 @@ tags: [manifest, index]
 | Standard | aDNA v2.5, embedded form (`.agentic/`) |
 
 ## Scope
-The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose: [ADR-002](./.agentic/what/decisions/adr_002_purpose_build_run_prove.md). Business model and product map: [ADR-003](./.agentic/what/decisions/adr_003_superhub_business_model.md). PRD: [issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2). Live status: [STATE.md](./STATE.md).
+The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose: [ADR-002](./.agentic/what/decisions/adr_002_purpose_build_run_prove.md). Business model and product map: [ADR-003](./.agentic/what/decisions/adr_003_superhub_business_model.md). PRD: [issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2). Build plan: [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4). Live status: [STATE.md](./STATE.md).
 
 ## INDEX
 | Path | Status | Purpose |
@@ -33,7 +33,7 @@ The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose:
 | [.agentic/what/decisions/adr_003_superhub_business_model.md](./.agentic/what/decisions/adr_003_superhub_business_model.md) | accepted | ADR-003: superhub business model, principles, product map |
 | [.agentic/what/decisions/adr_004_docs_use_adna.md](./.agentic/what/decisions/adr_004_docs_use_adna.md) | accepted | ADR-004: docs use aDNA embedded form |
 | [.agentic/what/context/compendium_2026_10_06.md](./.agentic/what/context/compendium_2026_10_06.md) | active | Decision compendium 2026-10-06 (v2); source for the PRD rewrite |
-| [.agentic/what/context/brand_builder_architecture.md](./.agentic/what/context/brand_builder_architecture.md) | proposed | Brand Builder architecture, data model and per-section input spec |
+| [.agentic/what/context/brand_builder_architecture.md](./.agentic/what/context/brand_builder_architecture.md) | accepted | Brand Builder architecture, data model and per-section input spec |
 | [.agentic/what/context/swot.md](./.agentic/what/context/swot.md) | historical | SWOT of the licensing-era concept; still informs risks |
 | [.agentic/what/context/links.md](./.agentic/what/context/links.md) | active | Working links: wireframes, deck, PRD, research |
 | [.agentic/what/context/research/README.md](./.agentic/what/context/research/README.md) | active | Research index |

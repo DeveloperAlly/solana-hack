@@ -27,7 +27,7 @@ Research tracks commissioned to refine Waterlily's purpose. Each doc cites its s
 **Decisions and designs built on these:**
 - [ADR-002: purpose](../../decisions/adr_002_purpose_build_run_prove.md), decided 2026-10-06
 - [compendium_2026_10_06.md](../compendium_2026_10_06.md): superhub decisions, the current source for the PRD rewrite
-- [brand_builder_architecture.md](../brand_builder_architecture.md): Brand Builder architecture and input spec (proposed)
+- [brand_builder_architecture.md](../brand_builder_architecture.md): Brand Builder architecture and input spec (accepted)
 
 **Also reusable (founder-owned; ideas summarised, no private data):**
 - A 12-stage first-principles personal-brand process plus workbook (purpose, identity, reputation, audience, positioning, proof, narrative, expression, visibility, relationships, pilot, review)
