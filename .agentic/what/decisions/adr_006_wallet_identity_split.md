@@ -31,4 +31,4 @@ Adopt the G-WALLET proposal in the [backend map](../context/backend_map.md#7-arc
 - Other embedded-wallet providers can still be evaluated later; this ADR does not depend on one.
 
 ## Ratification
-Ratified by Ally Haire in chat, 2026-10-06 ("OK" to the G-WALLET proposal).
+Ratified by Ally Haire in chat, 2026-10-06 ("OK" to the G-WALLET proposal), recorded publicly on [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6014295120).
