@@ -11,6 +11,8 @@ tags: [architecture, backend, api, gaps]
 # Backend map
 
 ## 1. Decisions taken in this pass
+- **Purpose of the build (owner, 2026-10-06):** the founder wants to use Waterlily herself. Winning the hackathon is a bonus, not the goal. So the full phased plan in issue #4 stays: there is no cut to a single demo loop, the ICP stays broad (any brand), and there's no outside-traction workstream. The demo runs on devnet only.
+- **Registry (owner, 2026-10-06):** registrations use the **Solana Attestation Service (SAS)**, with the memo program as the fallback if the P0 devnet spike fails (§7 G-SAS).
 - **Search:** Exa is the default search provider, behind a swappable adapter (owner, 2026-10-06). It does competitor research at Gate 2, reads owned URLs during ingest, reads a URL pasted into Verify, and supplies lead signals.
 - **Format:** a markdown map plus TypeScript stubs. No separate PRD; this feeds the P0 PRD rewrite and the P1 component map (owner, 2026-10-06).
 - **Scope:** full boilerplate for hackathon, coming-soon and experimental screens. Roadmap screens get one line each. Parked and superseded screens are skipped (owner, 2026-10-06).
@@ -27,7 +29,7 @@ tags: [architecture, backend, api, gaps]
 | LLM | **OpenRouter** gateway, default a `:free` model with a fallback in `models[]` | 20 requests a minute, and 50 a day until 10 credits are bought (then 1,000 a day). Use `data_collection:"deny"` |
 | Search and reading pages | **Exa** `/search` and `/contents` via plain `fetch()` | It isn't verified that exa-js runs on Workers |
 | Chain | Solana **devnet** through **@solana/kit**, the memo program and USDC devnet. RPC via Helius free | Public devnet RPC is limited per IP and "not intended for production" |
-| Registrations | A server-side **Registrar** keypair pays and signs every memo | Brands never sign registrations, which matches §2 "deterministic code" |
+| Registrations | **SAS** attestations via `@solana/attestation` 2.1.0, issued by a server-side **Registrar** keypair that is the payer, credential authority and sole authorized signer. Memo fallback | Brands never sign. The subject's address or a random address is the attestation nonce. Rent is about 0.002–0.0035 SOL per attestation and can be reclaimed by closing it (computed from the account size, confirm at runtime) |
 | Payouts | The **brand's wallet** signs a USDC `transferChecked` built by the server | Wallet provider is the open decision G-WALLET (§7) |
 | Publishing | X API v2 (OAuth 2.0 PKCE) and LinkedIn Share on LinkedIn (`w_member_social`), plus a copy-and-paste fallback | X charges **$0.015 a post, or $0.20 if the post has a URL**. LinkedIn tokens last 60 days with no refresh |
 
@@ -142,6 +144,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | G-X-COST | X charges $0.20 per post with a URL; reading mentions is also paid | Med | Cap daily X spend in cron; show the cost before publishing |
 | G-LI-API | It is unverified whether a `w_member_social`-only app can call `/rest/posts`, and whether `userinfo.sub` equals the person ID | Med | Build on `/v2/ugcPosts` first; test both in P0 |
 | G-MEMO-V4 | It is unverified whether memo program v4 (`Memo4c2p…`) is deployed on devnet | Med | Check with `getAccountInfo`; fall back to `LEGACY_MEMO_PROGRAM_ADDRESS_V3` |
+| **G-SAS** | (1) There is no official per-cluster address list. Devnet deployment at `22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG` is implied by the official devnet example, but not confirmed on-chain. (2) `@solana/kit` resolves to its Node build under `workerd` (it imports `ws`, `fs/promises`, `path` and `events`). (3) Verify must check `attestation.signer` = Registrar; the official example doesn't. (4) The deployed program predates SAS 2.0.0 | High | P0 spike (half a day): `getAccountInfo` on devnet; `wrangler deploy --dry-run` with `nodejs_compat`; send over HTTP and poll for confirmation, with no WebSocket subscriptions. If any of these fail, use the memo fallback (G-MEMO-V4) |
 | G-SUPA-PAUSE | Supabase Free pauses a project after a week of inactivity | Low | The daily cron runs one query |
 | G-LLM-QUOTA | The free-model cap is 50 requests a day until 10 credits are bought | High (for the demo) | Buy 10 OpenRouter credits before Oct 9 |
 
@@ -170,6 +173,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | Next.js on Cloudflare | vinext is the recommended route | [guide](https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs/), [vinext](https://github.com/cloudflare/vinext) |
 | Supabase | Publishable and secret keys; OTP; built-in email limit of 2 an hour; RLS; Storage signed uploads; Free tier limits and pausing; Realtime; pgvector | [API keys](https://supabase.com/docs/guides/api/api-keys), [OTP](https://supabase.com/docs/reference/javascript/auth-signinwithotp), [rate limits](https://supabase.com/docs/guides/auth/rate-limits), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [signed upload](https://supabase.com/docs/reference/javascript/storage-from-createsigneduploadurl), [pricing](https://supabase.com/pricing), [Realtime](https://supabase.com/docs/guides/realtime/postgres-changes) |
 | Solana | @solana/kit transaction pattern; memo client and v4 address; USDC devnet mint and faucet; fee sponsorship and Kora; devnet RPC limits; Helius | [Kit](https://www.solanakit.com/docs/getting-started/send-transaction), [memo](https://www.solana-program.com/docs/memo), [USDC addresses](https://developers.circle.com/stablecoins/usdc-contract-addresses), [fee sponsorship](https://solana.com/developers/cookbook/transactions/fee-sponsorship), [clusters](https://solana.com/docs/references/clusters), [Helius](https://www.helius.dev/pricing) |
+| Solana Attestation Service | Program, accounts (Credential, Schema, Attestation), instructions, SDK `@solana/attestation` 2.1.0 (`sas-lib` frozen at 1.0.10), verify recipe | [README](https://github.com/solana-foundation/solana-attestation-service), [announcement](https://solana.com/news/solana-attestation-service), [npm](https://www.npmjs.com/package/@solana/attestation), [devnet example](https://github.com/solana-foundation/solana-attestation-service/tree/master/examples/typescript/attestation-flow-guides) |
 | Phantom | Connect SDK; Portal **closed to new apps**; providers Google, Apple and injected | [Phantom Connect](https://docs.phantom.com/phantom-connect), [browser SDK](https://docs.phantom.com/sdks/browser-sdk/index) |
 | X | OAuth 2.0 PKCE; `POST /2/tweets` (`made_with_ai`, `paid_partnership`); `public_metrics`; pay-per-use pricing; policy against compensating X actions | [create post](https://docs.x.com/x-api/posts/create-post), [OAuth 2.0](https://docs.x.com/fundamentals/authentication/oauth-2-0/authorization-code), [pricing](https://docs.x.com/x-api/getting-started/pricing), [policy](https://docs.x.com/developer-terms/policy), [automation rules](https://help.x.com/en/rules-and-policies/x-automation) |
 | LinkedIn | Self-serve `w_member_social`; OAuth; 60-day tokens; ugcPosts and the Posts API; organisation posting and metrics need approval | [getting access](https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access), [share on LinkedIn](https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/share-on-linkedin), [Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api) |
@@ -177,6 +181,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 
 **TO VERIFY (not on an official page):**
 - the DNS-over-HTTPS endpoint
+- SAS deployed on devnet; `@solana/kit` and `@solana/attestation` bundling in workerd; the deployed SAS program version
 - exa-js on Workers
 - memo v4 deployed on devnet, and its size limit
 - Ed25519 pkcs8 import in workerd
