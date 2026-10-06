@@ -1,6 +1,8 @@
 // S0 proof: changing one token value changes the page.
 // Builds, serves with vite preview, screenshots /, edits one semantic token in the wireframe theme,
 // rebuilds, reloads, asserts the "Build my brand" button background changed, reverts, screenshots /system.
+// Browser: set CHROMIUM_PATH to a Chromium binary, or leave it unset and Playwright uses the browser it manages
+// (install it once with `npx playwright install chromium`).
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -12,7 +14,7 @@ const require = createRequire(import.meta.url);
 const web = join(dirname(fileURLToPath(import.meta.url)), '..');
 const proofDir = join(web, 'proof');
 const themePath = join(web, 'src', 'tokens', 'themes', 'wireframe.json');
-const executablePath = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
+const executablePath = process.env.CHROMIUM_PATH || undefined;
 const port = Number(process.env.PROOF_PORT || 4173);
 const base = `http://127.0.0.1:${port}`;
 const TOKEN = 'action.primary.bg';

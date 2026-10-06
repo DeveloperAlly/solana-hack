@@ -3,6 +3,7 @@ import { Box, Button, Container, Heading, Link, Stack, Text } from '../ui/primit
 import type { BoxBackground, BoxBorder } from '../ui/primitives/Box';
 import type { TextTone, TextVariant } from '../ui/primitives/Text';
 import type { HeadingLevel } from '../ui/primitives/Heading';
+import type { ContainerWidth } from '../ui/primitives/Container';
 import { routes } from '../config/routes';
 import { ThemeEditor } from './ThemeEditor';
 import styles from './Workbench.module.css';
@@ -23,6 +24,7 @@ const tones: TextTone[] = ['primary', 'secondary', 'success', 'warning', 'danger
 const backgrounds: BoxBackground[] = ['none', 'canvas', 'surface', 'subtle', 'inverse'];
 const borders: BoxBorder[] = ['none', 'default', 'strong', 'subtle'];
 const levels: HeadingLevel[] = [1, 2, 3, 4];
+const widths: ContainerWidth[] = ['reading', 'wizard', 'app', 'full'];
 
 /** /system: every built component in every variant, plus the theme editor. */
 export function Workbench() {
@@ -75,7 +77,18 @@ export function Workbench() {
             </Stack>
           </Entry>
           <Entry id="P4" name="Container">
-            <Text>Widths: reading, wizard, app, full. Each applies the page padding and a token max width. This page uses app.</Text>
+            <Stack gap={3}>
+              {widths.map((w) => (
+                <Box key={w} border="subtle" radius="box">
+                  <Container width={w}>
+                    <Box padding={2} background="subtle">
+                      <Text variant="caption">width {w}</Text>
+                    </Box>
+                  </Container>
+                </Box>
+              ))}
+              <Text variant="small" tone="secondary">Inside this page's app container, app and full fill the same space.</Text>
+            </Stack>
           </Entry>
           <Entry id="P5" name="Text">
             <Stack gap={2}>
