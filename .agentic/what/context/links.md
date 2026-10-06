@@ -6,7 +6,7 @@ updated: 2026-10-06
 last_edited_by: agent
 tags: [links, wireframes, deck, prd]
 ---
-> **Status: active.** Working links; the wireframes and deck listed here predate ADR-002 and ADR-003.
+> **Status: active.** Working links. The wireframe canvas's "Superhub (v2)" page reflects ADR-003; its v1 pages and the deck predate ADR-002 and ADR-003.
 
 # Waterlily: working links
 

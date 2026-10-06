@@ -29,7 +29,14 @@ tags: [ui, components, design-tokens, inventory, dry]
 - **ID** is the stable reference used in the build plan (T, P, C, L, D, M).
 - **States** lists what the workbench must show for the component. Every interactive component also has focus-visible and disabled states unless noted.
 - **Used by** lists screens (by wireframe artboard name) or other components. A component used by one screen only is allowed only if it is domain-specific and listed here.
-- **Tag** follows the [backlog](../../how/backlog/backlog.md): H = hackathon, E = experimental, CS = coming soon, R = roadmap. Library components carry the highest tag of any screen that uses them.
+- **Tag** follows the [backlog](../../how/backlog/backlog.md): H = hackathon, E = experimental, CS = coming soon, R = roadmap, with priority H > E > CS > R. A component's tag is the highest tag of any screen that uses it (screen tags: §8). **Every component is H except those listed here**, so these are the only ones the cut order can drop:
+
+| Tag | Components |
+|---|---|
+| E | D44 LeadRow / ScoreBadge / ConfidenceChip, D45 PersonaSetup, D46 WatermarkOverlay |
+| CS | L7 SplitPane, D38 MessageRow, D39 ThreadView, D40 NeedsReplyItem, D41 SourceConnectionRow |
+| R | C22 BarList, D43 RuleRow, D47 BreakdownCard |
+| Parked | C21 SplitBreakdown (licensing split; kept for a possible revival) |
 
 ## 2. Layer 0: design tokens and themes
 Components read only **semantic** tokens. Themes remap semantic tokens to primitive values.
@@ -127,18 +134,18 @@ Generic combinations; still no Waterlily data types.
 | C28 | DemoStateSwitcher | jump between screen states; hidden outside demo mode | n/a | demo and video recording (replaces the wireframe "Prototype" notes) |
 
 ## 5. Layer 3: shells and layouts
-| ID | Component | Notes | Used by |
-|---|---|---|---|
-| L1 | AppShell | TopNav + optional SubNav + main + MobileTabBar; skip link; brand switcher slot | all hub screens |
-| L2 | TopNav | items from route config (M1); active state; tag badges | AppShell |
-| L3 | SubNav | children of the active section | AppShell |
-| L4 | MobileTabBar | from route config | AppShell on mobile, ambassador mobile |
-| L5 | PageHeader | back link, title, meta line, status badges, actions | all screens |
-| L6 | WizardLayout | Stepper, body, footer (Back / Next / Save and exit), resumes at last step | onboarding, Brand Builder, campaign v2, (parked) studio |
-| L7 | SplitPane | rail + list + reader; collapses to list then reader on mobile | inbox |
-| L8 | SideRail | section list with state markers; also used as TOC | Build your brand, inbox rail |
-| L9 | TwoColumn | main + aside; aside wraps under main on narrow screens | most hub screens |
-| L10 | PublicShell | public nav (Verify, Ledger, For brands, Sign in) | landing, verify, ledger, ambassador browse |
+| ID | Component | Variants and props | States | Used by |
+|---|---|---|---|---|
+| L1 | AppShell | TopNav + optional SubNav + main + MobileTabBar; skip link; brand switcher slot | desktop, mobile (tab bar), loading (skeleton body) | all hub screens |
+| L2 | TopNav | items from route config (M1); tag badges | active item, collapsed (menu button on narrow screens) | AppShell |
+| L3 | SubNav | children of the active section | active item, hidden (section has no children) | AppShell |
+| L4 | MobileTabBar | items from route config | active item | AppShell on mobile, ambassador mobile |
+| L5 | PageHeader | back link, title, meta line, status badges, actions | actions wrap on narrow screens | all screens |
+| L6 | WizardLayout | Stepper, body, footer (Back / Next / Save and exit) | first step, middle, last step, resumed (opens at last saved step), saving, step error | onboarding, Brand Builder, campaign v2, (parked) studio |
+| L7 | SplitPane | rail + list + reader | three panes (desktop), list only and reader only (mobile), empty reader | inbox |
+| L8 | SideRail | section list with state markers; also used as TOC | active item, collapsed into a select on mobile | Build your brand, inbox rail |
+| L9 | TwoColumn | main + aside | side by side, stacked (aside under main) | most hub screens |
+| L10 | PublicShell | public nav (Verify, Ledger, For brands, Sign in) | signed out, signed in | landing, verify, ledger, ambassador browse |
 
 ## 6. Layer 4: domain patterns
 Know Waterlily data types (M6). Grouped by area.
