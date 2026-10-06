@@ -13,6 +13,27 @@ function toSixHex(value: string): string | null {
   return rgb ? '#' + rgb.map((c) => c.toString(16).padStart(2, '0')).join('') : null;
 }
 
+/** Same-origin preview frames (data-theme-preview) get the same overrides as this document. */
+function themeRoots(): HTMLElement[] {
+  const roots: HTMLElement[] = [document.documentElement];
+  document.querySelectorAll<HTMLIFrameElement>('iframe[data-theme-preview]').forEach((f) => {
+    const root = f.contentDocument?.documentElement;
+    if (root) roots.push(root);
+  });
+  return roots;
+}
+
+/** Copies this document's token overrides into a preview frame, e.g. when the frame (re)loads. */
+export function syncThemeOverrides(frame: HTMLIFrameElement) {
+  const target = frame.contentDocument?.documentElement;
+  if (!target) return;
+  const src = document.documentElement.style;
+  for (let i = 0; i < src.length; i++) {
+    const prop = src.item(i);
+    if (prop.startsWith('--wl-')) target.style.setProperty(prop, src.getPropertyValue(prop));
+  }
+}
+
 /** Theme editor: edit semantic tokens live, check contrast, export the theme as JSON. */
 export function ThemeEditor() {
   const [edits, setEdits] = useState<Partial<Record<TokenName, string>>>({});
@@ -21,7 +42,8 @@ export function ThemeEditor() {
   const touched = useRef(new Set<TokenName>());
 
   function clearOverrides() {
-    for (const n of touched.current) document.documentElement.style.removeProperty(tokenMeta[n].cssVar);
+    const roots = themeRoots();
+    for (const n of touched.current) for (const r of roots) r.style.removeProperty(tokenMeta[n].cssVar);
     touched.current.clear();
   }
   useEffect(() => clearOverrides, []);
@@ -29,7 +51,7 @@ export function ThemeEditor() {
   function setToken(name: TokenName, value: string) {
     setEdits((e) => ({ ...e, [name]: value }));
     touched.current.add(name);
-    document.documentElement.style.setProperty(tokenMeta[name].cssVar, value);
+    for (const r of themeRoots()) r.style.setProperty(tokenMeta[name].cssVar, value);
   }
   function reset() {
     clearOverrides();

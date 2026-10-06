@@ -69,6 +69,15 @@ const original = readFileSync(themePath, 'utf8');
 let server;
 let browser;
 let ok = false;
+// On Ctrl-C or a kill signal, put the tracked theme back before exiting (finally does not run on signals).
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(sig, () => {
+    if (readFileSync(themePath, 'utf8') !== original) writeFileSync(themePath, original);
+    if (server) server.kill();
+    console.error(`proof-s0 interrupted (${sig}); themes/wireframe.json restored`);
+    process.exit(130);
+  });
+}
 try {
   log(`proof-s0 start; token ${TOKEN} -> ${NEW_VALUE}; chromium from CHROMIUM_PATH or the default path`);
   build('original');
@@ -114,6 +123,23 @@ try {
   await page.screenshot({ path: shot('system'), fullPage: true });
   log(`/system screenshot ${rel(shot('system'))}`);
   const axeSystem = await axeCount(page, '/system');
+
+  // Live theme edits reach the PublicShell preview frame, also after the frame reloads.
+  const frameSel = 'iframe[data-theme-preview]';
+  const navBorder = () =>
+    page.frameLocator(frameSel).locator('header').first().evaluate((el) => getComputedStyle(el).borderBottomColor);
+  await page.frameLocator(frameSel).locator('header').first().waitFor();
+  const navBefore = await navBorder();
+  await page.fill('#tok-border-nav', '#ff0000');
+  const navEdited = await navBorder();
+  await page.locator(frameSel).evaluate((f) => f.contentWindow.location.reload());
+  await page.waitForTimeout(500);
+  await page.frameLocator(frameSel).locator('header').first().waitFor();
+  const navReloaded = await navBorder();
+  log(`shell preview border.nav: ${navBefore} -> edited ${navEdited} -> after frame reload ${navReloaded}`);
+  if (navEdited !== 'rgb(255, 0, 0)' || navReloaded !== 'rgb(255, 0, 0)')
+    throw new Error('ASSERT FAILED: theme edit did not reach the PublicShell preview frame');
+  log('ASSERT PASS: theme edits reach the PublicShell preview, including after reload');
 
   if (axeLanding !== 0) throw new Error(`ASSERT FAILED: axe found ${axeLanding} violations on /`);
   if (axeSystem !== 0) throw new Error(`ASSERT FAILED: axe found ${axeSystem} violations on /system`);

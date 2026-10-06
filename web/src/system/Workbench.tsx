@@ -5,7 +5,7 @@ import type { TextTone, TextVariant } from '../ui/primitives/Text';
 import type { HeadingLevel } from '../ui/primitives/Heading';
 import type { ContainerWidth } from '../ui/primitives/Container';
 import { routes } from '../config/routes';
-import { ThemeEditor } from './ThemeEditor';
+import { ThemeEditor, syncThemeOverrides } from './ThemeEditor';
 import styles from './Workbench.module.css';
 
 function Entry({ id, name, children }: { id: string; name: string; children: ReactNode }) {
@@ -137,7 +137,13 @@ export function Workbench() {
             </Box>
           </Entry>
           <Entry id="L10" name="PublicShell">
-            <iframe className={styles.frame} title="PublicShell preview (landing)" src="/" />
+            <iframe
+              className={styles.frame}
+              title="PublicShell preview (landing)"
+              src="/"
+              data-theme-preview
+              onLoad={(e) => syncThemeOverrides(e.currentTarget)}
+            />
           </Entry>
           <Entry id="M1" name="Route config">
             <ul className={styles.list}>
