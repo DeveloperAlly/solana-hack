@@ -17,6 +17,7 @@ create table public.profiles (               -- [NEW] g3: "Approved by", owner, 
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   display_name text,
+  payout_wallet text,                        -- [NEW] ADR-006: the wallet an ambassador is paid to; a verified wallets.address of this user. Set on the first link, changeable
   created_at timestamptz default now()
 );
 
@@ -29,7 +30,8 @@ create table public.brands (                 -- [§3] Brand
   domain_verified boolean default false,     -- DNS TXT check (Onboard-2). Unverified brands are FLAGGED, not blocked
   domain_txt_token text,                     -- the unique value shown on Onboard-2
   founder_brand_id uuid references public.brands(id),  -- the Person link (§3: founder link)
-  plan text default 'trial',                 -- [NEW] g3: subscription plan (billing is boilerplate, see settings)
+  plan text default 'trial',
+  payout_wallet text,                        -- [NEW] ADR-006: this brand's USDC payout wallet; must be a verified wallets.address of an owner. Null = prompt on first "Approve and pay"                 -- [NEW] g3: subscription plan (billing is boilerplate, see settings)
   created_by uuid references public.profiles(id),
   created_at timestamptz default now()
 );
@@ -48,6 +50,15 @@ create table public.wallets (                -- [NEW] g3/h: a connected wallet p
   provider text not null,                    -- 'injected' | '<embedded provider TBD>'
   verified_at timestamptz,                   -- set after a signMessage challenge
   primary key (user_id, address)
+);
+
+create table public.wallet_challenges (      -- [NEW] ADR-006: one-time signMessage challenges, shared by every Worker instance
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete cascade,
+  address text not null,                     -- the address the challenge was issued for
+  nonce text not null unique,                -- random, embedded in the message the wallet signs
+  expires_at timestamptz not null,           -- issued_at + 5 minutes
+  consumed_at timestamptz                    -- set atomically on successful verify; a consumed or expired row is refused
 );
 
 -- ---------- brand builder (sources, evidence, kit) ----------
@@ -197,6 +208,7 @@ create table public.submissions (            -- [NEW] g2: an ambassador's piece
   draft_id uuid references public.drafts(id),
   url text,
   verify_status text default 'pending' check (verify_status in ('pending','verifying','verified','failed','budget_reached')),
+  -- approval and payment are separate (ADR-006): approved_by/at is set by an owner or approver; payouts holds the owner-signed payment
   verify_detail jsonb,                       -- which check failed (Amb-5c)
   approved_by uuid references public.profiles(id), approved_at timestamptz
 );
@@ -205,11 +217,17 @@ create table public.payouts (                -- [NEW] g2
   id uuid primary key default gen_random_uuid(),
   submission_id uuid references public.submissions(id),
   amount_usdc numeric(12,2) not null,
-  from_address text, to_address text,
-  tx_signature text,
+  from_address text, to_address text,        -- to_address = the ambassador's profiles.payout_wallet when the payout is built (ADR-006)
+  tx_signature text unique,                  -- one transaction confirms at most one payout
+  unsigned_tx text not null,                 -- base64 of the exact unsigned transaction returned by /pay; retries return these bytes
+  recent_blockhash text not null,            -- the blockhash inside unsigned_tx
+  last_valid_block_height bigint not null,   -- from the blockhash used to build it; 'sent' becomes 'failed' only after this height
   status text default 'pending' check (status in ('pending','sent','confirmed','failed')),
   created_at timestamptz default now()
 );
+-- At most one live payout per submission (idempotent Pay; a failed payout can be retried).
+create unique index payouts_one_live_per_submission on public.payouts (submission_id)
+  where status in ('pending','sent','confirmed');
 
 -- ---------- proof layer ----------
 create table public.registrations (          -- [§3] Registration, widened (g4) to match Verify-1 and §7

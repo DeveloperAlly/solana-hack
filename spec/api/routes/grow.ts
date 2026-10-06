@@ -21,8 +21,8 @@ export async function openCampaigns(req: Request, env: any) {}
  * POST /api/campaigns/:id/join
  * Screens: Amb-2 ("Sign in with email to join"), M-2.
  * Auth: signed in (Supabase OTP). Writes memberships(role 'ambassador').
- * Payout needs a wallet: POST /api/wallets/link {address, signature} (G-WALLET: provider TBD;
- *   injected-wallet signMessage challenge is the fallback).
+ * Payout needs a wallet: POST /api/wallets/link (public_settings_inbox.ts walletLink); injected wallet,
+ *   signMessage challenge (ADR-006).
  */
 export async function joinCampaign(req: Request, env: any) {}
 
@@ -66,18 +66,57 @@ export async function brandAmbassadors(req: Request, env: any) {}
 
 /**
  * POST /api/submissions/:id/approve
- * Screens: Dashboard ("Approve and pay"). Auth: owner or approver (principle 1: no auto-approve, UI review #12).
- * Hackathon payment flow (G-WALLET decision):
- *   1. The server builds an UNSIGNED v0 transaction: getCreateAssociatedTokenIdempotentInstruction (recipient ATA) +
- *      getTransferCheckedInstruction({source, mint: USDC devnet 4zMMC9…DncDU, destination, authority: brand wallet,
- *      amount, decimals: 6 (TO VERIFY)}) + getAddMemoInstruction("wl1|payout|<submissionId>").
- *      Fee payer = the brand wallet.
- *   2. The browser has the brand's connected wallet sign and send it (injected provider; embedded provider TBD).
- *   3. POST /api/payouts/:id/confirm {signature} → the server checks the transaction on RPC (getTransaction) →
- *      payouts.status 'confirmed' → registrations(type 'content') for the ambassador post, with campaign_id.
- * Cap check: the server refuses to build if amount > remaining cap (offchain enforcement; escrow is roadmap).
- * Errors: transaction failed or not found → payouts 'failed' (Dashboard error state missing).
+ * Screens: Dashboard ("Approve", and "Approve and pay" for owners). Auth: owner or approver (principle 1: no
+ * auto-approve, UI review #12). Sets submissions.approved_by/at only. An approver's approval waits for an owner to pay.
  * POST /api/submissions/:id/reject {reason} → shown to the ambassador.
+ *
+ * POST /api/submissions/:id/pay     Auth: owner only, and brands.payout_wallet must be a verified wallets row of the
+ *   caller (the caller has to sign with it). If it belongs to another owner: 409 {code: 'payout_wallet_not_yours'};
+ *   the Dashboard says which owner can pay, or lets the caller set their own verified wallet as the payout wallet.
+ * Refused unless the submission is approved and verified. "Approve and pay" = approve then pay in one owner action.
+ * Idempotent: at most one live payout per submission (unique partial index on payouts(submission_id) where status in
+ *   ('pending','sent','confirmed'), schema.sql). A retry or double click returns the existing pending payout and the
+ *   exact stored payouts.unsigned_tx (same bytes, same blockhash), never a rebuilt one, so only one transaction can
+ *   exist per payout until it expires; a confirmed payout is refused with 409 already_paid.
+ *   Expiry check first: if a pending or sent payout's last_valid_block_height has passed, run the settle check below;
+ *   if no matching transaction landed, mark it 'failed' and build a fresh payout (new row, new blockhash). So a
+ *   cancelled wallet prompt or an expired transaction never leaves the submission unpayable.
+ *   A new payout is created only after the previous one is 'failed'.
+ * Hackathon payment flow (G-WALLET decision):
+ *   0. If brands.payout_wallet is null, refuse with 409 {code: 'payout_wallet_missing'}; the Dashboard then prompts
+ *      the owner to link a wallet and set it (walletLink, then brandPayoutWallet in public_settings_inbox.ts).
+ *      If the ambassador's profiles.payout_wallet is null, refuse with 409 {code: 'recipient_wallet_missing'} and
+ *      notify the ambassador to link one (Amb-5b).
+ *   1. The server generates the payout id first (crypto.randomUUID), then builds an UNSIGNED v0 transaction to exactly
+ *      the ambassador's profiles.payout_wallet at this moment (to_address), from brands.payout_wallet (from_address):
+ *      getCreateAssociatedTokenIdempotentInstruction (recipient ATA) +
+ *      getTransferCheckedInstruction({source, mint: USDC devnet 4zMMC9…DncDU, destination, authority: brand wallet,
+ *      amount, decimals: 6 (TO VERIFY)}) + getAddMemoInstruction("wl1|payout|<payoutId>") (the payout row, not the submission,
+ *      so a replacement payout can never be confirmed by an earlier transaction). Only when the transaction is complete does the server
+ *      INSERT the payouts row, in one statement with every field (id, submission, amount, from/to address,
+ *      unsigned_tx, recent_blockhash, last_valid_block_height; all NOT NULL). If anything fails before that insert, no
+ *      row exists and the next /pay simply starts again, so a half-built payout can never block the submission.
+ *      Fee payer = the brand wallet = brands.payout_wallet (ADR-006).
+ *   2. The browser has the brand's payout wallet sign and send it (injected provider, ADR-006).
+ *   3. POST /api/payouts/:id/confirm {signature} → refused if the signature is already on another payout
+ *      (payouts.tx_signature is unique). The server fetches the transaction on RPC (getTransaction) and requires all of:
+ *      its message bytes equal the message in payouts.unsigned_tx (so the blockhash equals payouts.recent_blockhash and
+ *      the stored last_valid_block_height really bounds it; a rebuilt or altered transaction is refused, 422);
+ *      it succeeded; signer and fee payer = payouts.from_address; exactly one transferChecked under the SPL Token
+ *      program with mint = devnet USDC, source = the ATA of from_address, destination = the ATA of to_address,
+ *      amount = payouts.amount_usdc in base units; and the memo is exactly "wl1|payout|<payoutId>" for this
+ *      payout. A signature that is missing, unrelated or mismatched is refused (422) and the payout is NOT changed,
+ *      because the real transaction may still land. On success the payout moves 'pending' → 'sent' when the client
+ *      reports a signature, then → 'confirmed' with payouts.tx_signature set →
+ *      registrations(type 'content') for the ambassador post, with campaign_id.
+ * Cap check: the server refuses to build if amount > remaining cap (offchain enforcement; escrow is roadmap).
+ * Settle check (the only path to 'failed'): a payout becomes 'failed' only when (a) a transaction that matches this
+ *   payout (its memo and the checks above) is found on chain with an error, or (b) the current block height has passed
+ *   payouts.last_valid_block_height and getSignaturesForAddress(from_address) since the payout was created shows no
+ *   successful transaction whose message bytes equal payouts.unsigned_tx (a discovered transaction is confirmed only
+ *   after it passes every step-3 check: same message, signer, USDC mint, ATAs and amount; a memo alone never counts). A client request can
+ *   never fail a payout, so a delayed transaction is never replaced while it could still land. (Dashboard error state
+ *   missing.)
  */
 export async function approveAndPay(req: Request, env: any) {}
 

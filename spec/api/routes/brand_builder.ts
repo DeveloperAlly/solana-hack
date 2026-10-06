@@ -54,8 +54,8 @@ export async function issueDomainToken(req: Request, env: any) {}
  * Screens: Onboard-2 (Check now), Onboard-2b (Check again; auto re-check every 60 s while open).
  * Out: {verified:boolean, found:string[]}.
  * External: lookupTxt() via DNS-over-HTTPS (TO VERIFY endpoint).
- * Writes: brands.domain_verified. On success: registerMemo(identity) → registrations(type 'identity').
- *   The memo holds the brand id and domain hash, plus the owner wallet ONLY if one is linked (G-WALLET).
+ * Writes: brands.domain_verified. On success: register(identity) through the Registrar → registrations(type 'identity').
+ *   The registration holds only the brand id and the domain hash; no wallet is ever included (ADR-006).
  * Errors: not found → Onboard-2b (likely causes listed). DNS provider timeout → retry.
  * Rule fix (UI review #3): unverified brands CAN register kits and posts; registrations carry
  *   domain_verified_at_time=false and Verify shows "unverified domain". Only payouts require verification.

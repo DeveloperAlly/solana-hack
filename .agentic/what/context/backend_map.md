@@ -12,7 +12,7 @@ tags: [architecture, backend, api, gaps]
 
 ## 1. Decisions taken in this pass
 - **Purpose of the build (owner, 2026-10-06):** the founder wants to use Waterlily herself. Winning the hackathon is a bonus, not the goal. So the full phased plan in issue #4 stays: there is no cut to a single demo loop, the ICP stays broad (any brand), and there's no outside-traction workstream. The demo runs on devnet only.
-- **Registry (owner, 2026-10-06):** registrations use the **Solana Attestation Service (SAS)**, with the memo program as the fallback if the P0 devnet spike fails (§7 G-SAS).
+- **Registry (owner, 2026-10-06):** registrations use the **Solana Attestation Service (SAS)**, with the memo program as the fallback if the devnet spike that opens UI slice S0 fails (§7 G-SAS).
 - **Search:** Exa is the default search provider, behind a swappable adapter (owner, 2026-10-06). It does competitor research at Gate 2, reads owned URLs during ingest, reads a URL pasted into Verify, and supplies lead signals.
 - **Format:** a markdown map plus TypeScript stubs. No separate PRD; this feeds the P0 PRD rewrite and the P1 component map (owner, 2026-10-06).
 - **Scope:** full boilerplate for hackathon, coming-soon and experimental screens. Roadmap screens get one line each. Parked and superseded screens are skipped (owner, 2026-10-06).
@@ -30,12 +30,12 @@ tags: [architecture, backend, api, gaps]
 | Search and reading pages | **Exa** `/search` and `/contents` via plain `fetch()` | It isn't verified that exa-js runs on Workers |
 | Chain | Solana **devnet** through **@solana/kit**, SAS (memo fallback) and USDC devnet. RPC via Helius free | Public devnet RPC is limited per IP and "not intended for production" |
 | Registrations | **SAS** attestations via `@solana/attestation` 2.1.0, issued by a server-side **Registrar** keypair that is the payer, credential authority and sole authorized signer. Memo fallback | Brands never sign. The subject's address or a random address is the attestation nonce. Rent is about 0.002–0.0035 SOL per attestation and can be reclaimed by closing it (computed from the account size, confirm at runtime) |
-| Payouts | The **brand's wallet** signs a USDC `transferChecked` built by the server | Wallet provider is the open decision G-WALLET (§7) |
+| Payouts | The **brand's wallet** signs a USDC `transferChecked` built by the server | Brand wallet is an injected wallet linked by `signMessage` ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
 | Publishing | X API v2 (OAuth 2.0 PKCE) and LinkedIn Share on LinkedIn (`w_member_social`), plus a copy-and-paste fallback | X charges **$0.015 a post, or $0.20 if the post has a URL**. LinkedIn tokens last 60 days with no refresh |
 
 ## 3. Data model additions (proposed; extends §3)
 `spec/api/schema.sql` adds the entities the UI shows but §3 doesn't model (UI review g1–g15):
-- **Accounts:** `profiles`, `memberships` (seats and roles), `wallets`.
+- **Accounts:** `profiles`, `memberships` (seats and roles), `wallets`, `wallet_challenges` (one-time signMessage challenges, ADR-006).
 - **Content:** `drafts` (draft or post, slop fixes, scores, polish history, content hash), `connections` (encrypted OAuth tokens).
 - **Ambassadors:** `campaigns`, `submissions`, `payouts`.
 - **Settings:** `ai_settings`.
@@ -54,7 +54,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | Screen | Endpoints | Tables | External / jobs |
 |---|---|---|---|
 | Main | `POST /api/verify` (inline check); brand name carried to `POST /api/brands` | registrations | E: Exa `/contents` for a URL |
-| Onboard-1-SignIn | Supabase `signInWithOtp` and `verifyOtp` (client), `POST /api/profile` | profiles | E: Supabase Auth with custom SMTP (G-AUTH-2). ⚠ Copy promises a wallet (G-WALLET) |
+| Onboard-1-SignIn | Supabase `signInWithOtp` and `verifyOtp` (client), `POST /api/profile` | profiles | E: Supabase Auth with custom SMTP (G-AUTH-2). Sign-in creates no wallet ([ADR-006](../decisions/adr_006_wallet_identity_split.md)); the copy must not promise one |
 | Onboard-2-Domain, Onboard-2b-DomainFailed | `POST /api/brands/:id/domain/token`, `POST /api/brands/:id/domain/check` | brands, registrations | E: DNS-over-HTTPS (**TO VERIFY**); on success the Registrar writes an identity attestation |
 | BB-1-Basics | `POST /api/brands` | brands, memberships, evidence, sources | none |
 | Onboard-3-Sources | `POST /api/brands/:id/sources`, `DELETE …/sources/:id`, link "Connect for publishing" to `GET /api/connect/x/start` | sources | E: Supabase Storage `createSignedUploadUrl` |
@@ -82,11 +82,11 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | Screen | Endpoints | Tables | External / jobs |
 |---|---|---|---|
 | Amb-1, Amb-1b, M-1 | `GET /api/campaigns/open`, `POST …/notify` | campaigns, payouts | none |
-| Amb-2, M-2 | `POST /api/campaigns/:id/join`, `POST /api/wallets/link` | memberships, wallets | Wallet sign-message challenge (G-WALLET) |
+| Amb-2, M-2 | `POST /api/campaigns/:id/join`, `POST /api/wallets/link` | memberships, wallets, wallet_challenges | Wallet sign-message challenge ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
 | Amb-3, M-3 | `POST /api/campaigns/:id/drafts`, `GET /api/drafts/:id/checks` | drafts | J: DraftWorkflow via OpenRouter |
 | Amb-4, M-4 | `POST /api/submissions` (LinkedIn or pasted URL; **no X**) | submissions, connections | E: LinkedIn. J: `verify_submission` |
-| Amb-5a, 5b, 5c, 5d, M-5 | Realtime on `submissions`; `GET /api/me/earnings` | submissions, payouts | E: Exa `/contents` (verify), RPC balance. "Withdraw" depends on G-WALLET |
-| Dashboard (and its empty state) | `GET …/ambassadors`, `POST /api/submissions/:id/approve` and `/reject`, `POST /api/payouts/:id/confirm` | submissions, payouts, registrations | E: USDC `transferChecked` plus a memo, signed by the brand wallet; RPC `getTransaction` |
+| Amb-5a, 5b, 5c, 5d, M-5 | Realtime on `submissions`; `GET /api/me/earnings`; `PUT /api/me/payout-wallet` (choose which linked wallet is paid) | submissions, payouts, profiles, wallets | E: Exa `/contents` (verify), RPC balance. No "Withdraw": payouts go straight to the ambassador's own wallet ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
+| Dashboard (and its empty state) | `GET …/ambassadors`, `POST /api/submissions/:id/approve` and `/reject` (owner or approver), `POST /api/submissions/:id/pay` (owner only), `POST /api/payouts/:id/confirm`, `PUT /api/brands/:id/payout-wallet` (prompted on the first "Approve and pay" when `brands.payout_wallet` is empty) | submissions, payouts, registrations, brands, wallets, wallet_challenges, profiles | E: USDC `transferChecked` plus a memo, signed by the brand wallet; RPC `getTransaction`. Brand payout wallet: a wallet the owner verified by `signMessage`, set per brand ([ADR-006](../decisions/adr_006_wallet_identity_split.md)) |
 | Engage-Queue | `GET …/replies`, `POST /api/replies/:id/send` | drafts | E: X mention reads (pay-per-use) and X reply posts. Cron. No LinkedIn comments (`r_member_social` closed) |
 | Leads (experimental) | `POST …/leads/search`, `GET …/leads.csv` | leads | E: Exa `/search` (company and people categories, public only) |
 | Influencer-Setup, Influencer-Queue (experimental) | `POST …/personas`, `GET /api/personas/:id/queue` | personas, drafts, registrations | Storage, SAS attestation. Watermarking not chosen (G-WATERMARK) |
@@ -96,7 +96,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 |---|---|---|---|
 | Verify-1, Verify-2, Verify-3 | `POST /api/verify`, `GET /api/verify/{kit,account,claim}`, `POST /api/verify/report` | registrations, drafts | E: Exa `/contents`. "Edited" needs a similarity match (G-MATCH) |
 | Ledger | `GET /api/ledger` | registrations, payouts | Explorer links |
-| Settings › Connections (missing) | `GET /api/connect/{x,linkedin}/start` and `/callback`, `DELETE /api/connections/:id` | connections | E: X and LinkedIn OAuth. Encrypting tokens at rest (G-SECRETS) |
+| Settings › Connections (missing) | `GET /api/connect/{x,linkedin}/start` and `/callback`, `DELETE /api/connections/:id`; brand payout wallet (owner only, scoped to the active brand): `POST /api/wallets/link`, then `PUT /api/brands/:id/payout-wallet {address}`; `DELETE /api/brands/:id/payout-wallet` | connections, wallets, wallet_challenges, brands | E: X and LinkedIn OAuth. Encrypting tokens at rest (G-SECRETS) |
 | Settings › AI (missing) | `GET/PUT …/ai-settings` | ai_settings | E: OpenRouter, Anthropic or OpenAI key test. Where bring-your-own keys are stored is still open (P4) |
 | Settings › Plan (missing) | `GET …/plan` | brands, memberships | Billing provider not chosen (G-BILLING) |
 | Inbox-All, Inbox-NeedsReply, Inbox-Connect (coming soon) | Sketch only | inbox_threads | Email, Telegram bot, X DMs. Sending is always done by a person |
@@ -124,14 +124,14 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 
 ## 6. Coverage check (run 2026-10-06, by script)
 - **Screens:** 60 of 60 non-parked, non-superseded artboards are mapped in §4. 0 are unmapped.
-- **Tables:** all 25 tables in `schema.sql` are used by at least one endpoint or job. 0 are orphaned.
+- **Tables:** all 26 tables in `schema.sql` are used by at least one endpoint or job. 0 are orphaned.
 - **Pipeline stages:** all 10 stages in §2, plus the voice compiler, have an endpoint or job (§5).
 - **External services:** every one has a primary-doc link in §9 except the DNS-over-HTTPS lookup, which is flagged TO VERIFY.
 
 ## 7. Architecture gaps and decisions needed
 | ID | Gap | Severity | Proposed resolution |
 |---|---|---|---|
-| **G-WALLET** | **Phantom Connect is not accepting new apps** ("New sign-ups for Phantom Connect SDK access … are paused"), and its providers are Google, Apple and injected only, with no email. §12.1 step 0 (email sign-in creates an embedded wallet) cannot be built as written. Twelve screens depend on it (UI review h) | **High** | Split identity from wallet. Supabase email OTP handles sign-in. The Registrar keypair signs all registrations, so no user wallet is needed for the core demo. A wallet is only needed for USDC payouts: the brand pays and the ambassador receives through an injected wallet (Phantom or another standard wallet) verified by `signMessage`. Evaluate other embedded-wallet providers in P0. **Update §12.1 step 0, Onboard-1, Amb-2 and M-2 copy.** Remove "Withdraw" unless a custodial or embedded provider is chosen |
+| **G-WALLET** (decided: [ADR-006](../decisions/adr_006_wallet_identity_split.md), 2026-10-06) | **Phantom Connect is not accepting new apps** ("New sign-ups for Phantom Connect SDK access … are paused"), and its providers are Google, Apple and injected only, with no email. §12.1 step 0 (email sign-in creates an embedded wallet) cannot be built as written. Twelve screens depend on it (UI review h) | **High** | Split identity from wallet. Supabase email OTP handles sign-in. The Registrar keypair signs all registrations, so no user wallet is needed for the core demo. A wallet is only needed for USDC payouts: the brand pays and the ambassador receives through an injected wallet (Phantom or another standard wallet) verified by `signMessage`. Evaluate other embedded-wallet providers in P0. **Update §12.1 step 0, Onboard-1, Amb-2 and M-2 copy.** Remove "Withdraw" unless a custodial or embedded provider is chosen |
 | G-AUTH-2 | Supabase's built-in email service sends only 2 emails an hour | High | Choose an SMTP provider in P0 and set it up in Supabase Auth |
 | G-INGEST-1 | Extracting PDF and DOCX text within 10 ms CPU per step is unverified | Med | Hackathon: URLs, Markdown and plain text first. PDF via Workers Paid (30 s CPU per step) or an extraction API, decided in P0 |
 | G-MATCH | Verify "edited from original" needs a similarity method and threshold | Med | Hackathon: exact hash match plus a simple diff against the brand's own approved drafts. pg_trgm or pgvector later (**TO VERIFY**) |
@@ -157,7 +157,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 - **Remove paid X ambassador formats** (X Developer Policy: "shouldn't compensate people to take actions on X").
 - **Copy changes:**
   - Sign-in no longer promises an automatic wallet.
-  - "Withdraw" depends on G-WALLET.
+  - No "Withdraw": payouts land in the ambassador's own wallet, so there is nothing to withdraw ([ADR-006](../decisions/adr_006_wallet_identity_split.md)).
   - Unverified brands can register kits and posts; they're flagged, not blocked.
   - Ledger and Verify show registrations and payouts only, with no licensing data.
 

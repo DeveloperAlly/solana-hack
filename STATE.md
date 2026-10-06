@@ -16,25 +16,26 @@ last_edited_by: agent
 - Brand Builder architecture accepted (owner, 2026-10-06); build plan in issue #4. Wireframes come first, then priorities.
 - Landing: one value prop, "build your brand, then start creating"; flow land, build brand, branding (owner, 2026-10-06; requirement R5 in the [UI build mission](./.agentic/how/missions/mission_ui_build.md#2-frozen-requirements-owners-words)).
 - **Purpose of the build (owner, 2026-10-06):** Waterlily is for the founder's own use. Winning the hackathon is a bonus. The full phased plan stays (no single-loop cut), the ICP stays broad, there's no outside-traction workstream, and the demo runs on devnet. The [VC and judge review](https://claude.ai/artifact/XwyymJ6rGuofXCCvAcctDK) informs the deck, not the scope.
-- Registry: Solana Attestation Service, with memo as the fallback (owner, 2026-10-06). The P0 spike settles it (backend map G-SAS).
+- Registry: Solana Attestation Service, with memo as the fallback (owner, 2026-10-06). The spike that opens S0 settles it (backend map G-SAS).
 - Exa is the default search provider, behind an adapter (owner, 2026-10-06). The backend map and `spec/api/` stubs are drafted (proposed).
 - UI framework: Vite + React SPA on Cloudflare (owner, 2026-10-06; [ADR-005](./.agentic/what/decisions/adr_005_ui_component_system.md)).
+- Hosting: the app runs on the apex of jamjam.tech as a Cloudflare Worker custom domain, deployed from GitHub Actions on merge to main ([PR #6](https://github.com/DeveloperAlly/solana-hack/pull/6)); live since 2026-10-06 (owner, 2026-10-06, [recorded on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6014295120); supersedes the waterlily.ai hosting in R30). The owner added the repo deploy settings; CI checks their names.
+- ADR-006: email sign-in (Supabase OTP); a server Registrar keypair signs registrations; a wallet only for USDC payouts (owner, 2026-10-06; G-WALLET decided).
 - Wireframes: voices follow research 06 (12 templates, 9 dimensions, claims gate); licensing screens stay parked; aDNA stays the sample brand.
 - Demo: Waterlily builds its own brand from scratch, live (headline). aDNA is the second case (strong written brand, no social). film.fun and GamersLab are semi-established case studies. Polish actions include Beautify.
 
 ## Blockers
-- **Wallet (G-WALLET):** Phantom Connect isn't accepting new apps, so email sign-in can't create an embedded wallet. Proposed: Supabase OTP for sign-in, a server Registrar for registrations, and an injected wallet only for USDC payouts. Needs an owner decision ([backend map §7](./.agentic/what/context/backend_map.md#7-architecture-gaps-and-decisions-needed)).
 - **Before Oct 9:** buy 10 OpenRouter credits (the free cap is 50 requests a day) and set up custom SMTP for Supabase OTP (the built-in limit is 2 emails an hour).
 
 ## Proposed (awaiting owner)
 - ADR-005: UI in React on design tokens (one file changes the look); components are built slice by slice, when a screen first needs them (owner, 2026-10-06), not as a library up front; Vite chosen (owner, 2026-10-06).
 - [Component inventory](./.agentic/what/context/component_inventory.md) with each component's first slice.
-- [UI build mission](./.agentic/how/missions/mission_ui_build.md): proof-driven delivery in timed chunks; slices S0–S8 along the critical path, each checked on the deployed site. S0 waits on G-WALLET and on the Cloudflare and Supabase accounts (mission Q5).
+- [UI build mission](./.agentic/how/missions/mission_ui_build.md): proof-driven delivery in timed chunks; slices S0–S8 along the critical path, each checked on the deployed site. S0 live half waits on the secrets and the Registrar key (see Next).
 
 ## Next
-0. Owner decides G-WALLET and reviews the [backend map](./.agentic/what/context/backend_map.md) gaps.
-1. UI slice S0 per the [UI build mission](./.agentic/how/missions/mission_ui_build.md), once G-WALLET is decided and the deploy and database accounts exist (Q5). The local half of S0 is built and checked.
+0. Owner reviews the remaining [backend map](./.agentic/what/context/backend_map.md) gaps.
+1. UI slice S0 per the [UI build mission](./.agentic/how/missions/mission_ui_build.md). **Done (2026-10-06):** checks (1), (4) and (5): the app is built with Vite, deployed to https://jamjam.tech from GitHub Actions ([PR #6](https://github.com/DeveloperAlly/solana-hack/pull/6)), and the post-deploy Playwright run passes (landing loads, `/system` deep link works, axe 0 on both); a token edit changes the page (S0 proof, run in CI). The deploy and database settings exist (owner, 2026-10-06; CI checks their names). The Cloudflare and Supabase accounts exist and the owner has no Phantom account ([owner answers](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6014295120)). **Left:** (2) email OTP sign-in, and (3) the G-SAS spike then one Registrar-signed devnet registration, which needs a funded devnet Registrar key in the secret store (proposed, awaiting the owner's go-ahead: [request on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6014948641)).
 2. Phase W of [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4): rework and complete the wireframes from the [audit](./.agentic/what/context/wireframe_audit_2026_10_06.md), then mark each screen need or boilerplate.
-3. P0: SAS devnet spike (G-SAS); rewrite the PRD in issue #2; gap research (questionnaire UX; verify OpenRouter free tier, X and LinkedIn posting, Cloudflare limits).
+3. P0: rewrite the PRD in issue #2; gap research (questionnaire UX; verify OpenRouter free tier, X and LinkedIn posting, Cloudflare limits).
 4. P1: system component map.
 5. Owner ratifies the proposed pipeline rules in [architecture §12.3](./.agentic/what/context/brand_builder_architecture.md#12-end-to-end-walkthrough-user-flow-and-pipeline) and the founder-profile step (2a).
