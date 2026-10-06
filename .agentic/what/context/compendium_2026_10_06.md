@@ -46,7 +46,7 @@ supersedes: [archive/prd_story_studio, archive/roadmap_story_studio, archive/inf
 - **Semi-established case studies: film.fun and GamersLab.**
   - These are the ingest-led path.
   - film.fun has a live product, site and five networks.
-  - **GamersLab's identity must be confirmed** ([09](./research/09_demo_brands.md)).
+  - **GamersLab is confirmed as [gamerslab.gg](https://www.gamerslab.gg/)** ([09](./research/09_demo_brands.md)). It is the brand the founder's lead finder was built for, so it can show both the Brand Builder (from its existing product brief) and **Find your customer**.
 - **The founder's personal brand** stays as a user of the product, not a demo case.
 - **Timing:** Waterlily's own kit v1 is due by Oct 9, leaving time to post, register and run a quest before the deadline.
 
@@ -108,7 +108,6 @@ Every page gets an artboard with empty, loading, success and error states and an
 - **GamersLab lead finder:** UI kit, scoring and budget patterns. Email harvesting, WHOIS lookup and guessed addresses are dropped.
 
 ## 9. Open items
-- **GamersLab:** confirm which entity is meant, or swap in another semi-established brand.
 - **Ratify the Brand Builder architecture** (status: proposed).
 - **Calibrate** the voice template values.
 - **Verify** LinkedIn's automation policy from primary pages.

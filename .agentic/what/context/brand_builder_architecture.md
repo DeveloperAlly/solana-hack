@@ -163,7 +163,7 @@ Any agent can then load the brand as context. This dogfoods aDNA, which is a dem
 | **Waterlily** (headline, built live) | Zero for the new brand; thin 2023 legacy (press, docs; the site is dead) | 2023 legacy as **E(legacy)**, which must be confirmed or rejected | Almost everything: the full minimum viable intake, all three gates |
 | **aDNA** | Strong written brand (site, spec, changelog); **no social presence** | Purpose, beliefs, value props, audience, messaging, vocabulary, claims, palette cues | Values, tone presets, visual files, governance; social channel strategy |
 | **film.fun** | Semi-established: product, site, education hub, 5 social networks linked | Identity, purpose, positioning, value props, audience, messaging, claims, examples | Values, tone presets, audio, behaviour, governance, visual files |
-| **GamersLab** | **Identity unconfirmed.** The best candidate (gamerslab.gg) is thin and its positioning has shifted | Pending confirmation | Pending confirmation |
+| **GamersLab** ([gamerslab.gg](https://www.gamerslab.gg/), confirmed) | Thin public presence (site, app, GitHub org, one long-form post) **plus an owner-supplied product brief**. Its positioning has shifted from an onchain event ledger to AI analytics | The site, the app copy, the Medium post, **and the existing product brief and case studies, uploaded as owner-supplied sources** | Positioning (to settle the shift), values, tone presets, visual files, governance |
 
 Tone presets, the audio kit and governance must be asked for **every** brand. Visual kits exist publicly only as logo or hero descriptions.
 
@@ -183,6 +183,6 @@ Tone presets, the audio kit and governance must be asked for **every** brand. Vi
 - **Coming soon:** connected social accounts ingest, validation loop, audio kit, behaviour scenarios.
 
 ## 11. Open questions
-- **GamersLab:** which entity? Confirm the site and socials, or swap in another semi-established brand.
 - **Ingest limits:** X, Instagram and TikTok pages can't be fetched without official API access. For the hackathon, ingest owned sites, docs and uploads; social history is coming soon.
 - **Calibration:** calibrate template values and the voice-fit score (research 06).
+- **Resolved 2026-10-06, GamersLab:** confirmed as gamerslab.gg. The founder's lead finder already holds an owner-supplied product brief and case studies for it. That makes a good demo of the upload path, and it closes the loop with **Find your customer**.

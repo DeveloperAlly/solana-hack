@@ -21,14 +21,13 @@ tags: [research, demo-brands, ingest]
   - Claims: 149 templates, 30+ courses.
 - **Gaps:** no brand guidelines, no colour values, no press found.
 
-## GamersLab: identity unconfirmed
-Several unrelated entities use the name. No itch.io page was found under it.
-- **Best candidate:** Gamers Lab ([gamerslab.gg](https://www.gamerslab.gg/), app, [GitHub org](https://github.com/Gamers-Lab), [Medium post](https://medium.com/@gamerslabgg/gamers-lab-a-new-data-primitive-for-gaming-c55400adf12d), Apr 2026).
+## GamersLab: confirmed as gamerslab.gg, thin public presence plus an owner-supplied brief
+**Confirmed 2026-10-06:** the founder's lead-finder repo targets gamerslab.gg and holds a GamersLab product brief and case studies, which can be uploaded as owner-supplied sources.
+- **Public presence:** Gamers Lab ([gamerslab.gg](https://www.gamerslab.gg/), app, [GitHub org](https://github.com/Gamers-Lab), [Medium post](https://medium.com/@gamerslabgg/gamers-lab-a-new-data-primitive-for-gaming-c55400adf12d), Apr 2026).
   - Tagline: "Game analytics that explains itself".
   - Audience: studios without a data team.
   - Positioning has shifted from an onchain event ledger to AI analytics.
-- **Others:** gamerslab.io (browser game builder), GamersLab Pvt Ltd (Android apps), gamerslab.eu (gaming club), and X accounts with unknown owners.
-- **Action:** the owner should confirm which entity is meant.
+- **Name collisions to avoid in ingest:** gamerslab.io (browser game builder), GamersLab Pvt Ltd (Android apps), gamerslab.eu (gaming club), and X accounts with unknown owners.
 
 ## aDNA: strong written brand, no social presence
 - **Owned properties:**
@@ -56,7 +55,7 @@ Several unrelated entities use the name. No itch.io page was found under it.
 - **Name collisions:** an AI long-term-care planning company called Waterlily, and a Gleam library called waterlily.
 - **Maturity:** this is the purest interview-only case.
 
-## Coverage (E = evidenced, I = inferable, A = must ask; GamersLab assumes gamerslab.gg)
+## Coverage (E = evidenced, I = inferable, A = must ask; GamersLab = gamerslab.gg, public sources only)
 | Section | film.fun | GamersLab | aDNA | Waterlily |
 |---|---|---|---|---|
 | Identity | E | E* | E | E(legacy)/A |
@@ -77,4 +76,4 @@ Several unrelated entities use the name. No itch.io page was found under it.
 | Examples | E | I | E | E(legacy) |
 | Governance | A | A | I | A |
 
-\* once the identity is confirmed.
+\* confirmed as gamerslab.gg. An owner-supplied brief would move several I/A cells to E.
