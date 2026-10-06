@@ -74,7 +74,7 @@ Numbered, verbatim, with sources. The owner confirms this list is complete befor
 | R27 | "Only hashes and ids go onchain. Content stays offchain." Registration on Solana devnet | [Architecture §7](../../what/context/brand_builder_architecture.md#7-proof-layer-what-gets-registered-when), §12.1 step 7 |
 | R28 | "Public-repo firewall. Never reference private repositories, private vaults, local paths, personal data or secrets." | [AGENTS.md](../../../AGENTS.md) rule 5 |
 | R29 | "Demo content is SFW" | [ADR-003](../../what/decisions/adr_003_superhub_business_model.md) principle 6 |
-| R30 | Hosting: "Cloudflare Workers on **waterlily.ai** (fallback waterlily.world)"; storage: "Supabase for the evidence, kit and voice tables" (both still to verify in P0) | [Issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2) PRD v2.1; [architecture §12.4](../../what/context/brand_builder_architecture.md#124-infrastructure-open-settled-in-p0-and-p1-of-issue-4) |
+| R30 | Hosting: "Cloudflare Workers on **waterlily.ai** (fallback waterlily.world)"; storage: "Supabase for the evidence, kit and voice tables" (both still to verify in P0) **Superseded 2026-10-06 for hosting:** the app runs on the apex of jamjam.tech (owner chat; deploy config in `web/wrangler.jsonc`). Storage unchanged | [Issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2) PRD v2.1; [architecture §12.4](../../what/context/brand_builder_architecture.md#124-infrastructure-open-settled-in-p0-and-p1-of-issue-4) |
 | R31 | Default model is an OpenRouter free model, plus bring-your-own Claude or OpenAI key | Architecture §12.4; issue #4 P4 |
 
 ### Open questions (owner to resolve before the slice that needs them)
