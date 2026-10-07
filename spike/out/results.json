@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-10-07T13:38:36.672Z",
+  "ranAt": "2026-10-07T13:39:36.442Z",
   "rpc": "https://api.devnet.solana.com",
   "keySource": "secret SPIKE_KEYS",
   "steps": {
@@ -18,9 +18,9 @@
           "executable": true
         },
         "balancesSol": {
-          "registrar": 5,
-          "brand": 0,
-          "ambassador": 0
+          "registrar": 9.87302056,
+          "brand": 0.1,
+          "ambassador": 0.02
         }
       }
     },
@@ -31,9 +31,8 @@
           "ok": true,
           "note": "already funded"
         },
-        "topUpTx": "https://explorer.solana.com/tx/3KEtAaVDytooXES4BNzqwoUWRLEv9uF3AFbj5ztw6SyKgTguBtRUSZmJetLJdJdHydqwdQRY3xaXnpbq1hu2L2BR?cluster=devnet",
         "balancesSol": {
-          "registrar": 4.879995,
+          "registrar": 9.87302056,
           "brand": 0.1,
           "ambassador": 0.02
         }
@@ -42,12 +41,10 @@
     "sas": {
       "status": "done",
       "output": {
-        "credentialTx": "https://explorer.solana.com/tx/41KKMFqjLbPGvpJ7ibEQR9vJ35WLdHtTFWPhgyqSMmJPT4qr7bRZ7RLHNPB4tyULDY48THSTDdTrMac9mghC9qtH?cluster=devnet",
-        "schemaTx": "https://explorer.solana.com/tx/ddr7x7AYahniYrDavpPxavpN4kRfPgDhiERyctFBWZGzwb5tSpQTZwWmsNDNn3bQKikpDE3EGS3Yc2xJ3Xkjt4k?cluster=devnet",
-        "attestationTx": "https://explorer.solana.com/tx/2H3Dx3heft4r9B2FQtqtDRX1JLwKPHQPrJGmoyZ1dY4djSBP6odTumGsmCW2kL7u4rtAofhxN2q3379oRTjHkmiW?cluster=devnet",
+        "attestationTx": "https://explorer.solana.com/tx/dSmB6sFDXsmx3kYwgszAG8t1ZVghafkLWvfZj9Lbmv8gXXCstkfbvxqWcpK1x1W9bde3mHoNYkT6MRQEVVaMnLs?cluster=devnet",
         "readBack": {
-          "attestation": "https://explorer.solana.com/address/6e7XVkLzkSu4zrgQ9KWvZA8bLNBoBAzUWhG2TBwtbgdH?cluster=devnet",
-          "nonce": "BUWzna2VkmqCV6h2DKaVg2c39j6mpwmRq1CM7tFZLW4W",
+          "attestation": "https://explorer.solana.com/address/AUnC9x45ebBqjMUcGvw3rzNhXQqpERrREJ5PLhEk8usZ?cluster=devnet",
+          "nonce": "2HaQnZQi6TmAoSFyomP4xQweuGextMzzGLLvTzY1TdnM",
           "signerIsRegistrar": true,
           "credentialMatches": true,
           "schemaMatches": true,
@@ -62,33 +59,40 @@
         },
         "credential": "https://explorer.solana.com/address/Di3hYbwxQorPoGAb3QSCQxkK4drv3UeQTjTheYLMPiS4?cluster=devnet",
         "schema": "https://explorer.solana.com/address/26JVvYKHuXzFTvGqiADhhVS1B4kG1NT54qZrQ5cf3cxF?cluster=devnet",
-        "registrarSol": 4.8755858
+        "registrarSol": 9.87117152
       }
     },
     "token": {
-      "status": "error",
-      "error": "HTTP error (429): Too Many Requests",
-      "context": {
-        "__code": 8100002,
-        "headers": {},
-        "message": "Too Many Requests",
-        "statusCode": 429
-      },
-      "cause": null,
-      "causeContext": null
+      "status": "done",
+      "output": {
+        "testTokenMint": "D1bTFVR6reUyf32BqTmW53yfWusRQtnwZx2y9Y81tvZx",
+        "decimals": 6,
+        "brandTokenAccount": "3A2TkAnzZscR29McwsyYTZEqaYUDXKNzauiyURCfgPsz",
+        "brandBalanceUi": "1000",
+        "tx": "https://explorer.solana.com/tx/4qQhW8R9huPZwpH72MA4ryRpgDwiT2RMphFAr7UWQDXvGWbRNURfrJ3wKr1JiySHXoyNkJx3zgds17eDobQg54ax?cluster=devnet"
+      }
     },
     "health_final": {
-      "status": "error",
-      "error": "HTTP error (429): Too Many Requests",
-      "context": {
-        "__code": 8100002,
-        "headers": {},
-        "message": "Too Many Requests",
-        "statusCode": 429
-      },
-      "cause": null,
-      "causeContext": null
+      "status": "done",
+      "output": {
+        "health": "ok",
+        "keys": {
+          "registrar": "E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG",
+          "brand": "FKnAg29UrsjRq7QoDTuXHXdzUsr3F4CY6UvY1z1RJQ8A",
+          "ambassador": "DjxjGtiq5FN8VMy1GRA6uqkagU2aZViBkqoQJMpSgh8D"
+        },
+        "sasProgram": {
+          "address": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG",
+          "exists": true,
+          "executable": true
+        },
+        "balancesSol": {
+          "registrar": 9.86860628,
+          "brand": 0.1,
+          "ambassador": 0.02
+        }
+      }
     }
   },
-  "allOk": false
+  "allOk": true
 }

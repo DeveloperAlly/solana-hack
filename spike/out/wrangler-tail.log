@@ -9,6 +9,7 @@ env.RPC_URL ("(hidden)")        Environment Variable      local
 
 ⎔ Starting local server...
 [wrangler:info] Ready on http://127.0.0.1:8787
-[wrangler:info] GET / 500 Internal Server Error (109ms)
-[wrangler:info] GET / 500 Internal Server Error (55ms)
-[wrangler:info] GET / 500 Internal Server Error (33ms)
+[wrangler:info] GET / 500 Internal Server Error (183ms)
+[wrangler:info] GET / 500 Internal Server Error (1134ms)
+[wrangler:info] GET / 500 Internal Server Error (491ms)
+[wrangler:warn] The Workers runtime crashed unexpectedly and is being restarted (crash #1). Any additional runtime output above may indicate the cause.
