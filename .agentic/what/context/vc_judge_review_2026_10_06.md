@@ -36,7 +36,7 @@ The part nobody owns is "prove": a brand-issued, public record of what is offici
 | US influencer marketing (brand payments to creators) | $10.52B in 2025, +15.7% forecast for 2026 | [eMarketer](https://www.emarketer.com/press-releases/us-influencer-marketing-spending-will-surpass-10-billion-in-2025) |
 | Social media management software | $29.9B in 2025 (vendor estimate) | [Grand View Research](https://www.grandviewresearch.com/industry-analysis/social-media-management-market-report) |
 | Brand management software | $4.75B in 2026 (vendor estimate) | [Research and Markets](https://www.researchandmarkets.com/reports/6011121/brand-management-software-market-global) |
-| Solana paid community work | 2,730+ sponsors, 233,210+ talent | [Superteam Earn](https://superteam.fun/earn) |
+| Superteam Earn (Solana) accounts | 2,730+ sponsors, 233,210+ registered talent (accounts, not completed payments) | [Superteam Earn](https://superteam.fun/earn) |
 | US impersonation losses | $3.5B imposter losses in 2025, nearly $1B from business impersonators | [FTC](https://www.ftc.gov/news-events/news/press-releases/2026/06/ftc-data-show-people-reported-losing-3-point-5-billion-imposter-scams-2025) |
 | Crypto impersonation | Impersonation scams up 1,400% year on year in 2025 | [Chainalysis](https://www.chainalysis.com/blog/crypto-scams-2026/) |
 
@@ -45,7 +45,7 @@ The part nobody owns is "prove": a brand-issued, public record of what is offici
 | # | Gap | Fix |
 |---|---|---|
 | 1 | "No one covers everything" is true ([research 04](./research/04_brand_hub_landscape.md)), but buyers switch for one sharp job | Keep end to end as the differentiator; lead the sale with proving what's official and paying for verified community work |
-| 2 | Buyer unclear (solo founders, brands with ambassador budgets, enterprises) | Sell first to crypto and developer brands: most impersonated, already paying communities in stablecoins |
+| 2 | Buyer unclear (solo founders, brands with ambassador budgets, enterprises) | Sell first to crypto and developer brands: crypto impersonation is up 1,400% ([Chainalysis](https://www.chainalysis.com/blog/crypto-scams-2026/)), and they already fund community work ([Superteam Earn](https://superteam.fun/earn) sponsors) |
 | 3 | AI brand generation is a commodity (Google Pomelli, Jasper) | Differentiate on evidence: every claim tied to a source and attested |
 | 4 | No price; payout fee dropped with licensing | Subscription per brand plus a fee on payout volume (placeholders until tested) |
 | 5 | Direction changed three times in about three days (ADR-000 to ADR-003) | Frame it as research-led: licensing was killed because no one paid per piece |
