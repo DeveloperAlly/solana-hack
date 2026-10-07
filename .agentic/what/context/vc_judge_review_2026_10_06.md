@@ -6,7 +6,7 @@ updated: 2026-10-07
 last_edited_by: agent
 tags: [review, vc, judging, colosseum, deck]
 ---
-> **Status: active.** VC and hackathon-judge review of the wireframes and docs (2026-10-06). It informs the [pitch deck v2](./pitch_deck_2026_10_06.md), not the build scope: the owner kept the full phased plan, a broad ICP, no outside-traction workstream and a devnet demo (owner, 2026-10-06, recorded in [STATE.md](../../../STATE.md)).
+> **Status: active.** VC and hackathon-judge review of the wireframes and docs (2026-10-06). It informs the [pitch deck v2](./pitch_deck_2026_10_06.md) and [ADR-007](../decisions/adr_007_pitch_positioning.md), not the build scope; current scope is in [STATE.md](../../../STATE.md).
 
 # VC and judge review (2026-10-06)
 
@@ -72,7 +72,7 @@ Colosseum publishes 7 criteria but no weightings; overall prizes are judged in o
 - **SAS:** live on mainnet since May 2025; named use cases are KYC, sybil resistance, accreditation and reputation, not brand provenance ([Solana](https://solana.com/news/solana-attestation-service)). A brand registry on SAS is a new use of a Foundation-backed primitive.
 - **Stablecoin payments and allowances** are a 2026 focus, including "Subscriptions & Allowances" ([Solana](https://solana.com/news/solana-ecosystem-roundup-june-2026)). A capped USDC budget via token delegation maps onto it.
 - **Creator economy and identity** sit in the Request for Startups, last updated Aug 2024 ([Solana](https://solana.com/solutions/request-for-startups)).
-- **No past Colosseum winner** pairs a brand registry with verified payouts; closest are Banger.lol, Clipstake and Attest Protocol ([Colosseum](https://blog.colosseum.com/announcing-the-winners-of-the-solana-breakout-hackathon/)).
+- **No winner in the five Solana hackathons reviewed** pairs a brand registry with verified payouts; closest are Banger.lol (Renaissance), Attest Protocol (Radar) and Clipstake (Breakout) ([Renaissance](https://blog.colosseum.com/renaissance-winners-gameshift-google-cloud/), [Radar](https://blog.colosseum.com/announcing-the-winners-of-the-solana-radar-hackathon/), [Breakout](https://blog.colosseum.com/announcing-the-winners-of-the-solana-breakout-hackathon/), [Cypherpunk](https://blog.colosseum.com/announcing-the-winners-of-the-solana-cypherpunk-hackathon/), [Frontier](https://blog.colosseum.com/announcing-the-winners-of-the-solana-frontier-hackathon/)).
 
 **Screen gaps found.**
 
