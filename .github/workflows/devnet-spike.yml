@@ -22,6 +22,7 @@ jobs:
       # Experiment: run 1-2 faucet calls from runner IPs to the official endpoint were all rate-limited.
       FAUCET_RPCS: https://api.devnet.solana.com,https://rpc.ankr.com/solana_devnet,https://solana-devnet.api.onfinality.io/public
       CI: "true"
+      SPIKE_KEYS: ${{ secrets.SPIKE_KEYS }}
       WRANGLER_SEND_METRICS: "false"
     steps:
       - uses: actions/checkout@v4

@@ -13,7 +13,10 @@ function newKey() {
   const jwk = privateKey.export({ format: "jwk" });
   return [...b64u(jwk.d), ...b64u(jwk.x)]; // 64 bytes: secret || public (Solana CLI format)
 }
-const keys = { registrar: newKey(), brand: newKey(), ambassador: newKey() };
+// Reuse keys from the SPIKE_KEYS repo secret when set (devnet only); otherwise make new ones.
+const keys = process.env.SPIKE_KEYS ? JSON.parse(process.env.SPIKE_KEYS)
+  : { registrar: newKey(), brand: newKey(), ambassador: newKey() };
+const keySource = process.env.SPIKE_KEYS ? "secret SPIKE_KEYS" : "generated this run";
 const ser = (o) => JSON.stringify(o, (_, v) => (typeof v === "bigint" ? v.toString() : v), 2);
 
 mkdirSync("out", { recursive: true });
@@ -26,7 +29,7 @@ writeFileSync("out/keys.enc.json", JSON.stringify({ alg: "RSA-OAEP-SHA256+AES-25
   iv: iv.toString("base64"), tag: c.getAuthTag().toString("base64"), ciphertext: ct.toString("base64") }, null, 2));
 writeFileSync(".dev.vars", `KEYS_JSON='${JSON.stringify(keys)}'\nRPC_URL=${RPC}\n`);
 
-const results = { ranAt: new Date().toISOString(), rpc: RPC, steps: {} };
+const results = { ranAt: new Date().toISOString(), rpc: RPC, keySource, steps: {} };
 let ok = true;
 for (const action of ["health", "fund", "sas", "token", "health"]) {
   const k = results.steps[action] ? action + "_final" : action;
