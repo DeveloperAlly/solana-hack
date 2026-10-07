@@ -1,0 +1,13 @@
+
+ ⛅️ wrangler 4.148.0
+────────────────────
+Using secrets defined in .dev.vars
+Your Worker has access to the following bindings:
+Binding                         Resource                  Mode
+env.KEYS_JSON ("(hidden)")      Environment Variable      local
+env.RPC_URL ("(hidden)")        Environment Variable      local
+
+⎔ Starting local server...
+[wrangler:info] Ready on http://127.0.0.1:8787
+[wrangler:info] GET / 500 Internal Server Error (191ms)
+[wrangler:info] GET / 500 Internal Server Error (185ms)

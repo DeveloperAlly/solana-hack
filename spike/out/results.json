@@ -1,0 +1,88 @@
+{
+  "ranAt": "2026-10-07T06:33:41.855Z",
+  "rpc": "https://api.devnet.solana.com",
+  "steps": {
+    "health": {
+      "status": "done",
+      "output": {
+        "health": "ok",
+        "keys": {
+          "registrar": "31bW6bGqEWpbHwigj3FJ92RN5LmvLomEhjmuUo6RVYr3",
+          "brand": "iRVzFfA7rG9LTGjxrM8jeuEvRnBrwpoEDcAMjtFoJvJ",
+          "ambassador": "CuAcGJNktUYjr6S5mhy9QxgdScVnBe83j6xnsSWANivf"
+        },
+        "sasProgram": {
+          "address": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG",
+          "exists": true,
+          "executable": true
+        },
+        "balancesSol": {
+          "registrar": 0,
+          "brand": 0,
+          "ambassador": 0
+        }
+      }
+    },
+    "fund": {
+      "status": "done",
+      "output": {
+        "registrar": {
+          "ok": false,
+          "attempts": [
+            "JSON-RPC error: Internal JSON-RPC error (Internal error)",
+            "HTTP error (429): Too Many Requests"
+          ]
+        },
+        "brand": {
+          "ok": false,
+          "attempts": [
+            "HTTP error (429): Too Many Requests",
+            "HTTP error (429): Too Many Requests"
+          ]
+        },
+        "ambassador": {
+          "ok": false,
+          "attempts": [
+            "HTTP error (429): Too Many Requests",
+            "HTTP error (429): Too Many Requests"
+          ]
+        },
+        "balancesSol": {
+          "registrar": 0,
+          "brand": 0,
+          "ambassador": 0
+        }
+      }
+    },
+    "sas": {
+      "status": "error",
+      "error": "SolanaError: Transaction simulation failed\n    at file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-transformers/dist/index.node.mjs:325:15\n    at file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-transformers/dist/index.node.mjs:340:54\n    at file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/functional/dist/index.node.mjs:3:34\n    at Array.reduce (<anonymous>)\n    at pipe (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/functional/dist/index.node.mjs:3:14)\n    at Object.responseTransformer (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-transformers/dist/index.node.mjs:338:12)\n    at Object.execute (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-spec/dist/index.node.mjs:70:27)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Object.send (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-spec/dist/index.node.mjs:42:14)\n    at async send (file:///home/runner/work/solana-hack/solana-hack/spike/src/actions.mjs:43:3)"
+    },
+    "token": {
+      "status": "error",
+      "error": "SolanaError: Transaction simulation failed\n    at file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-transformers/dist/index.node.mjs:325:15\n    at file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-transformers/dist/index.node.mjs:340:54\n    at file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/functional/dist/index.node.mjs:3:34\n    at Array.reduce (<anonymous>)\n    at pipe (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/functional/dist/index.node.mjs:3:14)\n    at Object.responseTransformer (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-transformers/dist/index.node.mjs:338:12)\n    at Object.execute (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-spec/dist/index.node.mjs:70:27)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Object.send (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-spec/dist/index.node.mjs:42:14)\n    at async send (file:///home/runner/work/solana-hack/solana-hack/spike/src/actions.mjs:43:3)"
+    },
+    "health_final": {
+      "status": "done",
+      "output": {
+        "health": "ok",
+        "keys": {
+          "registrar": "31bW6bGqEWpbHwigj3FJ92RN5LmvLomEhjmuUo6RVYr3",
+          "brand": "iRVzFfA7rG9LTGjxrM8jeuEvRnBrwpoEDcAMjtFoJvJ",
+          "ambassador": "CuAcGJNktUYjr6S5mhy9QxgdScVnBe83j6xnsSWANivf"
+        },
+        "sasProgram": {
+          "address": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG",
+          "exists": true,
+          "executable": true
+        },
+        "balancesSol": {
+          "registrar": 0,
+          "brand": 0,
+          "ambassador": 0
+        }
+      }
+    }
+  },
+  "allOk": false
+}
