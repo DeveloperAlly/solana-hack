@@ -19,6 +19,8 @@ jobs:
         working-directory: spike
     env:
       RPC_URL: https://api.devnet.solana.com
+      # Experiment: run 1-2 faucet calls from runner IPs to the official endpoint were all rate-limited.
+      FAUCET_RPCS: https://api.devnet.solana.com,https://rpc.ankr.com/solana_devnet,https://solana-devnet.api.onfinality.io/public
       CI: "true"
       WRANGLER_SEND_METRICS: "false"
     steps:

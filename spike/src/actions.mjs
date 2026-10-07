@@ -69,12 +69,15 @@ export async function run(action, keys, rpcUrl, rpcConfig) {
     const out = { registrar: { ok: false, attempts: [] } };
     if ((await bal(registrar.address)) < 0.5) {
       for (const amt of [1_000_000_000n, 1_000_000_000n, 500_000_000n, 500_000_000n, 1_000_000_000n, 500_000_000n]) {
+        // Rotate faucet endpoints (FAUCET_RPCS, comma-separated); the attempt log records which ones answered.
+        const urls = (globalThis.process?.env?.FAUCET_RPCS || rpcUrl).split(",");
+        const fu = urls[out.registrar.attempts.length % urls.length];
         try {
-          const sig = await rpc.requestAirdrop(registrar.address, lamports(amt)).send();
+          const sig = await createSolanaRpc(fu, rpcConfig).requestAirdrop(registrar.address, lamports(amt)).send();
           await confirm(rpc, sig);
-          out.registrar = { ok: true, sol: Number(amt) / 1e9, tx: explorer(sig), attempts: out.registrar.attempts };
+          out.registrar = { ok: true, via: new URL(fu).host, sol: Number(amt) / 1e9, tx: explorer(sig), attempts: out.registrar.attempts };
           break;
-        } catch (e) { out.registrar.attempts.push(String(e?.message ?? e).slice(0, 200)); await sleep(15000); }
+        } catch (e) { out.registrar.attempts.push(new URL(fu).host + ": " + String(e?.message ?? e).slice(0, 200)); await sleep(15000); }
       }
     } else out.registrar = { ok: true, note: "already funded" };
     const rs = await bal(registrar.address);
