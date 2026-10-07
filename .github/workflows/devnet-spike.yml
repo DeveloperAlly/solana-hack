@@ -1,0 +1,53 @@
+# Devnet-only spike: creates 3 throwaway devnet wallets, tests the Solana Attestation Service
+# and mints a test token. Private keys leave the runner only encrypted (spike/out/keys.enc.json).
+# Runs when spike/RUN changes, or manually.
+name: devnet-spike
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [spike/RUN]
+permissions:
+  contents: write
+concurrency: devnet-spike
+jobs:
+  spike:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: spike
+    env:
+      RPC_URL: https://api.devnet.solana.com
+      CI: "true"
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: Run spike on devnet (Node)
+        run: node src/node-run.mjs
+      - name: Same SDK inside local workerd (best effort, no deploy)
+        continue-on-error: true
+        run: |
+          npx wrangler dev --ip 127.0.0.1 --port 8787 > out/wrangler.log 2>&1 &
+          WPID=$!
+          for i in $(seq 1 60); do curl -s -o /dev/null http://127.0.0.1:8787/ && break; sleep 2; done
+          curl -s "http://127.0.0.1:8787/?a=health" > out/workerd.json || echo '{"ok":false,"error":"no response"}' > out/workerd.json
+          cat out/workerd.json
+          kill $WPID || true; pkill -f workerd || true
+          tail -n 40 out/wrangler.log > out/wrangler-tail.log; rm -f out/wrangler.log
+      - name: Remove plaintext keys
+        if: always()
+        run: rm -f .dev.vars
+      - name: Commit results (public data + encrypted keys only)
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add out
+          git commit -m "spike: devnet results $(date -u +%FT%TZ)" || exit 0
+          git pull --rebase
+          git push

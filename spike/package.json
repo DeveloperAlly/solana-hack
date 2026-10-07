@@ -1,0 +1,14 @@
+{
+  "name": "waterlily-devnet-spike",
+  "private": true,
+  "type": "module",
+  "description": "Devnet-only spike: Registrar/brand/ambassador wallets, SAS attestation, test token.",
+  "scripts": { "spike": "node src/node-run.mjs" },
+  "dependencies": {
+    "@solana-program/system": "^0.15.0",
+    "@solana-program/token": "^0.17.0",
+    "@solana/attestation": "2.1.0",
+    "@solana/kit": "^8.4.0"
+  },
+  "devDependencies": { "wrangler": "^4" }
+}

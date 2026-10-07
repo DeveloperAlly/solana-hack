@@ -1,0 +1,5 @@
+# Local-only test config for `wrangler dev` (never deployed by the spike workflow).
+name = "waterlily-devnet-spike-local"
+main = "src/workerd-test.mjs"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
