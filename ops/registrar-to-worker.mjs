@@ -1,7 +1,8 @@
 // One-off: copy the funded devnet Registrar key from the SPIKE_KEYS Actions secret into the Worker secret
 // REGISTRAR_KEY (owner go-ahead 2026-10-07, recorded at https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6039702428;
 // funded in devnet-spike run 4, commit 43b8634). Prints only the public address, never key material.
-// Usage (CI): SPIKE_KEYS=... EXPECTED_ADDRESS=... CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... node scripts/registrar-to-worker.mjs
+// Usage (CI): SPIKE_KEYS=... EXPECTED_ADDRESS=... CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... node ops/registrar-to-worker.mjs
+// Lives outside web/ so merging it does not also trigger web-deploy.yml (no second Worker mutation at the same time).
 import { createPrivateKey, createPublicKey } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
@@ -32,7 +33,8 @@ for (const b of pub) { if (b === 0) address = '1' + address; else break; }
 console.log(`registrar address: ${address}`);
 if (address !== expected) fail(`address ${address} is not the expected ${expected}`);
 
-const r = spawnSync('npx', ['wrangler', 'secret', 'put', 'REGISTRAR_KEY', '--name', 'waterlily'], {
+// Same Wrangler version as web/package-lock.json.
+const r = spawnSync('npx', ['--yes', 'wrangler@4.147.0', 'secret', 'put', 'REGISTRAR_KEY', '--name', 'waterlily'], {
   input: JSON.stringify(Array.from(bytes)),
   stdio: ['pipe', 'inherit', 'inherit'],
 });
