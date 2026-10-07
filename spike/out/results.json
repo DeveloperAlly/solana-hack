@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-10-07T06:33:41.855Z",
+  "ranAt": "2026-10-07T06:40:14.049Z",
   "rpc": "https://api.devnet.solana.com",
   "steps": {
     "health": {
@@ -7,9 +7,9 @@
       "output": {
         "health": "ok",
         "keys": {
-          "registrar": "31bW6bGqEWpbHwigj3FJ92RN5LmvLomEhjmuUo6RVYr3",
-          "brand": "iRVzFfA7rG9LTGjxrM8jeuEvRnBrwpoEDcAMjtFoJvJ",
-          "ambassador": "CuAcGJNktUYjr6S5mhy9QxgdScVnBe83j6xnsSWANivf"
+          "registrar": "7sbU72QEb3to6PVYDovL9cNRDe23edDskUHRcsySMQvW",
+          "brand": "3qQ7sEs4SgkroJW3yNCoNGx5yoLRCQmyaX9tSii7brvj",
+          "ambassador": "HRe9RikvdSPDSXLY7ADA3j4oJ6f9MmzaYsfR3G9SZFF8"
         },
         "sasProgram": {
           "address": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG",
@@ -30,19 +30,9 @@
           "ok": false,
           "attempts": [
             "JSON-RPC error: Internal JSON-RPC error (Internal error)",
-            "HTTP error (429): Too Many Requests"
-          ]
-        },
-        "brand": {
-          "ok": false,
-          "attempts": [
             "HTTP error (429): Too Many Requests",
-            "HTTP error (429): Too Many Requests"
-          ]
-        },
-        "ambassador": {
-          "ok": false,
-          "attempts": [
+            "HTTP error (429): Too Many Requests",
+            "HTTP error (429): Too Many Requests",
             "HTTP error (429): Too Many Requests",
             "HTTP error (429): Too Many Requests"
           ]
@@ -56,20 +46,26 @@
     },
     "sas": {
       "status": "error",
-      "error": "SolanaError: Transaction simulation failed\n    at file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-transformers/dist/index.node.mjs:325:15\n    at file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-transformers/dist/index.node.mjs:340:54\n    at file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/functional/dist/index.node.mjs:3:34\n    at Array.reduce (<anonymous>)\n    at pipe (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/functional/dist/index.node.mjs:3:14)\n    at Object.responseTransformer (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-transformers/dist/index.node.mjs:338:12)\n    at Object.execute (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-spec/dist/index.node.mjs:70:27)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Object.send (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-spec/dist/index.node.mjs:42:14)\n    at async send (file:///home/runner/work/solana-hack/solana-hack/spike/src/actions.mjs:43:3)"
+      "error": "skipped: Registrar has no devnet SOL (airdrop failed), so it cannot pay fees",
+      "context": null,
+      "cause": null,
+      "causeContext": null
     },
     "token": {
       "status": "error",
-      "error": "SolanaError: Transaction simulation failed\n    at file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-transformers/dist/index.node.mjs:325:15\n    at file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-transformers/dist/index.node.mjs:340:54\n    at file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/functional/dist/index.node.mjs:3:34\n    at Array.reduce (<anonymous>)\n    at pipe (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/functional/dist/index.node.mjs:3:14)\n    at Object.responseTransformer (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-transformers/dist/index.node.mjs:338:12)\n    at Object.execute (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-spec/dist/index.node.mjs:70:27)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Object.send (file:///home/runner/work/solana-hack/solana-hack/spike/node_modules/@solana/rpc-spec/dist/index.node.mjs:42:14)\n    at async send (file:///home/runner/work/solana-hack/solana-hack/spike/src/actions.mjs:43:3)"
+      "error": "skipped: Registrar has no devnet SOL (airdrop failed), so it cannot pay fees",
+      "context": null,
+      "cause": null,
+      "causeContext": null
     },
     "health_final": {
       "status": "done",
       "output": {
         "health": "ok",
         "keys": {
-          "registrar": "31bW6bGqEWpbHwigj3FJ92RN5LmvLomEhjmuUo6RVYr3",
-          "brand": "iRVzFfA7rG9LTGjxrM8jeuEvRnBrwpoEDcAMjtFoJvJ",
-          "ambassador": "CuAcGJNktUYjr6S5mhy9QxgdScVnBe83j6xnsSWANivf"
+          "registrar": "7sbU72QEb3to6PVYDovL9cNRDe23edDskUHRcsySMQvW",
+          "brand": "3qQ7sEs4SgkroJW3yNCoNGx5yoLRCQmyaX9tSii7brvj",
+          "ambassador": "HRe9RikvdSPDSXLY7ADA3j4oJ6f9MmzaYsfR3G9SZFF8"
         },
         "sasProgram": {
           "address": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG",
