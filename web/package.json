@@ -8,7 +8,7 @@
     "dev": "npm run tokens && vite",
     "build": "npm run tokens && vite build",
     "preview": "vite preview",
-    "typecheck": "npm run tokens && tsc --noEmit -p tsconfig.json",
+    "typecheck": "npm run tokens && tsc --noEmit -p tsconfig.json && tsc -p worker/tsconfig.json",
     "lint:tokens": "node scripts/build-tokens.mjs && node scripts/lint-tokens.mjs",
     "test": "npm run tokens && vitest run",
     "proof": "node scripts/proof-s0.mjs"

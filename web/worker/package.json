@@ -1,0 +1,10 @@
+{
+  "name": "waterlily-worker",
+  "private": true,
+  "type": "module",
+  "description": "Server code for the Waterlily Worker (/api/*). Kept apart from the SPA's dependencies.",
+  "dependencies": {
+    "@solana/attestation": "2.1.0",
+    "@solana/kit": "8.4.0"
+  }
+}

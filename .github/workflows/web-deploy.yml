@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  issues: write # post the registry proof to issue #4
 concurrency:
   group: web-deploy
   cancel-in-progress: false
@@ -22,24 +23,63 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            web/package-lock.json
+            web/worker/package-lock.json
       - run: npm ci
+      - run: npm ci --prefix worker # Worker-only deps (Solana SDK), own lockfile
       - name: Build
         env:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
+      # Worker secrets (backend map G-SAS, G-RPC). REGISTRAR_KEY comes from the SPIKE_KEYS repo secret
+      # (devnet only). SELFTEST_TOKEN is new on every run and only this job knows it. RPC_URL uses the
+      # optional DEVNET_RPC_URL repo secret, else the public devnet endpoint.
+      - name: Prepare Worker secrets
+        env:
+          SPIKE_KEYS: ${{ secrets.SPIKE_KEYS }}
+          DEVNET_RPC_URL: ${{ secrets.DEVNET_RPC_URL }}
+        run: |
+          test -n "$SPIKE_KEYS" || { echo "MISSING: SPIKE_KEYS"; exit 1; }
+          TOKEN=$(openssl rand -hex 32)
+          echo "::add-mask::$TOKEN"
+          echo "SELFTEST_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+          SELFTEST_TOKEN="$TOKEN" node -e '
+            const k = JSON.parse(process.env.SPIKE_KEYS);
+            const out = { REGISTRAR_KEY: JSON.stringify(k.registrar), SELFTEST_TOKEN: process.env.SELFTEST_TOKEN,
+              RPC_URL: process.env.DEVNET_RPC_URL || "https://api.devnet.solana.com" };
+            require("fs").writeFileSync(process.env.RUNNER_TEMP + "/worker-secrets.json", JSON.stringify(out), { mode: 0o600 });'
       - name: Deploy to Cloudflare (jamjam.tech)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler deploy
+        run: npx wrangler deploy --secrets-file "$RUNNER_TEMP/worker-secrets.json"
+      - name: Remove the secrets file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/worker-secrets.json"
       - name: Install Chromium for the deployed check
         run: npx --yes playwright@$(node -p "require('playwright-core/package.json').version") install --with-deps chromium
       - name: Check the deployed site
         env:
           BASE_URL: https://jamjam.tech
         run: node scripts/check-deployed.mjs
+      - name: Check the registry (S0 done-when 3)
+        env:
+          BASE_URL: https://jamjam.tech
+          EXPECTED_REGISTRAR: E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG
+          SPIKE_KEYS: ${{ secrets.SPIKE_KEYS }}
+        run: |
+          export REGISTRAR_KEY=$(node -e 'process.stdout.write(JSON.stringify(JSON.parse(process.env.SPIKE_KEYS).registrar))')
+          node worker/check-registry.mjs
+      - name: Post the registry proof to issue 4
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -f proof/deployed-registry.txt || exit 0
+          { echo "S0 done-when (3), registry proof from the deploy run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} (commit ${{ github.sha }}):"; echo; echo '```'; cat proof/deployed-registry.txt; echo '```'; } > "$RUNNER_TEMP/comment.md"
+          gh issue comment 4 --repo "${{ github.repository }}" --body-file "$RUNNER_TEMP/comment.md"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
