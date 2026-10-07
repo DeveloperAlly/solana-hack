@@ -66,15 +66,23 @@ export async function registerKitAttestation(rpcUrl: string, registrar: KeyPairS
     payer: registrar, authority: registrar, credential, schema, attestation, nonce, expiry: 0,
     data: serializeAttestationData(s.data, fields),
   })]);
-  const a = await fetchMaybeAttestation(rpc, attestation);
+  // Read at the same commitment confirm() waited for; retry briefly while the RPC node catches up.
+  let a = await fetchMaybeAttestation(rpc, attestation, { commitment: 'confirmed' });
+  for (let i = 0; !a.exists && i < 5; i++) {
+    await sleep(1500);
+    a = await fetchMaybeAttestation(rpc, attestation, { commitment: 'confirmed' });
+  }
   if (!a.exists) throw new Error('attestation not found after confirm');
+  const data = deserializeAttestationData(s.data, a.data.data) as Record<string, unknown>;
   const readBack = {
     signerIsRegistrar: a.data.signer === registrar.address,
     credentialMatches: a.data.credential === credential,
     schemaMatches: a.data.schema === schema,
-    data: deserializeAttestationData(s.data, a.data.data) as Record<string, unknown>,
+    // Every supplied field must come back exactly as written.
+    fieldsMatch: (Object.keys(fields) as (keyof KitFields)[]).every((k) => data[k] === fields[k]),
+    data,
   };
-  if (!readBack.signerIsRegistrar || !readBack.credentialMatches || !readBack.schemaMatches)
+  if (!readBack.signerIsRegistrar || !readBack.credentialMatches || !readBack.schemaMatches || !readBack.fieldsMatch)
     throw new Error('read-back mismatch: ' + JSON.stringify(readBack));
   return {
     signature, explorer: explorerTx(signature),

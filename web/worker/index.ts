@@ -49,8 +49,11 @@ export default {
         });
         return json({ ok: true, at, ...out });
       } catch (e) {
-        const err = e as { message?: string; context?: unknown };
-        return json({ ok: false, at, error: String(err?.message ?? e), context: err?.context ?? null }, 502);
+        // Full detail stays in Worker logs; the response is public (it is posted to issue #4), so it
+        // carries only a stable message and, if present, the upstream HTTP status (G-RPC diagnosis).
+        console.error('registry selftest failed', e);
+        const status = (e as { context?: { statusCode?: unknown } })?.context?.statusCode;
+        return json({ ok: false, at, error: 'registration failed', upstreamStatus: typeof status === 'number' ? status : null }, 502);
       }
     }
     return json({ error: 'not found' }, 404);

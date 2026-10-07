@@ -54,14 +54,21 @@ try {
 
   // 4. Independent check from Node over RPC: the transaction succeeded and the attestation matches.
   const rpc = createSolanaRpc(rpcUrl);
-  const tx = await retry(() => rpc.getTransaction(r.signature, { maxSupportedTransactionVersion: 0, commitment: 'confirmed', encoding: 'json' }).send(), 'getTransaction');
-  if (!tx) fail('transaction not found over RPC');
+  // Independent RPC nodes can lag: a null result or a missing account is retried, not failed.
+  const tx = await retry(async () => {
+    const t = await rpc.getTransaction(r.signature, { maxSupportedTransactionVersion: 0, commitment: 'confirmed', encoding: 'json' }).send();
+    if (!t) throw new Error('transaction not visible yet');
+    return t;
+  }, 'getTransaction');
   if (tx.meta?.err) fail('transaction error ' + JSON.stringify(tx.meta.err));
   log(`PASS: RPC getTransaction ${r.signature}: slot ${tx.slot}, err = null`);
   const [credential] = await findCredentialPda({ authority: address(expected), name: 'WATERLILY' });
   const [schema] = await findSchemaPda({ credential, name: 'WL-KIT', version: 1 });
-  const a = await retry(() => fetchMaybeAttestation(rpc, address(r.attestation)), 'fetchAttestation');
-  if (!a.exists) fail('attestation account not found');
+  const a = await retry(async () => {
+    const m = await fetchMaybeAttestation(rpc, address(r.attestation), { commitment: 'confirmed' });
+    if (!m.exists) throw new Error('attestation not visible yet');
+    return m;
+  }, 'fetchAttestation');
   if (a.data.signer !== expected) fail(`attestation signer ${a.data.signer} != Registrar ${expected}`);
   if (a.data.credential !== credential) fail('credential mismatch');
   if (a.data.schema !== schema) fail('schema mismatch');
