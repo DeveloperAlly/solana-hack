@@ -2,7 +2,7 @@
 type: manifest
 status: active
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-07
 last_edited_by: agent
 tags: [manifest, index]
 ---
@@ -40,6 +40,8 @@ The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose:
 | [.agentic/what/context/backend_map.md](./.agentic/what/context/backend_map.md) | proposed | Backend map: endpoints, data sources, jobs and external APIs per screen; architecture gaps |
 | [spec/api/README.md](./spec/api/README.md) | proposed | Backend boilerplate stubs (comments only) and Supabase schema |
 | [.agentic/what/context/wireframe_audit_2026_10_06.md](./.agentic/what/context/wireframe_audit_2026_10_06.md) | active | Audit of the UI wireframes canvas against the spec (v1 and v2 re-review); input to the rework |
+| [.agentic/what/context/pitch_deck_2026_10_06.md](./.agentic/what/context/pitch_deck_2026_10_06.md) | draft | Pitch deck v2: slide text, speaker notes and placeholders to fill |
+| [.agentic/what/context/vc_judge_review_2026_10_06.md](./.agentic/what/context/vc_judge_review_2026_10_06.md) | active | VC and hackathon-judge review of the wireframes and docs; informs the deck |
 | [.agentic/what/context/swot.md](./.agentic/what/context/swot.md) | historical | SWOT of the licensing-era concept; still informs risks |
 | [.agentic/what/context/links.md](./.agentic/what/context/links.md) | active | Working links: wireframes, deck, PRD, research |
 | [.agentic/what/context/research/README.md](./.agentic/what/context/research/README.md) | active | Research index |
