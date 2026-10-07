@@ -31,7 +31,8 @@ let ok = true;
 for (const action of ["health", "fund", "sas", "token", "health"]) {
   const k = results.steps[action] ? action + "_final" : action;
   try { results.steps[k] = { status: "done", output: await run(action, keys, RPC) }; }
-  catch (e) { ok = false; results.steps[k] = { status: "error", error: String(e?.stack ?? e).slice(0, 2000) }; }
+  catch (e) { ok = false; results.steps[k] = { status: "error", error: String(e?.message ?? e).slice(0, 500),
+    context: e?.context ?? null, cause: e?.cause ? String(e.cause?.message ?? e.cause).slice(0, 500) : null, causeContext: e?.cause?.context ?? null }; }
   writeFileSync("out/results.json", ser(results));
   console.log(k, ser(results.steps[k]));
 }

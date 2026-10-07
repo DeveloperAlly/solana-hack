@@ -13,7 +13,7 @@ concurrency: devnet-spike
 jobs:
   spike:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: spike
@@ -35,7 +35,7 @@ jobs:
           npx wrangler dev --ip 127.0.0.1 --port 8787 > out/wrangler.log 2>&1 &
           WPID=$!
           for i in $(seq 1 60); do curl -s -o /dev/null http://127.0.0.1:8787/ && break; sleep 2; done
-          curl -s "http://127.0.0.1:8787/?a=health" > out/workerd.json || echo '{"ok":false,"error":"no response"}' > out/workerd.json
+          { echo '{"noUserAgent":'; curl -s "http://127.0.0.1:8787/?ua=0" || echo null; echo ',"withUserAgent":'; curl -s "http://127.0.0.1:8787/?ua=1" || echo null; echo '}'; } > out/workerd.json
           cat out/workerd.json
           kill $WPID || true; pkill -f workerd || true
           tail -n 40 out/wrangler.log > out/wrangler-tail.log; rm -f out/wrangler.log

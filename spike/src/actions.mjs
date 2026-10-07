@@ -11,7 +11,7 @@ import {
   getCreateCredentialInstruction, getCreateSchemaInstruction, getCreateAttestationInstruction,
   fetchSchema, fetchMaybeAttestation, serializeAttestationData, deserializeAttestationData,
 } from "@solana/attestation";
-import { getCreateAccountInstruction } from "@solana-program/system";
+import { getCreateAccountInstruction, getTransferSolInstruction } from "@solana-program/system";
 import {
   TOKEN_PROGRAM_ADDRESS, getMintSize, getInitializeMint2Instruction, findAssociatedTokenPda,
   getCreateAssociatedTokenIdempotentInstruction, getMintToCheckedInstruction,
@@ -46,8 +46,9 @@ async function send(rpc, feePayer, ixs) {
 }
 
 // keys: { registrar: number[64], brand: number[64], ambassador: number[64] }
-export async function run(action, keys, rpcUrl) {
-  const rpc = createSolanaRpc(rpcUrl);
+// rpcConfig is passed to createSolanaRpc (e.g. { headers: { "user-agent": "..." } }).
+export async function run(action, keys, rpcUrl, rpcConfig) {
+  const rpc = createSolanaRpc(rpcUrl, rpcConfig);
   const registrar = await createKeyPairSignerFromBytes(new Uint8Array(keys.registrar));
   const brand = await createKeyPairSignerFromBytes(new Uint8Array(keys.brand));
   const ambassador = await createKeyPairSignerFromBytes(new Uint8Array(keys.ambassador));
@@ -63,22 +64,31 @@ export async function run(action, keys, rpcUrl) {
     };
   }
   if (action === "fund") {
-    // Devnet faucet is rate-limited; try 1 SOL then 0.5 SOL per wallet, with a pause between.
-    const out = {};
-    for (const [n, a] of [["registrar", registrar.address], ["brand", brand.address], ["ambassador", ambassador.address]]) {
-      out[n] = { ok: false, attempts: [] };
-      for (const amt of [1_000_000_000n, 500_000_000n]) {
+    // The devnet faucet is rate-limited per IP. Airdrop only to the Registrar (it pays all fees),
+    // retrying with backoff, then the Registrar sends small amounts to the brand and ambassador.
+    const out = { registrar: { ok: false, attempts: [] } };
+    if ((await bal(registrar.address)) < 0.5) {
+      for (const amt of [1_000_000_000n, 1_000_000_000n, 500_000_000n, 500_000_000n, 1_000_000_000n, 500_000_000n]) {
         try {
-          const sig = await rpc.requestAirdrop(a, lamports(amt)).send();
+          const sig = await rpc.requestAirdrop(registrar.address, lamports(amt)).send();
           await confirm(rpc, sig);
-          out[n] = { ok: true, sol: Number(amt) / 1e9, tx: explorer(sig) };
+          out.registrar = { ok: true, sol: Number(amt) / 1e9, tx: explorer(sig), attempts: out.registrar.attempts };
           break;
-        } catch (e) { out[n].attempts.push(String(e?.message ?? e).slice(0, 300)); await sleep(3000); }
+        } catch (e) { out.registrar.attempts.push(String(e?.message ?? e).slice(0, 200)); await sleep(15000); }
       }
+    } else out.registrar = { ok: true, note: "already funded" };
+    const rs = await bal(registrar.address);
+    if (rs >= 0.3) {
+      const top = [];
+      if ((await bal(brand.address)) < 0.05) top.push(getTransferSolInstruction({ source: registrar, destination: brand.address, amount: 100_000_000n }));
+      if ((await bal(ambassador.address)) < 0.01) top.push(getTransferSolInstruction({ source: registrar, destination: ambassador.address, amount: 20_000_000n }));
+      if (top.length) out.topUpTx = explorer(await send(rpc, registrar, top));
     }
     out.balancesSol = { registrar: await bal(registrar.address), brand: await bal(brand.address), ambassador: await bal(ambassador.address) };
     return out;
   }
+  if ((action === "sas" || action === "token") && (await bal(registrar.address)) < 0.05)
+    throw new Error("skipped: Registrar has no devnet SOL (airdrop failed), so it cannot pay fees");
   if (action === "sas") {
     const out = {};
     const [credential] = await findCredentialPda({ authority: registrar.address, name: "WATERLILY" });
