@@ -33,7 +33,7 @@ The part nobody owns is "prove": a brand-issued, public record of what is offici
 
 | Pool | Size | Source |
 |---|---|---|
-| US influencer marketing (brand payments to creators) | $10.52B in 2025, +15.7% forecast for 2026 | [eMarketer](https://www.emarketer.com/press-releases/us-influencer-marketing-spending-will-surpass-10-billion-in-2025) |
+| US influencer marketing (brand payments to creators) | $10.52B in 2025 (forecast), +15.7% forecast for 2026 | [eMarketer](https://www.emarketer.com/press-releases/us-influencer-marketing-spending-will-surpass-10-billion-in-2025) |
 | Social media management software | $29.9B in 2025 (vendor estimate) | [Grand View Research](https://www.grandviewresearch.com/industry-analysis/social-media-management-market-report) |
 | Brand management software | $4.75B in 2026 (vendor estimate) | [Research and Markets](https://www.researchandmarkets.com/reports/6011121/brand-management-software-market-global) |
 | Superteam Earn (Solana) accounts | 2,730+ sponsors, 233,210+ registered talent (accounts, not completed payments) | [Superteam Earn](https://superteam.fun/earn) |
