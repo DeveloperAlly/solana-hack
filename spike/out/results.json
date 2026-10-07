@@ -1,6 +1,7 @@
 {
-  "ranAt": "2026-10-07T08:12:15.268Z",
+  "ranAt": "2026-10-07T13:38:36.672Z",
   "rpc": "https://api.devnet.solana.com",
+  "keySource": "secret SPIKE_KEYS",
   "steps": {
     "health": {
       "status": "done",
@@ -17,7 +18,7 @@
           "executable": true
         },
         "balancesSol": {
-          "registrar": 0,
+          "registrar": 5,
           "brand": 0,
           "ambassador": 0
         }
@@ -27,57 +28,66 @@
       "status": "done",
       "output": {
         "registrar": {
-          "ok": false,
-          "attempts": [
-            "api.devnet.solana.com: JSON-RPC error: Internal JSON-RPC error (Internal error)",
-            "rpc.ankr.com: Cannot read properties of undefined (reading 'length')",
-            "solana-devnet.api.onfinality.io: JSON-RPC error: The JSON sent is not a valid `Request` object (Invalid request)",
-            "api.devnet.solana.com: HTTP error (429): Too Many Requests",
-            "rpc.ankr.com: Cannot read properties of undefined (reading 'length')",
-            "solana-devnet.api.onfinality.io: JSON-RPC error: The JSON sent is not a valid `Request` object (Invalid request)"
-          ]
+          "ok": true,
+          "note": "already funded"
         },
+        "topUpTx": "https://explorer.solana.com/tx/3KEtAaVDytooXES4BNzqwoUWRLEv9uF3AFbj5ztw6SyKgTguBtRUSZmJetLJdJdHydqwdQRY3xaXnpbq1hu2L2BR?cluster=devnet",
         "balancesSol": {
-          "registrar": 0,
-          "brand": 0,
-          "ambassador": 0
+          "registrar": 4.879995,
+          "brand": 0.1,
+          "ambassador": 0.02
         }
       }
     },
     "sas": {
-      "status": "error",
-      "error": "skipped: Registrar has no devnet SOL (airdrop failed), so it cannot pay fees",
-      "context": null,
-      "cause": null,
-      "causeContext": null
+      "status": "done",
+      "output": {
+        "credentialTx": "https://explorer.solana.com/tx/41KKMFqjLbPGvpJ7ibEQR9vJ35WLdHtTFWPhgyqSMmJPT4qr7bRZ7RLHNPB4tyULDY48THSTDdTrMac9mghC9qtH?cluster=devnet",
+        "schemaTx": "https://explorer.solana.com/tx/ddr7x7AYahniYrDavpPxavpN4kRfPgDhiERyctFBWZGzwb5tSpQTZwWmsNDNn3bQKikpDE3EGS3Yc2xJ3Xkjt4k?cluster=devnet",
+        "attestationTx": "https://explorer.solana.com/tx/2H3Dx3heft4r9B2FQtqtDRX1JLwKPHQPrJGmoyZ1dY4djSBP6odTumGsmCW2kL7u4rtAofhxN2q3379oRTjHkmiW?cluster=devnet",
+        "readBack": {
+          "attestation": "https://explorer.solana.com/address/6e7XVkLzkSu4zrgQ9KWvZA8bLNBoBAzUWhG2TBwtbgdH?cluster=devnet",
+          "nonce": "BUWzna2VkmqCV6h2DKaVg2c39j6mpwmRq1CM7tFZLW4W",
+          "signerIsRegistrar": true,
+          "credentialMatches": true,
+          "schemaMatches": true,
+          "expiry": "0",
+          "data": {
+            "brand_id": "waterlily-spike",
+            "hash": "sha256:0000spike",
+            "kit_version": "1",
+            "approver": "spike",
+            "domain_verified": "false"
+          }
+        },
+        "credential": "https://explorer.solana.com/address/Di3hYbwxQorPoGAb3QSCQxkK4drv3UeQTjTheYLMPiS4?cluster=devnet",
+        "schema": "https://explorer.solana.com/address/26JVvYKHuXzFTvGqiADhhVS1B4kG1NT54qZrQ5cf3cxF?cluster=devnet",
+        "registrarSol": 4.8755858
+      }
     },
     "token": {
       "status": "error",
-      "error": "skipped: Registrar has no devnet SOL (airdrop failed), so it cannot pay fees",
-      "context": null,
+      "error": "HTTP error (429): Too Many Requests",
+      "context": {
+        "__code": 8100002,
+        "headers": {},
+        "message": "Too Many Requests",
+        "statusCode": 429
+      },
       "cause": null,
       "causeContext": null
     },
     "health_final": {
-      "status": "done",
-      "output": {
-        "health": "ok",
-        "keys": {
-          "registrar": "E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG",
-          "brand": "FKnAg29UrsjRq7QoDTuXHXdzUsr3F4CY6UvY1z1RJQ8A",
-          "ambassador": "DjxjGtiq5FN8VMy1GRA6uqkagU2aZViBkqoQJMpSgh8D"
-        },
-        "sasProgram": {
-          "address": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG",
-          "exists": true,
-          "executable": true
-        },
-        "balancesSol": {
-          "registrar": 0,
-          "brand": 0,
-          "ambassador": 0
-        }
-      }
+      "status": "error",
+      "error": "HTTP error (429): Too Many Requests",
+      "context": {
+        "__code": 8100002,
+        "headers": {},
+        "message": "Too Many Requests",
+        "statusCode": 429
+      },
+      "cause": null,
+      "causeContext": null
     }
   },
   "allOk": false

@@ -9,6 +9,6 @@ env.RPC_URL ("(hidden)")        Environment Variable      local
 
 ⎔ Starting local server...
 [wrangler:info] Ready on http://127.0.0.1:8787
-[wrangler:info] GET / 500 Internal Server Error (64ms)
-[wrangler:info] GET / 500 Internal Server Error (40ms)
+[wrangler:info] GET / 500 Internal Server Error (109ms)
 [wrangler:info] GET / 500 Internal Server Error (55ms)
+[wrangler:info] GET / 500 Internal Server Error (33ms)
