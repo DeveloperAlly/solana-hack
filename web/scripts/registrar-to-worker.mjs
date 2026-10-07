@@ -1,5 +1,6 @@
 // One-off: copy the funded devnet Registrar key from the SPIKE_KEYS Actions secret into the Worker secret
-// REGISTRAR_KEY (owner go-ahead 2026-10-07). Prints only the public address, never key material.
+// REGISTRAR_KEY (owner go-ahead 2026-10-07, recorded at https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6039702428;
+// funded in devnet-spike run 4, commit 43b8634). Prints only the public address, never key material.
 // Usage (CI): SPIKE_KEYS=... EXPECTED_ADDRESS=... CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... node scripts/registrar-to-worker.mjs
 import { createPrivateKey, createPublicKey } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
