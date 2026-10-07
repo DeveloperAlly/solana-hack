@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-10-07T06:40:14.049Z",
+  "ranAt": "2026-10-07T08:12:15.268Z",
   "rpc": "https://api.devnet.solana.com",
   "steps": {
     "health": {
@@ -7,9 +7,9 @@
       "output": {
         "health": "ok",
         "keys": {
-          "registrar": "7sbU72QEb3to6PVYDovL9cNRDe23edDskUHRcsySMQvW",
-          "brand": "3qQ7sEs4SgkroJW3yNCoNGx5yoLRCQmyaX9tSii7brvj",
-          "ambassador": "HRe9RikvdSPDSXLY7ADA3j4oJ6f9MmzaYsfR3G9SZFF8"
+          "registrar": "E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG",
+          "brand": "FKnAg29UrsjRq7QoDTuXHXdzUsr3F4CY6UvY1z1RJQ8A",
+          "ambassador": "DjxjGtiq5FN8VMy1GRA6uqkagU2aZViBkqoQJMpSgh8D"
         },
         "sasProgram": {
           "address": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG",
@@ -29,12 +29,12 @@
         "registrar": {
           "ok": false,
           "attempts": [
-            "JSON-RPC error: Internal JSON-RPC error (Internal error)",
-            "HTTP error (429): Too Many Requests",
-            "HTTP error (429): Too Many Requests",
-            "HTTP error (429): Too Many Requests",
-            "HTTP error (429): Too Many Requests",
-            "HTTP error (429): Too Many Requests"
+            "api.devnet.solana.com: JSON-RPC error: Internal JSON-RPC error (Internal error)",
+            "rpc.ankr.com: Cannot read properties of undefined (reading 'length')",
+            "solana-devnet.api.onfinality.io: JSON-RPC error: The JSON sent is not a valid `Request` object (Invalid request)",
+            "api.devnet.solana.com: HTTP error (429): Too Many Requests",
+            "rpc.ankr.com: Cannot read properties of undefined (reading 'length')",
+            "solana-devnet.api.onfinality.io: JSON-RPC error: The JSON sent is not a valid `Request` object (Invalid request)"
           ]
         },
         "balancesSol": {
@@ -63,9 +63,9 @@
       "output": {
         "health": "ok",
         "keys": {
-          "registrar": "7sbU72QEb3to6PVYDovL9cNRDe23edDskUHRcsySMQvW",
-          "brand": "3qQ7sEs4SgkroJW3yNCoNGx5yoLRCQmyaX9tSii7brvj",
-          "ambassador": "HRe9RikvdSPDSXLY7ADA3j4oJ6f9MmzaYsfR3G9SZFF8"
+          "registrar": "E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG",
+          "brand": "FKnAg29UrsjRq7QoDTuXHXdzUsr3F4CY6UvY1z1RJQ8A",
+          "ambassador": "DjxjGtiq5FN8VMy1GRA6uqkagU2aZViBkqoQJMpSgh8D"
         },
         "sasProgram": {
           "address": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG",
