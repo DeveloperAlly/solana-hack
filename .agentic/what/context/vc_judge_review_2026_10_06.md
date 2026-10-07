@@ -60,7 +60,7 @@ Colosseum publishes 7 criteria but no weightings; overall prizes are judged in o
 
 | Criterion | Before | After fixes | Why |
 |---|---|---|---|
-| Founder + market fit | 4 | 4 | Lilypad founder; original Waterlily.ai (2023); brand work for aDNA |
+| Founder + market fit | 4 | 4 | Lilypad founder ([Crowdfund Insider](https://www.crowdfundinsider.com/2024/08/227734-ally-haire-from-lilypad-shares-perspective-on-significance-of-open-source-ai-and-importance-of-accessing-compute-power/)); original Waterlily.ai, 2023 ([SiliconANGLE](https://siliconangle.com/2023/04/27/new-waterlily-service-offers-ai-image-generation-pays-royalties-artists/), [research 09](./research/09_demo_brands.md)); brand work for aDNA ([ADR-002](../decisions/adr_002_purpose_build_run_prove.md)) |
 | Insight | 2 | 4 | "Official should be a public record that survives metadata stripping" |
 | Product + execution | 2 | 3–4 | Judged only on work done during the event; one loop must work end to end |
 | Potential market size | 3 | 3–4 | Name the spend pool, not tools markets |
