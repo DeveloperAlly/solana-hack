@@ -173,7 +173,8 @@ describe('accessible beautify', () => {
     expect(plainLetters('𝗕𝘂𝗶𝗹𝘁 𝗳𝗼𝗿 𝟮𝟬𝟮𝟲 and 𝑖𝑡𝑎𝑙𝑖𝑐 • kept')).toBe('Built for 2026 and italic • kept');
     expect(plainLetters('Ｗｅ ⓢⓗⓘⓟ ① ℍ𝕖𝕪 🄰 🇦🇺')).toBe('We ship 1 Hey A 🇦🇺');
     expect(plainLetters('98℉, 10Ω, Brand™, ⑩ items, ＃1')).toBe('98℉, 10Ω, Brand™, ⑩ items, #1');
-    expect(plainLetters('ᴴᵉˡˡᵒ ʰᵉˡˡᵒ ⁰¹²³ but x² and note¹ stay')).toBe('Hello hello 0123 but x² and note¹ stay');
+    expect(plainLetters('ᴴᵉˡˡᵒ ʰᵉˡˡᵒ but x² and note¹ stay')).toBe('Hello hello but x² and note¹ stay');
+    expect(plainLetters('10¹² and 10⁻¹² and C₁₂H₂₂O₁₁ stay')).toBe('10¹² and 10⁻¹² and C₁₂H₂₂O₁₁ stay');
     expect(plainLetters('ʜᴇʟʟᴏ ᴡᴏʀʟᴅ')).toBe('hello world');
   });
 });

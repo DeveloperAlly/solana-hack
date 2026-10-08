@@ -114,7 +114,7 @@ const POLISH: Record<string, string> = {
   shorten: 'Shorten to the platform norm (LinkedIn about 600 characters, X under 280). Keep the point, the facts and the voice.',
   clarify: 'Simplify sentences and remove jargon. Same length or shorter. Keep the facts and the voice.',
   beautify: 'Structure for scanning: a hook first line, short blocks with blank lines between them, lists as lines starting with "•". For LinkedIn you may set up to 3 key phrases in Unicode mathematical bold. Keep the words otherwise.',
-  beautify_accessible: 'Structure for scanning: a hook first line, short blocks with blank lines between them, lists as lines starting with "•". Use no Unicode styling at all (screen readers read it letter by letter).',
+  beautify_accessible: 'Structure for scanning: a hook first line, short blocks with blank lines between them, lists as lines starting with "•". Use no Unicode styling at all (screen readers read it letter by letter). Keep the words otherwise.',
 };
 export const POLISH_ACTIONS = Object.keys(POLISH);
 
@@ -128,8 +128,10 @@ export const POLISH_ACTIONS = Object.keys(POLISH);
 const STYLED = /[\u{2100}-\u{214F}\u{2460}-\u{24FF}\u{FF01}-\u{FF5E}\u{1D400}-\u{1D7FF}\u{1F100}-\u{1F1E5}]/gu;
 // Superscript and modifier letters (Spacing Modifier Letters U+02B0-02FF, Phonetic Extensions U+1D00-1DBF,
 // Superscripts and Subscripts U+2070-209F, Latin-1 ¹ ² ³ ª º) are mapped only in runs of two or more, which is how
-// a styled word looks (ᴴᵉˡˡᵒ, ⁰¹²³); a single one is usually meaning (x², a footnote¹) and is kept.
+// a styled word looks (ᴴᵉˡˡᵒ); a single one is usually meaning (x², a footnote¹) and is kept. Runs made only of
+// superscript or subscript digits, signs and brackets are kept too: they are quantities (10¹², 10⁻¹², H₂O).
 const SUPER_RUN = /[\u{00AA}\u{00B2}\u{00B3}\u{00B9}\u{00BA}\u{0280}\u{0262}\u{026A}\u{029C}\u{029F}\u{0274}\u{028F}\u{02B0}-\u{02FF}\u{1D00}-\u{1DBF}\u{2070}-\u{209F}\u{A730}\u{A731}]{2,}/gu;
+const NUMERIC_RUN = /^[\u{00B2}\u{00B3}\u{00B9}\u{2070}\u{2074}-\u{207E}\u{2080}-\u{208E}]+$/u;
 // Small capitals have no NFKC decomposition, so they are mapped by table (Latin small capital letters).
 const SMALL_CAPS: Record<string, string> = Object.fromEntries([...'ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘʀꜱᴛᴜᴠᴡʏᴢ'].map((c, i) => [c, 'abcdefghijklmnoprstuvwyz'[i]]));
 const toPlain = (c: string) => { if (SMALL_CAPS[c]) return SMALL_CAPS[c]; const n = c.normalize('NFKC'); return /^[A-Za-z0-9]$/.test(n) ? n : c; };
@@ -139,7 +141,7 @@ export const plainLetters = (s: string) => s
     const fullwidth = c >= '\uFF01' && c <= '\uFF5E';
     return /^[A-Za-z0-9]$/.test(n) || (fullwidth && /^[\x21-\x7E]$/.test(n)) ? n : c;
   })
-  .replace(SUPER_RUN, (run) => [...run].map(toPlain).join(''));
+  .replace(SUPER_RUN, (run) => (NUMERIC_RUN.test(run) ? run : [...run].map(toPlain).join('')));
 
 // X's counting rules, from twitter-text 3.1.0 configs.version3: weight 2 by default, 1 for these code point ranges,
 // 23 for any URL, 2 for any emoji sequence; the limit is 280 of these.
