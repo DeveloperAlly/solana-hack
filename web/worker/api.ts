@@ -5,7 +5,7 @@ import { readPage } from './ingest';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
-import { approvePost, draftPost, editPost, ledger, registerPost, verifyText, type Post } from './posts';
+import { approvePost, draftPost, editPost, ledger, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
 export const MAX_POSTS = 500;
@@ -103,6 +103,11 @@ async function registerKit(env: Env, user: User, brand: Brand) {
   const missing = GATES.filter((g) => !st.gates.some((x) => x.gate === g));
   if (missing.length) throw new HttpError(409, `approve these first: ${missing.join(', ')}`);
   if (st.kits.some((k) => k.status === 'pending')) throw new HttpError(409, 'a registration is already in progress');
+  // A section that cites evidence which no longer exists (an answer edited after drafting replaces its evidence
+  // rows) would register without its support. Refuse, and name the sections to redraft.
+  const live = new Set(st.evidence.map((e) => e.id));
+  const stale = st.sections.filter((s) => s.citations.some((id) => !live.has(id))).map((s) => s.section);
+  if (stale.length) throw new HttpError(409, `these sections cite answers you have since changed; draft them again first: ${stale.join(', ')}`);
   const version = (st.kits[0]?.version ?? 0) + 1;
   const payload = {
     brand: { id: brand.id, name: brand.name },
@@ -111,6 +116,12 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     version,
     sections: st.sections.map((s) => ({ section: s.section, body: s.body, citations: [...s.citations].sort(), status: s.status })).sort((a, b) => a.section.localeCompare(b.section)),
     gates: st.gates.map((g) => ({ gate: g.gate, approved_by: g.approved_by, approved_at: g.approved_at })).sort((a, b) => a.gate.localeCompare(b.gate)),
+    // The cited evidence itself (claim and quote), not just ids: evidence rows can be replaced later (owner answers
+    // are rewritten on every save), and a post pinned to this version must still see what the kit relied on.
+    evidence: (() => {
+      const cited = new Set(st.sections.flatMap((s) => s.citations));
+      return st.evidence.filter((e) => cited.has(e.id)).map((e) => ({ id: e.id, claim: e.claim, quote: e.quote, origin: e.origin })).sort((a, b) => a.id.localeCompare(b.id));
+    })(),
   };
   const hash = 'sha256:' + (await sha256Hex(canonical(payload)));
   const [kit] = await db.insert<Kit>(env, 'kits', { brand_id: brand.id, version, hash, payload, approved_by: user.id, status: 'pending' });
@@ -244,6 +255,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     if (b.rev !== post.rev) throw new HttpError(409, 'this post changed since you loaded it; reload to see the latest version');
     if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str(b.body, 4000)) });
     if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
+    if (p[5] === 'polish' && m === 'POST') return json({ post: await polishPost(env, post, str(b.action, 40)) });
+    if (p[5] === 'undo' && m === 'POST') return json({ post: await undoPost(env, post) });
     if (p[5] === 'register' && m === 'POST') {
       // Refused, not cut: a truncated link would be stored, and shown on Verify, as a different address.
       if (typeof b.publishedUrl === 'string' && b.publishedUrl.trim().length > 500) throw new HttpError(400, 'that link is longer than 500 characters; use the post\'s short link');

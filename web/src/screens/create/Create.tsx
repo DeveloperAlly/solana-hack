@@ -5,9 +5,16 @@ import { api, ApiError } from '../../lib/api';
 
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
-  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; source?: 'ai' | 'edit' };
+  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit' };
   signature: string | null; published_url: string | null; rev: number;
 }
+const POLISH = [
+  { action: 'review', label: 'Review' },
+  { action: 'shorten', label: 'Shorten' },
+  { action: 'clarify', label: 'Clarify' },
+  { action: 'beautify', label: 'Beautify' },
+  { action: 'beautify_accessible', label: 'Beautify (accessible)' },
+];
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
 
 /** S5 Create (thin): draft a post in the approved voice, check it, approve it, register it. */
@@ -128,7 +135,8 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
             Found: {slop?.hits.join(', ')}. Draft it again.
           </Alert>
         ) : post.status === 'drafted' ? (
-          <Field label="Post" multiline rows={8} value={text} onChange={(e: { target: { value: string } }) => setText(e.target.value)} />
+          // Locked while an action runs, so a reload after polish cannot overwrite text typed in the meantime.
+          <Field label="Post" multiline rows={8} value={text} disabled={!!busy} hint={busy ? 'Locked until the change finishes.' : undefined} onChange={(e: { target: { value: string } }) => setText(e.target.value)} />
         ) : (
           // Approved and registered text is read-only, so what is registered is exactly what was approved.
           <Box padding={4} background="subtle" radius="box"><Text>{post.body}</Text></Box>
@@ -139,6 +147,20 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
           <Text variant="small">Platform: {post.checks.platform ?? 'n/a'}</Text>
         </Stack>
         {post.checks.notes && post.checks.notes.length > 0 && <Text variant="small" tone="secondary">To improve: {post.checks.notes.join(' · ')}</Text>}
+        {post.status === 'drafted' && (
+          <Stack gap={2}>
+            <Text variant="label" id={`polish-${post.id}`}>Polish</Text>
+            <Stack direction="row" gap={2} wrap role="group" aria-labelledby={`polish-${post.id}`}>
+              {POLISH.map((p) => (
+                <Button key={p.action} variant="secondary" disabled={!!busy || dirty || hiddenAi} onClick={() => run(p.action, () => api(`${base}/polish`, { body: { action: p.action, rev: post.rev } }))}>
+                  {busy === p.action ? `${p.label}…` : p.label}
+                </Button>
+              ))}
+              <Button variant="secondary" disabled={!!busy || dirty || !post.checks.history?.length} onClick={() => run('undo', () => api(`${base}/undo`, { body: { rev: post.rev } }))}>Undo</Button>
+            </Stack>
+            {post.checks.lastAction && <Text variant="small" tone="secondary">Last change: {post.checks.lastAction.replace('_', ' ')}. Undo restores the previous text.</Text>}
+          </Stack>
+        )}
         {post.status === 'approved' && (
           <Stack gap={3}>
             <Text>Post it on {post.channel ?? 'your channel'} (copy the text exactly), then paste the link here and register it.</Text>
