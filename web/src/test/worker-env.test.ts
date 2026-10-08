@@ -15,6 +15,7 @@ describe('Worker log redaction', () => {
     expect(s.message).not.toContain('shortKey_9');
     expect(s.message).not.toContain('tenant-k3y');
     expect(s.message).toContain('[url]');
+    expect(safeError(new Error('at HTTPS://rpc.example/v2/abc123-secret')).message).not.toContain('abc123');
   });
   it('reports the RPC host only for known providers', () => {
     expect(rpcHostLabel('https://devnet.helius-rpc.com/?api-key=k')).toBe('devnet.helius-rpc.com');
