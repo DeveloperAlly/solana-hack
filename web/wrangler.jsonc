@@ -1,14 +1,23 @@
-// Cloudflare Worker that serves the built SPA (ADR-005). Static assets only, no Worker script yet.
+// Cloudflare Worker that serves the built SPA (ADR-005) and answers /api/* from worker/index.ts.
 // Docs: https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/
+//       https://developers.cloudflare.com/workers/static-assets/binding/#run_worker_first
 //       https://developers.cloudflare.com/workers/configuration/routing/custom-domains/
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "waterlily",
+  "main": "./worker/index.ts",
   "compatibility_date": "2026-10-06",
+  // @solana/kit resolves to its Node build in workerd (backend map G-SAS), so Node APIs are needed.
+  "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./dist/",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS",
+    // Only /api/* runs the Worker first; every other path is served from assets as before.
+    "run_worker_first": ["/api/*"]
   },
+  // Secrets REGISTRAR_KEY, RPC_URL and SELFTEST_TOKEN are set by the deploy workflow with
+  // `wrangler deploy --secrets-file` (never committed).
   // Owner decision 2026-10-06, recorded at https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6014295120 :
   // the app runs on the apex of jamjam.tech. Deploying creates the DNS record and certificate.
   "routes": [{ "pattern": "jamjam.tech", "custom_domain": true }]

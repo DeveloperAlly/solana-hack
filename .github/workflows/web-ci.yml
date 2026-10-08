@@ -20,8 +20,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            web/package-lock.json
+            web/worker/package-lock.json
       - run: npm ci
+      - run: npm ci --prefix worker # Worker-only deps (Solana SDK), own lockfile
       - run: npm run lint:tokens
       - run: npm run typecheck
       - run: npm test
