@@ -1,0 +1,6 @@
+.group { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--wl-space-2); }
+.legend { font-weight: var(--wl-font-weight-semibold); margin-bottom: var(--wl-space-2); }
+.options { display: flex; flex-wrap: wrap; gap: var(--wl-space-2); }
+.option { display: inline-flex; align-items: center; gap: var(--wl-space-2); min-height: var(--wl-control-target-min); padding: 0 var(--wl-space-3); border: var(--wl-border-width-default) solid var(--wl-border-input); border-radius: var(--wl-radius-control); cursor: pointer; }
+.option:has(input:checked) { border-color: var(--wl-border-strong); border-width: var(--wl-border-width-strong); }
+.option:has(input:focus-visible) { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); }
