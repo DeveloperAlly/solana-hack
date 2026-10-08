@@ -20,6 +20,8 @@ describe('Worker log redaction', () => {
     expect(rpcHostLabel('https://devnet.helius-rpc.com/?api-key=k')).toBe('devnet.helius-rpc.com');
     expect(rpcHostLabel('https://api.devnet.solana.com')).toBe('api.devnet.solana.com');
     expect(rpcHostLabel('https://tenant-secret.example.com/rpc')).toBe('custom');
+    expect(rpcHostLabel('https://s3cr3t.helius-rpc.com/')).toBe('custom');
+    expect(rpcHostLabel('https://key.devnet.helius-rpc.com/')).toBe('custom');
     expect(rpcHostLabel('nope')).toBe('invalid URL');
   });
 });
