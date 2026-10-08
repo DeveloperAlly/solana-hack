@@ -34,7 +34,9 @@ export default {
       if (env.REGISTRAR_KEY) {
         try { registrar = (await registrarFromSecret(env.REGISTRAR_KEY)).address; } catch (e) { registrarError = safeError(e).name; console.error('health: registrar key unusable', safeError(e)); }
       }
-      return json({ ok: true, registrar, registrarError, rpcConfigured: !!env.RPC_URL, aiConfigured: !!env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || 'openrouter/auto' });
+      // ok is false when a registrar key is set but unusable: every registration would fail. The status stays 200 so
+      // the Settings screen can still read the diagnostic fields.
+      return json({ ok: !registrarError, registrar, registrarError, rpcConfigured: !!env.RPC_URL, aiConfigured: !!env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || 'openrouter/auto' });
     }
 
     // S0 done-when (3): one Registrar-signed devnet registration. Deploy-run only (token), so the

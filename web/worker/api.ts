@@ -334,7 +334,11 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
     if (p[5] === 'polish' && m === 'POST') return json({ post: await polishPost(env, post, str(b.action, 40)) });
     if (p[5] === 'undo' && m === 'POST') return json({ post: await undoPost(env, post) });
-    if (p[5] === 'register' && m === 'POST') return json(await registerPost(env, user, post, str(b.publishedUrl, 500)), 201);
+    if (p[5] === 'register' && m === 'POST') {
+      // Refused, not cut: a truncated link would be stored, and shown on Verify, as a different address.
+      if (typeof b.publishedUrl === 'string' && b.publishedUrl.trim().length > 500) throw new HttpError(400, 'that link is longer than 500 characters; use the post\'s short link');
+      return json(await registerPost(env, user, post, str(b.publishedUrl, 500)), 201);
+    }
   }
   return json({ error: 'not found' }, 404);
 }
