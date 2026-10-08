@@ -22,8 +22,25 @@ export const explorerAddress = (a: string) => `https://explorer.solana.com/addre
 type Rpc = ReturnType<typeof createSolanaRpc>;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Thrown for any unusable REGISTRAR_KEY. Its message is fixed: parser messages can quote parts of the key. */
+export class RegistrarKeyError extends Error {
+  constructor() { super('REGISTRAR_KEY is not a valid 64-byte keypair array'); this.name = 'RegistrarKeyError'; }
+}
+
 export async function registrarFromSecret(secret: string): Promise<KeyPairSigner> {
-  return createKeyPairSignerFromBytes(new Uint8Array(JSON.parse(secret) as number[]));
+  let bytes: Uint8Array;
+  try {
+    const arr = JSON.parse(secret) as unknown;
+    if (!Array.isArray(arr) || arr.length !== 64 || !arr.every((n) => Number.isInteger(n) && n >= 0 && n <= 255)) throw new Error();
+    bytes = new Uint8Array(arr as number[]);
+  } catch {
+    throw new RegistrarKeyError(); // never rethrow the parser's message
+  }
+  try {
+    return await createKeyPairSignerFromBytes(bytes);
+  } catch {
+    throw new RegistrarKeyError();
+  }
 }
 
 // HTTP polling only; no WebSocket subscriptions in Workers (backend map G-SAS).
