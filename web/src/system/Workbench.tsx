@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
-import { Box, Button, Container, Heading, Link, Stack, Text } from '../ui/primitives';
+import { useState, type ReactNode } from 'react';
+import { Alert, Badge, Box, Button, Choice, Container, Field, Grid, Heading, Link, Stack, Text } from '../ui/primitives';
+import { AppShell } from '../ui/shells/AppShell';
 import type { BoxBackground, BoxBorder } from '../ui/primitives/Box';
 import type { TextTone, TextVariant } from '../ui/primitives/Text';
 import type { HeadingLevel } from '../ui/primitives/Heading';
@@ -25,6 +26,14 @@ const backgrounds: BoxBackground[] = ['none', 'canvas', 'surface', 'subtle', 'in
 const borders: BoxBorder[] = ['none', 'default', 'strong', 'subtle'];
 const levels: HeadingLevel[] = [1, 2, 3, 4];
 const widths: ContainerWidth[] = ['reading', 'wizard', 'app', 'full'];
+const badgeTones = ['neutral', 'solid', 'success', 'warning'] as const;
+const alertTones = ['info', 'success', 'warning', 'danger'] as const;
+const gridMins = ['sm', 'md', 'lg'] as const;
+
+function ChoiceDemo() {
+  const [v, setV] = useState('b');
+  return <Choice legend="Choice legend" options={[{ value: 'a', label: 'Option A' }, { value: 'b', label: 'Option B' }]} value={v} onChange={setV} />;
+}
 
 /** /system: every built component in every variant, plus the theme editor. */
 export function Workbench() {
@@ -135,6 +144,45 @@ export function Workbench() {
             <Box paddingY={3}>
               <Button fullWidth variant="secondary">Full width</Button>
             </Box>
+          </Entry>
+          <Entry id="P9" name="Grid">
+            <Stack gap={3}>
+              {gridMins.map((m) => (
+                <Box key={m} padding={3} border="subtle" radius="box">
+                  <Text variant="caption" tone="secondary">min {m}, gap 3, as ul (list reset)</Text>
+                  <Grid as="ul" min={m} gap={3}>
+                    {['One', 'Two', 'Three', 'Four'].map((x) => <li key={x}><Box padding={2} background="subtle">{x}</Box></li>)}
+                  </Grid>
+                </Box>
+              ))}
+            </Stack>
+          </Entry>
+          <Entry id="C1" name="Field">
+            <Stack gap={3}>
+              <Field label="Label" hint="Hint text" value="" onChange={() => {}} />
+              <Field label="With an error" error="Say what is wrong and how to fix it." value="" onChange={() => {}} />
+              <Field label="Multiline" multiline rows={3} value="" onChange={() => {}} />
+            </Stack>
+          </Entry>
+          <Entry id="C3" name="Choice">
+            <ChoiceDemo />
+          </Entry>
+          <Entry id="C4" name="Alert">
+            <Stack gap={3}>
+              {alertTones.map((t) => <Alert key={t} tone={t} title={`Alert ${t}`}>Body text for the {t} alert.</Alert>)}
+            </Stack>
+          </Entry>
+          <Entry id="C5" name="Badge">
+            <Stack direction="row" gap={3} wrap>
+              {badgeTones.map((t) => <Badge key={t} tone={t}>{t}</Badge>)}
+            </Stack>
+          </Entry>
+          <Entry id="L1" name="AppShell">
+            <Stack gap={3}>
+              <Text variant="small" tone="secondary">With a brand name, then without. Nav comes from the route config (M1).</Text>
+              <Box border="subtle" radius="box"><AppShell preview brandName="Sample brand"><Box padding={4}><Text>Main slot</Text></Box></AppShell></Box>
+              <Box border="subtle" radius="box"><AppShell preview><Box padding={4}><Text>No brand yet</Text></Box></AppShell></Box>
+            </Stack>
           </Entry>
           <Entry id="L10" name="PublicShell">
             <iframe

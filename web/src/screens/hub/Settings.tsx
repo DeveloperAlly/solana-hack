@@ -21,8 +21,9 @@ function Row({ name, status, tone, detail }: { name: string; status: string; ton
 export function Settings() {
   const { state, email } = useBrand();
   const [health, setHealth] = useState<Health | null>(null);
+  const [healthFailed, setHealthFailed] = useState(false);
   useEffect(() => {
-    fetch('/api/health').then((r) => r.json()).then(setHealth).catch(() => setHealth(null));
+    fetch('/api/health').then((r) => r.json()).then(setHealth).catch(() => setHealthFailed(true));
   }, []);
   return (
     <AppShell brandName={state?.brand.name}>
@@ -41,14 +42,14 @@ export function Settings() {
           <Box as="section" padding={5} border="default" radius="box" aria-labelledby="h-ai">
             <Stack gap={4}>
               <Heading level={2} size="lg" id="h-ai">AI model</Heading>
-              <Row name="Default model" status={health?.aiConfigured === false ? 'Not configured' : 'On'} tone={health?.aiConfigured === false ? 'warning' : 'success'} detail={`Through OpenRouter: ${health?.model ?? 'openrouter/auto'}. Every draft passes the no-AI-slop rules before you see it.`} />
+              <Row name="Default model" status={health?.aiConfigured === true ? 'On' : health?.aiConfigured === false ? 'Not configured' : 'Unknown'} tone={health?.aiConfigured === true ? 'success' : 'warning'} detail={`Through OpenRouter: ${health?.model ?? 'openrouter/auto'}. Every draft passes the no-AI-slop rules before you see it.`} />
               <Row name="Bring your own key (Claude, OpenAI)" status="Coming soon" tone="neutral" detail="Use your own model account for drafting." />
             </Stack>
           </Box>
           <Box as="section" padding={5} border="default" radius="box" aria-labelledby="h-proof">
             <Stack gap={4}>
               <Heading level={2} size="lg" id="h-proof">Proof on Solana</Heading>
-              <Row name="Registrar" status={health?.registrar ? 'On (devnet)' : 'Unknown'} tone={health?.registrar ? 'success' : 'warning'} detail={health?.registrar ? `Waterlily signs registrations for you from ${health.registrar}. You never need a wallet to register.` : 'Could not reach the server.'} />
+              <Row name="Registrar" status={health?.registrar ? 'On (devnet)' : 'Unknown'} tone={health?.registrar ? 'success' : 'warning'} detail={health?.registrar ? `Waterlily signs registrations for you from ${health.registrar}. You never need a wallet to register.` : healthFailed ? 'Could not reach the server.' : 'Checking…'} />
               <Row name="Payout wallet" status="Coming soon" tone="neutral" detail="Link a wallet only if you pay ambassadors in USDC." />
             </Stack>
           </Box>
@@ -59,7 +60,7 @@ export function Settings() {
               <Row name="Signed in as" status="Email code" tone="success" detail={email || '…'} />
             </Stack>
           </Box>
-          {!health && <Alert tone="warning">Could not read the server status.</Alert>}
+          {healthFailed && <Alert tone="warning">Could not read the server status.</Alert>}
         </Stack>
       </Container>
     </AppShell>

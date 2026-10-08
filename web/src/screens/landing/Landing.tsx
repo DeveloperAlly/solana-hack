@@ -9,7 +9,7 @@ const sample = [
   { name: 'Origin and messaging', state: 'Drafted, confirm' },
 ];
 const steps = [
-  { title: 'Build your brand', body: 'We read your site and links first, then ask only what is missing. Short answers. Skip anything and come back later.' },
+  { title: 'Build your brand', body: 'We read your site and links first and show what we found beside each question. Short answers. Skip anything and come back later.' },
   { title: 'Approve your kit', body: 'You sign off three things: purpose, positioning and voice. Every fact shows where it came from; anything we drafted waits for you.' },
   { title: 'Start creating', body: 'Draft posts in your voice. Each one is checked for AI slop and fit before you see it. Nothing goes out until you approve it.' },
 ];
