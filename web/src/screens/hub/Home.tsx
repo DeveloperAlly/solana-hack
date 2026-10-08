@@ -1,7 +1,7 @@
 import { AppShell } from '../../ui/shells/AppShell';
 import { Alert, Badge, Box, Button, Container, Grid, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { useBrand } from '../../lib/useBrand';
-import { STEPS } from '../build/steps';
+import { INTERVIEW_MINUTES, STEPS } from '../build/steps';
 
 /** Hub-Home: where the brand stands and the one next action. */
 export function Home() {
@@ -12,7 +12,7 @@ export function Home() {
         <Container width="app">
           <Stack gap={5} align="start">
             <Heading level={1}>Welcome to Waterlily</Heading>
-            <Text tone="secondary">Start by building your brand. It takes about 15 minutes.</Text>
+            <Text tone="secondary">Start by building your brand: about {INTERVIEW_MINUTES} minutes of questions (<Link href="/how-it-works">how it works</Link>).</Text>
             <Button href="/build/basics">Build my brand</Button>
           </Stack>
         </Container>

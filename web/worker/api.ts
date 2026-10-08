@@ -229,9 +229,12 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     }
     const [post] = p[4] && /^[0-9a-f-]{36}$/.test(p[4]) ? await db.select<Post>(env, 'posts', `${db.eq('id', p[4])}&${db.eq('brand_id', brand.id)}`) : [];
     if (!post) throw new HttpError(404, 'post not found');
-    if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str((await body(req)).body, 4000)) });
+    const b = await body(req);
+    // Every change names the revision the person saw; if the post changed since (another tab), it is refused.
+    if (b.rev !== post.rev) throw new HttpError(409, 'this post changed since you loaded it; reload to see the latest version');
+    if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str(b.body, 4000)) });
     if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
-    if (p[5] === 'register' && m === 'POST') return json(await registerPost(env, user, post, str((await body(req)).publishedUrl, 500)), 201);
+    if (p[5] === 'register' && m === 'POST') return json(await registerPost(env, user, post, str(b.publishedUrl, 500)), 201);
   }
   return json({ error: 'not found' }, 404);
 }

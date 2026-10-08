@@ -6,7 +6,7 @@ import { api, ApiError } from '../../lib/api';
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
   checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; source?: 'ai' | 'edit' };
-  signature: string | null; published_url: string | null;
+  signature: string | null; published_url: string | null; rev: number;
 }
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
 
@@ -146,16 +146,16 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
         {explorer && <Link href={explorer} external>View the registration on Solana Explorer</Link>}
         {error && <Alert tone="danger">{error}</Alert>}
         <Stack direction="row" gap={3} wrap>
-          {post.status !== 'registered' && dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('save', () => api(base, { method: 'PUT', body: { body: text } }))}>Save edits</Button>}
+          {post.status !== 'registered' && dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('save', () => api(base, { method: 'PUT', body: { body: text, rev: post.rev } }))}>Save edits</Button>}
           {hiddenAi && <Button disabled={!!busy} onClick={() => run('redraft', () => api(`/brands/${brandId}/posts`, { body: { brief: post.brief, channel: post.channel ?? '' } }))}>{busy === 'redraft' ? 'Drafting…' : 'Draft again'}</Button>}
-          {post.status === 'drafted' && !hiddenAi && !dirty && <Button disabled={!!busy || !slop?.passed} onClick={() => run('approve', () => api(`${base}/approve`, { body: {} }))}>{busy === 'approve' ? 'Approving…' : 'Approve'}</Button>}
+          {post.status === 'drafted' && !hiddenAi && !dirty && <Button disabled={!!busy || !slop?.passed} onClick={() => run('approve', () => api(`${base}/approve`, { body: { rev: post.rev } }))}>{busy === 'approve' ? 'Approving…' : 'Approve'}</Button>}
           {post.status === 'registering' && (
             // A send whose outcome was unknown: the server checks Solana and finishes or reopens it.
-            <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url } }))}>{busy === 'register' ? 'Checking Solana…' : 'Check registration'}</Button>
+            <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url, rev: post.rev } }))}>{busy === 'register' ? 'Checking Solana…' : 'Check registration'}</Button>
           )}
           {post.status === 'approved' && (
             <Button disabled={!!busy} onClick={() => run('register', async () => {
-              const r = await api<{ explorer: string }>(`${base}/register`, { body: { publishedUrl: url } });
+              const r = await api<{ explorer: string }>(`${base}/register`, { body: { publishedUrl: url, rev: post.rev } });
               setExplorer(r.explorer);
             })}>{busy === 'register' ? 'Registering on Solana…' : 'Register post'}</Button>
           )}
