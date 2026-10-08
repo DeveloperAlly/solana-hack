@@ -2,7 +2,7 @@ import { PublicShell } from '../../ui/shells/PublicShell';
 import { Button, Container, Heading, Stack, Text } from '../../ui/primitives';
 
 const parts = [
-  { h: '1. We read before we ask', p: 'Paste your website or any page about you. Waterlily reads it and keeps only facts it can quote word for word from the page, each with its source. Then it asks only what is still missing.' },
+  { h: '1. We read before we ask', p: 'Paste your website or any page about you. Waterlily reads it and keeps only facts it can quote word for word from the page, each with its source. Those facts sit beside each interview question, so you can confirm them instead of retyping.' },
   { h: '2. A short interview', p: 'Why you exist, what you do differently, who it is for, and how you sound. Six short steps, about 15 minutes. Every step can be skipped and finished later.' },
   { h: '3. Three decisions only you can make', p: 'The AI drafts your purpose, positioning and voice from your answers and sources, citing where each point came from. You approve each one. The approval records who and when.' },
   { h: '4. Your kit, registered', p: 'When the three gates are approved, the kit is fingerprinted and the fingerprint, version and your account id are registered on Solana. The kit text stays private.' },

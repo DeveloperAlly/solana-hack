@@ -6,25 +6,33 @@ import type { BrandState } from '../build/Build';
 
 const sectionSteps = STEPS.filter((s) => s.kind === 'section');
 
-/** aDNA-style export (architecture §8) as one Markdown file: a frontmatter block per section, gates as decisions, sources. */
+/**
+ * aDNA-style export (architecture §8) as one Markdown file: a frontmatter block per section, gates as decisions,
+ * sources. When a kit is registered, the sections and gates come from that version's stored snapshot, so the
+ * exported text is exactly what the advertised fingerprint covers. With no registered kit it is a labelled draft.
+ */
 export function kitMarkdown(s: BrandState): string {
-  const kit = s.kits[0];
+  const kit = s.kits.find((k) => k.status === 'registered' && k.payload);
+  const sections = kit?.payload?.sections ?? s.sections;
+  const gates = kit?.payload?.gates ?? s.gates;
+  const changed = !!kit && s.sections.some((live) => sections.find((x) => x.section === live.section)?.body !== live.body);
   const lines = [
     `# ${s.brand.name} brand kit`,
     '',
-    `version: ${kit?.version ?? 'draft'}  `,
+    `version: ${kit ? kit.version : 'draft (not registered)'}  `,
     `fingerprint: ${kit?.hash ?? 'not registered'}  `,
     kit?.signature ? `registration: https://explorer.solana.com/tx/${kit.signature}?cluster=devnet` : '',
+    changed ? `note: sections edited since v${kit!.version} are not in this export; register a new version to include them.` : '',
     '',
     '## what/brand',
   ];
   for (const step of sectionSteps) {
-    const sec = s.sections.find((x) => x.section === step.section);
+    const sec = sections.find((x) => x.section === step.section);
     if (!sec) continue;
     lines.push('', '---', `section: ${step.section}`, `status: ${sec.status}`, `citations: ${sec.citations.length}`, '---', `### ${step.title.replace(/^Gate \d: /, '')}`, '', sec.body);
   }
   lines.push('', '## what/decisions');
-  for (const g of s.gates) lines.push(`- ${g.gate}: approved ${g.approved_at}${g.note ? ` (${g.note})` : ''}`);
+  for (const g of gates) lines.push(`- ${g.gate}: approved ${g.approved_at}${'note' in g && g.note ? ` (${g.note})` : ''}`);
   lines.push('', '## what/context/sources');
   for (const src of s.sources) lines.push(`- ${src.title || src.url}: ${src.url} (${src.status})`);
   return lines.filter((l) => l !== undefined).join('\n') + '\n';

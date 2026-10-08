@@ -8,7 +8,8 @@ import styles from './AppShell.module.css';
 const tagLabel: Record<string, string> = { 'COMING SOON': 'soon', ROADMAP: 'roadmap', EXPERIMENTAL: 'beta' };
 
 /** L1 AppShell (thin): hub top nav from M1 with tag labels, sign out, and a main slot. */
-export function AppShell({ brandName, children }: { brandName?: string; children?: ReactNode }) {
+// preview: rendered inside /system, so it must not add a second <main>, skip link or nav landmark name to that page.
+export function AppShell({ brandName, children, preview = false }: { brandName?: string; children?: ReactNode; preview?: boolean }) {
   const navigate = useNavigate();
   async function signOut() {
     await supabase?.auth.signOut();
@@ -16,13 +17,13 @@ export function AppShell({ brandName, children }: { brandName?: string; children
   }
   return (
     <div className={styles.shell}>
-      <a className={styles.skip} href="#main">Skip to content</a>
+      {!preview && <a className={styles.skip} href="#main">Skip to content</a>}
       <header className={styles.header}>
         <div className={styles.bar}>
           <RouterLink to="/home" className={styles.logo}>
             Waterlily{brandName && <span className={styles.brand}>{brandName}</span>}
           </RouterLink>
-          <nav aria-label="Hub">
+          <nav aria-label={preview ? `Hub preview${brandName ? `, ${brandName}` : ''}` : 'Hub'}>
             <ul className={styles.links}>
               {hubNav.map((item) => (
                 <li key={item.path}>
@@ -34,10 +35,10 @@ export function AppShell({ brandName, children }: { brandName?: string; children
               ))}
             </ul>
           </nav>
-          <Button variant="secondary" onClick={signOut}>Sign out</Button>
+          <Button variant="secondary" onClick={preview ? undefined : signOut}>Sign out</Button>
         </div>
       </header>
-      <main id="main" tabIndex={-1} className={styles.main}>{children}</main>
+      {preview ? <div className={styles.main}>{children}</div> : <main id="main" tabIndex={-1} className={styles.main}>{children}</main>}
     </div>
   );
 }
