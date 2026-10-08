@@ -22,6 +22,7 @@ export function Settings() {
   const { state, email } = useBrand();
   const [health, setHealth] = useState<Health | null>(null);
   const [healthFailed, setHealthFailed] = useState(false);
+  const proofOn = !!health?.registrar && health.rpcConfigured === true;
   useEffect(() => {
     fetch('/api/health').then((r) => r.json()).then(setHealth).catch(() => setHealthFailed(true));
   }, []);
@@ -49,7 +50,17 @@ export function Settings() {
           <Box as="section" padding={5} border="default" radius="box" aria-labelledby="h-proof">
             <Stack gap={4}>
               <Heading level={2} size="lg" id="h-proof">Proof on Solana</Heading>
-              <Row name="Registrar" status={health?.registrar ? 'On (devnet)' : 'Unknown'} tone={health?.registrar ? 'success' : 'warning'} detail={health?.registrar ? `Waterlily signs registrations for you from ${health.registrar}. You never need a wallet to register.` : healthFailed ? 'Could not reach the server.' : 'Checking…'} />
+              <Row
+                name="Registrar"
+                status={proofOn ? 'On (devnet)' : health?.registrar && health.rpcConfigured === false ? 'Not connected' : health ? 'Not configured' : 'Unknown'}
+                tone={proofOn ? 'success' : 'warning'}
+                detail={proofOn
+                  ? `Waterlily signs registrations for you from ${health!.registrar}. You never need a wallet to register.`
+                  : health?.registrar && health.rpcConfigured === false
+                    ? 'The registrar key is set but no Solana RPC is configured, so registrations cannot reach Solana.'
+                    : health ? 'No registrar is configured, so registrations cannot be signed.'
+                    : healthFailed ? 'Could not reach the server.' : 'Checking…'}
+              />
               <Row name="Payout wallet" status="Coming soon" tone="neutral" detail="Link a wallet only if you pay ambassadors in USDC." />
             </Stack>
           </Box>
