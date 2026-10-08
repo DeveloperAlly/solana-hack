@@ -128,9 +128,9 @@ export async function currentBlockHeight(rpcUrl: string): Promise<bigint | null>
 
 /**
  * Reads an attestation from Solana and checks it is ours: it exists, the Registrar signed it, it uses the WATERLILY
- * credential and WL-KIT schema, and its hash field matches. 'unavailable' means the RPC could not be read.
+ * credential and WL-KIT schema, and its hash, brand id and kit version all match what we are about to report. 'unavailable' means the RPC could not be read.
  */
-export async function readKitAttestation(rpcUrl: string, registrarAddress: Address, attestation: string, hash: string): Promise<'verified' | 'mismatch' | 'missing' | 'unavailable'> {
+export async function readKitAttestation(rpcUrl: string, registrarAddress: Address, attestation: string, expect: { hash: string; brand_id: string; kit_version: string }): Promise<'verified' | 'mismatch' | 'missing' | 'unavailable'> {
   try {
     const rpc = createSolanaRpc(rpcUrl);
     const [credential] = await findCredentialPda({ authority: registrarAddress, name: CREDENTIAL_NAME });
@@ -140,7 +140,8 @@ export async function readKitAttestation(rpcUrl: string, registrarAddress: Addre
     if (a.data.signer !== registrarAddress || a.data.credential !== credential || a.data.schema !== schema) return 'mismatch';
     const s = await fetchSchema(rpc, schema);
     const data = deserializeAttestationData(s.data, a.data.data) as Record<string, unknown>;
-    return data.hash === hash ? 'verified' : 'mismatch';
+    // Every attributed field must match what the index claims, not just the hash.
+    return data.hash === expect.hash && data.brand_id === expect.brand_id && data.kit_version === expect.kit_version ? 'verified' : 'mismatch';
   } catch {
     return 'unavailable';
   }
@@ -175,7 +176,8 @@ export async function registerKitAttestation(rpcUrl: string, registrar: KeyPairS
     data,
   };
   if (!readBack.signerIsRegistrar || !readBack.credentialMatches || !readBack.schemaMatches || !readBack.fieldsMatch)
-    throw new Error('read-back mismatch: ' + JSON.stringify(readBack));
+    // Booleans only: the decoded data holds brand and approver ids, which must not reach retained logs.
+    throw new Error(`read-back mismatch: signer ${readBack.signerIsRegistrar}, credential ${readBack.credentialMatches}, schema ${readBack.schemaMatches}, fields ${readBack.fieldsMatch}`);
   return {
     signature, explorer: explorerTx(signature),
     attestation: attestation as Address, attestationExplorer: explorerAddress(attestation),

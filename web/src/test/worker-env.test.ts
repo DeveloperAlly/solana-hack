@@ -20,6 +20,8 @@ describe('Worker log redaction', () => {
     expect(rpcHostLabel('https://devnet.helius-rpc.com/?api-key=k')).toBe('devnet.helius-rpc.com');
     expect(rpcHostLabel('https://api.devnet.solana.com')).toBe('api.devnet.solana.com');
     expect(rpcHostLabel('https://tenant-secret.example.com/rpc')).toBe('custom');
+    expect(rpcHostLabel('https://s3cr3t.helius-rpc.com/')).toBe('custom');
+    expect(rpcHostLabel('https://key.devnet.helius-rpc.com/')).toBe('custom');
     expect(rpcHostLabel('nope')).toBe('invalid URL');
   });
 });
@@ -71,10 +73,10 @@ describe('public endpoint limit', () => {
 });
 
 describe('voice answer changes', () => {
-  it('reopens Gate 3 on any change to a saved voice answer, not on first save or an identical save', async () => {
+  it('reopens Gate 3 on the first save and on any change, not on an identical save', async () => {
     const { voiceChanged } = await import('../../worker/api');
     const a = { data: { template: 'flirty', claims: '5', formality: '2' }, skipped: false };
-    expect(voiceChanged(undefined, a)).toBe(false);
+    expect(voiceChanged(undefined, a)).toBe(true); // first save reopens any gate approved before it
     expect(voiceChanged(a, { data: { formality: '2', claims: '5', template: 'flirty' }, skipped: false })).toBe(false);
     expect(voiceChanged(a, { ...a, data: { ...a.data, template: 'professional' } })).toBe(true);
     expect(voiceChanged(a, { ...a, data: { ...a.data, claims: '3' } })).toBe(true);

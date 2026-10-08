@@ -12,6 +12,9 @@ describe('post checks', () => {
     expect(r.passed).toBe(false);
     expect(r.hits).toEqual(expect.arrayContaining(['unlock', 'seamless', '—', 'exclamation mark']));
   });
+  it('collapses every whitespace run, line breaks included', async () => {
+    expect(await contentHash('first line\nsecond line\n\nthird')).toBe(await contentHash('first line second line third'));
+  });
   it('hashes canonically equivalent Unicode the same (NFC)', async () => {
     expect(await contentHash('Caf\u0065\u0301 launch.')).toBe(await contentHash('Caf\u00e9 launch.'));
   });
@@ -171,6 +174,7 @@ describe('accessible beautify', () => {
     expect(plainLetters('Ｗｅ ⓢⓗⓘⓟ ① ℍ𝕖𝕪 🄰 🇦🇺')).toBe('We ship 1 Hey A 🇦🇺');
     expect(plainLetters('98℉, 10Ω, Brand™, ⑩ items, ＃1')).toBe('98℉, 10Ω, Brand™, ⑩ items, #1');
     expect(plainLetters('ᴴᵉˡˡᵒ ʰᵉˡˡᵒ ⁰¹²³ but x² and note¹ stay')).toBe('Hello hello 0123 but x² and note¹ stay');
+    expect(plainLetters('ʜᴇʟʟᴏ ᴡᴏʀʟᴅ')).toBe('hello world');
   });
 });
 
@@ -246,10 +250,35 @@ describe('claims check over large evidence', () => {
     expect(prompts[1]).toContain('- Founded 2019');
     expect(r).toMatchObject({ unsupported: ['Founded 2019'], passed: false });
   });
+  it('keeps every unsupported claim, so a later batch cannot clear a dropped one', () => {
+    const many = Array.from({ length: 8 }, (_, i) => `claim ${i}`);
+    expect(policyVerdict('4', null, { unsupported: many, sexual: false, minors: false, explicitLanguage: false }).unsupported).toHaveLength(8);
+  });
   it('treats only the current result shape as passing', async () => {
     const { isCurrentPolicy } = await import('../../worker/posts');
     expect(isCurrentPolicy({ claims: '4', template: null, unsupported: [], blocked: [], passed: true })).toBe(true);
     expect(isCurrentPolicy({ claims: '4', unsupported: [], explicit: false, passed: true })).toBe(false);
     expect(isCurrentPolicy(undefined)).toBe(false);
+  });
+});
+
+describe('shorten respects the platform limit', () => {
+  it('knows X is 280 and other channels have no hard limit', async () => {
+    const { platformLimit } = await import('../../worker/posts');
+    expect(platformLimit('X')).toBe(280);
+    expect(platformLimit('twitter')).toBe(280);
+    expect(platformLimit('LinkedIn')).toBeNull();
+  });
+  it('refuses to save a Shorten result that is still over the X limit', async () => {
+    let patched = false;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      if (url.startsWith('https://openrouter.ai')) return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ body: 'w '.repeat(200), voiceFit: 1, platform: 1, notes: [] }) } }] }));
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ version: 1, payload: { sections: [], evidence: [] } }]));
+      if (init?.method === 'PATCH') { patched = true; return new Response('[]'); }
+      return new Response('[]');
+    }));
+    const post = { id: 'p', rev: 0, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'long', channel: 'X', checks: { slop: { passed: true, hits: [] }, voiceFit: null, platform: null, notes: [] } } as unknown as Post;
+    await expect(polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'shorten')).rejects.toMatchObject({ status: 422 });
+    expect(patched).toBe(false);
   });
 });

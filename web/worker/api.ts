@@ -8,7 +8,7 @@ import { registerKitAttestation, registrarFromSecret } from './registry';
 import { approvePost, draftPost, editPost, ledger, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 interface Brand { id: string; owner_id: string; name: string; type: string; description: string | null; website: string | null; goal: string | null; channel: string | null }
-interface Answer { step: string; data: Record<string, string>; skipped: boolean }
+interface Answer { step: string; data: Record<string, string>; skipped: boolean; updated_at?: string }
 interface Evidence { id: string; section: string; claim: string; quote: string | null; origin: string; source_id: string | null }
 interface Section { section: string; body: string; citations: string[]; status: string }
 interface Gate { gate: string; approved_by: string; approved_at: string; note: string | null }
@@ -105,6 +105,13 @@ async function registerKit(env: Env, user: User, brand: Brand) {
   const live = new Set(st.evidence.map((e) => e.id));
   const stale = st.sections.filter((s) => s.citations.some((id) => !live.has(id))).map((s) => s.section);
   if (stale.length) throw new HttpError(409, `these sections cite answers you have since changed; draft them again first: ${stale.join(', ')}`);
+  // Gate 3 must postdate the voice answer it approved. Reads of gates and answers are separate requests, so a voice
+  // change racing this registration could pair the old approval with the new answer; this check refuses that pair.
+  const voiceGate = st.gates.find((g) => g.gate === 'voice');
+  const voiceAnswer = st.answers.find((a) => a.step === 'voice');
+  if (voiceGate && voiceAnswer?.updated_at && new Date(voiceAnswer.updated_at) > new Date(voiceGate.approved_at)) {
+    throw new HttpError(409, 'your voice changed after Gate 3 was approved; approve the voice again first');
+  }
   const version = (st.kits[0]?.version ?? 0) + 1;
   const payload = {
     brand: { id: brand.id, name: brand.name },
@@ -151,9 +158,12 @@ export function kitPolicy(voice: { data: Record<string, string>; skipped: boolea
   return { claims: voice.data.claims, template: t ? LEGACY_TEMPLATES[t] ?? t : null };
 }
 
-/** True when a saved voice answer differs from the new one (any template, dial, claims or sample change). */
+/**
+ * True when a voice save must reopen Gate 3: the first save (steps are not enforced in order, so a gate could exist
+ * before any voice answer) or any change to template, dials, claims, sample or skipped.
+ */
 export function voiceChanged(prev: { data: Record<string, string>; skipped: boolean } | undefined, next: { data: Record<string, string>; skipped: boolean }) {
-  if (!prev) return false;
+  if (!prev) return true;
   return prev.skipped !== next.skipped || canonical(prev.data) !== canonical(next.data);
 }
 
@@ -173,6 +183,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   if ((p[1] === 'verify' || p[1] === 'ledger') && p.length === 2) await publicLimit(req, env, p[1]);
   if (p[1] === 'verify' && p.length === 2 && m === 'POST') {
     const b = await body(req);
+    // Over-long text is refused, never truncated: a truncated text could match a post it does not equal.
+    if (typeof b.text === 'string' && b.text.length > 8000) throw new HttpError(413, 'that is longer than any post we register (8,000 characters)');
     return json(await verifyText(env, str(b.text, 8000)));
   }
   if (p[1] === 'ledger' && p.length === 2 && m === 'GET') return json(await ledger(env));

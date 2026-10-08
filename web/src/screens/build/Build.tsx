@@ -12,7 +12,7 @@ interface Source { id: string; url: string; title: string | null; status: string
 interface Evidence { id: string; section: string; claim: string; quote: string | null; origin: string; source_id: string | null }
 interface Section { section: string; body: string; citations: string[]; status: string }
 interface Gate { gate: string; approved_by: string; approved_at: string; note: string | null }
-export interface KitPayload { sections: { section: string; body: string; citations: string[]; status: string }[]; gates: { gate: string; approved_by: string | null; approved_at: string }[] }
+export interface KitPayload { brand?: { id: string; name: string }; sections: { section: string; body: string; citations: string[]; status: string }[]; gates: { gate: string; approved_by: string | null; approved_at: string }[] }
 interface Kit { id: string; version: number; hash: string; status: string; signature: string | null; attestation: string | null; created_at: string; error: string | null; payload?: KitPayload | null }
 export interface BrandState { brand: Brand; answers: Answer[]; sources: Source[]; evidence: Evidence[]; sections: Section[]; gates: Gate[]; kits: Kit[] }
 
@@ -395,11 +395,12 @@ function KitStep({ state, onChange, onBack }: { state: BrandState; onChange: () 
       {error && <Alert tone="danger">{error}</Alert>}
       <Nav onBack={onBack}>
         <Button onClick={register} disabled={busy || gatesDone.length < 3}>
-          {busy ? 'Registering on Solana…' : latest?.status === 'registered' ? `Register kit v${latest.version + 1}` : 'Register kit v1'}
+          {busy ? 'Registering on Solana…' : `Register kit v${(latest?.version ?? 0) + 1}`}
         </Button>
       </Nav>
       {gatesDone.length < 3 && <Text variant="small" tone="secondary">Approve purpose, positioning and voice to register.</Text>}
-      {latest?.status === 'registered' && <Button href="/create" variant="secondary">Start creating</Button>}
+      {/* Any registered version is enough to create from, even if a later attempt failed. */}
+      {state.kits.some((k) => k.status === 'registered') && <Button href="/create" variant="secondary">Start creating</Button>}
     </Stack>
   );
 }

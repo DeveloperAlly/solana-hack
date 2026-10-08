@@ -33,10 +33,11 @@ export function slopCheck(text: string) {
 }
 
 /**
- * Unicode NFC, then whitespace-normalised, so the same post hashes the same however it was pasted (spec/api/routes/
- * create.ts: canonical hash is NFC). A decomposed "e" plus accent and a precomposed "é" hash identically.
+ * The canonical form that is hashed (spec/api/routes/create.ts: NFC, whitespace collapsed): Unicode NFC, then every
+ * run of whitespace, line breaks included, becomes one space. A post pasted through a platform that rewraps lines or
+ * joins paragraphs still verifies; changing any word does not.
  */
-export const normalise = (s: string) => s.normalize('NFC').replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
+export const normalise = (s: string) => s.normalize('NFC').replace(/\s+/g, ' ').trim();
 export const contentHash = async (s: string) => 'sha256:' + (await sha256Hex(normalise(s)));
 
 // Drafts use the latest *registered* kit snapshot (kits.payload), not the editable sections, so a post's
@@ -117,8 +118,10 @@ const STYLED = /[\u{2100}-\u{214F}\u{2460}-\u{24FF}\u{FF01}-\u{FF5E}\u{1D400}-\u
 // Superscript and modifier letters (Spacing Modifier Letters U+02B0-02FF, Phonetic Extensions U+1D00-1DBF,
 // Superscripts and Subscripts U+2070-209F, Latin-1 ¹ ² ³ ª º) are mapped only in runs of two or more, which is how
 // a styled word looks (ᴴᵉˡˡᵒ, ⁰¹²³); a single one is usually meaning (x², a footnote¹) and is kept.
-const SUPER_RUN = /[\u{00AA}\u{00B2}\u{00B3}\u{00B9}\u{00BA}\u{02B0}-\u{02FF}\u{1D00}-\u{1DBF}\u{2070}-\u{209F}]{2,}/gu;
-const toPlain = (c: string) => { const n = c.normalize('NFKC'); return /^[A-Za-z0-9]$/.test(n) ? n : c; };
+const SUPER_RUN = /[\u{00AA}\u{00B2}\u{00B3}\u{00B9}\u{00BA}\u{0280}\u{0262}\u{026A}\u{029C}\u{029F}\u{0274}\u{028F}\u{02B0}-\u{02FF}\u{1D00}-\u{1DBF}\u{2070}-\u{209F}\u{A730}\u{A731}]{2,}/gu;
+// Small capitals have no NFKC decomposition, so they are mapped by table (Latin small capital letters).
+const SMALL_CAPS: Record<string, string> = Object.fromEntries([...'ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘʀꜱᴛᴜᴠᴡʏᴢ'].map((c, i) => [c, 'abcdefghijklmnoprstuvwyz'[i]]));
+const toPlain = (c: string) => { if (SMALL_CAPS[c]) return SMALL_CAPS[c]; const n = c.normalize('NFKC'); return /^[A-Za-z0-9]$/.test(n) ? n : c; };
 export const plainLetters = (s: string) => s
   .replace(STYLED, (c) => {
     const n = c.normalize('NFKC');
@@ -126,6 +129,11 @@ export const plainLetters = (s: string) => s
     return /^[A-Za-z0-9]$/.test(n) || (fullwidth && /^[\x21-\x7E]$/.test(n)) ? n : c;
   })
   .replace(SUPER_RUN, (run) => [...run].map(toPlain).join(''));
+
+/** Hard character limit for a channel, where the platform has one (X: 280). */
+export function platformLimit(channel: string | null): number | null {
+  return /^\s*(x|twitter)\s*$/i.test(channel ?? '') ? 280 : null;
+}
 
 export const isPolishAction = (a: unknown): a is string => typeof a === 'string' && Object.hasOwn(POLISH, a);
 
@@ -146,6 +154,9 @@ export async function polishPost(env: Env, post: Post, action: string) {
   let body = action === 'review' ? post.body : (out.body ?? '').trim().slice(0, 4000);
   // The accessible variant is guaranteed, not requested: styled Unicode letters are mapped back to plain ones.
   if (action === 'beautify_accessible') body = plainLetters(body);
+  // Shorten must actually meet the platform limit; a longer result is refused, not saved.
+  const limit = platformLimit(post.channel);
+  if (action === 'shorten' && limit && body.length > limit) throw new HttpError(422, `Shorten came back at ${body.length} characters, over the ${limit} limit for ${post.channel}; try again or edit it yourself`);
   if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
   const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
   const checks: Checks = {
@@ -189,7 +200,9 @@ export function policyVerdict(claims: string, template: string | null, raw: unkn
   const ok = !!r && Array.isArray(r.unsupported) && r.unsupported.every((x) => typeof x === 'string')
     && (Object.keys(CATEGORIES) as Category[]).every((k) => typeof r[k] === 'boolean');
   if (!ok) throw new HttpError(502, 'the approval check returned an unusable answer, so nothing was approved; try again');
-  const unsupported = (r!.unsupported as string[]).map((x) => x.slice(0, 200)).slice(0, 5);
+  // Every unsupported claim is kept (only each one's text is capped): dropping any would let a later evidence
+  // batch clear the rest and pass a post that still has an unsupported claim.
+  const unsupported = (r!.unsupported as string[]).map((x) => x.slice(0, 200));
   const enforced: Category[] = template === 'flirty' ? ['sexual', 'minors', 'explicitLanguage'] : ['sexual', 'minors'];
   const blocked = enforced.filter((k) => r![k] === true).map((k) => CATEGORIES[k]);
   return { claims, template, unsupported, blocked, passed: blocked.length === 0 && unsupported.length === 0 };
@@ -364,7 +377,7 @@ async function attemptExpired(env: Env, post: Post) {
 export async function reconcilePost(env: Env, post: Post) {
   if (!post.attestation || !post.hash || !post.signature) throw new HttpError(409, 'a registration is already in progress');
   const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
-  const onchain = await readKitAttestation(env.RPC_URL, registrar.address, post.attestation, post.hash);
+  const onchain = await readKitAttestation(env.RPC_URL, registrar.address, post.attestation, { hash: post.hash, brand_id: post.brand_id, kit_version: String(post.kit_version) });
   if (onchain === 'verified') return finishRegistration(env, post, explorerTx(post.signature));
   if (onchain === 'missing' && (await attemptExpired(env, post))) {
     const [reset] = await db.update<Post>(env, 'posts', attemptFilter(post.id, post.signature), RESET);
@@ -393,7 +406,7 @@ export async function verifyText(env: Env, text: string) {
   // Registrar signed it under the WATERLILY credential and WL-KIT schema, and it carries this hash.
   const registrar = env.REGISTRAR_KEY ? (await registrarFromSecret(env.REGISTRAR_KEY)).address : null;
   const checked = await Promise.all(rows.slice(0, 10).map(async (p) => ({
-    p, onchain: registrar && p.attestation ? await readKitAttestation(env.RPC_URL, registrar, p.attestation, hash) : ('unavailable' as const),
+    p, onchain: registrar && p.attestation ? await readKitAttestation(env.RPC_URL, registrar, p.attestation, { hash, brand_id: p.brand_id, kit_version: String(p.kit_version) }) : ('unavailable' as const),
   })));
   const verified = checked.filter((c) => c.onchain === 'verified');
   // Some rows could not be checked: the result is partial, and says so.
