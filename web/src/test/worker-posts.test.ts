@@ -205,6 +205,25 @@ describe('polish grounding', () => {
     await polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'beautify_accessible');
     expect(prompt).toContain('Ships weekly');
     expect(saved.body).toBe('We ship weekly.');
+    // The model scored its styled text, not the plain text saved, so those scores are cleared.
+    expect((saved.checks as { voiceFit: unknown; platform: unknown }).voiceFit).toBeNull();
+    expect((saved.checks as { voiceFit: unknown; platform: unknown }).platform).toBeNull();
+  });
+  it('refuses overlong polish output and a Clarify that grows the post', async () => {
+    let reply = '';
+    let patched = false;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      if (url.startsWith('https://openrouter.ai')) return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ body: reply, voiceFit: 1, platform: 1, notes: [] }) } }] }));
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ version: 1, payload: { sections: [], evidence: [] } }]));
+      if (init?.method === 'PATCH') { patched = true; return new Response('[]'); }
+      return new Response('[]');
+    }));
+    const post = { id: 'p', rev: 0, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'Short and clear.', channel: 'LinkedIn', checks: { slop: { passed: true, hits: [] }, voiceFit: null, platform: null, notes: [] } } as unknown as Post;
+    reply = 'w'.repeat(4001);
+    await expect(polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'beautify')).rejects.toMatchObject({ status: 422 });
+    reply = 'Short and clear, but now it says a great deal more than it did.';
+    await expect(polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'clarify')).rejects.toMatchObject({ status: 422 });
+    expect(patched).toBe(false);
   });
 });
 
