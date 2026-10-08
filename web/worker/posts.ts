@@ -118,8 +118,10 @@ const STYLED = /[\u{2100}-\u{214F}\u{2460}-\u{24FF}\u{FF01}-\u{FF5E}\u{1D400}-\u
 // Superscript and modifier letters (Spacing Modifier Letters U+02B0-02FF, Phonetic Extensions U+1D00-1DBF,
 // Superscripts and Subscripts U+2070-209F, Latin-1 ¹ ² ³ ª º) are mapped only in runs of two or more, which is how
 // a styled word looks (ᴴᵉˡˡᵒ, ⁰¹²³); a single one is usually meaning (x², a footnote¹) and is kept.
-const SUPER_RUN = /[\u{00AA}\u{00B2}\u{00B3}\u{00B9}\u{00BA}\u{02B0}-\u{02FF}\u{1D00}-\u{1DBF}\u{2070}-\u{209F}]{2,}/gu;
-const toPlain = (c: string) => { const n = c.normalize('NFKC'); return /^[A-Za-z0-9]$/.test(n) ? n : c; };
+const SUPER_RUN = /[\u{00AA}\u{00B2}\u{00B3}\u{00B9}\u{00BA}\u{0280}\u{0262}\u{026A}\u{029C}\u{029F}\u{0274}\u{028F}\u{02B0}-\u{02FF}\u{1D00}-\u{1DBF}\u{2070}-\u{209F}\u{A730}\u{A731}]{2,}/gu;
+// Small capitals have no NFKC decomposition, so they are mapped by table (Latin small capital letters).
+const SMALL_CAPS: Record<string, string> = Object.fromEntries([...'ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘʀꜱᴛᴜᴠᴡʏᴢ'].map((c, i) => [c, 'abcdefghijklmnoprstuvwyz'[i]]));
+const toPlain = (c: string) => { if (SMALL_CAPS[c]) return SMALL_CAPS[c]; const n = c.normalize('NFKC'); return /^[A-Za-z0-9]$/.test(n) ? n : c; };
 export const plainLetters = (s: string) => s
   .replace(STYLED, (c) => {
     const n = c.normalize('NFKC');
@@ -127,6 +129,11 @@ export const plainLetters = (s: string) => s
     return /^[A-Za-z0-9]$/.test(n) || (fullwidth && /^[\x21-\x7E]$/.test(n)) ? n : c;
   })
   .replace(SUPER_RUN, (run) => [...run].map(toPlain).join(''));
+
+/** Hard character limit for a channel, where the platform has one (X: 280). */
+export function platformLimit(channel: string | null): number | null {
+  return /^\s*(x|twitter)\s*$/i.test(channel ?? '') ? 280 : null;
+}
 
 export const isPolishAction = (a: unknown): a is string => typeof a === 'string' && Object.hasOwn(POLISH, a);
 
@@ -147,6 +154,9 @@ export async function polishPost(env: Env, post: Post, action: string) {
   let body = action === 'review' ? post.body : (out.body ?? '').trim().slice(0, 4000);
   // The accessible variant is guaranteed, not requested: styled Unicode letters are mapped back to plain ones.
   if (action === 'beautify_accessible') body = plainLetters(body);
+  // Shorten must actually meet the platform limit; a longer result is refused, not saved.
+  const limit = platformLimit(post.channel);
+  if (action === 'shorten' && limit && body.length > limit) throw new HttpError(422, `Shorten came back at ${body.length} characters, over the ${limit} limit for ${post.channel}; try again or edit it yourself`);
   if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
   const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
   const checks: Checks = {
