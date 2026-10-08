@@ -180,6 +180,7 @@ describe('accessible beautify', () => {
     expect(plainLetters('98℉, 10Ω, Brand™, ⑩ items, ＃1')).toBe('98℉, 10Ω, Brand™, ⑩ items, #1');
     expect(plainLetters('ᴴᵉˡˡᵒ ʰᵉˡˡᵒ but x² and note¹ stay')).toBe('Hello hello but x² and note¹ stay');
     expect(plainLetters('10¹² and 10⁻¹² and C₁₂H₂₂O₁₁ stay')).toBe('10¹² and 10⁻¹² and C₁₂H₂₂O₁₁ stay');
+    expect(plainLetters('say /ʰɪ/ or [ʜɪ] but ᴴᵉˡˡᵒ maps')).toBe('say /ʰɪ/ or [ʜɪ] but Hello maps');
     expect(plainLetters('ʜᴇʟʟᴏ ᴡᴏʀʟᴅ')).toBe('hello world');
   });
 });
@@ -310,6 +311,18 @@ describe('shorten respects the platform limit', () => {
       return new Response('[]');
     }));
     const post = { id: 'p', rev: 0, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'long', channel: 'X', checks: { slop: { passed: true, hits: [] }, voiceFit: null, platform: null, notes: [] } } as unknown as Post;
+    await expect(polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'shorten')).rejects.toMatchObject({ status: 422 });
+    expect(patched).toBe(false);
+  });
+  it('refuses a Shorten result that is not shorter than the original', async () => {
+    let patched = false;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      if (url.startsWith('https://openrouter.ai')) return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ body: 'a longer post than before', voiceFit: 1, platform: 1, notes: [] }) } }] }));
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ version: 1, payload: { sections: [], evidence: [] } }]));
+      if (init?.method === 'PATCH') { patched = true; return new Response('[]'); }
+      return new Response('[]');
+    }));
+    const post = { id: 'p', rev: 0, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'short post', channel: 'LinkedIn', checks: { slop: { passed: true, hits: [] }, voiceFit: null, platform: null, notes: [] } } as unknown as Post;
     await expect(polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'shorten')).rejects.toMatchObject({ status: 422 });
     expect(patched).toBe(false);
   });
