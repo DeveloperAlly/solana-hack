@@ -1,7 +1,7 @@
 // Waterlily Worker: serves the SPA from static assets and answers /api/* (wrangler.jsonc run_worker_first).
 import { registrarFromSecret, registerKitAttestation } from './registry';
 import { handleApi } from './api';
-import { HttpError, json as jsonOut, type Env as AppEnv } from './env';
+import { HttpError, json as jsonOut, rpcHostLabel, safeError, type Env as AppEnv } from './env';
 
 type Env = AppEnv;
 
@@ -48,9 +48,19 @@ export default {
       } catch (e) {
         // Full detail stays in Worker logs; the response is public (it is posted to issue #4), so it
         // carries only a stable message and, if present, the upstream HTTP status (G-RPC diagnosis).
-        console.error('registry selftest failed', e);
-        const status = (e as { context?: { statusCode?: unknown } })?.context?.statusCode;
-        return json({ ok: false, at, error: 'registration failed', upstreamStatus: typeof status === 'number' ? status : null }, 502);
+        console.error('registry selftest failed', safeError(e));
+        const err = e as { name?: unknown; context?: { statusCode?: unknown; __code?: unknown } };
+        const status = err?.context?.statusCode;
+        const code = err?.context?.__code;
+        // Public-safe diagnosis only: the error class and the numeric @solana/kit error code, never the
+        // message (it can contain the RPC URL and its API key). Workers Logs keep a redacted copy (safeError).
+        return json({
+          ok: false, at, error: 'registration failed',
+          upstreamStatus: typeof status === 'number' ? status : null,
+          errorName: typeof err?.name === 'string' ? err.name.slice(0, 60) : null,
+          solanaErrorCode: typeof code === 'number' ? code : null,
+          rpcHost: rpcHostLabel(env.RPC_URL),
+        }, 502);
       }
     }
     try {
@@ -58,7 +68,7 @@ export default {
       if (res) return res;
     } catch (e) {
       if (e instanceof HttpError) return jsonOut({ error: e.message }, e.status);
-      console.error('api error', e);
+      console.error('api error', safeError(e));
       return jsonOut({ error: 'something went wrong' }, 500);
     }
     return json({ error: 'not found' }, 404);

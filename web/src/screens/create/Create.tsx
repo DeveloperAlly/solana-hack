@@ -5,7 +5,7 @@ import { api, ApiError } from '../../lib/api';
 
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
-  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: string[]; lastAction?: string };
+  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: string[]; lastAction?: string; source?: 'ai' | 'edit' };
   signature: string | null; published_url: string | null;
 }
 const POLISH = [
@@ -92,8 +92,9 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
   const [explorer, setExplorer] = useState<string | null>(post.signature ? `https://explorer.solana.com/tx/${post.signature}?cluster=devnet` : null);
   useEffect(() => setText(post.body), [post.body]);
   const base = `/brands/${brandId}/posts/${post.id}`;
-  const dirty = text.trim() !== post.body;
+  const dirty = post.status === 'drafted' && text.trim() !== post.body;
   const slop = post.checks.slop;
+  const hiddenAi = post.status === 'drafted' && !slop?.passed && post.checks.source !== 'edit';
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(label);
@@ -111,10 +112,16 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
     <Box padding={5} border="default" radius="box">
       <Stack gap={4}>
         <Text variant="label">{post.channel ?? 'Post'} · {post.status}</Text>
-        {post.status === 'registered' ? (
-          <Box padding={4} background="subtle" radius="box"><Text>{post.body}</Text></Box>
-        ) : (
+        {hiddenAi ? (
+          // R9: AI text that failed the slop check is never shown.
+          <Alert tone="warning" title="This draft failed the slop check, so it stays hidden">
+            Found: {slop?.hits.join(', ')}. Draft it again.
+          </Alert>
+        ) : post.status === 'drafted' ? (
           <Field label="Post" multiline rows={8} value={text} onChange={(e: { target: { value: string } }) => setText(e.target.value)} />
+        ) : (
+          // Approved and registered text is read-only, so what is registered is exactly what was approved.
+          <Box padding={4} background="subtle" radius="box"><Text>{post.body}</Text></Box>
         )}
         <Stack direction="row" gap={4} wrap>
           <Text variant="small">Slop check: {slop?.passed ? 'passed' : `failed (${slop?.hits.join(', ')})`}</Text>
@@ -122,12 +129,12 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
           <Text variant="small">Platform: {post.checks.platform ?? 'n/a'}</Text>
         </Stack>
         {post.checks.notes && post.checks.notes.length > 0 && <Text variant="small" tone="secondary">To improve: {post.checks.notes.join(' · ')}</Text>}
-        {post.status !== 'registered' && (
+        {post.status === 'drafted' && (
           <Stack gap={2}>
             <Text variant="label" id={`polish-${post.id}`}>Polish</Text>
             <Stack direction="row" gap={2} wrap role="group" aria-labelledby={`polish-${post.id}`}>
               {POLISH.map((p) => (
-                <Button key={p.action} variant="secondary" disabled={!!busy || dirty} onClick={() => run(p.action, () => api(`${base}/polish`, { body: { action: p.action } }))}>
+                <Button key={p.action} variant="secondary" disabled={!!busy || dirty || hiddenAi} onClick={() => run(p.action, () => api(`${base}/polish`, { body: { action: p.action } }))}>
                   {busy === p.action ? `${p.label}…` : p.label}
                 </Button>
               ))}
@@ -154,7 +161,8 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
         {error && <Alert tone="danger">{error}</Alert>}
         <Stack direction="row" gap={3} wrap>
           {post.status !== 'registered' && dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('save', () => api(base, { method: 'PUT', body: { body: text } }))}>Save edits</Button>}
-          {post.status === 'drafted' && !dirty && <Button disabled={!!busy || !slop?.passed} onClick={() => run('approve', () => api(`${base}/approve`, { body: {} }))}>{busy === 'approve' ? 'Approving…' : 'Approve'}</Button>}
+          {hiddenAi && <Button disabled={!!busy} onClick={() => run('redraft', () => api(`/brands/${brandId}/posts`, { body: { brief: post.brief, channel: post.channel ?? '' } }))}>{busy === 'redraft' ? 'Drafting…' : 'Draft again'}</Button>}
+          {post.status === 'drafted' && !hiddenAi && !dirty && <Button disabled={!!busy || !slop?.passed} onClick={() => run('approve', () => api(`${base}/approve`, { body: {} }))}>{busy === 'approve' ? 'Approving…' : 'Approve'}</Button>}
           {post.status === 'approved' && (
             <Button disabled={!!busy} onClick={() => run('register', async () => {
               const r = await api<{ explorer: string }>(`${base}/register`, { body: { publishedUrl: url } });

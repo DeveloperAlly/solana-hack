@@ -5,7 +5,7 @@ import { api, ApiError } from '../../lib/api';
 
 interface Row { type: string; brand: string; version?: number; kitVersion?: number | null; hash: string; at: string; explorer: string | null }
 
-/** Ledger (S6): every registration, grouped by type. Hashes and ids only; the content stays private. */
+/** Ledger (S6): every registration, grouped by type: brand name, fingerprint, version, explorer link. Content stays private. */
 export function Ledger() {
   const [data, setData] = useState<{ kits: Row[]; content: Row[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +36,7 @@ export function Ledger() {
         <Stack gap={6}>
           <Stack gap={2}>
             <Heading level={1}>Ledger</Heading>
-            <Text tone="secondary">Every kit and post registered on Solana devnet. Only fingerprints and ids are public.</Text>
+            <Text tone="secondary">Every kit and post registered on Solana devnet: the brand, its fingerprint and a link to the transaction. The content itself stays private.</Text>
           </Stack>
           {error && <Alert tone="danger">{error}</Alert>}
           {!data && !error && <Text tone="secondary">Loading…</Text>}
