@@ -63,6 +63,9 @@ export function Verify() {
               {result.publishedUrl && <Link href={result.publishedUrl} external>See the published post</Link>}
             </Stack>
           )}
+          {result?.official && result.truncated && (
+            <Alert tone="info" title="More registrations exist">More than 10 registrations share this exact text; only the first 10 were checked on Solana.</Alert>
+          )}
           {result?.matches && result.matches.length > 1 && (
             // The same text can be registered by more than one brand; show every registration, earliest first.
             <Stack gap={2}>
