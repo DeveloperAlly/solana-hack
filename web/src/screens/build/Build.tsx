@@ -394,6 +394,7 @@ function KitStep({ state, onChange, onBack }: { state: BrandState; onChange: () 
         </Button>
       </Nav>
       {gatesDone.length < 3 && <Text variant="small" tone="secondary">Approve purpose, positioning and voice to register.</Text>}
+      {latest?.status === 'registered' && <Button href="/create" variant="secondary">Start creating</Button>}
     </Stack>
   );
 }

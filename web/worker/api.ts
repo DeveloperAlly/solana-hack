@@ -5,6 +5,7 @@ import { readPage } from './ingest';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
+import { approvePost, draftPost, editPost, ledger, registerPost, verifyText, type Post } from './posts';
 
 interface Brand { id: string; owner_id: string; name: string; type: string; description: string | null; website: string | null; goal: string | null; channel: string | null }
 interface Answer { step: string; data: Record<string, string>; skipped: boolean }
@@ -125,6 +126,12 @@ async function registerKit(env: Env, user: User, brand: Brand) {
 export async function handleApi(req: Request, env: Env, url: URL): Promise<Response | null> {
   const p = url.pathname.split('/').filter(Boolean); // ['api', ...]
   const m = req.method;
+  // Public (no sign-in): Verify and Ledger (S6).
+  if (p[1] === 'verify' && p.length === 2 && m === 'POST') {
+    const b = await body(req);
+    return json(await verifyText(env, str(b.text, 8000)));
+  }
+  if (p[1] === 'ledger' && p.length === 2 && m === 'GET') return json(await ledger(env));
   if (p[1] !== 'me' && p[1] !== 'brands') return null;
   const user = await requireUser(req, env);
 
@@ -197,5 +204,20 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     }
   }
   if (p[3] === 'kit' && p[4] === 'register' && m === 'POST') return json(await registerKit(env, user, brand), 201);
+  // S5 Create: posts in the brand voice; human approval before registration (R8).
+  if (p[3] === 'posts') {
+    if (p.length === 4 && m === 'GET') return json({ posts: await db.select<Post>(env, 'posts', `${db.eq('brand_id', brand.id)}&order=created_at.desc&limit=20`) });
+    if (p.length === 4 && m === 'POST') {
+      const b = await body(req);
+      const brief = str(b.brief, 1000);
+      if (!brief) throw new HttpError(400, 'say what the post is about');
+      return json({ post: await draftPost(env, brand, brief, str(b.channel, 40)) }, 201);
+    }
+    const [post] = p[4] && /^[0-9a-f-]{36}$/.test(p[4]) ? await db.select<Post>(env, 'posts', `${db.eq('id', p[4])}&${db.eq('brand_id', brand.id)}`) : [];
+    if (!post) throw new HttpError(404, 'post not found');
+    if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str((await body(req)).body, 4000)) });
+    if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
+    if (p[5] === 'register' && m === 'POST') return json(await registerPost(env, user, post, str((await body(req)).publishedUrl, 500)), 201);
+  }
   return json({ error: 'not found' }, 404);
 }
