@@ -5,7 +5,7 @@ import { api, ApiError } from '../../lib/api';
 
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
-  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit' };
+  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit'; policy?: { claims: string; unsupported: string[]; explicit: boolean; passed: boolean } };
   signature: string | null; published_url: string | null;
 }
 const POLISH = [
@@ -101,9 +101,14 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
     setError(null);
     try {
       await fn();
-      await onChange();
     } catch (e) {
       setError(msg(e));
+    }
+    try {
+      // Reload either way: a blocked approval records why, which changes the post's revision.
+      await onChange();
+    } catch {
+      // Keep the action's error on screen; the list refreshes on the next action.
     } finally {
       setBusy(null);
     }
@@ -129,6 +134,11 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
           <Text variant="small">Voice fit: {post.checks.voiceFit ?? 'n/a'}</Text>
           <Text variant="small">Platform: {post.checks.platform ?? 'n/a'}</Text>
         </Stack>
+        {post.status === 'drafted' && post.checks.policy && !post.checks.policy.passed && (
+          <Alert tone="warning" title={post.checks.policy.explicit ? 'Blocked by the content policy' : 'Blocked by your claims gate'}>
+            {post.checks.policy.explicit ? 'Explicit content cannot be published. Rewrite it, then approve again.' : `No evidence for: ${post.checks.policy.unsupported.join(' · ')}. Add a source on your brand, or rewrite, then approve again.`}
+          </Alert>
+        )}
         {post.checks.notes && post.checks.notes.length > 0 && <Text variant="small" tone="secondary">To improve: {post.checks.notes.join(' · ')}</Text>}
         {post.status === 'drafted' && (
           <Stack gap={2}>

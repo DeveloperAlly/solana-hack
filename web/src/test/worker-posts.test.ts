@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { casFilter, changePost, cleanPublishedUrl, contentHash, isPolishAction, polishPost, pushHistory, restoreEntry, slopCheck, undoPost, verifyText, type Post } from '../../worker/posts';
+import { casFilter, changePost, cleanPublishedUrl, contentHash, approvePost, isPolishAction, policyVerdict, polishPost, pushHistory, restoreEntry, slopCheck, undoPost, verifyText, type Post } from '../../worker/posts';
 import type { Env } from '../../worker/env';
 
 const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k' } as Env;
@@ -79,5 +79,57 @@ describe('polish safety', () => {
     await undoPost(env, post);
     expect(calls[0].url).toContain('rev=eq.4');
     expect(calls[0].body).toMatchObject({ body: 'Before.', rev: 5, checks: { voiceFit: 90, notes: ['earlier note'], history: [] } });
+  });
+});
+
+describe('approval gates: claims and content policy', () => {
+  it('passes only with no unsupported claims and nothing explicit', () => {
+    expect(policyVerdict('4', { unsupported: [], explicit: false }).passed).toBe(true);
+    expect(policyVerdict('5', { unsupported: ['2x faster'], explicit: false })).toMatchObject({ passed: false, unsupported: ['2x faster'] });
+    expect(policyVerdict('4', { unsupported: [], explicit: true }).passed).toBe(false);
+    // A malformed reply cannot pass by omission of the explicit flag being truthy-ish.
+    expect(policyVerdict('4', { unsupported: 'none', explicit: 'yes' })).toMatchObject({ passed: true, unsupported: [], explicit: false });
+  });
+
+  function stub(reply: { unsupported: string[]; explicit: boolean }, voice: Record<string, string>) {
+    const writes: Record<string, unknown>[] = [];
+    let system = '';
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      if (url.startsWith('https://openrouter.ai')) {
+        system = JSON.parse(String(init.body)).messages[0].content;
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(reply) } }] }));
+      }
+      if (url.includes('/answers?')) return new Response(JSON.stringify([{ data: voice }]));
+      if (url.includes('/evidence?')) return new Response(JSON.stringify([{ claim: 'Founded in 2024', origin: 'source' }]));
+      if (init.method === 'PATCH') { writes.push(JSON.parse(String(init.body))); return new Response(JSON.stringify([{ id: 'p' }])); }
+      return new Response('[]');
+    }));
+    return { writes, system: () => system };
+  }
+  const llmEnv = { ...env, OPENROUTER_API_KEY: 'k' } as Env;
+  const post = { id: 'p', rev: 1, brand_id: 'b', status: 'drafted', body: 'We are 2x faster.', checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [] } } as unknown as Post;
+  const user = { id: 'u' } as never;
+
+  it('blocks approval when the claims gate finds an unsupported claim, and records why', async () => {
+    const s = stub({ unsupported: ['2x faster'], explicit: false }, { template: 'professional', claims: '5' });
+    await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('claims gate (strict)') });
+    expect(s.system()).toContain('strict: every claim');
+    expect(s.writes[0]).toMatchObject({ rev: 2, checks: { policy: { passed: false, unsupported: ['2x faster'] } } });
+    expect(s.writes[0]).not.toHaveProperty('status');
+  });
+  it('blocks explicit content and tells the checker when the voice is flirty', async () => {
+    const s = stub({ unsupported: [], explicit: true }, { template: 'flirty', claims: '4' });
+    await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('content policy') });
+    expect(s.system()).toContain('flirty voice');
+  });
+  it('approves when both checks pass', async () => {
+    const s = stub({ unsupported: [], explicit: false }, { template: 'friendly', claims: '3' });
+    await approvePost(llmEnv, user, post);
+    expect(s.writes[0]).toMatchObject({ status: 'approved', approved_by: 'u', checks: { policy: { passed: true, claims: '3' } } });
+  });
+  it('fails closed when the check cannot run', async () => {
+    const s = stub({ unsupported: [], explicit: false }, { template: 'friendly', claims: '4' });
+    await expect(approvePost({ ...env } as Env, user, post)).rejects.toMatchObject({ status: 503 });
+    expect(s.writes).toHaveLength(0);
   });
 });

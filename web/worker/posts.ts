@@ -12,7 +12,7 @@ export interface Post {
 // A history entry is the full visible state before a change, so Undo restores the text *and* the scores and notes
 // that described it. Older rows stored only the text (string); those restore with scores cleared.
 export interface Snapshot { body: string; slop: Checks['slop']; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit' }
-interface Checks { slop: { passed: boolean; hits: string[] }; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit'; history?: (Snapshot | string)[]; lastAction?: string }
+interface Checks { slop: { passed: boolean; hits: string[] }; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit'; history?: (Snapshot | string)[]; lastAction?: string; policy?: PolicyResult }
 
 const snapshot = (post: Post): Snapshot => ({ body: post.body, slop: post.checks.slop, voiceFit: post.checks.voiceFit ?? null, platform: post.checks.platform ?? null, notes: post.checks.notes ?? [], source: post.checks.source });
 export const pushHistory = (post: Post) => [...(post.checks.history ?? []), snapshot(post)].slice(-10);
@@ -87,7 +87,7 @@ export async function editPost(env: Env, post: Post, body: string) {
   const text = body.trim().slice(0, 4000);
   if (!text) throw new HttpError(400, 'the post cannot be empty');
   // Scores belonged to the old text; a person's edit is shown even if it fails the slop check (only approval is blocked).
-  const checks: Checks = { ...post.checks, slop: slopCheck(text), voiceFit: null, platform: null, notes: [], source: 'edit', history: pushHistory(post), lastAction: 'edit' };
+  const checks: Checks = { ...post.checks, slop: slopCheck(text), voiceFit: null, platform: null, notes: [], source: 'edit', history: pushHistory(post), lastAction: 'edit', policy: undefined };
   return changePost(env, post, ['drafted', 'approved'], { body: text, checks, status: 'drafted', approved_by: null, approved_at: null });
 }
 
@@ -119,7 +119,7 @@ export async function polishPost(env: Env, post: Post, action: string) {
   const checks: Checks = {
     ...post.checks, slop: slopCheck(body), voiceFit: num(out.voiceFit), platform: num(out.platform),
     notes: (out.notes ?? []).slice(0, 4).map((n) => String(n).slice(0, 200)), history: pushHistory(post), lastAction: action,
-    source: action === 'review' ? post.checks.source : 'ai',
+    source: action === 'review' ? post.checks.source : 'ai', policy: undefined,
   };
   // Compare-and-swap on the revision read before the model call: an edit, undo or registration meanwhile wins.
   return changePost(env, post, ['drafted', 'approved'], { body, checks, status: 'drafted', approved_by: null, approved_at: null });
@@ -132,17 +132,58 @@ export async function undoPost(env: Env, post: Post) {
   if (entry === undefined) throw new HttpError(409, 'nothing to undo');
   // The restored text was already shown to the owner, so it stays visible whatever its slop result.
   const prev = restoreEntry(entry);
-  const checks: Checks = { ...post.checks, slop: prev.slop, voiceFit: prev.voiceFit, platform: prev.platform, notes: prev.notes, history, lastAction: 'undo', source: 'edit' };
+  const checks: Checks = { ...post.checks, slop: prev.slop, voiceFit: prev.voiceFit, platform: prev.platform, notes: prev.notes, history, lastAction: 'undo', source: 'edit', policy: undefined };
   return changePost(env, post, ['drafted', 'approved'], { body: prev.body, checks, status: 'drafted', approved_by: null, approved_at: null });
 }
 
-// Human approval before anything is registered or published (R8).
+// Research 06: claims strictness is a gate, not a slider, and Flirty needs a hard content-policy gate.
+export const CLAIMS_POLICY: Record<string, string> = {
+  '5': 'strict: every claim about the brand, its product, customers or results must be supported by the evidence list',
+  '4': 'standard: every factual claim (numbers, customers, results, comparisons, firsts) must be supported by the evidence list; opinions and intentions are fine',
+  '3': 'light: opinions are fine; any number, statistic or named customer must be supported by the evidence list',
+};
+export interface PolicyResult { claims: string; unsupported: string[]; explicit: boolean; passed: boolean }
+
+/** Decides from the checker's raw reply; kept pure so the gate logic is testable without a model. */
+export function policyVerdict(claims: string, raw: { unsupported?: unknown; explicit?: unknown }): PolicyResult {
+  const unsupported = Array.isArray(raw.unsupported) ? raw.unsupported.map((x) => String(x).slice(0, 200)).slice(0, 5) : [];
+  const explicit = raw.explicit === true;
+  return { claims, unsupported, explicit, passed: !explicit && unsupported.length === 0 };
+}
+
+/**
+ * Pre-approval check: the brand's claims gate against its evidence, and the content policy (never sexually
+ * explicit, for every brand; Flirty may be suggestive). Fails closed: if the check cannot run, approval waits.
+ */
+export async function policyCheck(env: Env, post: Post): Promise<PolicyResult> {
+  const [voice] = await db.select<{ data: Record<string, string> }>(env, 'answers', `${db.eq('brand_id', post.brand_id)}&${db.eq('step', 'voice')}&select=data`);
+  const claims = CLAIMS_POLICY[voice?.data?.claims ?? ''] ? voice!.data.claims : '4';
+  const flirty = voice?.data?.template === 'flirty';
+  const evidence = await db.select<{ claim: string; origin: string }>(env, 'evidence', `${db.eq('brand_id', post.brand_id)}&select=claim,origin&limit=60`);
+  const facts = evidence.filter((e) => e.origin !== 'assumption').map((e) => `- ${e.claim}`).join('\n') || '(no evidence recorded)';
+  const system = `You check one social post before a brand approves it. Do not rewrite it.
+1. Claims gate, ${CLAIMS_POLICY[claims]}. List each claim in the post that the evidence does not support, quoted briefly. Anything the evidence states, or that is plainly opinion where opinions are allowed, is supported.
+2. Content policy: sexually explicit content is never allowed.${flirty ? ' This brand uses a flirty voice: playful, suggestive wording is allowed; explicit sexual content is not.' : ''}
+Reply with JSON only: {"unsupported": string[], "explicit": boolean}.`;
+  const { text } = await chat(env, system, `Evidence:\n${facts}\n\nPost:\n${post.body}`);
+  return policyVerdict(claims, parseJson<{ unsupported?: unknown; explicit?: unknown }>(text));
+}
+
+// Human approval before anything is registered or published (R8), after the slop, claims and content checks.
 export async function approvePost(env: Env, user: User, post: Post) {
   if (post.status === 'registered' || post.status === 'approved') return post;
   if (post.status !== 'drafted') throw new HttpError(409, 'this post is being registered');
   if (!post.checks.slop?.passed) throw new HttpError(409, 'fix the slop check first: ' + post.checks.slop.hits.join(', '));
+  const policy = await policyCheck(env, post);
+  if (!policy.passed) {
+    // Record why, against this revision, so the screen can show it; then refuse.
+    await changePost(env, post, ['drafted'], { checks: { ...post.checks, policy } as Checks });
+    throw new HttpError(409, policy.explicit
+      ? 'blocked by the content policy: explicit content cannot be published. Rewrite it, then approve again.'
+      : `blocked by the claims gate (${policy.claims === '5' ? 'strict' : policy.claims === '3' ? 'light' : 'standard'}): no evidence for ${policy.unsupported.map((u) => `"${u}"`).join(', ')}. Add a source on your brand, or rewrite, then approve again.`);
+  }
   // Approves exactly the revision whose checks were read: an edit in between bumps rev and this fails with 409.
-  return changePost(env, post, ['drafted'], { status: 'approved', approved_by: user.id, approved_at: new Date().toISOString() });
+  return changePost(env, post, ['drafted'], { status: 'approved', approved_by: user.id, approved_at: new Date().toISOString(), checks: { ...post.checks, policy } as Checks });
 }
 
 export function cleanPublishedUrl(raw: string): string | null {

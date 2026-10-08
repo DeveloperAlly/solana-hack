@@ -95,3 +95,22 @@ export function templateDials(value: string): Record<string, string> {
   DIALS.forEach((d, i) => (out[d.key] = String(t.v[i])));
   return out;
 }
+
+// Templates from the first voice form that no longer exist, mapped to their closest research 06 template.
+const LEGACY_TEMPLATES: Record<string, string> = { friendly_expert: 'friendly' };
+
+/**
+ * A saved voice answer, completed against today's form: a known template (legacy ones mapped), every dial and
+ * the claims gate filled from that template unless the owner set them, and the sample kept. Nothing shown is unsaved.
+ */
+export function normaliseVoice(saved?: Record<string, string> | null): Record<string, string> {
+  const raw = saved ?? {};
+  const mapped = LEGACY_TEMPLATES[raw.template] ?? raw.template;
+  const template = VOICE_TEMPLATES.some((t) => t.value === mapped) ? mapped : 'candid_founder';
+  const out = templateDials(template);
+  const valid = (v: unknown) => typeof v === 'string' && /^[1-5]$/.test(v);
+  for (const d of DIALS) if (valid(raw[d.key])) out[d.key] = raw[d.key];
+  if (CLAIMS_GATE.some((c) => c.value === raw.claims)) out.claims = raw.claims;
+  if (raw.sample) out.sample = raw.sample;
+  return out;
+}
