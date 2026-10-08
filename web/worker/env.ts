@@ -47,9 +47,9 @@ export function safeError(e: unknown) {
   };
 }
 
-// Exact public hostnames only: a provider subdomain can itself carry a credential (https://<key>.helius-rpc.com).
+// Allowlisting policy: exact public hostnames only. Any other host, provider subdomains included, is logged as "custom".
 const KNOWN_RPC_HOSTS = new Set(['devnet.helius-rpc.com', 'mainnet.helius-rpc.com', 'api.devnet.solana.com', 'api.testnet.solana.com', 'api.mainnet-beta.solana.com']);
-/** The RPC host only when it is a known provider (whose host carries no credential), else "custom". */
+/** The RPC host only when it is on the allowlist above, else "custom". */
 export function rpcHostLabel(rpcUrl: string) {
   try {
     const h = new URL(rpcUrl).hostname;
