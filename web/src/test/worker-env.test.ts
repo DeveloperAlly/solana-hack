@@ -69,3 +69,15 @@ describe('public endpoint limit', () => {
     expect(keys).toEqual(['verify:203.0.113.9', 'verify:203.0.113.9']);
   });
 });
+
+describe('registrar key errors', () => {
+  it('never carry any part of a malformed key', async () => {
+    const { registrarFromSecret } = await import('../../worker/registry');
+    for (const bad of ['[12,34,56', '[1,2,3]', 'not json 9f8e7d', JSON.stringify(Array(64).fill(999))]) {
+      const err = await registrarFromSecret(bad).then(() => null, (e: Error) => e);
+      expect(err?.name).toBe('RegistrarKeyError');
+      expect(err?.message).toBe('REGISTRAR_KEY is not a valid 64-byte keypair array');
+      expect(JSON.stringify(safeError(err))).not.toMatch(/12,34|9f8e7d|999/);
+    }
+  });
+});
