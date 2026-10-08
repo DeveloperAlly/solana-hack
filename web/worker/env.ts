@@ -23,3 +23,34 @@ export async function sha256Hex(s: string) {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
+
+/**
+ * A log-safe view of an error: class, @solana/kit code, HTTP status, and the message with anything that
+ * looks like a credential removed (URL query strings, api-key/token params, long base58/hex runs).
+ * RPC errors can embed the provider URL and its API key; Workers Logs must never retain that.
+ */
+export function safeError(e: unknown) {
+  const err = e as { name?: unknown; message?: unknown; context?: { statusCode?: unknown; __code?: unknown } };
+  const message = typeof err?.message === 'string' ? err.message : String(e);
+  return {
+    name: typeof err?.name === 'string' ? err.name : 'Error',
+    solanaErrorCode: typeof err?.context?.__code === 'number' ? err.context.__code : undefined,
+    status: typeof err?.context?.statusCode === 'number' ? err.context.statusCode : undefined,
+    message: message
+      .replace(/https?:\/\/[^\s"'<>]+/g, (u) => { try { const x = new URL(u); return `${x.protocol}//${x.host}${x.pathname}`; } catch { return '[url]'; } })
+      .replace(/(api[-_]?key|token|secret|key)=([^&\s"']+)/gi, '$1=[redacted]')
+      .replace(/\b[1-9A-HJ-NP-Za-km-z]{60,}\b/g, '[redacted]')
+      .slice(0, 500),
+  };
+}
+
+const KNOWN_RPC_HOSTS = /(^|\.)(helius-rpc\.com|solana\.com)$/;
+/** The RPC host only when it is a known provider (whose host carries no credential), else "custom". */
+export function rpcHostLabel(rpcUrl: string) {
+  try {
+    const h = new URL(rpcUrl).hostname;
+    return KNOWN_RPC_HOSTS.test(h) ? h : 'custom';
+  } catch {
+    return 'invalid URL';
+  }
+}
