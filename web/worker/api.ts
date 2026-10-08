@@ -122,11 +122,19 @@ async function registerKit(env: Env, user: User, brand: Brand) {
   }
 }
 
+/** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
+export async function publicLimit(req: Request, env: Env) {
+  if (!env.PUBLIC_LIMITER) return;
+  const { success } = await env.PUBLIC_LIMITER.limit({ key: req.headers.get('cf-connecting-ip') ?? 'unknown' });
+  if (!success) throw new HttpError(429, 'too many checks from your network; wait a minute and try again');
+}
+
 /** Authenticated product API (S1-S4). Returns null for paths it does not own. */
 export async function handleApi(req: Request, env: Env, url: URL): Promise<Response | null> {
   const p = url.pathname.split('/').filter(Boolean); // ['api', ...]
   const m = req.method;
-  // Public (no sign-in): Verify and Ledger (S6).
+  // Public (no sign-in): Verify and Ledger (S6), limited per client IP because they query the database and Solana.
+  if ((p[1] === 'verify' || p[1] === 'ledger') && p.length === 2) await publicLimit(req, env);
   if (p[1] === 'verify' && p.length === 2 && m === 'POST') {
     const b = await body(req);
     return json(await verifyText(env, str(b.text, 8000)));

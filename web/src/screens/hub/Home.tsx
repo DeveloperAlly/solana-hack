@@ -23,11 +23,13 @@ export function Home() {
   const gatesDone = state ? gates.filter((g) => state.gates.some((x) => x.gate === g)).length : 0;
   const sectionSteps = STEPS.filter((s) => s.kind === 'section');
   const approved = state ? state.sections.filter((s) => s.status === 'approved').length : 0;
-  const kit = state?.kits[0];
-  const registered = kit?.status === 'registered';
+  // The newest *registered* kit, not the newest attempt: a later failed attempt must not hide a registered one.
+  const kit = state?.kits.find((k) => k.status === 'registered');
+  const registered = !!kit;
+  const nextVersion = (state?.kits[0]?.version ?? 0) + 1;
   const next = !state ? null
     : gatesDone < 3 ? { label: 'Continue building your brand', href: '/build' }
-    : !registered ? { label: 'Register kit v1', href: '/build/kit' }
+    : !registered ? { label: `Register kit v${nextVersion}`, href: '/build/kit' }
     : { label: 'Create a post', href: '/create' };
 
   return (

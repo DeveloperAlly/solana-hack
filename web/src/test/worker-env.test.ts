@@ -41,3 +41,15 @@ describe('database error logging', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('public endpoint limit', () => {
+  it('keys on the client IP and answers 429 when the limit is hit', async () => {
+    const { publicLimit } = await import('../../worker/api');
+    const keys: string[] = [];
+    const env = { PUBLIC_LIMITER: { limit: async ({ key }: { key: string }) => { keys.push(key); return { success: keys.length < 2 }; } } } as never;
+    const req = new Request('https://x/api/verify', { headers: { 'cf-connecting-ip': '203.0.113.9' } });
+    await publicLimit(req, env);
+    await expect(publicLimit(req, env)).rejects.toMatchObject({ status: 429 });
+    expect(keys).toEqual(['203.0.113.9', '203.0.113.9']);
+  });
+});
