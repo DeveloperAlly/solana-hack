@@ -146,7 +146,7 @@ describe('approval gates: claims and content policy', () => {
       return new Response(JSON.stringify(Array.from({ length: offset < 2400 ? 200 : 13 }, (_, i) => ({ claim: `f${offset + i}` }))));
     }));
     const all = await allEvidence(env, 'b');
-    expect(all).toHaveLength(2613);
+    expect(all).toHaveLength(2413);
     expect(urls[0]).toContain('origin=neq.assumption');
     expect(urls[0]).toContain('order=created_at.asc,id.asc');
   });

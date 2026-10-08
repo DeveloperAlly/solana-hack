@@ -83,7 +83,6 @@ export const DIALS = [
   { key: 'emoji', label: 'Emoji and punctuation', low: 'None', high: 'Lots' },
   { key: 'cta', label: 'Call to action', low: 'Soft', high: 'Direct' },
 ];
-<<<<<<< HEAD
 export const CLAIMS_GATE = [
   { value: '5', label: 'Strict: every claim needs evidence' },
   { value: '4', label: 'Standard: factual claims need evidence' },
@@ -115,8 +114,6 @@ export function normaliseVoice(saved?: Record<string, string> | null): Record<st
   if (raw.sample) out.sample = raw.sample;
   return out;
 }
-=======
 
 /** Minutes for the interview itself (Basics and the question steps), from the step config, for public copy. */
 export const INTERVIEW_MINUTES = STEPS.filter((s) => s.kind === 'basics' || s.kind === 'questions').reduce((n, s) => n + (s.minutes ?? 0), 0);
->>>>>>> feat/polish
