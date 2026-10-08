@@ -40,11 +40,11 @@ export const contentHash = async (s: string) => 'sha256:' + (await sha256Hex(nor
 // kit_version always names the kit its voice came from.
 async function voiceContext(env: Env, brandId: string, version?: number | null) {
   const which = version ? `&${db.eq('version', String(version))}` : '';
-  const [kit] = await db.select<{ version: number; payload: { sections?: { section: string; body: string; citations?: string[] }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}${which}&select=version,payload&order=version.desc&limit=1`);
+  const [kit] = await db.select<{ version: number; payload: { sections?: { section: string; body: string; citations?: string[] }[]; evidence?: { claim: string; quote: string | null }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}${which}&select=version,payload&order=version.desc&limit=1`);
   if (!kit) throw new HttpError(409, 'register your brand kit first, so posts are written to a fixed kit version');
   const pick = (id: string) => kit.payload.sections?.find((s) => s.section === id)?.body ?? '';
   const citations = [...new Set((kit.payload.sections ?? []).flatMap((s) => s.citations ?? []))].filter((id) => /^[0-9a-f-]{36}$/.test(id));
-  return { kitVersion: kit.version, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose'), citations };
+  return { kitVersion: kit.version, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose'), citations, evidence: kit.payload.evidence };
 }
 
 /** Filter for a compare-and-swap: this post, at the revision we read, in one of the allowed states. */
@@ -104,10 +104,14 @@ const POLISH: Record<string, string> = {
 export const POLISH_ACTIONS = Object.keys(POLISH);
 
 /**
- * Maps Unicode "styled" letters and digits (Mathematical Alphanumeric Symbols, U+1D400-U+1D7FF, such as bold or
- * italic text used on LinkedIn) to plain characters. Screen readers spell those out letter by letter.
+ * Maps Unicode "styled" letters and digits to plain characters with NFKC; screen readers spell styled ones out
+ * letter by letter. Covered: Letterlike Symbols (U+2100-214F), Enclosed Alphanumerics (U+2460-24FF), fullwidth
+ * forms (U+FF01-FF5E), Mathematical Alphanumeric Symbols (U+1D400-1D7FF) and the Enclosed Alphanumeric Supplement
+ * up to U+1F1E5 (regional-indicator flags after it are left alone). Any character in these blocks that NFKC does
+ * not reduce to plain ASCII is removed.
  */
-export const plainLetters = (s: string) => s.replace(/[\u{1D400}-\u{1D7FF}]/gu, (c) => c.normalize('NFKC'));
+const STYLED = /[\u{2100}-\u{214F}\u{2460}-\u{24FF}\u{FF01}-\u{FF5E}\u{1D400}-\u{1D7FF}\u{1F100}-\u{1F1E5}]/gu;
+export const plainLetters = (s: string) => s.replace(STYLED, (c) => { const n = c.normalize('NFKC'); return /^[\x20-\x7E]+$/.test(n) ? n : ''; });
 
 export const isPolishAction = (a: unknown): a is string => typeof a === 'string' && Object.hasOwn(POLISH, a);
 
@@ -118,7 +122,8 @@ export async function polishPost(env: Env, post: Post, action: string) {
   // and every result is re-scored against it: the scores shown always describe the text shown.
   const ctx = await voiceContext(env, post.brand_id, post.kit_version);
   // The evidence the registered kit cites, so Review can tell sourced claims from unsupported ones.
-  const evidence = ctx.citations.length ? await db.select<{ claim: string; quote: string | null }>(env, 'evidence', `id=in.(${ctx.citations.join(',')})&select=claim,quote`) : [];
+  // Kits registered from now on carry their cited evidence; older kits fall back to looking the ids up.
+  const evidence = ctx.evidence ?? (ctx.citations.length ? await db.select<{ claim: string; quote: string | null }>(env, 'evidence', `id=in.(${ctx.citations.join(',')})&select=claim,quote`) : []);
   const facts = evidence.map((e) => `- ${e.claim}${e.quote ? ` (source: "${e.quote.slice(0, 160)}")` : ''}`).join('\n') || '(the kit cites no evidence; treat every factual claim as unsupported)';
   const system = `You polish one ${post.channel || 'LinkedIn'} post for a brand with the approved kit below. ${POLISH[action]} A factual claim is supported only if the evidence list states it. ${SLOP_RULES} Then score the resulting post against the kit. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 4)}.`;
   const user = `Voice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}\n\nEvidence:\n${facts}\n\nPost:\n${post.body}`;

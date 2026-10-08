@@ -106,6 +106,12 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     version,
     sections: st.sections.map((s) => ({ section: s.section, body: s.body, citations: [...s.citations].sort(), status: s.status })).sort((a, b) => a.section.localeCompare(b.section)),
     gates: st.gates.map((g) => ({ gate: g.gate, approved_by: g.approved_by, approved_at: g.approved_at })).sort((a, b) => a.gate.localeCompare(b.gate)),
+    // The cited evidence itself (claim and quote), not just ids: evidence rows can be replaced later (owner answers
+    // are rewritten on every save), and a post pinned to this version must still see what the kit relied on.
+    evidence: (() => {
+      const cited = new Set(st.sections.flatMap((s) => s.citations));
+      return st.evidence.filter((e) => cited.has(e.id)).map((e) => ({ id: e.id, claim: e.claim, quote: e.quote, origin: e.origin })).sort((a, b) => a.id.localeCompare(b.id));
+    })(),
   };
   const hash = 'sha256:' + (await sha256Hex(canonical(payload)));
   const [kit] = await db.insert<Kit>(env, 'kits', { brand_id: brand.id, version, hash, payload, approved_by: user.id, status: 'pending' });

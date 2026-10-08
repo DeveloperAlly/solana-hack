@@ -77,6 +77,7 @@ describe('accessible beautify', () => {
   it('maps styled Unicode letters back to plain text', async () => {
     const { plainLetters } = await import('../../worker/posts');
     expect(plainLetters('𝗕𝘂𝗶𝗹𝘁 𝗳𝗼𝗿 𝟮𝟬𝟮𝟲 and 𝑖𝑡𝑎𝑙𝑖𝑐 • kept')).toBe('Built for 2026 and italic • kept');
+    expect(plainLetters('Ｗｅ ⓢⓗⓘⓟ ① ℍ𝕖𝕪 🄰 🇦🇺')).toBe('We ship 1 Hey A 🇦🇺');
   });
 });
 
@@ -98,5 +99,26 @@ describe('polish grounding', () => {
     await polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'beautify_accessible');
     expect(prompt).toContain('Ships weekly');
     expect(saved.body).toBe('We ship weekly.');
+  });
+});
+
+describe('polish uses the kit evidence snapshot', () => {
+  it('reads cited evidence from the registered kit, even after the live rows were replaced', async () => {
+    let prompt = '';
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      urls.push(url);
+      if (url.startsWith('https://openrouter.ai')) {
+        prompt = JSON.parse(String(init.body)).messages[1].content;
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ body: 'x', voiceFit: 1, platform: 1, notes: [] }) } }] }));
+      }
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ version: 1, payload: { sections: [{ section: 'voice', body: 'v', citations: ['11111111-1111-1111-1111-111111111111'] }], evidence: [{ claim: 'Snapshot fact', quote: null }] } }]));
+      if (init?.method === 'PATCH') return new Response(JSON.stringify([{ id: 'p' }]));
+      return new Response('[]');
+    }));
+    const post = { id: 'p', rev: 0, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'b', channel: null, checks: { slop: { passed: true, hits: [] }, voiceFit: null, platform: null, notes: [] } } as unknown as Post;
+    await polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'review');
+    expect(prompt).toContain('Snapshot fact');
+    expect(urls.some((u) => u.includes('/evidence?'))).toBe(false);
   });
 });
