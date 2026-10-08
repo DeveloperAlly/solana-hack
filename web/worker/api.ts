@@ -106,6 +106,9 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     version,
     sections: st.sections.map((s) => ({ section: s.section, body: s.body, citations: [...s.citations].sort(), status: s.status })).sort((a, b) => a.section.localeCompare(b.section)),
     gates: st.gates.map((g) => ({ gate: g.gate, approved_by: g.approved_by, approved_at: g.approved_at })).sort((a, b) => a.gate.localeCompare(b.gate)),
+    // The claims gate and voice template are part of the registered kit, so approval of a post written to this
+    // version applies this version's policy even if the voice answers change later.
+    policy: (() => { const v = st.answers.find((a) => a.step === 'voice')?.data ?? {}; return { claims: ['3', '4', '5'].includes(v.claims) ? v.claims : '4', template: v.template ?? null }; })(),
   };
   const hash = 'sha256:' + (await sha256Hex(canonical(payload)));
   const [kit] = await db.insert<Kit>(env, 'kits', { brand_id: brand.id, version, hash, payload, approved_by: user.id, status: 'pending' });
@@ -122,11 +125,19 @@ async function registerKit(env: Env, user: User, brand: Brand) {
   }
 }
 
+/** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
+export async function publicLimit(req: Request, env: Env) {
+  if (!env.PUBLIC_LIMITER) return;
+  const { success } = await env.PUBLIC_LIMITER.limit({ key: req.headers.get('cf-connecting-ip') ?? 'unknown' });
+  if (!success) throw new HttpError(429, 'too many checks from your network; wait a minute and try again');
+}
+
 /** Authenticated product API (S1-S4). Returns null for paths it does not own. */
 export async function handleApi(req: Request, env: Env, url: URL): Promise<Response | null> {
   const p = url.pathname.split('/').filter(Boolean); // ['api', ...]
   const m = req.method;
-  // Public (no sign-in): Verify and Ledger (S6).
+  // Public (no sign-in): Verify and Ledger (S6), limited per client IP because they query the database and Solana.
+  if ((p[1] === 'verify' || p[1] === 'ledger') && p.length === 2) await publicLimit(req, env);
   if (p[1] === 'verify' && p.length === 2 && m === 'POST') {
     const b = await body(req);
     return json(await verifyText(env, str(b.text, 8000)));

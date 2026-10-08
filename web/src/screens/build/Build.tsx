@@ -234,7 +234,7 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
         {isVoice ? (
           <Stack gap={5}>
             <Choice legend="Start from a template (it sets the dials below)" value={data.template ?? ''} onChange={(v) => setData({ ...templateDials(v), sample: data.sample ?? '' })} options={VOICE_TEMPLATES} />
-            {data.template === 'flirty' && <Alert tone="info">Flirty stays suggestive, never explicit. Every post is checked against the content policy before it can be approved, and explicit content is blocked.</Alert>}
+            {data.template === 'flirty' && <Alert tone="info">Flirty stays light and playful. Before any post can be approved it is checked for sexual content, anything involving minors and explicit language, and blocked if it has any of them.</Alert>}
             {DIALS.map((d) => (
               <Choice
                 key={d.key}

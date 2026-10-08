@@ -2,12 +2,13 @@ import type { User } from './auth';
 import { db } from './db';
 import { HttpError, safeError, sha256Hex, type Env } from './env';
 import { chat, parseJson, SLOP_RULES } from './llm';
-import { explorerTx, registerKitAttestation, registrarFromSecret } from './registry';
+import { explorerTx, NotLanded, prepareKitAttestation, readKitAttestation, registrarFromSecret } from './registry';
 
 export interface Post {
   id: string; brand_id: string; brief: string; channel: string | null; body: string; checks: Checks; status: string;
   kit_version: number | null; hash: string | null; approved_by: string | null; approved_at: string | null;
   signature: string | null; attestation: string | null; published_url: string | null; created_at: string; rev: number;
+  registering_at?: string | null; registered_at?: string | null;
 }
 // A history entry is the full visible state before a change, so Undo restores the text *and* the scores and notes
 // that described it. Older rows stored only the text (string); those restore with scores cleared.
@@ -39,10 +40,11 @@ export const contentHash = async (s: string) => 'sha256:' + (await sha256Hex(nor
 // kit_version always names the kit its voice came from.
 async function voiceContext(env: Env, brandId: string, version?: number | null) {
   const which = version ? `&${db.eq('version', String(version))}` : '';
-  const [kit] = await db.select<{ version: number; payload: { sections?: { section: string; body: string }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}${which}&select=version,payload&order=version.desc&limit=1`);
+  const [kit] = await db.select<{ version: number; payload: { sections?: { section: string; body: string; citations?: string[] }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}${which}&select=version,payload&order=version.desc&limit=1`);
   if (!kit) throw new HttpError(409, 'register your brand kit first, so posts are written to a fixed kit version');
   const pick = (id: string) => kit.payload.sections?.find((s) => s.section === id)?.body ?? '';
-  return { kitVersion: kit.version, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose') };
+  const citations = [...new Set((kit.payload.sections ?? []).flatMap((s) => s.citations ?? []))].filter((id) => /^[0-9a-f-]{36}$/.test(id));
+  return { kitVersion: kit.version, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose'), citations };
 }
 
 /** Filter for a compare-and-swap: this post, at the revision we read, in one of the allowed states. */
@@ -101,6 +103,12 @@ const POLISH: Record<string, string> = {
 };
 export const POLISH_ACTIONS = Object.keys(POLISH);
 
+/**
+ * Maps Unicode "styled" letters and digits (Mathematical Alphanumeric Symbols, U+1D400-U+1D7FF, such as bold or
+ * italic text used on LinkedIn) to plain characters. Screen readers spell those out letter by letter.
+ */
+export const plainLetters = (s: string) => s.replace(/[\u{1D400}-\u{1D7FF}]/gu, (c) => c.normalize('NFKC'));
+
 export const isPolishAction = (a: unknown): a is string => typeof a === 'string' && Object.hasOwn(POLISH, a);
 
 export async function polishPost(env: Env, post: Post, action: string) {
@@ -109,11 +117,16 @@ export async function polishPost(env: Env, post: Post, action: string) {
   // Every action sees the kit version the post was written to, so Review can judge voice and claims,
   // and every result is re-scored against it: the scores shown always describe the text shown.
   const ctx = await voiceContext(env, post.brand_id, post.kit_version);
-  const system = `You polish one ${post.channel || 'LinkedIn'} post for a brand with the approved kit below. ${POLISH[action]} ${SLOP_RULES} Then score the resulting post against the kit. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 4)}.`;
-  const user = `Voice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}\n\nPost:\n${post.body}`;
+  // The evidence the registered kit cites, so Review can tell sourced claims from unsupported ones.
+  const evidence = ctx.citations.length ? await db.select<{ claim: string; quote: string | null }>(env, 'evidence', `id=in.(${ctx.citations.join(',')})&select=claim,quote`) : [];
+  const facts = evidence.map((e) => `- ${e.claim}${e.quote ? ` (source: "${e.quote.slice(0, 160)}")` : ''}`).join('\n') || '(the kit cites no evidence; treat every factual claim as unsupported)';
+  const system = `You polish one ${post.channel || 'LinkedIn'} post for a brand with the approved kit below. ${POLISH[action]} A factual claim is supported only if the evidence list states it. ${SLOP_RULES} Then score the resulting post against the kit. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 4)}.`;
+  const user = `Voice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}\n\nEvidence:\n${facts}\n\nPost:\n${post.body}`;
   const { text } = await chat(env, system, user);
   const out = parseJson<{ body?: string; voiceFit?: number; platform?: number; notes?: string[] }>(text);
-  const body = action === 'review' ? post.body : (out.body ?? '').trim().slice(0, 4000);
+  let body = action === 'review' ? post.body : (out.body ?? '').trim().slice(0, 4000);
+  // The accessible variant is guaranteed, not requested: styled Unicode letters are mapped back to plain ones.
+  if (action === 'beautify_accessible') body = plainLetters(body);
   if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
   const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
   const checks: Checks = {
@@ -142,31 +155,59 @@ export const CLAIMS_POLICY: Record<string, string> = {
   '4': 'standard: every factual claim (numbers, customers, results, comparisons, firsts) must be supported by the evidence list; opinions and intentions are fine',
   '3': 'light: opinions are fine; any number, statistic or named customer must be supported by the evidence list',
 };
-export interface PolicyResult { claims: string; unsupported: string[]; explicit: boolean; passed: boolean }
+// Content categories the checker must answer for every post. Sexual content and anything sexualising minors are
+// blocked for every brand; explicit language is blocked for Flirty (research 06 guardrail), allowed elsewhere.
+const CATEGORIES = { sexual: 'sexual content', minors: 'content sexualising or targeting minors', explicitLanguage: 'explicit language' } as const;
+type Category = keyof typeof CATEGORIES;
+export interface PolicyResult { claims: string; template: string | null; unsupported: string[]; blocked: string[]; passed: boolean }
 
-/** Decides from the checker's raw reply; kept pure so the gate logic is testable without a model. */
-export function policyVerdict(claims: string, raw: { unsupported?: unknown; explicit?: unknown }): PolicyResult {
-  const unsupported = Array.isArray(raw.unsupported) ? raw.unsupported.map((x) => String(x).slice(0, 200)).slice(0, 5) : [];
-  const explicit = raw.explicit === true;
-  return { claims, unsupported, explicit, passed: !explicit && unsupported.length === 0 };
+/**
+ * Decides from the checker's raw reply; pure, so the gate is testable without a model. The reply must have exactly
+ * the expected types (a string array and three booleans); anything else is rejected, so the gate fails closed.
+ */
+export function policyVerdict(claims: string, template: string | null, raw: unknown): PolicyResult {
+  const r = raw as Record<string, unknown> | null;
+  const ok = !!r && Array.isArray(r.unsupported) && r.unsupported.every((x) => typeof x === 'string')
+    && (Object.keys(CATEGORIES) as Category[]).every((k) => typeof r[k] === 'boolean');
+  if (!ok) throw new HttpError(502, 'the approval check returned an unusable answer, so nothing was approved; try again');
+  const unsupported = (r!.unsupported as string[]).map((x) => x.slice(0, 200)).slice(0, 5);
+  const enforced: Category[] = template === 'flirty' ? ['sexual', 'minors', 'explicitLanguage'] : ['sexual', 'minors'];
+  const blocked = enforced.filter((k) => r![k] === true).map((k) => CATEGORIES[k]);
+  return { claims, template, unsupported, blocked, passed: blocked.length === 0 && unsupported.length === 0 };
 }
 
 /**
- * Pre-approval check: the brand's claims gate against its evidence, and the content policy (never sexually
- * explicit, for every brand; Flirty may be suggestive). Fails closed: if the check cannot run, approval waits.
+ * The claims gate and template that govern a post: from the registered kit it was written to (kits record them
+ * since this change), else from the brand's voice answer for kits registered before that.
+ */
+async function postPolicy(env: Env, post: Post): Promise<{ claims: string; template: string | null }> {
+  if (post.kit_version) {
+    const [kit] = await db.select<{ payload: { policy?: { claims?: string; template?: string } } }>(env, 'kits', `${db.eq('brand_id', post.brand_id)}&${db.eq('version', String(post.kit_version))}&${db.eq('status', 'registered')}&select=payload`);
+    const pol = kit?.payload?.policy;
+    if (pol && CLAIMS_POLICY[pol.claims ?? '']) return { claims: pol.claims!, template: pol.template ?? null };
+  }
+  const [voice] = await db.select<{ data: Record<string, string> }>(env, 'answers', `${db.eq('brand_id', post.brand_id)}&${db.eq('step', 'voice')}&select=data`);
+  return { claims: CLAIMS_POLICY[voice?.data?.claims ?? ''] ? voice!.data.claims : '4', template: voice?.data?.template ?? null };
+}
+
+/**
+ * Pre-approval check: the post's claims gate against the brand's evidence, and the content policy categories.
+ * Fails closed: if the check cannot run or answers in the wrong shape, approval waits.
  */
 export async function policyCheck(env: Env, post: Post): Promise<PolicyResult> {
-  const [voice] = await db.select<{ data: Record<string, string> }>(env, 'answers', `${db.eq('brand_id', post.brand_id)}&${db.eq('step', 'voice')}&select=data`);
-  const claims = CLAIMS_POLICY[voice?.data?.claims ?? ''] ? voice!.data.claims : '4';
-  const flirty = voice?.data?.template === 'flirty';
+  const { claims, template } = await postPolicy(env, post);
+  const flirty = template === 'flirty';
   const evidence = await db.select<{ claim: string; origin: string }>(env, 'evidence', `${db.eq('brand_id', post.brand_id)}&select=claim,origin&limit=60`);
   const facts = evidence.filter((e) => e.origin !== 'assumption').map((e) => `- ${e.claim}`).join('\n') || '(no evidence recorded)';
   const system = `You check one social post before a brand approves it. Do not rewrite it.
 1. Claims gate, ${CLAIMS_POLICY[claims]}. List each claim in the post that the evidence does not support, quoted briefly. Anything the evidence states, or that is plainly opinion where opinions are allowed, is supported.
-2. Content policy: sexually explicit content is never allowed.${flirty ? ' This brand uses a flirty voice: playful, suggestive wording is allowed; explicit sexual content is not.' : ''}
-Reply with JSON only: {"unsupported": string[], "explicit": boolean}.`;
+2. Content: answer each question true or false.
+   sexual: does it contain sexual content (descriptions of sexual acts or nudity, or sexual innuendo beyond light flirtation)?
+   minors: does it sexualise, or direct romantic or sexual content at, anyone who is or appears to be under 18?
+   explicitLanguage: does it use profanity, slurs or crude sexual words?${flirty ? '\n   This brand uses a flirty voice: light, playful flirtation is fine and is not sexual content.' : ''}
+Reply with JSON only, all four keys: {"unsupported": string[], "sexual": boolean, "minors": boolean, "explicitLanguage": boolean}.`;
   const { text } = await chat(env, system, `Evidence:\n${facts}\n\nPost:\n${post.body}`);
-  return policyVerdict(claims, parseJson<{ unsupported?: unknown; explicit?: unknown }>(text));
+  return policyVerdict(claims, template, parseJson<unknown>(text));
 }
 
 // Human approval before anything is registered or published (R8), after the slop, claims and content checks.
@@ -178,8 +219,8 @@ export async function approvePost(env: Env, user: User, post: Post) {
   if (!policy.passed) {
     // Record why, against this revision, so the screen can show it; then refuse.
     await changePost(env, post, ['drafted'], { checks: { ...post.checks, policy } as Checks });
-    throw new HttpError(409, policy.explicit
-      ? 'blocked by the content policy: explicit content cannot be published. Rewrite it, then approve again.'
+    throw new HttpError(409, policy.blocked.length
+      ? `blocked by the content policy (${policy.blocked.join(', ')}): this cannot be published. Rewrite it, then approve again.`
       : `blocked by the claims gate (${policy.claims === '5' ? 'strict' : policy.claims === '3' ? 'light' : 'standard'}): no evidence for ${policy.unsupported.map((u) => `"${u}"`).join(', ')}. Add a source on your brand, or rewrite, then approve again.`);
   }
   // Approves exactly the revision whose checks were read: an edit in between bumps rev and this fails with 409.
@@ -191,31 +232,70 @@ export function cleanPublishedUrl(raw: string): string | null {
   try {
     const u = new URL(raw);
     if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error('scheme');
+    // Shown publicly by Verify, so never keep a username or password embedded in the link.
+    if (u.username || u.password) throw new Error('credentials');
     return u.toString().slice(0, 500);
   } catch {
-    throw new HttpError(400, 'the published link must be an http or https address');
+    throw new HttpError(400, 'the published link must be a plain http or https address, without a username or password');
   }
 }
 
+// A send whose outcome was unknown is reconciled after this long: by then its blockhash has expired, so if the
+// attestation does not exist it never will.
+const RECONCILE_AFTER_MS = 3 * 60 * 1000;
+
 export async function registerPost(env: Env, user: User, post: Post, publishedUrl: string) {
-  if (post.status !== 'approved') throw new HttpError(409, post.status === 'registered' ? 'already registered' : post.status === 'registering' ? 'a registration is already in progress' : 'approve the post first');
+  if (post.status === 'registering') return reconcilePost(env, post);
+  if (post.status !== 'approved') throw new HttpError(409, post.status === 'registered' ? 'already registered' : 'approve the post first');
   if (!post.kit_version) throw new HttpError(409, 'register the kit first, so the post can point at a kit version');
   const url = cleanPublishedUrl(publishedUrl);
-  // Claim the post first (approved -> registering, conditional), so two requests cannot both write to chain.
-  const [claimed] = await db.update<Post>(env, 'posts', casFilter(post, ['approved']), { status: 'registering', rev: (post.rev ?? 0) + 1 });
-  if (!claimed) throw new HttpError(409, 'a registration is already in progress');
-  const hash = await contentHash(claimed.body);
+  const hash = await contentHash(post.body);
+  const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
+  // Only hashes and ids go onchain (R27): brand id, content hash, kit version, approver id, domain flag.
+  const tx = await prepareKitAttestation(env.RPC_URL, registrar, { brand_id: post.brand_id, hash, kit_version: String(post.kit_version), approver: post.approved_by ?? user.id, domain_verified: 'false' });
+  // Claim the post and record the signature and attestation address *before* sending (compare-and-swap on the
+  // approved revision), so two requests cannot both write, and any later failure can be reconciled, never re-sent.
+  const [claimed] = await db.update<Post>(env, 'posts', casFilter(post, ['approved']), {
+    status: 'registering', rev: (post.rev ?? 0) + 1, hash, signature: tx.signature, attestation: tx.attestation, published_url: url, registering_at: new Date().toISOString(),
+  });
+  if (!claimed) throw new HttpError(409, 'this post changed or a registration is already in progress; reload');
   try {
-    const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
-    // Only hashes and ids go onchain (R27): brand id, content hash, kit version, approver id.
-    const out = await registerKitAttestation(env.RPC_URL, registrar, { brand_id: post.brand_id, hash, kit_version: String(claimed.kit_version), approver: claimed.approved_by ?? user.id, domain_verified: 'false' });
-    const [row] = await db.update<Post>(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'registered', hash, signature: out.signature, attestation: out.attestation, published_url: url });
-    return { post: row, explorer: out.explorer };
+    await tx.send();
   } catch (e) {
-    console.error('post registration failed', safeError(e));
-    await db.update(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'approved' });
-    throw new HttpError(502, 'registering on Solana failed, try again');
+    console.error('post registration send failed', safeError(e));
+    if (e instanceof NotLanded) {
+      // Certainly not on chain: reopen the post for another try.
+      await db.update(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'approved', hash: null, signature: null, attestation: null, registering_at: null });
+      throw new HttpError(502, 'Solana rejected the registration, try again');
+    }
+    // Outcome unknown: keep it locked with its signature; the next Register click reconciles it against the chain.
+    throw new HttpError(502, 'sent to Solana but not confirmed yet. It stays locked; press Register again in a few minutes to check.');
   }
+  return finishRegistration(env, claimed, tx.explorer);
+}
+
+async function finishRegistration(env: Env, post: Post, explorer: string) {
+  const [row] = await db.update<Post>(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'registered', registered_at: new Date().toISOString() });
+  if (!row) throw new HttpError(500, 'registered on Solana, but saving that failed; press Register again to finish');
+  return { post: row, explorer };
+}
+
+/** A post left in 'registering' (unknown outcome or a failed save): settle it from what is actually on chain. */
+export async function reconcilePost(env: Env, post: Post) {
+  if (!post.attestation || !post.hash || !post.signature) throw new HttpError(409, 'a registration is already in progress');
+  const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
+  const onchain = await readKitAttestation(env.RPC_URL, registrar.address, post.attestation, post.hash);
+  if (onchain === 'verified') return finishRegistration(env, post, explorerTx(post.signature));
+  const age = Date.now() - new Date(post.registering_at ?? 0).getTime();
+  if (onchain === 'missing' && age > RECONCILE_AFTER_MS) {
+    await db.update(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'approved', hash: null, signature: null, attestation: null, registering_at: null });
+    throw new HttpError(409, 'the earlier registration never reached Solana; press Register to try again');
+  }
+  if (onchain === 'mismatch') {
+    console.error('attestation mismatch on reconcile', { post: post.id });
+    throw new HttpError(500, 'the onchain record does not match this post; it stays locked for review');
+  }
+  throw new HttpError(409, 'the registration is still settling on Solana; try again in a minute');
 }
 
 /**
@@ -225,13 +305,22 @@ export async function registerPost(env: Env, user: User, post: Post, publishedUr
 export async function verifyText(env: Env, text: string) {
   if (!text.trim()) throw new HttpError(400, 'paste a post to check');
   const hash = await contentHash(text);
-  const posts = await db.select<Post>(env, 'posts', `${db.eq('hash', hash)}&${db.eq('status', 'registered')}&order=approved_at.asc&limit=20`);
-  if (!posts.length) return { official: false, hash, matches: [] };
-  const ids = [...new Set(posts.map((p) => p.brand_id))];
+  const rows = await db.select<Post>(env, 'posts', `${db.eq('hash', hash)}&${db.eq('status', 'registered')}&order=registered_at.asc&limit=10`);
+  if (!rows.length) return { official: false, hash, matches: [] };
+  // The database is an index; Solana is the proof. Each match is checked onchain: it must exist, be signed by the
+  // Registrar under the WATERLILY credential and WL-KIT schema, and carry this hash.
+  const registrar = env.REGISTRAR_KEY ? (await registrarFromSecret(env.REGISTRAR_KEY)).address : null;
+  const checked = await Promise.all(rows.map(async (p) => ({
+    p, onchain: registrar && p.attestation ? await readKitAttestation(env.RPC_URL, registrar, p.attestation, hash) : ('unavailable' as const),
+  })));
+  // A record whose attestation is gone or does not match is not official.
+  const live = checked.filter((c) => c.onchain === 'verified' || c.onchain === 'unavailable');
+  if (!live.length) return { official: false, hash, matches: [], note: 'a record exists, but its Solana attestation is missing or does not match' };
+  const ids = [...new Set(live.map((c) => c.p.brand_id))];
   const brands = await db.select<{ id: string; name: string }>(env, 'brands', `id=in.(${ids.join(',')})&select=id,name`);
-  const matches = posts.map((p) => ({
+  const matches = live.map(({ p, onchain }) => ({
     brand: brands.find((b) => b.id === p.brand_id)?.name ?? null, kitVersion: p.kit_version, approvedAt: p.approved_at,
-    publishedUrl: p.published_url, explorer: p.signature ? explorerTx(p.signature) : null,
+    registeredAt: p.registered_at ?? null, publishedUrl: p.published_url, explorer: p.signature ? explorerTx(p.signature) : null, onchain,
   }));
   return { official: true, hash, ...matches[0], matches };
 }
@@ -240,13 +329,13 @@ export async function verifyText(env: Env, text: string) {
 export async function ledger(env: Env) {
   const [kits, posts] = await Promise.all([
     db.select<{ brand_id: string; version: number; hash: string; signature: string; created_at: string }>(env, 'kits', `${db.eq('status', 'registered')}&select=brand_id,version,hash,signature,created_at&order=created_at.desc&limit=50`),
-    db.select<Post>(env, 'posts', `${db.eq('status', 'registered')}&select=brand_id,kit_version,hash,signature,approved_at&order=approved_at.desc&limit=50`),
+    db.select<Post>(env, 'posts', `${db.eq('status', 'registered')}&select=brand_id,kit_version,hash,signature,registered_at&order=registered_at.desc&limit=50`),
   ]);
   const ids = [...new Set([...kits, ...posts].map((r) => r.brand_id))];
   const brands = ids.length ? await db.select<{ id: string; name: string }>(env, 'brands', `id=in.(${ids.join(',')})&select=id,name`) : [];
   const name = (id: string) => brands.find((b) => b.id === id)?.name ?? 'unknown';
   return {
     kits: kits.map((k) => ({ type: 'kit', brand: name(k.brand_id), version: k.version, hash: k.hash, at: k.created_at, explorer: explorerTx(k.signature) })),
-    content: posts.map((p) => ({ type: 'content', brand: name(p.brand_id), kitVersion: p.kit_version, hash: p.hash, at: p.approved_at, explorer: p.signature ? explorerTx(p.signature) : null })),
+    content: posts.map((p) => ({ type: 'content', brand: name(p.brand_id), kitVersion: p.kit_version, hash: p.hash, at: p.registered_at ?? null, explorer: p.signature ? explorerTx(p.signature) : null })),
   };
 }

@@ -5,7 +5,7 @@ import { api, ApiError } from '../../lib/api';
 
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
-  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit'; policy?: { claims: string; unsupported: string[]; explicit: boolean; passed: boolean } };
+  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit'; policy?: { claims: string; unsupported: string[]; blocked?: string[]; passed: boolean } };
   signature: string | null; published_url: string | null;
 }
 const POLISH = [
@@ -135,8 +135,8 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
           <Text variant="small">Platform: {post.checks.platform ?? 'n/a'}</Text>
         </Stack>
         {post.status === 'drafted' && post.checks.policy && !post.checks.policy.passed && (
-          <Alert tone="warning" title={post.checks.policy.explicit ? 'Blocked by the content policy' : 'Blocked by your claims gate'}>
-            {post.checks.policy.explicit ? 'Explicit content cannot be published. Rewrite it, then approve again.' : `No evidence for: ${post.checks.policy.unsupported.join(' · ')}. Add a source on your brand, or rewrite, then approve again.`}
+          <Alert tone="warning" title={post.checks.policy.blocked?.length ? 'Blocked by the content policy' : 'Blocked by your claims gate'}>
+            {post.checks.policy.blocked?.length ? `Found: ${post.checks.policy.blocked.join(', ')}. This cannot be published. Rewrite it, then approve again.` : `No evidence for: ${post.checks.policy.unsupported.join(' · ')}. Add a source on your brand, or rewrite, then approve again.`}
           </Alert>
         )}
         {post.checks.notes && post.checks.notes.length > 0 && <Text variant="small" tone="secondary">To improve: {post.checks.notes.join(' · ')}</Text>}
@@ -174,6 +174,10 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
           {post.status !== 'registered' && dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('save', () => api(base, { method: 'PUT', body: { body: text } }))}>Save edits</Button>}
           {hiddenAi && <Button disabled={!!busy} onClick={() => run('redraft', () => api(`/brands/${brandId}/posts`, { body: { brief: post.brief, channel: post.channel ?? '' } }))}>{busy === 'redraft' ? 'Drafting…' : 'Draft again'}</Button>}
           {post.status === 'drafted' && !hiddenAi && !dirty && <Button disabled={!!busy || !slop?.passed} onClick={() => run('approve', () => api(`${base}/approve`, { body: {} }))}>{busy === 'approve' ? 'Approving…' : 'Approve'}</Button>}
+          {post.status === 'registering' && (
+            // A send whose outcome was unknown: the server checks Solana and finishes or reopens it.
+            <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url } }))}>{busy === 'register' ? 'Checking Solana…' : 'Check registration'}</Button>
+          )}
           {post.status === 'approved' && (
             <Button disabled={!!busy} onClick={() => run('register', async () => {
               const r = await api<{ explorer: string }>(`${base}/register`, { body: { publishedUrl: url } });

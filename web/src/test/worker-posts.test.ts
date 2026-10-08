@@ -83,15 +83,24 @@ describe('polish safety', () => {
 });
 
 describe('approval gates: claims and content policy', () => {
-  it('passes only with no unsupported claims and nothing explicit', () => {
-    expect(policyVerdict('4', { unsupported: [], explicit: false }).passed).toBe(true);
-    expect(policyVerdict('5', { unsupported: ['2x faster'], explicit: false })).toMatchObject({ passed: false, unsupported: ['2x faster'] });
-    expect(policyVerdict('4', { unsupported: [], explicit: true }).passed).toBe(false);
-    // A malformed reply cannot pass by omission of the explicit flag being truthy-ish.
-    expect(policyVerdict('4', { unsupported: 'none', explicit: 'yes' })).toMatchObject({ passed: true, unsupported: [], explicit: false });
+  const clean = { unsupported: [], sexual: false, minors: false, explicitLanguage: false };
+  it('passes only with no unsupported claims and no blocked category', () => {
+    expect(policyVerdict('4', 'friendly', clean).passed).toBe(true);
+    expect(policyVerdict('5', null, { ...clean, unsupported: ['2x faster'] })).toMatchObject({ passed: false, unsupported: ['2x faster'] });
+    expect(policyVerdict('4', 'friendly', { ...clean, sexual: true })).toMatchObject({ passed: false, blocked: ['sexual content'] });
+    expect(policyVerdict('4', 'playful', { ...clean, minors: true }).passed).toBe(false);
+  });
+  it('blocks explicit language for Flirty only', () => {
+    expect(policyVerdict('4', 'flirty', { ...clean, explicitLanguage: true })).toMatchObject({ passed: false, blocked: ['explicit language'] });
+    expect(policyVerdict('4', 'candid_founder', { ...clean, explicitLanguage: true }).passed).toBe(true);
+  });
+  it('fails closed on a malformed classifier reply', () => {
+    for (const bad of [{}, null, { unsupported: 'none', sexual: false, minors: false, explicitLanguage: false }, { unsupported: [], sexual: 'no', minors: false, explicitLanguage: false }, { unsupported: [1], sexual: false, minors: false, explicitLanguage: false }, { unsupported: [], sexual: false, minors: false }]) {
+      expect(() => policyVerdict('4', null, bad)).toThrow(/unusable/);
+    }
   });
 
-  function stub(reply: { unsupported: string[]; explicit: boolean }, voice: Record<string, string>) {
+  function stub(reply: unknown, voice: Record<string, string>, kitPolicy?: Record<string, string>) {
     const writes: Record<string, unknown>[] = [];
     let system = '';
     vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
@@ -99,6 +108,7 @@ describe('approval gates: claims and content policy', () => {
         system = JSON.parse(String(init.body)).messages[0].content;
         return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(reply) } }] }));
       }
+      if (url.includes('/kits?')) return new Response(JSON.stringify(kitPolicy ? [{ payload: { policy: kitPolicy } }] : []));
       if (url.includes('/answers?')) return new Response(JSON.stringify([{ data: voice }]));
       if (url.includes('/evidence?')) return new Response(JSON.stringify([{ claim: 'Founded in 2024', origin: 'source' }]));
       if (init.method === 'PATCH') { writes.push(JSON.parse(String(init.body))); return new Response(JSON.stringify([{ id: 'p' }])); }
@@ -107,29 +117,64 @@ describe('approval gates: claims and content policy', () => {
     return { writes, system: () => system };
   }
   const llmEnv = { ...env, OPENROUTER_API_KEY: 'k' } as Env;
-  const post = { id: 'p', rev: 1, brand_id: 'b', status: 'drafted', body: 'We are 2x faster.', checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [] } } as unknown as Post;
+  const post = { id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'We are 2x faster.', checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [] } } as unknown as Post;
   const user = { id: 'u' } as never;
 
   it('blocks approval when the claims gate finds an unsupported claim, and records why', async () => {
-    const s = stub({ unsupported: ['2x faster'], explicit: false }, { template: 'professional', claims: '5' });
+    const s = stub({ ...clean, unsupported: ['2x faster'] }, { template: 'professional', claims: '5' });
     await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('claims gate (strict)') });
     expect(s.system()).toContain('strict: every claim');
     expect(s.writes[0]).toMatchObject({ rev: 2, checks: { policy: { passed: false, unsupported: ['2x faster'] } } });
     expect(s.writes[0]).not.toHaveProperty('status');
   });
-  it('blocks explicit content and tells the checker when the voice is flirty', async () => {
-    const s = stub({ unsupported: [], explicit: true }, { template: 'flirty', claims: '4' });
-    await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('content policy') });
+  it('uses the registered kit policy over a later voice answer', async () => {
+    const s = stub({ ...clean, unsupported: ['2x faster'] }, { template: 'friendly', claims: '3' }, { claims: '5', template: 'professional' });
+    await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ message: expect.stringContaining('strict') });
+    expect(s.system()).toContain('strict: every claim');
+  });
+  it('blocks prohibited content and tells the checker when the voice is flirty', async () => {
+    const s = stub({ ...clean, sexual: true }, { template: 'flirty', claims: '4' });
+    await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('content policy (sexual content)') });
     expect(s.system()).toContain('flirty voice');
   });
   it('approves when both checks pass', async () => {
-    const s = stub({ unsupported: [], explicit: false }, { template: 'friendly', claims: '3' });
+    const s = stub(clean, { template: 'friendly', claims: '3' });
     await approvePost(llmEnv, user, post);
     expect(s.writes[0]).toMatchObject({ status: 'approved', approved_by: 'u', checks: { policy: { passed: true, claims: '3' } } });
   });
-  it('fails closed when the check cannot run', async () => {
-    const s = stub({ unsupported: [], explicit: false }, { template: 'friendly', claims: '4' });
+  it('fails closed when the check cannot run or answers badly', async () => {
+    const s = stub(clean, { template: 'friendly', claims: '4' });
     await expect(approvePost({ ...env } as Env, user, post)).rejects.toMatchObject({ status: 503 });
+    stub({ unsupported: [] }, { template: 'friendly', claims: '4' });
+    await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 502 });
     expect(s.writes).toHaveLength(0);
+  });
+});
+
+describe('accessible beautify', () => {
+  it('maps styled Unicode letters back to plain text', async () => {
+    const { plainLetters } = await import('../../worker/posts');
+    expect(plainLetters('𝗕𝘂𝗶𝗹𝘁 𝗳𝗼𝗿 𝟮𝟬𝟮𝟲 and 𝑖𝑡𝑎𝑙𝑖𝑐 • kept')).toBe('Built for 2026 and italic • kept');
+  });
+});
+
+describe('polish grounding', () => {
+  it('sends the cited evidence to the model and saves accessible output as plain letters', async () => {
+    let prompt = '';
+    let saved: Record<string, unknown> = {};
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      if (url.startsWith('https://openrouter.ai')) {
+        prompt = JSON.parse(String(init.body)).messages[1].content;
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ body: '𝗪𝗲 𝘀𝗵𝗶𝗽 weekly.', voiceFit: 80, platform: 70, notes: [] }) } }] }));
+      }
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ version: 1, payload: { sections: [{ section: 'voice', body: 'Plain.', citations: ['11111111-1111-1111-1111-111111111111'] }] } }]));
+      if (url.includes('/evidence?')) return new Response(JSON.stringify([{ claim: 'Ships weekly', quote: 'we ship every week' }]));
+      if (init?.method === 'PATCH') { saved = JSON.parse(String(init.body)); return new Response(JSON.stringify([{ id: 'p' }])); }
+      return new Response('[]');
+    }));
+    const post = { id: 'p', rev: 0, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'We ship weekly.', channel: 'LinkedIn', checks: { slop: { passed: true, hits: [] }, voiceFit: null, platform: null, notes: [] } } as unknown as Post;
+    await polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'beautify_accessible');
+    expect(prompt).toContain('Ships weekly');
+    expect(saved.body).toBe('We ship weekly.');
   });
 });
