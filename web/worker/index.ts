@@ -51,8 +51,9 @@ export default {
         });
         return json({ ok: true, at, ...out });
       } catch (e) {
-        // Full detail stays in Worker logs; the response is public (it is posted to issue #4), so it
-        // carries only a stable message and, if present, the upstream HTTP status (G-RPC diagnosis).
+        // Logging policy: the log line is the sanitised safeError output (URLs reduced to known hosts, message capped),
+        // not the raw error. The response is public (it is posted to issue #4), so it carries only a stable message
+        // and, if present, the upstream HTTP status (G-RPC diagnosis).
         console.error('registry selftest failed', safeError(e));
         const err = e as { name?: unknown; context?: { statusCode?: unknown; __code?: unknown } };
         const status = err?.context?.statusCode;
