@@ -100,6 +100,11 @@ async function registerKit(env: Env, user: User, brand: Brand) {
   const missing = GATES.filter((g) => !st.gates.some((x) => x.gate === g));
   if (missing.length) throw new HttpError(409, `approve these first: ${missing.join(', ')}`);
   if (st.kits.some((k) => k.status === 'pending')) throw new HttpError(409, 'a registration is already in progress');
+  // A section that cites evidence which no longer exists (an answer edited after drafting replaces its evidence
+  // rows) would register without its support. Refuse, and name the sections to redraft.
+  const live = new Set(st.evidence.map((e) => e.id));
+  const stale = st.sections.filter((s) => s.citations.some((id) => !live.has(id))).map((s) => s.section);
+  if (stale.length) throw new HttpError(409, `these sections cite answers you have since changed; draft them again first: ${stale.join(', ')}`);
   const version = (st.kits[0]?.version ?? 0) + 1;
   const payload = {
     brand: { id: brand.id, name: brand.name },
@@ -235,11 +240,14 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     }
     const [post] = p[4] && /^[0-9a-f-]{36}$/.test(p[4]) ? await db.select<Post>(env, 'posts', `${db.eq('id', p[4])}&${db.eq('brand_id', brand.id)}`) : [];
     if (!post) throw new HttpError(404, 'post not found');
-    if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str((await body(req)).body, 4000)) });
+    const b = await body(req);
+    // Every change names the revision the person saw; if the post changed since (another tab), it is refused.
+    if (b.rev !== post.rev) throw new HttpError(409, 'this post changed since you loaded it; reload to see the latest version');
+    if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str(b.body, 4000)) });
     if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
-    if (p[5] === 'polish' && m === 'POST') return json({ post: await polishPost(env, post, str((await body(req)).action, 40)) });
+    if (p[5] === 'polish' && m === 'POST') return json({ post: await polishPost(env, post, str(b.action, 40)) });
     if (p[5] === 'undo' && m === 'POST') return json({ post: await undoPost(env, post) });
-    if (p[5] === 'register' && m === 'POST') return json(await registerPost(env, user, post, str((await body(req)).publishedUrl, 500)), 201);
+    if (p[5] === 'register' && m === 'POST') return json(await registerPost(env, user, post, str(b.publishedUrl, 500)), 201);
   }
   return json({ error: 'not found' }, 404);
 }

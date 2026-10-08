@@ -4,7 +4,7 @@ import { Alert, Button, Container, Field, Heading, Link, Stack, Text } from '../
 import { api, ApiError } from '../../lib/api';
 
 interface Match { domainVerified?: boolean; registeredAt?: string | null; brand?: string | null; kitVersion?: number | null; approvedAt?: string | null; publishedUrl?: string | null; explorer?: string | null }
-interface Result extends Match { official: boolean; checked?: boolean; hash: string; matches?: Match[]; note?: string; truncated?: boolean }
+interface Result extends Match { official: boolean; checked?: boolean; partial?: boolean; hash: string; matches?: Match[]; note?: string; truncated?: boolean }
 
 /** Verify-1 (S6): paste a post, see whether it is an official, registered post of a Waterlily brand. */
 export function Verify() {
@@ -46,6 +46,7 @@ export function Verify() {
               Approved {result.approvedAt ? new Date(result.approvedAt).toLocaleString() : ''}, written to kit v{result.kitVersion}.{' '}
               Checked on Solana just now: the attestation exists, Waterlily signed it, and it carries this fingerprint.{' '}
               {result.domainVerified ? '' : 'The brand name is self-declared: this brand has not proven it controls its domain yet.'}
+              {result.partial ? ' Some other registrations of this text could not be checked on Solana just now, so the list below may be incomplete.' : ''}
             </Alert>
           )}
           {result && !result.official && result.checked === false && (

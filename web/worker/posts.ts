@@ -2,13 +2,13 @@ import type { User } from './auth';
 import { db } from './db';
 import { HttpError, safeError, sha256Hex, type Env } from './env';
 import { chat, parseJson, SLOP_RULES } from './llm';
-import { explorerTx, NotLanded, prepareKitAttestation, readKitAttestation, registrarFromSecret } from './registry';
+import { currentBlockHeight, explorerTx, NotLanded, prepareKitAttestation, readKitAttestation, registrarFromSecret } from './registry';
 
 export interface Post {
   id: string; brand_id: string; brief: string; channel: string | null; body: string; checks: Checks; status: string;
   kit_version: number | null; hash: string | null; approved_by: string | null; approved_at: string | null;
   signature: string | null; attestation: string | null; published_url: string | null; created_at: string; rev: number;
-  registering_at?: string | null; registered_at?: string | null;
+  registering_at?: string | null; registered_at?: string | null; last_valid_block_height?: string | number | null;
 }
 // A history entry is the full visible state before a change, so Undo restores the text *and* the scores and notes
 // that described it. Older rows stored only the text (string); those restore with scores cleared.
@@ -114,11 +114,18 @@ export const POLISH_ACTIONS = Object.keys(POLISH);
  * letter or digit, or fullwidth ASCII punctuation; real symbols such as ℉, Ω or ™ are kept as written.
  */
 const STYLED = /[\u{2100}-\u{214F}\u{2460}-\u{24FF}\u{FF01}-\u{FF5E}\u{1D400}-\u{1D7FF}\u{1F100}-\u{1F1E5}]/gu;
-export const plainLetters = (s: string) => s.replace(STYLED, (c) => {
-  const n = c.normalize('NFKC');
-  const fullwidth = c >= '\uFF01' && c <= '\uFF5E';
-  return /^[A-Za-z0-9]$/.test(n) || (fullwidth && /^[\x21-\x7E]$/.test(n)) ? n : c;
-});
+// Superscript and modifier letters (Spacing Modifier Letters U+02B0-02FF, Phonetic Extensions U+1D00-1DBF,
+// Superscripts and Subscripts U+2070-209F, Latin-1 ¹ ² ³ ª º) are mapped only in runs of two or more, which is how
+// a styled word looks (ᴴᵉˡˡᵒ, ⁰¹²³); a single one is usually meaning (x², a footnote¹) and is kept.
+const SUPER_RUN = /[\u{00AA}\u{00B2}\u{00B3}\u{00B9}\u{00BA}\u{02B0}-\u{02FF}\u{1D00}-\u{1DBF}\u{2070}-\u{209F}]{2,}/gu;
+const toPlain = (c: string) => { const n = c.normalize('NFKC'); return /^[A-Za-z0-9]$/.test(n) ? n : c; };
+export const plainLetters = (s: string) => s
+  .replace(STYLED, (c) => {
+    const n = c.normalize('NFKC');
+    const fullwidth = c >= '\uFF01' && c <= '\uFF5E';
+    return /^[A-Za-z0-9]$/.test(n) || (fullwidth && /^[\x21-\x7E]$/.test(n)) ? n : c;
+  })
+  .replace(SUPER_RUN, (run) => [...run].map(toPlain).join(''));
 
 export const isPolishAction = (a: unknown): a is string => typeof a === 'string' && Object.hasOwn(POLISH, a);
 
@@ -183,8 +190,7 @@ export function cleanPublishedUrl(raw: string): string | null {
   }
 }
 
-// A send whose outcome was unknown is reconciled after this long: by then its blockhash has expired, so if the
-// attestation does not exist it never will.
+// Rows claimed before last_valid_block_height was recorded fall back to a wall-clock wait.
 const RECONCILE_AFTER_MS = 3 * 60 * 1000;
 
 export async function registerPost(env: Env, user: User, post: Post, publishedUrl: string) {
@@ -200,6 +206,7 @@ export async function registerPost(env: Env, user: User, post: Post, publishedUr
   // approved revision), so two requests cannot both write, and any later failure can be reconciled, never re-sent.
   const [claimed] = await db.update<Post>(env, 'posts', casFilter(post, ['approved']), {
     status: 'registering', rev: (post.rev ?? 0) + 1, hash, signature: tx.signature, attestation: tx.attestation, published_url: url, registering_at: new Date().toISOString(),
+    last_valid_block_height: String(tx.lastValidBlockHeight),
   });
   if (!claimed) throw new HttpError(409, 'this post changed or a registration is already in progress; reload');
   try {
@@ -208,7 +215,7 @@ export async function registerPost(env: Env, user: User, post: Post, publishedUr
     console.error('post registration send failed', safeError(e));
     if (e instanceof NotLanded) {
       // Certainly not on chain: reopen the post for another try.
-      await db.update(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'approved', hash: null, signature: null, attestation: null, registering_at: null });
+      await db.update(env, 'posts', attemptFilter(post.id, tx.signature), RESET);
       throw new HttpError(502, 'Solana rejected the registration, try again');
     }
     // Outcome unknown: keep it locked with its signature; the next Register click reconciles it against the chain.
@@ -217,10 +224,23 @@ export async function registerPost(env: Env, user: User, post: Post, publishedUr
   return finishRegistration(env, claimed, tx.explorer);
 }
 
+// Every write that settles an attempt names that attempt (its signature), so it can never touch a newer one.
+const attemptFilter = (id: string, signature: string) => `${db.eq('id', id)}&${db.eq('status', 'registering')}&${db.eq('signature', signature)}`;
+const RESET = { status: 'approved', hash: null, signature: null, attestation: null, registering_at: null, last_valid_block_height: null };
+
 async function finishRegistration(env: Env, post: Post, explorer: string) {
-  const [row] = await db.update<Post>(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'registered', registered_at: new Date().toISOString() });
+  const [row] = await db.update<Post>(env, 'posts', attemptFilter(post.id, post.signature!), { status: 'registered', registered_at: new Date().toISOString() });
   if (!row) throw new HttpError(500, 'registered on Solana, but saving that failed; press Register again to finish');
   return { post: row, explorer };
+}
+
+/** True once the attempt can no longer land: the chain is past its last valid block height. */
+async function attemptExpired(env: Env, post: Post) {
+  if (post.last_valid_block_height != null) {
+    const height = await currentBlockHeight(env.RPC_URL);
+    return height !== null && height > BigInt(post.last_valid_block_height);
+  }
+  return Date.now() - new Date(post.registering_at ?? 0).getTime() > RECONCILE_AFTER_MS;
 }
 
 /** A post left in 'registering' (unknown outcome or a failed save): settle it from what is actually on chain. */
@@ -229,9 +249,9 @@ export async function reconcilePost(env: Env, post: Post) {
   const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
   const onchain = await readKitAttestation(env.RPC_URL, registrar.address, post.attestation, post.hash);
   if (onchain === 'verified') return finishRegistration(env, post, explorerTx(post.signature));
-  const age = Date.now() - new Date(post.registering_at ?? 0).getTime();
-  if (onchain === 'missing' && age > RECONCILE_AFTER_MS) {
-    await db.update(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'approved', hash: null, signature: null, attestation: null, registering_at: null });
+  if (onchain === 'missing' && (await attemptExpired(env, post))) {
+    const [reset] = await db.update<Post>(env, 'posts', attemptFilter(post.id, post.signature), RESET);
+    if (!reset) throw new HttpError(409, 'this registration was already settled; reload');
     throw new HttpError(409, 'the earlier registration never reached Solana; press Register to try again');
   }
   if (onchain === 'mismatch') {
@@ -259,6 +279,8 @@ export async function verifyText(env: Env, text: string) {
     p, onchain: registrar && p.attestation ? await readKitAttestation(env.RPC_URL, registrar, p.attestation, hash) : ('unavailable' as const),
   })));
   const verified = checked.filter((c) => c.onchain === 'verified');
+  // Some rows could not be checked: the result is partial, and says so.
+  const partial = checked.some((c) => c.onchain === 'unavailable');
   if (!verified.length) {
     // Could not check Solana: say so, never certify from the index alone.
     if (checked.some((c) => c.onchain === 'unavailable')) return { official: false, checked: false, hash, matches: [], note: 'Solana could not be checked just now, so this cannot be confirmed; try again in a minute' };
@@ -272,7 +294,7 @@ export async function verifyText(env: Env, text: string) {
     // Every registration so far attests domain_verified 'false': the brand name is self-declared.
     domainVerified: false,
   }));
-  return { official: true, checked: true, hash, ...matches[0], matches, truncated };
+  return { official: true, checked: true, partial, hash, ...matches[0], matches, truncated };
 }
 
 /** Public ledger: the latest 50 registrations of each type: brand name, fingerprint, version and explorer link. Content stays private. */

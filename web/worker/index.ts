@@ -28,8 +28,13 @@ export default {
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(req);
 
     if (url.pathname === '/api/health' && req.method === 'GET') {
-      const registrar = env.REGISTRAR_KEY ? (await registrarFromSecret(env.REGISTRAR_KEY)).address : null;
-      return json({ ok: true, registrar, rpcConfigured: !!env.RPC_URL, aiConfigured: !!env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || 'openrouter/auto' });
+      // Caught here so a bad key never becomes an uncaught exception (which Workers Logs would retain verbatim).
+      let registrar: string | null = null;
+      let registrarError: string | undefined;
+      if (env.REGISTRAR_KEY) {
+        try { registrar = (await registrarFromSecret(env.REGISTRAR_KEY)).address; } catch (e) { registrarError = safeError(e).name; console.error('health: registrar key unusable', safeError(e)); }
+      }
+      return json({ ok: true, registrar, registrarError, rpcConfigured: !!env.RPC_URL, aiConfigured: !!env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || 'openrouter/auto' });
     }
 
     // S0 done-when (3): one Registrar-signed devnet registration. Deploy-run only (token), so the
