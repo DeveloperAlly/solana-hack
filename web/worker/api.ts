@@ -5,7 +5,7 @@ import { readPage } from './ingest';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
-import { approvePost, draftPost, editPost, ledger, registerPost, verifyText, type Post } from './posts';
+import { approvePost, draftPost, editPost, ledger, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 interface Brand { id: string; owner_id: string; name: string; type: string; description: string | null; website: string | null; goal: string | null; channel: string | null }
 interface Answer { step: string; data: Record<string, string>; skipped: boolean }
@@ -217,6 +217,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     if (!post) throw new HttpError(404, 'post not found');
     if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str((await body(req)).body, 4000)) });
     if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
+    if (p[5] === 'polish' && m === 'POST') return json({ post: await polishPost(env, post, str((await body(req)).action, 40)) });
+    if (p[5] === 'undo' && m === 'POST') return json({ post: await undoPost(env, post) });
     if (p[5] === 'register' && m === 'POST') return json(await registerPost(env, user, post, str((await body(req)).publishedUrl, 500)), 201);
   }
   return json({ error: 'not found' }, 404);

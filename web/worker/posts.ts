@@ -51,8 +51,44 @@ export async function editPost(env: Env, post: Post, body: string) {
   if (post.status === 'registered') throw new HttpError(409, 'a registered post cannot change; draft a new one');
   const text = body.trim().slice(0, 4000);
   if (!text) throw new HttpError(400, 'the post cannot be empty');
-  const checks = { ...post.checks, slop: slopCheck(text) };
+  const history = [...((post.checks as Checks & { history?: string[] }).history ?? []), post.body].slice(-10);
+  const checks = { ...post.checks, slop: slopCheck(text), history, lastAction: 'edit' };
   const [row] = await db.update<Post>(env, 'posts', db.eq('id', post.id), { body: text, checks, status: 'drafted', approved_by: null, approved_at: null });
+  return row;
+}
+
+// Polish actions (architecture §6): single click, always reversible (the previous text is kept in checks.history).
+const POLISH: Record<string, string> = {
+  review: 'Do not rewrite. Return the text unchanged as "body", and in "notes" list up to 4 issues: unclear sentences, factual claims without evidence, off-voice phrases, platform problems.',
+  shorten: 'Shorten to the platform norm (LinkedIn about 600 characters, X under 280). Keep the point, the facts and the voice.',
+  clarify: 'Simplify sentences and remove jargon. Same length or shorter. Keep the facts and the voice.',
+  beautify: 'Structure for scanning: a hook first line, short blocks with blank lines between them, lists as lines starting with "•". For LinkedIn you may set up to 3 key phrases in Unicode mathematical bold. Keep the words otherwise.',
+  beautify_accessible: 'Structure for scanning: a hook first line, short blocks with blank lines between them, lists as lines starting with "•". Use no Unicode styling at all (screen readers read it letter by letter).',
+};
+export const POLISH_ACTIONS = Object.keys(POLISH);
+
+export async function polishPost(env: Env, post: Post, action: string) {
+  if (post.status === 'registered') throw new HttpError(409, 'a registered post cannot change; draft a new one');
+  const how = POLISH[action];
+  if (!how) throw new HttpError(400, 'unknown polish action');
+  const system = `You polish one ${post.channel || 'LinkedIn'} post. ${how} ${SLOP_RULES} Reply with JSON only: {"body": string, "notes": string[]}.`;
+  const { text } = await chat(env, system, post.body);
+  const out = parseJson<{ body?: string; notes?: string[] }>(text);
+  const body = action === 'review' ? post.body : (out.body ?? '').trim().slice(0, 4000);
+  if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
+  const history = [...((post.checks as Checks & { history?: string[] }).history ?? []), post.body].slice(-10);
+  const checks = { ...post.checks, slop: slopCheck(body), notes: (out.notes ?? []).slice(0, 4).map((n) => String(n).slice(0, 200)), history, lastAction: action };
+  const [row] = await db.update<Post>(env, 'posts', db.eq('id', post.id), { body, checks, status: 'drafted', approved_by: null, approved_at: null });
+  return row;
+}
+
+export async function undoPost(env: Env, post: Post) {
+  if (post.status === 'registered') throw new HttpError(409, 'a registered post cannot change');
+  const history = [...((post.checks as Checks & { history?: string[] }).history ?? [])];
+  const prev = history.pop();
+  if (prev === undefined) throw new HttpError(409, 'nothing to undo');
+  const checks = { ...post.checks, slop: slopCheck(prev), history, lastAction: 'undo' };
+  const [row] = await db.update<Post>(env, 'posts', db.eq('id', post.id), { body: prev, checks, status: 'drafted', approved_by: null, approved_at: null });
   return row;
 }
 

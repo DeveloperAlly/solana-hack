@@ -5,9 +5,16 @@ import { api, ApiError } from '../../lib/api';
 
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
-  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[] };
+  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: string[]; lastAction?: string };
   signature: string | null; published_url: string | null;
 }
+const POLISH = [
+  { action: 'review', label: 'Review' },
+  { action: 'shorten', label: 'Shorten' },
+  { action: 'clarify', label: 'Clarify' },
+  { action: 'beautify', label: 'Beautify' },
+  { action: 'beautify_accessible', label: 'Beautify (accessible)' },
+];
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
 
 /** S5 Create (thin): draft a post in the approved voice, check it, approve it, register it. */
@@ -115,6 +122,20 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
           <Text variant="small">Platform: {post.checks.platform ?? 'n/a'}</Text>
         </Stack>
         {post.checks.notes && post.checks.notes.length > 0 && <Text variant="small" tone="secondary">To improve: {post.checks.notes.join(' · ')}</Text>}
+        {post.status !== 'registered' && (
+          <Stack gap={2}>
+            <Text variant="label" id={`polish-${post.id}`}>Polish</Text>
+            <Stack direction="row" gap={2} wrap role="group" aria-labelledby={`polish-${post.id}`}>
+              {POLISH.map((p) => (
+                <Button key={p.action} variant="secondary" disabled={!!busy || dirty} onClick={() => run(p.action, () => api(`${base}/polish`, { body: { action: p.action } }))}>
+                  {busy === p.action ? `${p.label}…` : p.label}
+                </Button>
+              ))}
+              <Button variant="secondary" disabled={!!busy || dirty || !post.checks.history?.length} onClick={() => run('undo', () => api(`${base}/undo`, { body: {} }))}>Undo</Button>
+            </Stack>
+            {post.checks.lastAction && <Text variant="small" tone="secondary">Last change: {post.checks.lastAction.replace('_', ' ')}. Undo restores the previous text.</Text>}
+          </Stack>
+        )}
         {post.status === 'approved' && (
           <Stack gap={3}>
             <Text>Post it on {post.channel ?? 'your channel'} (copy the text exactly), then paste the link here and register it.</Text>
