@@ -1,6 +1,6 @@
 import { requireUser, type User } from './auth';
 import { db } from './db';
-import { HttpError, json, sha256Hex, type Env } from './env';
+import { HttpError, json, safeError, sha256Hex, type Env } from './env';
 import { readPage } from './ingest';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
@@ -115,7 +115,7 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     const [done] = await db.update<Kit>(env, 'kits', db.eq('id', kit.id), { status: 'registered', signature: out.signature, attestation: out.attestation });
     return { kit: done, explorer: out.explorer, attestationExplorer: out.attestationExplorer, registrar: out.registrar };
   } catch (e) {
-    console.error('kit registration failed', e);
+    console.error('kit registration failed', safeError(e));
     await db.update(env, 'kits', db.eq('id', kit.id), { status: 'failed', error: 'registration failed' });
     throw new HttpError(502, 'registering on Solana failed, try again');
   }
