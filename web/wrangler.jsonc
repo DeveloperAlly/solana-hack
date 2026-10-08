@@ -11,7 +11,8 @@
   "compatibility_flags": ["nodejs_compat"],
   // Workers Logs, so console output (registry and API errors) can be read after the fact.
   // Invocation logs are off: they record each request URL (brand ids, any query string) outside our redaction.
-  // Only our own allowlisted console output is kept (Workers Logs: observability.logs.invocation_logs).
+  // Only our own allowlisted console output is kept. Source: https://developers.cloudflare.com/workers/observability/logs/workers-logs/
+  // (invocation logs: on by default, include the request URL; disabled with observability.logs.invocation_logs = false).
   "observability": { "enabled": true, "logs": { "invocation_logs": false } },
   "assets": {
     "directory": "./dist/",
