@@ -138,6 +138,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   if ((p[1] === 'verify' || p[1] === 'ledger') && p.length === 2) await publicLimit(req, env, p[1]);
   if (p[1] === 'verify' && p.length === 2 && m === 'POST') {
     const b = await body(req);
+    // Over-long text is refused, never truncated: a truncated text could match a post it does not equal.
+    if (typeof b.text === 'string' && b.text.length > 8000) throw new HttpError(413, 'that is longer than any post we register (8,000 characters)');
     return json(await verifyText(env, str(b.text, 8000)));
   }
   if (p[1] === 'ledger' && p.length === 2 && m === 'GET') return json(await ledger(env));
