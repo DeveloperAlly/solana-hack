@@ -130,6 +130,23 @@ export const plainLetters = (s: string) => s
   })
   .replace(SUPER_RUN, (run) => [...run].map(toPlain).join(''));
 
+// X's counting rules, from twitter-text 3.1.0 configs.version3: weight 2 by default, 1 for these code point ranges,
+// 23 for any URL, 2 for any emoji sequence; the limit is 280 of these.
+const X_LIGHT = [[0, 4351], [8192, 8205], [8208, 8223], [8242, 8247]];
+/** A post's length as X counts it (weighted), so Shorten can check the real limit. */
+export function xWeightedLength(text: string): number {
+  let n = 0;
+  const withoutUrls = text.replace(/https?:\/\/\S+/gi, () => { n += 23; return ''; });
+  for (const { segment } of new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(withoutUrls)) {
+    if (/\p{Extended_Pictographic}/u.test(segment)) { n += 2; continue; }
+    for (const ch of segment) {
+      const cp = ch.codePointAt(0)!;
+      n += X_LIGHT.some(([a, b]) => cp >= a && cp <= b) ? 1 : 2;
+    }
+  }
+  return n;
+}
+
 /** Hard character limit for a channel, where the platform has one (X: 280). */
 export function platformLimit(channel: string | null): number | null {
   return /^\s*(x|twitter)\s*$/i.test(channel ?? '') ? 280 : null;
@@ -156,7 +173,7 @@ export async function polishPost(env: Env, post: Post, action: string) {
   if (action === 'beautify_accessible') body = plainLetters(body);
   // Shorten must actually meet the platform limit; a longer result is refused, not saved.
   const limit = platformLimit(post.channel);
-  if (action === 'shorten' && limit && body.length > limit) throw new HttpError(422, `Shorten came back at ${body.length} characters, over the ${limit} limit for ${post.channel}; try again or edit it yourself`);
+  if (action === 'shorten' && limit && xWeightedLength(body) > limit) throw new HttpError(422, `Shorten came back at ${xWeightedLength(body)} characters as X counts them, over the ${limit} limit; try again or edit it yourself`);
   if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
   const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
   const checks: Checks = {

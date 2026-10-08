@@ -139,6 +139,14 @@ describe('shorten respects the platform limit', () => {
     expect(platformLimit('twitter')).toBe(280);
     expect(platformLimit('LinkedIn')).toBeNull();
   });
+  it('counts length the way X does', async () => {
+    const { xWeightedLength } = await import('../../worker/posts');
+    expect(xWeightedLength('hello')).toBe(5);
+    expect(xWeightedLength('你好')).toBe(4);
+    expect(xWeightedLength('see https://example.com/a/very/long/path/that/is/longer/than/twenty/three')).toBe(4 + 23);
+    expect(xWeightedLength('ok 👍🏽')).toBe(3 + 2);
+    expect(xWeightedLength('字'.repeat(150))).toBe(300);
+  });
   it('refuses to save a Shorten result that is still over the X limit', async () => {
     let patched = false;
     vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
