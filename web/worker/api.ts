@@ -5,7 +5,7 @@ import { readPage } from './ingest';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
-import { approvePost, draftPost, editPost, ledger, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
+import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
 export const MAX_POSTS = 500;
@@ -115,6 +115,10 @@ async function registerKit(env: Env, user: User, brand: Brand) {
   if (voiceGate && voiceAnswer?.updated_at && new Date(voiceAnswer.updated_at) > new Date(voiceGate.approved_at)) {
     throw new HttpError(409, 'your voice changed after Gate 3 was approved; approve the voice again first');
   }
+  // Every gated section must be in the snapshot. A voice save deletes Gate 3 and the voice section, so a read that
+  // raced it could hold the old gate but no section; that kit would be unusable for posts.
+  const absent = GATES.filter((g) => !st.sections.some((s) => s.section === g));
+  if (absent.length) throw new HttpError(409, `draft and approve these sections first: ${absent.join(', ')}`);
   const version = (st.kits[0]?.version ?? 0) + 1;
   const payload = {
     brand: { id: brand.id, name: brand.name },
@@ -132,6 +136,19 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     // to this version checks against all of it, so neither depends on rows that can change after registration.
     evidence: st.evidence.filter((e) => e.origin !== 'assumption').map((e) => ({ id: e.id, claim: e.claim, quote: e.quote, origin: e.origin })).sort((a, b) => a.id.localeCompare(b.id)),
   };
+  // Posts written to this version are approved against this evidence, at most MAX_EVIDENCE_BATCHES model calls each;
+  // a larger set would register a kit no post could ever be approved under, so it is refused before signing.
+  const batches = evidenceBatchCount(payload.evidence);
+  if (batches > MAX_EVIDENCE_BATCHES) throw new HttpError(422, `your sources hold more evidence than one approval can check (${batches} batches, limit ${MAX_EVIDENCE_BATCHES}); remove sources you no longer need on the Your links step`);
+  // The snapshot came from separate reads. Read the voice gate, answer and section again: if any changed while this
+  // ran (a voice save in flight), the snapshot may pair rows from two revisions, so refuse rather than sign it.
+  const again = await brandState(env, brand);
+  const voiceKey = (x: typeof st) => JSON.stringify([
+    x.gates.find((g) => g.gate === 'voice')?.approved_at ?? null,
+    x.answers.find((a) => a.step === 'voice')?.updated_at ?? null,
+    x.sections.find((s) => s.section === 'voice')?.body ?? null,
+  ]);
+  if (voiceKey(again) !== voiceKey(st)) throw new HttpError(409, 'your voice changed while registering; check Gate 3 and try again');
   const hash = 'sha256:' + (await sha256Hex(canonical(payload)));
   const [kit] = await db.insert<Kit>(env, 'kits', { brand_id: brand.id, version, hash, payload, approved_by: user.id, status: 'pending' });
   try {
@@ -248,6 +265,18 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const rows = skipped ? [] : Object.entries(data).filter(([, v]) => v).map(([k, v]) => ({ brand_id: brand.id, section: step, claim: `${k}: ${v}`, origin: 'owner_answer' }));
     if (rows.length) await db.insert(env, 'evidence', rows);
     return json({ answer: row });
+  }
+  if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
+    // Removing a source removes the facts read from it. Sections that cited them then need redrafting before the next
+    // registration (registerKit refuses stale citations); kits already registered keep their own evidence snapshot.
+    const id = p[4];
+    if (!/^[0-9a-f-]{36}$/i.test(id)) throw new HttpError(404, 'not found');
+    const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
+    const [src] = await db.select<{ id: string }>(env, 'sources', `${f}&select=id`);
+    if (!src) throw new HttpError(404, 'not found');
+    await db.del(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('source_id', id)}`);
+    await db.del(env, 'sources', f);
+    return json({ removed: id });
   }
   if (p[3] === 'sources' && p.length === 4 && m === 'POST') {
     const b = await body(req);

@@ -155,6 +155,21 @@ function SourcesStep({ state, onChange, onNext, onBack }: { state: BrandState; o
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
 
+  async function remove(id: string) {
+    setBusy(true);
+    setError(null);
+    setResult(null);
+    try {
+      await api(`/brands/${state.brand.id}/sources/${id}`, { method: 'DELETE' });
+      setResult('Removed the link and the facts read from it. Redraft any section that cited them before you register.');
+    } catch (err) {
+      setError(msg(err));
+    } finally {
+      setBusy(false);
+      await onChange();
+    }
+  }
+
   async function add(e: FormEvent) {
     e.preventDefault();
     if (!url.trim()) return setError('Paste a link first.');
@@ -187,10 +202,13 @@ function SourcesStep({ state, onChange, onNext, onBack }: { state: BrandState; o
         <Stack gap={2} as="ul">
           {state.sources.map((s) => (
             <li key={s.id}>
-              <Text>
-                {s.title || s.url} · {s.status === 'read' ? `${state.evidence.filter((e) => e.source_id === s.id).length} facts` : s.status}
-                {s.error ? ` (${s.error})` : ''}
-              </Text>
+              <Stack gap={1}>
+                <Text>
+                  {s.title || s.url} · {s.status === 'read' ? `${state.evidence.filter((e) => e.source_id === s.id).length} facts` : s.status}
+                  {s.error ? ` (${s.error})` : ''}
+                </Text>
+                <Button variant="secondary" onClick={() => remove(s.id)} disabled={busy} aria-label={`Remove ${s.title || s.url}`}>Remove</Button>
+              </Stack>
             </li>
           ))}
         </Stack>

@@ -234,6 +234,21 @@ describe('claims check over large evidence', () => {
     expect(b.every((x) => x.length <= 24000)).toBe(true);
     expect(b.join('\n').split('\n')).toHaveLength(300);
   });
+  it('keeps a long owner answer whole instead of cutting its end off', async () => {
+    const { evidenceBatches } = await import('../../worker/posts');
+    const long = `- why: ${'y'.repeat(2050)} SUPPORTING-END`;
+    expect(evidenceBatches([long]).join('\n')).toContain('SUPPORTING-END');
+    const huge = 'z'.repeat(50000);
+    const parts = evidenceBatches([huge]);
+    expect(parts.every((x) => x.length <= 24000)).toBe(true);
+    expect(parts.join('')).toBe(huge);
+  });
+  it('counts the batches an evidence set needs', async () => {
+    const { evidenceBatchCount, MAX_EVIDENCE_BATCHES } = await import('../../worker/posts');
+    expect(evidenceBatchCount([{ claim: 'short' }])).toBe(1);
+    const big = Array.from({ length: 1000 }, (_, i) => ({ claim: `fact ${i} ${'x'.repeat(300)}` }));
+    expect(evidenceBatchCount(big)).toBeGreaterThan(MAX_EVIDENCE_BATCHES);
+  });
   it('only re-checks still-unsupported claims against later batches', async () => {
     const { policyCheck } = await import('../../worker/posts');
     const prompts: string[] = [];

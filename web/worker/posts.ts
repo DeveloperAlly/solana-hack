@@ -283,7 +283,9 @@ export async function allEvidence(env: Env, brandId: string) {
   return out;
 }
 
-const MAX_EVIDENCE_BATCHES = 8; // about 190k characters of evidence
+export const MAX_EVIDENCE_BATCHES = 8; // about 190k characters of evidence
+/** How many classifier batches an evidence set needs; registration refuses a kit that one approval could not check. */
+export const evidenceBatchCount = (evidence: { claim: string }[]) => evidenceBatches(evidence.map((e) => `- ${e.claim}`)).length;
 
 /**
  * Pre-approval check: the post's claims gate against the brand's evidence, and the content policy categories.
@@ -296,7 +298,7 @@ export async function policyCheck(env: Env, post: Post): Promise<PolicyResult> {
   const batches = evidenceBatches(facts0.map((e) => `- ${e.claim}`));
   // Bounded cost: at most MAX_EVIDENCE_BATCHES model calls per approval. Beyond that the check cannot be complete,
   // so it fails closed rather than approving on partial evidence.
-  if (batches.length > MAX_EVIDENCE_BATCHES) throw new HttpError(422, `your brand has more evidence than one approval can check (${batches.length} batches, limit ${MAX_EVIDENCE_BATCHES}); remove sources you no longer need`);
+  if (batches.length > MAX_EVIDENCE_BATCHES) throw new HttpError(422, `your brand has more evidence than one approval can check (${batches.length} batches, limit ${MAX_EVIDENCE_BATCHES}); remove sources you no longer need on the Your links step, then register a new kit version`);
   const facts = batches[0];
   const system = `You check one social post before a brand approves it. Do not rewrite it.
 1. Claims gate, ${CLAIMS_POLICY[claims]}. List each claim in the post that the evidence does not support, quoted briefly. Anything the evidence states, or that is plainly opinion where opinions are allowed, is supported.
@@ -323,8 +325,10 @@ Reply with JSON only, all four keys: {"unsupported": string[], "sexual": boolean
 export function evidenceBatches(lines: string[], maxChars = 24000): string[] {
   const out: string[] = [];
   let cur = '';
-  for (const line of lines) {
-    const l = line.slice(0, 2000);
+  // Every line is kept whole (a claim cut short could hide the part that supports a post). Only a line longer than a
+  // whole batch, which the answer and source limits do not produce, is split, into consecutive batch-sized pieces.
+  const pieces = lines.flatMap((line) => (line.length <= maxChars ? [line] : Array.from({ length: Math.ceil(line.length / maxChars) }, (_, i) => line.slice(i * maxChars, (i + 1) * maxChars))));
+  for (const l of pieces) {
     if (cur && cur.length + l.length + 1 > maxChars) { out.push(cur); cur = ''; }
     cur = cur ? `${cur}\n${l}` : l;
   }
