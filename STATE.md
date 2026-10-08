@@ -6,7 +6,22 @@ last_edited_by: agent
 ---
 # STATE
 
-**Phase:** Build planning. Purpose (ADR-002), business model and product map (ADR-003) and the Brand Builder architecture (accepted 2026-10-06) are decided. The phased build plan is [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4).
+**Phase:** Build: the product spine is on main and the rest of the UI waits in a PR stack. Purpose (ADR-002), business model and product map (ADR-003) and the Brand Builder architecture (accepted 2026-10-06) are decided. The phased build plan is [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4).
+
+**Where the build is (2026-10-08):**
+- **On main:**
+  - S0 registry route ([PR #10](https://github.com/DeveloperAlly/solana-hack/pull/10));
+  - S1–S4: email-code sign-in, intake with URL ingest and quoted evidence, AI-drafted sections, three gates, and kit v1 registration ([PR #11](https://github.com/DeveloperAlly/solana-hack/pull/11)).
+- **Open, merge in this order:**
+  - [#14](https://github.com/DeveloperAlly/solana-hack/pull/14): registry diagnostics;
+  - [#13](https://github.com/DeveloperAlly/solana-hack/pull/13): S5–S6 thin, covering create, approve, register, Verify and Ledger;
+  - [#15](https://github.com/DeveloperAlly/solana-hack/pull/15): full landing and the signed-in hub. It contains #13;
+  - [#16](https://github.com/DeveloperAlly/solana-hack/pull/16): polish actions with undo;
+  - [#17](https://github.com/DeveloperAlly/solana-hack/pull/17): the voice step from research 06.
+
+  Retarget #16 and #17 to main once their bases merge.
+- **Database:** schema `spec/db/001`–`003` is applied to Supabase. RLS is on with no policies, so only the Worker reads and writes.
+- **Not yet proven live:** the deployed registry selftest returned 502 after #11. #14 adds the safe diagnostics needed to find the cause.
 **Deadline:** Colosseum Crypto World's Fair, Oct 12 2026, 11:59pm PT (Oct 13, 5:59pm Melbourne). Waterlily's own kit v1 is due by Oct 9.
 
 ## Recent decisions
@@ -25,8 +40,13 @@ last_edited_by: agent
 - [ADR-007](./.agentic/what/decisions/adr_007_pitch_positioning.md): the pitch makes end to end (build, run, prove, pay) the differentiator and leads the sale with crypto and developer brands; build scope unchanged. Deck v2 text and notes are in [pitch_deck_2026_10_06.md](./.agentic/what/context/pitch_deck_2026_10_06.md) (draft; placeholders to fill), with the [review](./.agentic/what/context/vc_judge_review_2026_10_06.md) behind it.
 - Demo: Waterlily builds its own brand from scratch, live (headline). aDNA is the second case (strong written brand, no social). film.fun and GamersLab are semi-established case studies. Polish actions include Beautify.
 
+- Critical path to submission (2026-10-08): finish the spine, a thin S5, and Verify and Ledger first, then the submission assets. Payouts, X and LinkedIn OAuth, quests, claims, the full settings and the remaining canvas batches are cut and labelled "coming soon". Review loops run on code PRs only.
+- Helius devnet RPC (G-RPC) and a funded OpenRouter key are in the deploy secrets (owner, 2026-10-08). The Registrar is `E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG`.
+
 ## Blockers
-- **Before Oct 9:** buy 10 OpenRouter credits (the free cap is 50 requests a day) and set up custom SMTP for Supabase OTP (the built-in limit is 2 emails an hour).
+- Registry 502 on the live app: cause unknown until #14 deploys.
+- Supabase email template: the Magic Link template must include `{{ .Token }}`, or sign-in emails carry a link and no code (owner action).
+- Custom SMTP for Supabase OTP is still open. The built-in limit is 2 emails an hour, which is too low for demo rehearsals.
 
 ## Proposed (awaiting owner)
 - ADR-005: UI in React on design tokens (one file changes the look); components are built slice by slice, when a screen first needs them (owner, 2026-10-06), not as a library up front; Vite chosen (owner, 2026-10-06).
@@ -34,6 +54,14 @@ last_edited_by: agent
 - [UI build mission](./.agentic/how/missions/mission_ui_build.md): proof-driven delivery in timed chunks; slices S0–S8 along the critical path, each checked on the deployed site. S0 live half waits on the secrets and the Registrar key (see Next).
 
 ## Next
+- **Now (2026-10-08):**
+  1. Merge the PR stack in the order above.
+  2. Read the #14 fields in Workers Logs and fix the registry 502.
+  3. Run the full flow on https://jamjam.tech: sign-in, ingest, gates, kit v1, then a post through Verify. Check the rows in Supabase.
+  4. Register Waterlily's own kit v1 (due Oct 9).
+  5. Make the submission assets: the presentation video and the demo video (3 minutes or less each), the logo, the go-to-market strategy, demand validation, and the repo link (the README is written for judges).
+- **Earlier items**, superseded where they conflict with the critical path above:
+
 0. Owner reviews the remaining [backend map](./.agentic/what/context/backend_map.md) gaps.
 1. UI slice S0 per the [UI build mission](./.agentic/how/missions/mission_ui_build.md). **Done (2026-10-06):** checks (1), (4) and (5): the app is built with Vite, deployed to https://jamjam.tech from GitHub Actions ([PR #6](https://github.com/DeveloperAlly/solana-hack/pull/6)), and the post-deploy Playwright run passes (landing loads, `/system` deep link works, axe 0 on both); a token edit changes the page (S0 proof, run in CI). The deploy and database settings exist (owner, 2026-10-06; CI checks their names). The Cloudflare and Supabase accounts exist and the owner has no Phantom account ([owner answers](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6014295120)). **Left:** (2) email OTP sign-in, and (3) one Registrar-signed devnet registration from the app. The G-SAS spike passed (2026-10-08). A funded devnet Registrar (`E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG`) exists; its key is in the `SPIKE_KEYS` Actions secret, not yet in the app's secret store. The Worker also needs a provider RPC (G-RPC).
 2. Phase W of [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4): rework and complete the wireframes from the [audit](./.agentic/what/context/wireframe_audit_2026_10_06.md), then mark each screen need or boilerplate.
