@@ -2,7 +2,7 @@
 type: architecture
 status: proposed
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-08
 last_edited_by: agent
 tags: [architecture, backend, api, gaps]
 ---
@@ -144,7 +144,8 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 | G-X-COST | X charges $0.20 per post with a URL; reading mentions is also paid | Med | Cap daily X spend in cron; show the cost before publishing |
 | G-LI-API | It is unverified whether a `w_member_social`-only app can call `/rest/posts`, and whether `userinfo.sub` equals the person ID | Med | Build on `/v2/ugcPosts` first; test both in P0 |
 | G-MEMO-V4 | It is unverified whether memo program v4 (`Memo4c2p…`) is deployed on devnet | Med | Check with `getAccountInfo`; fall back to `LEGACY_MEMO_PROGRAM_ADDRESS_V3` |
-| **G-SAS** | (1) There is no official per-cluster address list. Devnet deployment at `22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG` is implied by the official devnet example, but not confirmed on-chain. (2) `@solana/kit` resolves to its Node build under `workerd` (it imports `ws`, `fs/promises`, `path` and `events`). (3) Verify must check `attestation.signer` = Registrar; the official example doesn't. (4) The deployed program predates SAS 2.0.0 | High | P0 spike (half a day): `getAccountInfo` on devnet; `wrangler deploy --dry-run` with `nodejs_compat`; send over HTTP and poll for confirmation, with no WebSocket subscriptions. If any of these fail, use the memo fallback (G-MEMO-V4) |
+| **G-SAS** (resolved 2026-10-08) | Settled by the devnet spike (`spike/`, run 4 of the devnet-spike workflow). (1) The SAS program `22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG` exists and is executable on devnet. (2) From Node, `@solana/attestation` 2.1.0 created credential `WATERLILY`, schema `WL-KIT` v1 and one attestation, then read it back: signer = Registrar, credential and schema match, all 5 fields decoded. (3) In local workerd (`wrangler dev`, `nodejs_compat`) the same SDK bundles and runs up to the network call, which fails on the RPC (G-RPC); a full in-Worker transaction is not yet proven. (4) A test mint (6 decimals) put 1000 tokens in the brand wallet. Evidence: `spike/out/results.json` (commits 372be23, 2546d76) | Done | Keep SAS; the memo fallback is not needed. Verify still checks `signer` = Registrar. See G-RPC |
+| **G-RPC** (new 2026-10-08) | (1) The public devnet RPC returns HTTP 403 to `fetch` from workerd, with or without a User-Agent; from Node on the same runner it works. (2) The public RPC also returns 429 under light load. (3) The devnet faucet refuses GitHub Actions IPs (13 attempts, all 429 or internal error). Cause of (1) is unverified | High | Use a provider RPC (for example Helius free tier) for the Worker and set `RPC_URL` as a secret; fund devnet wallets from faucet.solana.com by hand |
 | G-SUPA-PAUSE | Supabase Free pauses a project after a week of inactivity | Low | The daily cron runs one query |
 | G-LLM-QUOTA | The free-model cap is 50 requests a day until 10 credits are bought | High (for the demo) | Buy 10 OpenRouter credits before Oct 9 |
 
@@ -181,7 +182,7 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 
 **TO VERIFY (not on an official page):**
 - the DNS-over-HTTPS endpoint
-- SAS deployed on devnet; `@solana/kit` and `@solana/attestation` bundling in workerd; the deployed SAS program version
+- ~~SAS deployed on devnet; kit and attestation bundling in workerd~~ (checked 2026-10-08, G-SAS); the deployed SAS program version; a full transaction from inside a Worker (G-RPC)
 - exa-js on Workers
 - memo v4 deployed on devnet, and its size limit
 - Ed25519 pkcs8 import in workerd

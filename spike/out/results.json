@@ -1,15 +1,16 @@
 {
-  "ranAt": "2026-10-07T06:40:14.049Z",
+  "ranAt": "2026-10-07T13:39:36.442Z",
   "rpc": "https://api.devnet.solana.com",
+  "keySource": "secret SPIKE_KEYS",
   "steps": {
     "health": {
       "status": "done",
       "output": {
         "health": "ok",
         "keys": {
-          "registrar": "7sbU72QEb3to6PVYDovL9cNRDe23edDskUHRcsySMQvW",
-          "brand": "3qQ7sEs4SgkroJW3yNCoNGx5yoLRCQmyaX9tSii7brvj",
-          "ambassador": "HRe9RikvdSPDSXLY7ADA3j4oJ6f9MmzaYsfR3G9SZFF8"
+          "registrar": "E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG",
+          "brand": "FKnAg29UrsjRq7QoDTuXHXdzUsr3F4CY6UvY1z1RJQ8A",
+          "ambassador": "DjxjGtiq5FN8VMy1GRA6uqkagU2aZViBkqoQJMpSgh8D"
         },
         "sasProgram": {
           "address": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG",
@@ -17,9 +18,9 @@
           "executable": true
         },
         "balancesSol": {
-          "registrar": 0,
-          "brand": 0,
-          "ambassador": 0
+          "registrar": 9.87302056,
+          "brand": 0.1,
+          "ambassador": 0.02
         }
       }
     },
@@ -27,45 +28,58 @@
       "status": "done",
       "output": {
         "registrar": {
-          "ok": false,
-          "attempts": [
-            "JSON-RPC error: Internal JSON-RPC error (Internal error)",
-            "HTTP error (429): Too Many Requests",
-            "HTTP error (429): Too Many Requests",
-            "HTTP error (429): Too Many Requests",
-            "HTTP error (429): Too Many Requests",
-            "HTTP error (429): Too Many Requests"
-          ]
+          "ok": true,
+          "note": "already funded"
         },
         "balancesSol": {
-          "registrar": 0,
-          "brand": 0,
-          "ambassador": 0
+          "registrar": 9.87302056,
+          "brand": 0.1,
+          "ambassador": 0.02
         }
       }
     },
     "sas": {
-      "status": "error",
-      "error": "skipped: Registrar has no devnet SOL (airdrop failed), so it cannot pay fees",
-      "context": null,
-      "cause": null,
-      "causeContext": null
+      "status": "done",
+      "output": {
+        "attestationTx": "https://explorer.solana.com/tx/dSmB6sFDXsmx3kYwgszAG8t1ZVghafkLWvfZj9Lbmv8gXXCstkfbvxqWcpK1x1W9bde3mHoNYkT6MRQEVVaMnLs?cluster=devnet",
+        "readBack": {
+          "attestation": "https://explorer.solana.com/address/AUnC9x45ebBqjMUcGvw3rzNhXQqpERrREJ5PLhEk8usZ?cluster=devnet",
+          "nonce": "2HaQnZQi6TmAoSFyomP4xQweuGextMzzGLLvTzY1TdnM",
+          "signerIsRegistrar": true,
+          "credentialMatches": true,
+          "schemaMatches": true,
+          "expiry": "0",
+          "data": {
+            "brand_id": "waterlily-spike",
+            "hash": "sha256:0000spike",
+            "kit_version": "1",
+            "approver": "spike",
+            "domain_verified": "false"
+          }
+        },
+        "credential": "https://explorer.solana.com/address/Di3hYbwxQorPoGAb3QSCQxkK4drv3UeQTjTheYLMPiS4?cluster=devnet",
+        "schema": "https://explorer.solana.com/address/26JVvYKHuXzFTvGqiADhhVS1B4kG1NT54qZrQ5cf3cxF?cluster=devnet",
+        "registrarSol": 9.87117152
+      }
     },
     "token": {
-      "status": "error",
-      "error": "skipped: Registrar has no devnet SOL (airdrop failed), so it cannot pay fees",
-      "context": null,
-      "cause": null,
-      "causeContext": null
+      "status": "done",
+      "output": {
+        "testTokenMint": "D1bTFVR6reUyf32BqTmW53yfWusRQtnwZx2y9Y81tvZx",
+        "decimals": 6,
+        "brandTokenAccount": "3A2TkAnzZscR29McwsyYTZEqaYUDXKNzauiyURCfgPsz",
+        "brandBalanceUi": "1000",
+        "tx": "https://explorer.solana.com/tx/4qQhW8R9huPZwpH72MA4ryRpgDwiT2RMphFAr7UWQDXvGWbRNURfrJ3wKr1JiySHXoyNkJx3zgds17eDobQg54ax?cluster=devnet"
+      }
     },
     "health_final": {
       "status": "done",
       "output": {
         "health": "ok",
         "keys": {
-          "registrar": "7sbU72QEb3to6PVYDovL9cNRDe23edDskUHRcsySMQvW",
-          "brand": "3qQ7sEs4SgkroJW3yNCoNGx5yoLRCQmyaX9tSii7brvj",
-          "ambassador": "HRe9RikvdSPDSXLY7ADA3j4oJ6f9MmzaYsfR3G9SZFF8"
+          "registrar": "E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG",
+          "brand": "FKnAg29UrsjRq7QoDTuXHXdzUsr3F4CY6UvY1z1RJQ8A",
+          "ambassador": "DjxjGtiq5FN8VMy1GRA6uqkagU2aZViBkqoQJMpSgh8D"
         },
         "sasProgram": {
           "address": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG",
@@ -73,12 +87,12 @@
           "executable": true
         },
         "balancesSol": {
-          "registrar": 0,
-          "brand": 0,
-          "ambassador": 0
+          "registrar": 9.86860628,
+          "brand": 0.1,
+          "ambassador": 0.02
         }
       }
     }
   },
-  "allOk": false
+  "allOk": true
 }
