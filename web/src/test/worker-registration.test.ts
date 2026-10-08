@@ -2,14 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../worker/env';
 
 // The Solana side is mocked; these tests pin the database state machine around it.
-const reg = vi.hoisted(() => ({ send: vi.fn(), onchain: 'verified' as string }));
+const reg = vi.hoisted(() => ({ send: vi.fn(), onchain: 'verified' as string, chainAt: 100n as bigint | null }));
 vi.mock('../../worker/registry', () => {
   class NotLanded extends Error {}
   return {
     NotLanded,
     explorerTx: (s: string) => `https://explorer/${s}`,
     registrarFromSecret: async () => ({ address: 'REGISTRAR' }),
-    prepareKitAttestation: async () => ({ signature: 'SIG', attestation: 'ATT', explorer: 'https://explorer/SIG', send: reg.send }),
+    prepareKitAttestation: async () => ({ signature: 'SIG', attestation: 'ATT', explorer: 'https://explorer/SIG', lastValidBlockHeight: 150n, send: reg.send }),
+    currentBlockHeight: async () => reg.chainAt,
     readKitAttestation: async () => reg.onchain,
   };
 });
@@ -35,9 +36,14 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-const approved = { id: 'p', rev: 2, brand_id: 'b', status: 'approved', body: 'Text.', kit_version: 1, approved_by: 'u', checks: { policy: { passed: true } } } as never;
+const approved = { id: 'p', rev: 2, brand_id: 'b', status: 'approved', body: 'Text.', kit_version: 1, approved_by: 'u', checks: { policy: { passed: true, claims: '4', template: null, unsupported: [], blocked: [] } } } as never;
 
 describe('post registration', () => {
+  it('refuses a post whose stored result has the old fail-open shape', async () => {
+    const old = { ...(approved as object), checks: { policy: { claims: '4', unsupported: [], explicit: false, passed: true } } } as never;
+    await expect(registerPost(env, user, old, '')).rejects.toMatchObject({ status: 409 });
+    expect(writes).toHaveLength(0);
+  });
   it('refuses a post approved before the claims and content checks existed', async () => {
     const legacy = { ...(approved as object), checks: {} } as never;
     await expect(registerPost(env, user, legacy, '')).rejects.toMatchObject({ status: 409, message: expect.stringContaining('Run approval checks') });
@@ -67,6 +73,22 @@ describe('post registration', () => {
     await reconcilePost(env, locked);
     expect(writes[0].body).toMatchObject({ status: 'registered' });
     expect(reg.send).not.toHaveBeenCalled();
+  });
+  it('reopens on block height, not wall time, and only the attempt it checked', async () => {
+    reg.onchain = 'missing';
+    const locked = { ...(approved as object), status: 'registering', hash: 'h', signature: 'SIG', attestation: 'ATT', last_valid_block_height: '150', registering_at: new Date(Date.now() - 60 * 60 * 1000).toISOString() } as never;
+    reg.chainAt = 140n; // an hour later, but the chain has not passed the height: it could still land
+    await expect(reconcilePost(env, locked)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('settling') });
+    expect(writes).toHaveLength(0);
+    reg.chainAt = 151n;
+    await expect(reconcilePost(env, locked)).rejects.toMatchObject({ message: expect.stringContaining('never reached') });
+    expect(writes[0].url).toContain('signature=eq.SIG');
+    expect(writes[0].body).toMatchObject({ status: 'approved', last_valid_block_height: null });
+  });
+  it('records the last valid block height in the claim', async () => {
+    reg.send.mockResolvedValue(undefined);
+    await registerPost(env, user, approved, '');
+    expect(writes[0].body).toMatchObject({ last_valid_block_height: '150' });
   });
   it('reconciles a locked post: reopened only once its blockhash must have expired', async () => {
     reg.onchain = 'missing';

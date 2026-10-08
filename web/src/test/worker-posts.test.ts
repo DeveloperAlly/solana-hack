@@ -170,6 +170,7 @@ describe('accessible beautify', () => {
     expect(plainLetters('𝗕𝘂𝗶𝗹𝘁 𝗳𝗼𝗿 𝟮𝟬𝟮𝟲 and 𝑖𝑡𝑎𝑙𝑖𝑐 • kept')).toBe('Built for 2026 and italic • kept');
     expect(plainLetters('Ｗｅ ⓢⓗⓘⓟ ① ℍ𝕖𝕪 🄰 🇦🇺')).toBe('We ship 1 Hey A 🇦🇺');
     expect(plainLetters('98℉, 10Ω, Brand™, ⑩ items, ＃1')).toBe('98℉, 10Ω, Brand™, ⑩ items, #1');
+    expect(plainLetters('ᴴᵉˡˡᵒ ʰᵉˡˡᵒ ⁰¹²³ but x² and note¹ stay')).toBe('Hello hello 0123 but x² and note¹ stay');
   });
 });
 
@@ -212,5 +213,43 @@ describe('polish uses the kit evidence snapshot', () => {
     await polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'review');
     expect(prompt).toContain('Snapshot fact');
     expect(urls.some((u) => u.includes('/evidence?'))).toBe(false);
+  });
+});
+
+describe('claims check over large evidence', () => {
+  it('splits evidence into bounded batches', async () => {
+    const { evidenceBatches } = await import('../../worker/posts');
+    const b = evidenceBatches(Array.from({ length: 300 }, (_, i) => `- fact ${i} ${'x'.repeat(200)}`));
+    expect(b.length).toBeGreaterThan(1);
+    expect(b.every((x) => x.length <= 24000)).toBe(true);
+    expect(b.join('\n').split('\n')).toHaveLength(300);
+  });
+  it('only re-checks still-unsupported claims against later batches', async () => {
+    const { policyCheck } = await import('../../worker/posts');
+    const prompts: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      if (url.startsWith('https://openrouter.ai')) {
+        const user = JSON.parse(String(init.body)).messages[1].content as string;
+        prompts.push(user);
+        const reply = prompts.length === 1 ? { unsupported: ['Founded 2019', 'Used by 40 teams'], sexual: false, minors: false, explicitLanguage: false } : { supported: ['Used by 40 teams'] };
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(reply) } }] }));
+      }
+      if (url.includes('/evidence?')) {
+        const offset = Number(new URL(url).searchParams.get('offset'));
+        return new Response(JSON.stringify(offset === 0 ? Array.from({ length: 200 }, (_, i) => ({ claim: `fact ${i} ${'y'.repeat(200)}` })) : []));
+      }
+      if (url.includes('/answers?')) return new Response(JSON.stringify([{ data: { claims: '4', template: 'friendly' } }]));
+      return new Response('[]');
+    }));
+    const r = await policyCheck({ ...env, OPENROUTER_API_KEY: 'k' } as Env, { brand_id: 'b', kit_version: null, body: 'p' } as unknown as Post);
+    expect(prompts.length).toBeGreaterThan(1);
+    expect(prompts[1]).toContain('- Founded 2019');
+    expect(r).toMatchObject({ unsupported: ['Founded 2019'], passed: false });
+  });
+  it('treats only the current result shape as passing', async () => {
+    const { isCurrentPolicy } = await import('../../worker/posts');
+    expect(isCurrentPolicy({ claims: '4', template: null, unsupported: [], blocked: [], passed: true })).toBe(true);
+    expect(isCurrentPolicy({ claims: '4', unsupported: [], explicit: false, passed: true })).toBe(false);
+    expect(isCurrentPolicy(undefined)).toBe(false);
   });
 });

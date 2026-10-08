@@ -2,13 +2,13 @@ import type { User } from './auth';
 import { db } from './db';
 import { HttpError, safeError, sha256Hex, type Env } from './env';
 import { chat, parseJson, SLOP_RULES } from './llm';
-import { explorerTx, NotLanded, prepareKitAttestation, readKitAttestation, registrarFromSecret } from './registry';
+import { currentBlockHeight, explorerTx, NotLanded, prepareKitAttestation, readKitAttestation, registrarFromSecret } from './registry';
 
 export interface Post {
   id: string; brand_id: string; brief: string; channel: string | null; body: string; checks: Checks; status: string;
   kit_version: number | null; hash: string | null; approved_by: string | null; approved_at: string | null;
   signature: string | null; attestation: string | null; published_url: string | null; created_at: string; rev: number;
-  registering_at?: string | null; registered_at?: string | null;
+  registering_at?: string | null; registered_at?: string | null; last_valid_block_height?: string | number | null;
 }
 // A history entry is the full visible state before a change, so Undo restores the text *and* the scores and notes
 // that described it. Older rows stored only the text (string); those restore with scores cleared.
@@ -114,11 +114,18 @@ export const POLISH_ACTIONS = Object.keys(POLISH);
  * letter or digit, or fullwidth ASCII punctuation; real symbols such as ℉, Ω or ™ are kept as written.
  */
 const STYLED = /[\u{2100}-\u{214F}\u{2460}-\u{24FF}\u{FF01}-\u{FF5E}\u{1D400}-\u{1D7FF}\u{1F100}-\u{1F1E5}]/gu;
-export const plainLetters = (s: string) => s.replace(STYLED, (c) => {
-  const n = c.normalize('NFKC');
-  const fullwidth = c >= '\uFF01' && c <= '\uFF5E';
-  return /^[A-Za-z0-9]$/.test(n) || (fullwidth && /^[\x21-\x7E]$/.test(n)) ? n : c;
-});
+// Superscript and modifier letters (Spacing Modifier Letters U+02B0-02FF, Phonetic Extensions U+1D00-1DBF,
+// Superscripts and Subscripts U+2070-209F, Latin-1 ¹ ² ³ ª º) are mapped only in runs of two or more, which is how
+// a styled word looks (ᴴᵉˡˡᵒ, ⁰¹²³); a single one is usually meaning (x², a footnote¹) and is kept.
+const SUPER_RUN = /[\u{00AA}\u{00B2}\u{00B3}\u{00B9}\u{00BA}\u{02B0}-\u{02FF}\u{1D00}-\u{1DBF}\u{2070}-\u{209F}]{2,}/gu;
+const toPlain = (c: string) => { const n = c.normalize('NFKC'); return /^[A-Za-z0-9]$/.test(n) ? n : c; };
+export const plainLetters = (s: string) => s
+  .replace(STYLED, (c) => {
+    const n = c.normalize('NFKC');
+    const fullwidth = c >= '\uFF01' && c <= '\uFF5E';
+    return /^[A-Za-z0-9]$/.test(n) || (fullwidth && /^[\x21-\x7E]$/.test(n)) ? n : c;
+  })
+  .replace(SUPER_RUN, (run) => [...run].map(toPlain).join(''));
 
 export const isPolishAction = (a: unknown): a is string => typeof a === 'string' && Object.hasOwn(POLISH, a);
 
@@ -202,6 +209,15 @@ async function postPolicy(env: Env, post: Post): Promise<{ claims: string; templ
   return { claims: CLAIMS_POLICY[voice?.data?.claims ?? ''] ? voice!.data.claims : '4', template: voice?.data?.template ?? null };
 }
 
+/**
+ * A passing result in the current shape. Results stored by the earlier, fail-open check ({explicit, passed}) do not
+ * count: they have no per-category verdict, so the post is checked again before it can be approved or registered.
+ */
+export function isCurrentPolicy(p: unknown): boolean {
+  const r = p as Partial<PolicyResult> | undefined;
+  return !!r && r.passed === true && Array.isArray(r.blocked) && r.blocked.length === 0 && Array.isArray(r.unsupported) && r.unsupported.length === 0 && 'template' in r;
+}
+
 /** Every non-assumption evidence row for a brand, paged in a fixed order, so no supporting fact is silently left out. */
 export async function allEvidence(env: Env, brandId: string) {
   const out: { claim: string }[] = [];
@@ -221,8 +237,8 @@ export async function allEvidence(env: Env, brandId: string) {
 export async function policyCheck(env: Env, post: Post): Promise<PolicyResult> {
   const { claims, template } = await postPolicy(env, post);
   const flirty = template === 'flirty';
-  const evidence = await allEvidence(env, post.brand_id);
-  const facts = evidence.map((e) => `- ${e.claim}`).join('\n') || '(no evidence recorded)';
+  const batches = evidenceBatches((await allEvidence(env, post.brand_id)).map((e) => `- ${e.claim}`));
+  const facts = batches[0];
   const system = `You check one social post before a brand approves it. Do not rewrite it.
 1. Claims gate, ${CLAIMS_POLICY[claims]}. List each claim in the post that the evidence does not support, quoted briefly. Anything the evidence states, or that is plainly opinion where opinions are allowed, is supported.
 2. Content: answer each question true or false.
@@ -231,14 +247,37 @@ export async function policyCheck(env: Env, post: Post): Promise<PolicyResult> {
    explicitLanguage: does it use profanity, slurs or crude sexual words?${flirty ? '\n   This brand uses a flirty voice: light, playful flirtation is fine and is not sexual content.' : ''}
 Reply with JSON only, all four keys: {"unsupported": string[], "sexual": boolean, "minors": boolean, "explicitLanguage": boolean}.`;
   const { text } = await chat(env, system, `Evidence:\n${facts}\n\nPost:\n${post.body}`);
-  return policyVerdict(claims, template, parseJson<unknown>(text));
+  let verdict = policyVerdict(claims, template, parseJson<unknown>(text));
+  // All evidence is considered, a bounded batch at a time: later batches only re-check the claims still unsupported.
+  for (const batch of batches.slice(1)) {
+    if (!verdict.unsupported.length) break;
+    const r = await chat(env, `You check whether evidence supports claims. Claims gate, ${CLAIMS_POLICY[claims]}. Reply with JSON only: {"supported": string[]}, each item copied exactly from the claims list.`, `Claims:\n${verdict.unsupported.map((c) => `- ${c}`).join('\n')}\n\nEvidence:\n${batch}`);
+    const supported = parseJson<{ supported?: unknown }>(r.text).supported;
+    if (!Array.isArray(supported) || !supported.every((x) => typeof x === 'string')) throw new HttpError(502, 'the approval check returned an unusable answer, so nothing was approved; try again');
+    const unsupported = verdict.unsupported.filter((c) => !supported.includes(c));
+    verdict = { ...verdict, unsupported, passed: verdict.blocked.length === 0 && unsupported.length === 0 };
+  }
+  return verdict;
+}
+
+/** Evidence lines in batches of at most ~24k characters, so each model call stays well inside its context. */
+export function evidenceBatches(lines: string[], maxChars = 24000): string[] {
+  const out: string[] = [];
+  let cur = '';
+  for (const line of lines) {
+    const l = line.slice(0, 2000);
+    if (cur && cur.length + l.length + 1 > maxChars) { out.push(cur); cur = ''; }
+    cur = cur ? `${cur}\n${l}` : l;
+  }
+  out.push(cur || '(no evidence recorded)');
+  return out;
 }
 
 // Human approval before anything is registered or published (R8), after the slop, claims and content checks.
 export async function approvePost(env: Env, user: User, post: Post) {
   if (post.status === 'registered') return post;
   // Posts approved before the claims and content checks existed have no passing result; they are checked now.
-  if (post.status === 'approved' && post.checks.policy?.passed) return post;
+  if (post.status === 'approved' && isCurrentPolicy(post.checks.policy)) return post;
   if (post.status !== 'drafted' && post.status !== 'approved') throw new HttpError(409, 'this post is being registered');
   if (!post.checks.slop?.passed) throw new HttpError(409, 'fix the slop check first: ' + post.checks.slop.hits.join(', '));
   const policy = await policyCheck(env, post);
@@ -266,15 +305,14 @@ export function cleanPublishedUrl(raw: string): string | null {
   }
 }
 
-// A send whose outcome was unknown is reconciled after this long: by then its blockhash has expired, so if the
-// attestation does not exist it never will.
+// Rows claimed before last_valid_block_height was recorded fall back to a wall-clock wait.
 const RECONCILE_AFTER_MS = 3 * 60 * 1000;
 
 export async function registerPost(env: Env, user: User, post: Post, publishedUrl: string) {
   if (post.status === 'registering') return reconcilePost(env, post);
   if (post.status !== 'approved') throw new HttpError(409, post.status === 'registered' ? 'already registered' : 'approve the post first');
   // Registration requires a passing claims and content check, including for posts approved before those checks existed.
-  if (!post.checks.policy?.passed) throw new HttpError(409, 'this post needs the claims and content checks first: press Run approval checks');
+  if (!isCurrentPolicy(post.checks.policy)) throw new HttpError(409, 'this post needs the claims and content checks first: press Run approval checks');
   if (!post.kit_version) throw new HttpError(409, 'register the kit first, so the post can point at a kit version');
   const url = cleanPublishedUrl(publishedUrl);
   const hash = await contentHash(post.body);
@@ -285,6 +323,7 @@ export async function registerPost(env: Env, user: User, post: Post, publishedUr
   // approved revision), so two requests cannot both write, and any later failure can be reconciled, never re-sent.
   const [claimed] = await db.update<Post>(env, 'posts', casFilter(post, ['approved']), {
     status: 'registering', rev: (post.rev ?? 0) + 1, hash, signature: tx.signature, attestation: tx.attestation, published_url: url, registering_at: new Date().toISOString(),
+    last_valid_block_height: String(tx.lastValidBlockHeight),
   });
   if (!claimed) throw new HttpError(409, 'this post changed or a registration is already in progress; reload');
   try {
@@ -293,7 +332,7 @@ export async function registerPost(env: Env, user: User, post: Post, publishedUr
     console.error('post registration send failed', safeError(e));
     if (e instanceof NotLanded) {
       // Certainly not on chain: reopen the post for another try.
-      await db.update(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'approved', hash: null, signature: null, attestation: null, registering_at: null });
+      await db.update(env, 'posts', attemptFilter(post.id, tx.signature), RESET);
       throw new HttpError(502, 'Solana rejected the registration, try again');
     }
     // Outcome unknown: keep it locked with its signature; the next Register click reconciles it against the chain.
@@ -302,10 +341,23 @@ export async function registerPost(env: Env, user: User, post: Post, publishedUr
   return finishRegistration(env, claimed, tx.explorer);
 }
 
+// Every write that settles an attempt names that attempt (its signature), so it can never touch a newer one.
+const attemptFilter = (id: string, signature: string) => `${db.eq('id', id)}&${db.eq('status', 'registering')}&${db.eq('signature', signature)}`;
+const RESET = { status: 'approved', hash: null, signature: null, attestation: null, registering_at: null, last_valid_block_height: null };
+
 async function finishRegistration(env: Env, post: Post, explorer: string) {
-  const [row] = await db.update<Post>(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'registered', registered_at: new Date().toISOString() });
+  const [row] = await db.update<Post>(env, 'posts', attemptFilter(post.id, post.signature!), { status: 'registered', registered_at: new Date().toISOString() });
   if (!row) throw new HttpError(500, 'registered on Solana, but saving that failed; press Register again to finish');
   return { post: row, explorer };
+}
+
+/** True once the attempt can no longer land: the chain is past its last valid block height. */
+async function attemptExpired(env: Env, post: Post) {
+  if (post.last_valid_block_height != null) {
+    const height = await currentBlockHeight(env.RPC_URL);
+    return height !== null && height > BigInt(post.last_valid_block_height);
+  }
+  return Date.now() - new Date(post.registering_at ?? 0).getTime() > RECONCILE_AFTER_MS;
 }
 
 /** A post left in 'registering' (unknown outcome or a failed save): settle it from what is actually on chain. */
@@ -314,9 +366,9 @@ export async function reconcilePost(env: Env, post: Post) {
   const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
   const onchain = await readKitAttestation(env.RPC_URL, registrar.address, post.attestation, post.hash);
   if (onchain === 'verified') return finishRegistration(env, post, explorerTx(post.signature));
-  const age = Date.now() - new Date(post.registering_at ?? 0).getTime();
-  if (onchain === 'missing' && age > RECONCILE_AFTER_MS) {
-    await db.update(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'approved', hash: null, signature: null, attestation: null, registering_at: null });
+  if (onchain === 'missing' && (await attemptExpired(env, post))) {
+    const [reset] = await db.update<Post>(env, 'posts', attemptFilter(post.id, post.signature), RESET);
+    if (!reset) throw new HttpError(409, 'this registration was already settled; reload');
     throw new HttpError(409, 'the earlier registration never reached Solana; press Register to try again');
   }
   if (onchain === 'mismatch') {
@@ -344,6 +396,8 @@ export async function verifyText(env: Env, text: string) {
     p, onchain: registrar && p.attestation ? await readKitAttestation(env.RPC_URL, registrar, p.attestation, hash) : ('unavailable' as const),
   })));
   const verified = checked.filter((c) => c.onchain === 'verified');
+  // Some rows could not be checked: the result is partial, and says so.
+  const partial = checked.some((c) => c.onchain === 'unavailable');
   if (!verified.length) {
     // Could not check Solana: say so, never certify from the index alone.
     if (checked.some((c) => c.onchain === 'unavailable')) return { official: false, checked: false, hash, matches: [], note: 'Solana could not be checked just now, so this cannot be confirmed; try again in a minute' };
@@ -357,7 +411,7 @@ export async function verifyText(env: Env, text: string) {
     // Every registration so far attests domain_verified 'false': the brand name is self-declared.
     domainVerified: false,
   }));
-  return { official: true, checked: true, hash, ...matches[0], matches, truncated };
+  return { official: true, checked: true, partial, hash, ...matches[0], matches, truncated };
 }
 
 /** Public ledger: the latest 50 registrations of each type: brand name, fingerprint, version and explorer link. Content stays private. */

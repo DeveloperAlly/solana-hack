@@ -100,6 +100,11 @@ async function registerKit(env: Env, user: User, brand: Brand) {
   const missing = GATES.filter((g) => !st.gates.some((x) => x.gate === g));
   if (missing.length) throw new HttpError(409, `approve these first: ${missing.join(', ')}`);
   if (st.kits.some((k) => k.status === 'pending')) throw new HttpError(409, 'a registration is already in progress');
+  // A section that cites evidence which no longer exists (an answer edited after drafting replaces its evidence
+  // rows) would register without its support. Refuse, and name the sections to redraft.
+  const live = new Set(st.evidence.map((e) => e.id));
+  const stale = st.sections.filter((s) => s.citations.some((id) => !live.has(id))).map((s) => s.section);
+  if (stale.length) throw new HttpError(409, `these sections cite answers you have since changed; draft them again first: ${stale.join(', ')}`);
   const version = (st.kits[0]?.version ?? 0) + 1;
   const payload = {
     brand: { id: brand.id, name: brand.name },
@@ -108,7 +113,7 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     gates: st.gates.map((g) => ({ gate: g.gate, approved_by: g.approved_by, approved_at: g.approved_at })).sort((a, b) => a.gate.localeCompare(b.gate)),
     // The claims gate and voice template are part of the registered kit, so approval of a post written to this
     // version applies this version's policy even if the voice answers change later.
-    policy: (() => { const v = st.answers.find((a) => a.step === 'voice')?.data ?? {}; return { claims: ['3', '4', '5'].includes(v.claims) ? v.claims : '4', template: v.template ?? null }; })(),
+    policy: kitPolicy(st.answers.find((a) => a.step === 'voice')),
     // The cited evidence itself (claim and quote), not just ids: evidence rows can be replaced later (owner answers
     // are rewritten on every save), and a post pinned to this version must still see what the kit relied on.
     evidence: (() => {
@@ -129,6 +134,21 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     await db.update(env, 'kits', db.eq('id', kit.id), { status: 'failed', error: 'registration failed' });
     throw new HttpError(502, 'registering on Solana failed, try again');
   }
+}
+
+// Voice templates from the first form, mapped to their research 06 equivalent (same map as the Voice step).
+const LEGACY_TEMPLATES: Record<string, string> = { friendly_expert: 'friendly' };
+
+/**
+ * The policy a kit registers, from the approved voice answer. An answer saved by the older form has no claims gate;
+ * rather than silently default it, registration is refused until the owner saves the Voice step once (which, since
+ * it changes the answer, reopens Gate 3 for a fresh approval). A skipped voice registers the Standard gate.
+ */
+export function kitPolicy(voice: { data: Record<string, string>; skipped: boolean } | undefined) {
+  if (!voice || voice.skipped) return { claims: '4', template: null };
+  if (!['3', '4', '5'].includes(voice.data.claims)) throw new HttpError(409, 'your voice was saved before the claims gate existed: open the Voice step, choose a claims gate and save, then approve Gate 3 again');
+  const t = voice.data.template;
+  return { claims: voice.data.claims, template: t ? LEGACY_TEMPLATES[t] ?? t : null };
 }
 
 /** True when a saved voice answer differs from the new one (any template, dial, claims or sample change). */
@@ -193,13 +213,15 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     for (const [k, v] of Object.entries(raw).slice(0, 20)) data[k.slice(0, 60)] = str(v, 2000);
     const skipped = b.skipped === true;
     const [prev] = step === 'voice' ? await db.select<Answer>(env, 'answers', `${db.eq('brand_id', brand.id)}&${db.eq('step', 'voice')}`) : [];
-    const [row] = await db.upsert(env, 'answers', { brand_id: brand.id, step, data, skipped, updated_at: new Date().toISOString() }, 'brand_id,step');
     // The voice answer carries the template and claims gate a kit registers. Changing it after Gate 3 reopens that
     // gate (and marks the voice section for redrafting), so a kit can only register policy a person approved.
+    // The gate is removed *before* the new answer is saved: if anything fails in between, the state is safe (no gate),
+    // and a concurrent registration can never pair the new policy with the old approval.
     if (step === 'voice' && voiceChanged(prev, { data, skipped })) {
       await db.del(env, 'gates', `${db.eq('brand_id', brand.id)}&${db.eq('gate', 'voice')}`);
       await db.update(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&${db.eq('section', 'voice')}`, { status: 'drafted' });
     }
+    const [row] = await db.upsert(env, 'answers', { brand_id: brand.id, step, data, skipped, updated_at: new Date().toISOString() }, 'brand_id,step');
     // Owner answers are evidence, dated (P2: "owner answer, date").
     await db.del(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}`);
     const rows = skipped ? [] : Object.entries(data).filter(([, v]) => v).map(([k, v]) => ({ brand_id: brand.id, section: step, claim: `${k}: ${v}`, origin: 'owner_answer' }));
@@ -251,11 +273,14 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     }
     const [post] = p[4] && /^[0-9a-f-]{36}$/.test(p[4]) ? await db.select<Post>(env, 'posts', `${db.eq('id', p[4])}&${db.eq('brand_id', brand.id)}`) : [];
     if (!post) throw new HttpError(404, 'post not found');
-    if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str((await body(req)).body, 4000)) });
+    const b = await body(req);
+    // Every change names the revision the person saw; if the post changed since (another tab), it is refused.
+    if (b.rev !== post.rev) throw new HttpError(409, 'this post changed since you loaded it; reload to see the latest version');
+    if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str(b.body, 4000)) });
     if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
-    if (p[5] === 'polish' && m === 'POST') return json({ post: await polishPost(env, post, str((await body(req)).action, 40)) });
+    if (p[5] === 'polish' && m === 'POST') return json({ post: await polishPost(env, post, str(b.action, 40)) });
     if (p[5] === 'undo' && m === 'POST') return json({ post: await undoPost(env, post) });
-    if (p[5] === 'register' && m === 'POST') return json(await registerPost(env, user, post, str((await body(req)).publishedUrl, 500)), 201);
+    if (p[5] === 'register' && m === 'POST') return json(await registerPost(env, user, post, str(b.publishedUrl, 500)), 201);
   }
   return json({ error: 'not found' }, 404);
 }

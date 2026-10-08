@@ -6,7 +6,7 @@ import { api, ApiError } from '../../lib/api';
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
   checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit'; policy?: { claims: string; unsupported: string[]; blocked?: string[]; passed: boolean } };
-  signature: string | null; published_url: string | null;
+  signature: string | null; published_url: string | null; rev: number;
 }
 const POLISH = [
   { action: 'review', label: 'Review' },
@@ -152,11 +152,11 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
             <Text variant="label" id={`polish-${post.id}`}>Polish</Text>
             <Stack direction="row" gap={2} wrap role="group" aria-labelledby={`polish-${post.id}`}>
               {POLISH.map((p) => (
-                <Button key={p.action} variant="secondary" disabled={!!busy || dirty || hiddenAi} onClick={() => run(p.action, () => api(`${base}/polish`, { body: { action: p.action } }))}>
+                <Button key={p.action} variant="secondary" disabled={!!busy || dirty || hiddenAi} onClick={() => run(p.action, () => api(`${base}/polish`, { body: { action: p.action, rev: post.rev } }))}>
                   {busy === p.action ? `${p.label}…` : p.label}
                 </Button>
               ))}
-              <Button variant="secondary" disabled={!!busy || dirty || !post.checks.history?.length} onClick={() => run('undo', () => api(`${base}/undo`, { body: {} }))}>Undo</Button>
+              <Button variant="secondary" disabled={!!busy || dirty || !post.checks.history?.length} onClick={() => run('undo', () => api(`${base}/undo`, { body: { rev: post.rev } }))}>Undo</Button>
             </Stack>
             {post.checks.lastAction && <Text variant="small" tone="secondary">Last change: {post.checks.lastAction.replace('_', ' ')}. Undo restores the previous text.</Text>}
           </Stack>
@@ -178,20 +178,20 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
         {explorer && <Link href={explorer} external>View the registration on Solana Explorer</Link>}
         {error && <Alert tone="danger">{error}</Alert>}
         <Stack direction="row" gap={3} wrap>
-          {post.status !== 'registered' && dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('save', () => api(base, { method: 'PUT', body: { body: text } }))}>Save edits</Button>}
+          {post.status !== 'registered' && dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('save', () => api(base, { method: 'PUT', body: { body: text, rev: post.rev } }))}>Save edits</Button>}
           {hiddenAi && <Button disabled={!!busy} onClick={() => run('redraft', () => api(`/brands/${brandId}/posts`, { body: { brief: post.brief, channel: post.channel ?? '' } }))}>{busy === 'redraft' ? 'Drafting…' : 'Draft again'}</Button>}
-          {post.status === 'drafted' && !hiddenAi && !dirty && <Button disabled={!!busy || !slop?.passed} onClick={() => run('approve', () => api(`${base}/approve`, { body: {} }))}>{busy === 'approve' ? 'Approving…' : 'Approve'}</Button>}
+          {post.status === 'drafted' && !hiddenAi && !dirty && <Button disabled={!!busy || !slop?.passed} onClick={() => run('approve', () => api(`${base}/approve`, { body: { rev: post.rev } }))}>{busy === 'approve' ? 'Approving…' : 'Approve'}</Button>}
           {post.status === 'registering' && (
             // A send whose outcome was unknown: the server checks Solana and finishes or reopens it.
-            <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url } }))}>{busy === 'register' ? 'Checking Solana…' : 'Check registration'}</Button>
+            <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url, rev: post.rev } }))}>{busy === 'register' ? 'Checking Solana…' : 'Check registration'}</Button>
           )}
           {post.status === 'approved' && !post.checks.policy?.passed && (
             // Approved before the claims and content checks existed: run them before it can be registered.
-            <Button disabled={!!busy} onClick={() => run('approve', () => api(`${base}/approve`, { body: {} }))}>{busy === 'approve' ? 'Checking…' : 'Run approval checks'}</Button>
+            <Button disabled={!!busy} onClick={() => run('approve', () => api(`${base}/approve`, { body: { rev: post.rev } }))}>{busy === 'approve' ? 'Checking…' : 'Run approval checks'}</Button>
           )}
           {post.status === 'approved' && post.checks.policy?.passed && (
             <Button disabled={!!busy} onClick={() => run('register', async () => {
-              const r = await api<{ explorer: string }>(`${base}/register`, { body: { publishedUrl: url } });
+              const r = await api<{ explorer: string }>(`${base}/register`, { body: { publishedUrl: url, rev: post.rev } });
               setExplorer(r.explorer);
             })}>{busy === 'register' ? 'Registering on Solana…' : 'Register post'}</Button>
           )}
