@@ -109,6 +109,12 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     // The claims gate and voice template are part of the registered kit, so approval of a post written to this
     // version applies this version's policy even if the voice answers change later.
     policy: (() => { const v = st.answers.find((a) => a.step === 'voice')?.data ?? {}; return { claims: ['3', '4', '5'].includes(v.claims) ? v.claims : '4', template: v.template ?? null }; })(),
+    // The cited evidence itself (claim and quote), not just ids: evidence rows can be replaced later (owner answers
+    // are rewritten on every save), and a post pinned to this version must still see what the kit relied on.
+    evidence: (() => {
+      const cited = new Set(st.sections.flatMap((s) => s.citations));
+      return st.evidence.filter((e) => cited.has(e.id)).map((e) => ({ id: e.id, claim: e.claim, quote: e.quote, origin: e.origin })).sort((a, b) => a.id.localeCompare(b.id));
+    })(),
   };
   const hash = 'sha256:' + (await sha256Hex(canonical(payload)));
   const [kit] = await db.insert<Kit>(env, 'kits', { brand_id: brand.id, version, hash, payload, approved_by: user.id, status: 'pending' });
@@ -125,10 +131,17 @@ async function registerKit(env: Env, user: User, brand: Brand) {
   }
 }
 
+/** True when a saved voice answer differs from the new one (any template, dial, claims or sample change). */
+export function voiceChanged(prev: { data: Record<string, string>; skipped: boolean } | undefined, next: { data: Record<string, string>; skipped: boolean }) {
+  if (!prev) return false;
+  return prev.skipped !== next.skipped || canonical(prev.data) !== canonical(next.data);
+}
+
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
-export async function publicLimit(req: Request, env: Env) {
+export async function publicLimit(req: Request, env: Env, scope: string) {
   if (!env.PUBLIC_LIMITER) return;
-  const { success } = await env.PUBLIC_LIMITER.limit({ key: req.headers.get('cf-connecting-ip') ?? 'unknown' });
+  // Keyed per endpoint and IP, so browsing the Ledger does not use up Verify checks.
+  const { success } = await env.PUBLIC_LIMITER.limit({ key: `${scope}:${req.headers.get('cf-connecting-ip') ?? 'unknown'}` });
   if (!success) throw new HttpError(429, 'too many checks from your network; wait a minute and try again');
 }
 
@@ -137,7 +150,7 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   const p = url.pathname.split('/').filter(Boolean); // ['api', ...]
   const m = req.method;
   // Public (no sign-in): Verify and Ledger (S6), limited per client IP because they query the database and Solana.
-  if ((p[1] === 'verify' || p[1] === 'ledger') && p.length === 2) await publicLimit(req, env);
+  if ((p[1] === 'verify' || p[1] === 'ledger') && p.length === 2) await publicLimit(req, env, p[1]);
   if (p[1] === 'verify' && p.length === 2 && m === 'POST') {
     const b = await body(req);
     return json(await verifyText(env, str(b.text, 8000)));
@@ -179,7 +192,14 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const raw = (b.data ?? {}) as Record<string, unknown>;
     for (const [k, v] of Object.entries(raw).slice(0, 20)) data[k.slice(0, 60)] = str(v, 2000);
     const skipped = b.skipped === true;
+    const [prev] = step === 'voice' ? await db.select<Answer>(env, 'answers', `${db.eq('brand_id', brand.id)}&${db.eq('step', 'voice')}`) : [];
     const [row] = await db.upsert(env, 'answers', { brand_id: brand.id, step, data, skipped, updated_at: new Date().toISOString() }, 'brand_id,step');
+    // The voice answer carries the template and claims gate a kit registers. Changing it after Gate 3 reopens that
+    // gate (and marks the voice section for redrafting), so a kit can only register policy a person approved.
+    if (step === 'voice' && voiceChanged(prev, { data, skipped })) {
+      await db.del(env, 'gates', `${db.eq('brand_id', brand.id)}&${db.eq('gate', 'voice')}`);
+      await db.update(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&${db.eq('section', 'voice')}`, { status: 'drafted' });
+    }
     // Owner answers are evidence, dated (P2: "owner answer, date").
     await db.del(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}`);
     const rows = skipped ? [] : Object.entries(data).filter(([, v]) => v).map(([k, v]) => ({ brand_id: brand.id, section: step, claim: `${k}: ${v}`, origin: 'owner_answer' }));

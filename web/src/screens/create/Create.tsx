@@ -178,7 +178,11 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
             // A send whose outcome was unknown: the server checks Solana and finishes or reopens it.
             <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url } }))}>{busy === 'register' ? 'Checking Solana…' : 'Check registration'}</Button>
           )}
-          {post.status === 'approved' && (
+          {post.status === 'approved' && !post.checks.policy?.passed && (
+            // Approved before the claims and content checks existed: run them before it can be registered.
+            <Button disabled={!!busy} onClick={() => run('approve', () => api(`${base}/approve`, { body: {} }))}>{busy === 'approve' ? 'Checking…' : 'Run approval checks'}</Button>
+          )}
+          {post.status === 'approved' && post.checks.policy?.passed && (
             <Button disabled={!!busy} onClick={() => run('register', async () => {
               const r = await api<{ explorer: string }>(`${base}/register`, { body: { publishedUrl: url } });
               setExplorer(r.explorer);

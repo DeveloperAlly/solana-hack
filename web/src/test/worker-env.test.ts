@@ -42,14 +42,42 @@ describe('database error logging', () => {
   });
 });
 
+describe('LLM error logging', () => {
+  it('logs the status and provider code, never the provider message', async () => {
+    const { chat } = await import('../../worker/llm');
+    const { vi } = await import('vitest');
+    const logged: unknown[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...a) => { logged.push(a); });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: { code: 400, message: 'Bad input: my secret founder story' } }), { status: 400 })));
+    await expect(chat({ OPENROUTER_API_KEY: 'k' } as never, 's', 'u')).rejects.toMatchObject({ status: 502 });
+    const out = JSON.stringify(logged);
+    expect(out).toContain('"status":400');
+    expect(out).not.toContain('founder story');
+    spy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+});
+
 describe('public endpoint limit', () => {
-  it('keys on the client IP and answers 429 when the limit is hit', async () => {
+  it('keys on endpoint and client IP and answers 429 when the limit is hit', async () => {
     const { publicLimit } = await import('../../worker/api');
     const keys: string[] = [];
     const env = { PUBLIC_LIMITER: { limit: async ({ key }: { key: string }) => { keys.push(key); return { success: keys.length < 2 }; } } } as never;
     const req = new Request('https://x/api/verify', { headers: { 'cf-connecting-ip': '203.0.113.9' } });
-    await publicLimit(req, env);
-    await expect(publicLimit(req, env)).rejects.toMatchObject({ status: 429 });
-    expect(keys).toEqual(['203.0.113.9', '203.0.113.9']);
+    await publicLimit(req, env, 'verify');
+    await expect(publicLimit(req, env, 'verify')).rejects.toMatchObject({ status: 429 });
+    expect(keys).toEqual(['verify:203.0.113.9', 'verify:203.0.113.9']);
+  });
+});
+
+describe('voice answer changes', () => {
+  it('reopens Gate 3 on any change to a saved voice answer, not on first save or an identical save', async () => {
+    const { voiceChanged } = await import('../../worker/api');
+    const a = { data: { template: 'flirty', claims: '5', formality: '2' }, skipped: false };
+    expect(voiceChanged(undefined, a)).toBe(false);
+    expect(voiceChanged(a, { data: { formality: '2', claims: '5', template: 'flirty' }, skipped: false })).toBe(false);
+    expect(voiceChanged(a, { ...a, data: { ...a.data, template: 'professional' } })).toBe(true);
+    expect(voiceChanged(a, { ...a, data: { ...a.data, claims: '3' } })).toBe(true);
+    expect(voiceChanged(a, { ...a, skipped: true })).toBe(true);
   });
 });

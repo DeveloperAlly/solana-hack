@@ -233,6 +233,7 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
         )}
         {isVoice ? (
           <Stack gap={5}>
+            {state.gates.some((g) => g.gate === 'voice') && <Alert tone="warning">Your voice is approved (Gate 3). Saving a change here reopens Gate 3, and the voice section needs drafting and approving again before the next kit version.</Alert>}
             <Choice legend="Start from a template (it sets the dials below)" value={data.template ?? ''} onChange={(v) => setData({ ...templateDials(v), sample: data.sample ?? '' })} options={VOICE_TEMPLATES} />
             {data.template === 'flirty' && <Alert tone="info">Flirty stays light and playful. Before any post can be approved it is checked for sexual content, anything involving minors and explicit language, and blocked if it has any of them.</Alert>}
             {DIALS.map((d) => (

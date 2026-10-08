@@ -40,11 +40,11 @@ export const contentHash = async (s: string) => 'sha256:' + (await sha256Hex(nor
 // kit_version always names the kit its voice came from.
 async function voiceContext(env: Env, brandId: string, version?: number | null) {
   const which = version ? `&${db.eq('version', String(version))}` : '';
-  const [kit] = await db.select<{ version: number; payload: { sections?: { section: string; body: string; citations?: string[] }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}${which}&select=version,payload&order=version.desc&limit=1`);
+  const [kit] = await db.select<{ version: number; payload: { sections?: { section: string; body: string; citations?: string[] }[]; evidence?: { claim: string; quote: string | null }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}${which}&select=version,payload&order=version.desc&limit=1`);
   if (!kit) throw new HttpError(409, 'register your brand kit first, so posts are written to a fixed kit version');
   const pick = (id: string) => kit.payload.sections?.find((s) => s.section === id)?.body ?? '';
   const citations = [...new Set((kit.payload.sections ?? []).flatMap((s) => s.citations ?? []))].filter((id) => /^[0-9a-f-]{36}$/.test(id));
-  return { kitVersion: kit.version, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose'), citations };
+  return { kitVersion: kit.version, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose'), citations, evidence: kit.payload.evidence };
 }
 
 /** Filter for a compare-and-swap: this post, at the revision we read, in one of the allowed states. */
@@ -104,10 +104,14 @@ const POLISH: Record<string, string> = {
 export const POLISH_ACTIONS = Object.keys(POLISH);
 
 /**
- * Maps Unicode "styled" letters and digits (Mathematical Alphanumeric Symbols, U+1D400-U+1D7FF, such as bold or
- * italic text used on LinkedIn) to plain characters. Screen readers spell those out letter by letter.
+ * Maps Unicode "styled" letters and digits to plain characters with NFKC; screen readers spell styled ones out
+ * letter by letter. Covered: Letterlike Symbols (U+2100-214F), Enclosed Alphanumerics (U+2460-24FF), fullwidth
+ * forms (U+FF01-FF5E), Mathematical Alphanumeric Symbols (U+1D400-1D7FF) and the Enclosed Alphanumeric Supplement
+ * up to U+1F1E5 (regional-indicator flags after it are left alone). Any character in these blocks that NFKC does
+ * not reduce to plain ASCII is removed.
  */
-export const plainLetters = (s: string) => s.replace(/[\u{1D400}-\u{1D7FF}]/gu, (c) => c.normalize('NFKC'));
+const STYLED = /[\u{2100}-\u{214F}\u{2460}-\u{24FF}\u{FF01}-\u{FF5E}\u{1D400}-\u{1D7FF}\u{1F100}-\u{1F1E5}]/gu;
+export const plainLetters = (s: string) => s.replace(STYLED, (c) => { const n = c.normalize('NFKC'); return /^[\x20-\x7E]+$/.test(n) ? n : ''; });
 
 export const isPolishAction = (a: unknown): a is string => typeof a === 'string' && Object.hasOwn(POLISH, a);
 
@@ -118,7 +122,8 @@ export async function polishPost(env: Env, post: Post, action: string) {
   // and every result is re-scored against it: the scores shown always describe the text shown.
   const ctx = await voiceContext(env, post.brand_id, post.kit_version);
   // The evidence the registered kit cites, so Review can tell sourced claims from unsupported ones.
-  const evidence = ctx.citations.length ? await db.select<{ claim: string; quote: string | null }>(env, 'evidence', `id=in.(${ctx.citations.join(',')})&select=claim,quote`) : [];
+  // Kits registered from now on carry their cited evidence; older kits fall back to looking the ids up.
+  const evidence = ctx.evidence ?? (ctx.citations.length ? await db.select<{ claim: string; quote: string | null }>(env, 'evidence', `id=in.(${ctx.citations.join(',')})&select=claim,quote`) : []);
   const facts = evidence.map((e) => `- ${e.claim}${e.quote ? ` (source: "${e.quote.slice(0, 160)}")` : ''}`).join('\n') || '(the kit cites no evidence; treat every factual claim as unsupported)';
   const system = `You polish one ${post.channel || 'LinkedIn'} post for a brand with the approved kit below. ${POLISH[action]} A factual claim is supported only if the evidence list states it. ${SLOP_RULES} Then score the resulting post against the kit. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 4)}.`;
   const user = `Voice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}\n\nEvidence:\n${facts}\n\nPost:\n${post.body}`;
@@ -190,6 +195,17 @@ async function postPolicy(env: Env, post: Post): Promise<{ claims: string; templ
   return { claims: CLAIMS_POLICY[voice?.data?.claims ?? ''] ? voice!.data.claims : '4', template: voice?.data?.template ?? null };
 }
 
+/** Every non-assumption evidence row for a brand, paged in a fixed order, so no supporting fact is silently left out. */
+export async function allEvidence(env: Env, brandId: string) {
+  const out: { claim: string }[] = [];
+  for (let offset = 0; offset < 2000; offset += 200) {
+    const page = await db.select<{ claim: string }>(env, 'evidence', `${db.eq('brand_id', brandId)}&origin=neq.assumption&select=claim&order=created_at.asc,id.asc&limit=200&offset=${offset}`);
+    out.push(...page);
+    if (page.length < 200) break;
+  }
+  return out;
+}
+
 /**
  * Pre-approval check: the post's claims gate against the brand's evidence, and the content policy categories.
  * Fails closed: if the check cannot run or answers in the wrong shape, approval waits.
@@ -197,8 +213,8 @@ async function postPolicy(env: Env, post: Post): Promise<{ claims: string; templ
 export async function policyCheck(env: Env, post: Post): Promise<PolicyResult> {
   const { claims, template } = await postPolicy(env, post);
   const flirty = template === 'flirty';
-  const evidence = await db.select<{ claim: string; origin: string }>(env, 'evidence', `${db.eq('brand_id', post.brand_id)}&select=claim,origin&limit=60`);
-  const facts = evidence.filter((e) => e.origin !== 'assumption').map((e) => `- ${e.claim}`).join('\n') || '(no evidence recorded)';
+  const evidence = await allEvidence(env, post.brand_id);
+  const facts = evidence.map((e) => `- ${e.claim}`).join('\n') || '(no evidence recorded)';
   const system = `You check one social post before a brand approves it. Do not rewrite it.
 1. Claims gate, ${CLAIMS_POLICY[claims]}. List each claim in the post that the evidence does not support, quoted briefly. Anything the evidence states, or that is plainly opinion where opinions are allowed, is supported.
 2. Content: answer each question true or false.
@@ -212,19 +228,21 @@ Reply with JSON only, all four keys: {"unsupported": string[], "sexual": boolean
 
 // Human approval before anything is registered or published (R8), after the slop, claims and content checks.
 export async function approvePost(env: Env, user: User, post: Post) {
-  if (post.status === 'registered' || post.status === 'approved') return post;
-  if (post.status !== 'drafted') throw new HttpError(409, 'this post is being registered');
+  if (post.status === 'registered') return post;
+  // Posts approved before the claims and content checks existed have no passing result; they are checked now.
+  if (post.status === 'approved' && post.checks.policy?.passed) return post;
+  if (post.status !== 'drafted' && post.status !== 'approved') throw new HttpError(409, 'this post is being registered');
   if (!post.checks.slop?.passed) throw new HttpError(409, 'fix the slop check first: ' + post.checks.slop.hits.join(', '));
   const policy = await policyCheck(env, post);
   if (!policy.passed) {
     // Record why, against this revision, so the screen can show it; then refuse.
-    await changePost(env, post, ['drafted'], { checks: { ...post.checks, policy } as Checks });
+    await changePost(env, post, ['drafted', 'approved'], { checks: { ...post.checks, policy } as Checks, status: 'drafted', approved_by: null, approved_at: null });
     throw new HttpError(409, policy.blocked.length
       ? `blocked by the content policy (${policy.blocked.join(', ')}): this cannot be published. Rewrite it, then approve again.`
       : `blocked by the claims gate (${policy.claims === '5' ? 'strict' : policy.claims === '3' ? 'light' : 'standard'}): no evidence for ${policy.unsupported.map((u) => `"${u}"`).join(', ')}. Add a source on your brand, or rewrite, then approve again.`);
   }
   // Approves exactly the revision whose checks were read: an edit in between bumps rev and this fails with 409.
-  return changePost(env, post, ['drafted'], { status: 'approved', approved_by: user.id, approved_at: new Date().toISOString(), checks: { ...post.checks, policy } as Checks });
+  return changePost(env, post, ['drafted', 'approved'], { status: 'approved', approved_by: user.id, approved_at: new Date().toISOString(), checks: { ...post.checks, policy } as Checks });
 }
 
 export function cleanPublishedUrl(raw: string): string | null {
@@ -247,6 +265,8 @@ const RECONCILE_AFTER_MS = 3 * 60 * 1000;
 export async function registerPost(env: Env, user: User, post: Post, publishedUrl: string) {
   if (post.status === 'registering') return reconcilePost(env, post);
   if (post.status !== 'approved') throw new HttpError(409, post.status === 'registered' ? 'already registered' : 'approve the post first');
+  // Registration requires a passing claims and content check, including for posts approved before those checks existed.
+  if (!post.checks.policy?.passed) throw new HttpError(409, 'this post needs the claims and content checks first: press Run approval checks');
   if (!post.kit_version) throw new HttpError(409, 'register the kit first, so the post can point at a kit version');
   const url = cleanPublishedUrl(publishedUrl);
   const hash = await contentHash(post.body);
@@ -305,24 +325,31 @@ export async function reconcilePost(env: Env, post: Post) {
 export async function verifyText(env: Env, text: string) {
   if (!text.trim()) throw new HttpError(400, 'paste a post to check');
   const hash = await contentHash(text);
-  const rows = await db.select<Post>(env, 'posts', `${db.eq('hash', hash)}&${db.eq('status', 'registered')}&order=registered_at.asc&limit=10`);
-  if (!rows.length) return { official: false, hash, matches: [] };
-  // The database is an index; Solana is the proof. Each match is checked onchain: it must exist, be signed by the
-  // Registrar under the WATERLILY credential and WL-KIT schema, and carry this hash.
+  // At most 10 registrations are checked onchain per request (each costs RPC reads); an 11th row signals truncation.
+  const rows = await db.select<Post>(env, 'posts', `${db.eq('hash', hash)}&${db.eq('status', 'registered')}&order=registered_at.asc&limit=11`);
+  const truncated = rows.length > 10;
+  if (!rows.length) return { official: false, checked: true, hash, matches: [] };
+  // The database is an index; Solana is the proof. "Official" requires a verified attestation: it exists, the
+  // Registrar signed it under the WATERLILY credential and WL-KIT schema, and it carries this hash.
   const registrar = env.REGISTRAR_KEY ? (await registrarFromSecret(env.REGISTRAR_KEY)).address : null;
-  const checked = await Promise.all(rows.map(async (p) => ({
+  const checked = await Promise.all(rows.slice(0, 10).map(async (p) => ({
     p, onchain: registrar && p.attestation ? await readKitAttestation(env.RPC_URL, registrar, p.attestation, hash) : ('unavailable' as const),
   })));
-  // A record whose attestation is gone or does not match is not official.
-  const live = checked.filter((c) => c.onchain === 'verified' || c.onchain === 'unavailable');
-  if (!live.length) return { official: false, hash, matches: [], note: 'a record exists, but its Solana attestation is missing or does not match' };
-  const ids = [...new Set(live.map((c) => c.p.brand_id))];
+  const verified = checked.filter((c) => c.onchain === 'verified');
+  if (!verified.length) {
+    // Could not check Solana: say so, never certify from the index alone.
+    if (checked.some((c) => c.onchain === 'unavailable')) return { official: false, checked: false, hash, matches: [], note: 'Solana could not be checked just now, so this cannot be confirmed; try again in a minute' };
+    return { official: false, checked: true, hash, matches: [], note: 'a record exists, but its Solana attestation is missing or does not match' };
+  }
+  const ids = [...new Set(verified.map((c) => c.p.brand_id))];
   const brands = await db.select<{ id: string; name: string }>(env, 'brands', `id=in.(${ids.join(',')})&select=id,name`);
-  const matches = live.map(({ p, onchain }) => ({
+  const matches = verified.map(({ p }) => ({
     brand: brands.find((b) => b.id === p.brand_id)?.name ?? null, kitVersion: p.kit_version, approvedAt: p.approved_at,
-    registeredAt: p.registered_at ?? null, publishedUrl: p.published_url, explorer: p.signature ? explorerTx(p.signature) : null, onchain,
+    registeredAt: p.registered_at ?? null, publishedUrl: p.published_url, explorer: p.signature ? explorerTx(p.signature) : null,
+    // Every registration so far attests domain_verified 'false': the brand name is self-declared.
+    domainVerified: false,
   }));
-  return { official: true, hash, ...matches[0], matches };
+  return { official: true, checked: true, hash, ...matches[0], matches, truncated };
 }
 
 /** Public ledger: the latest 50 registrations of each type: brand name, fingerprint, version and explorer link. Content stays private. */

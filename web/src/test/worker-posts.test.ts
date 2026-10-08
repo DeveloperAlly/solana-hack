@@ -36,18 +36,9 @@ describe('post concurrency and verify', () => {
     expect(calls[0]).toContain('rev=eq.2');
     expect(calls[0]).toContain('"rev":3');
   });
-  it('returns every brand that registered the same text, earliest first', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.includes('/posts?')) return new Response(JSON.stringify([
-        { brand_id: 'b1', kit_version: 1, approved_at: '2026-10-01T00:00:00Z', published_url: null, signature: 'sig1' },
-        { brand_id: 'b2', kit_version: 2, approved_at: '2026-10-02T00:00:00Z', published_url: null, signature: null },
-      ]));
-      return new Response(JSON.stringify([{ id: 'b1', name: 'First' }, { id: 'b2', name: 'Second' }]));
-    }));
-    const r = await verifyText(env, 'Same words.');
-    expect(r.official).toBe(true);
-    expect(r.matches.map((m) => m.brand)).toEqual(['First', 'Second']);
-    expect(r).toMatchObject({ brand: 'First', kitVersion: 1 });
+  it('without a Registrar to check Solana, verify never certifies', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([{ brand_id: 'b1', kit_version: 1, attestation: 'A', signature: 's' }]))));
+    expect(await verifyText(env, 'Same words.')).toMatchObject({ official: false, checked: false });
   });
 });
 
@@ -125,7 +116,7 @@ describe('approval gates: claims and content policy', () => {
     await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('claims gate (strict)') });
     expect(s.system()).toContain('strict: every claim');
     expect(s.writes[0]).toMatchObject({ rev: 2, checks: { policy: { passed: false, unsupported: ['2x faster'] } } });
-    expect(s.writes[0]).not.toHaveProperty('status');
+    expect(s.writes[0]).toMatchObject({ status: 'drafted', approved_by: null });
   });
   it('uses the registered kit policy over a later voice answer', async () => {
     const s = stub({ ...clean, unsupported: ['2x faster'] }, { template: 'friendly', claims: '3' }, { claims: '5', template: 'professional' });
@@ -136,6 +127,25 @@ describe('approval gates: claims and content policy', () => {
     const s = stub({ ...clean, sexual: true }, { template: 'flirty', claims: '4' });
     await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('content policy (sexual content)') });
     expect(s.system()).toContain('flirty voice');
+  });
+  it('re-checks a post approved before the checks existed, and reopens it if it fails', async () => {
+    const s = stub({ ...clean, minors: true }, { template: 'friendly', claims: '4' });
+    const legacy = { ...(post as object), status: 'approved', checks: { ...post.checks } } as unknown as Post;
+    await expect(approvePost(llmEnv, user, legacy)).rejects.toMatchObject({ status: 409 });
+    expect(s.writes[0]).toMatchObject({ status: 'drafted', checks: { policy: { passed: false } } });
+  });
+  it('pages through all evidence for the claims check', async () => {
+    const { allEvidence } = await import('../../worker/posts');
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(url);
+      const offset = Number(new URL(url).searchParams.get('offset'));
+      return new Response(JSON.stringify(Array.from({ length: offset === 0 ? 200 : 13 }, (_, i) => ({ claim: `f${offset + i}` }))));
+    }));
+    const all = await allEvidence(env, 'b');
+    expect(all).toHaveLength(213);
+    expect(urls[0]).toContain('origin=neq.assumption');
+    expect(urls[0]).toContain('order=created_at.asc,id.asc');
   });
   it('approves when both checks pass', async () => {
     const s = stub(clean, { template: 'friendly', claims: '3' });
@@ -155,6 +165,7 @@ describe('accessible beautify', () => {
   it('maps styled Unicode letters back to plain text', async () => {
     const { plainLetters } = await import('../../worker/posts');
     expect(plainLetters('𝗕𝘂𝗶𝗹𝘁 𝗳𝗼𝗿 𝟮𝟬𝟮𝟲 and 𝑖𝑡𝑎𝑙𝑖𝑐 • kept')).toBe('Built for 2026 and italic • kept');
+    expect(plainLetters('Ｗｅ ⓢⓗⓘⓟ ① ℍ𝕖𝕪 🄰 🇦🇺')).toBe('We ship 1 Hey A 🇦🇺');
   });
 });
 
@@ -176,5 +187,26 @@ describe('polish grounding', () => {
     await polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'beautify_accessible');
     expect(prompt).toContain('Ships weekly');
     expect(saved.body).toBe('We ship weekly.');
+  });
+});
+
+describe('polish uses the kit evidence snapshot', () => {
+  it('reads cited evidence from the registered kit, even after the live rows were replaced', async () => {
+    let prompt = '';
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      urls.push(url);
+      if (url.startsWith('https://openrouter.ai')) {
+        prompt = JSON.parse(String(init.body)).messages[1].content;
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ body: 'x', voiceFit: 1, platform: 1, notes: [] }) } }] }));
+      }
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ version: 1, payload: { sections: [{ section: 'voice', body: 'v', citations: ['11111111-1111-1111-1111-111111111111'] }], evidence: [{ claim: 'Snapshot fact', quote: null }] } }]));
+      if (init?.method === 'PATCH') return new Response(JSON.stringify([{ id: 'p' }]));
+      return new Response('[]');
+    }));
+    const post = { id: 'p', rev: 0, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'b', channel: null, checks: { slop: { passed: true, hits: [] }, voiceFit: null, platform: null, notes: [] } } as unknown as Post;
+    await polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'review');
+    expect(prompt).toContain('Snapshot fact');
+    expect(urls.some((u) => u.includes('/evidence?'))).toBe(false);
   });
 });
