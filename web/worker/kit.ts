@@ -17,7 +17,7 @@ export const SECTION_GUIDE: Record<SectionId, string> = {
   purpose: 'One purpose statement (one sentence, why the brand exists beyond money), then 2-3 sentences explaining it. Golden Circle "why".',
   positioning: 'A positioning statement: for [audience] who [need], [brand] is the [category] that [difference], unlike [alternative]. Then 2-3 bullet points of proof or edge.',
   audience: 'Primary audience in 2-3 sentences, then 1-2 proto personas (name a role, not a fake person), each labelled "Assumption" unless an answer names a real person.',
-  voice: 'Voice summary in 2 sentences, then the dial settings as given (formality, energy, humour 1-5), then 3 "we say / we avoid" pairs.',
+  voice: 'Voice summary in 2 sentences naming the template, then the dial settings exactly as given (formality, energy, humour, warmth, sentence length, jargon, emoji, call to action, each 1-5), then the claims gate in plain words (5 strict: every claim needs evidence; 4 standard: factual claims need evidence; 3 light: numbers need evidence), then 3 "we say / we avoid" pairs.',
   messaging: 'A one-line tagline, a 25-word description, and 3 key messages, each one sentence.',
 };
 

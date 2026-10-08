@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useParams } from 'react-router';
 import { PublicShell } from '../../ui/shells/PublicShell';
 import { Alert, Box, Button, Choice, Container, Field, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { api, ApiError } from '../../lib/api';
-import { DIALS, STEPS, VOICE_TEMPLATES, type Step } from './steps';
+import { CLAIMS_GATE, DIALS, STEPS, templateDials, VOICE_TEMPLATES, type Step } from './steps';
 
 // Shapes returned by GET /api/brands/:id (web/worker/api.ts).
 export interface Brand { id: string; name: string; type: string; description: string | null; website: string | null; goal: string | null; channel: string | null }
@@ -202,7 +202,7 @@ function SourcesStep({ state, onChange, onNext, onBack }: { state: BrandState; o
 function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: BrandState; onSaved: () => Promise<void>; onBack: () => void }) {
   const prev = state.answers.find((a) => a.step === step.answerStep);
   const isVoice = step.answerStep === 'voice';
-  const [data, setData] = useState<Record<string, string>>(prev?.data ?? (isVoice ? { template: 'candid_founder', formality: '2', energy: '3', humour: '2' } : {}));
+  const [data, setData] = useState<Record<string, string>>(prev?.data ?? (isVoice ? templateDials('candid_founder') : {}));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const known = state.evidence.filter((e) => e.origin === 'source' && e.section === (step.answerStep === 'golden_circle' ? 'purpose' : step.answerStep));
@@ -231,7 +231,8 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
         )}
         {isVoice ? (
           <Stack gap={5}>
-            <Choice legend="Which sounds most like you?" value={data.template ?? ''} onChange={(v) => setData({ ...data, template: v })} options={VOICE_TEMPLATES} />
+            <Choice legend="Start from a template (it sets the dials below)" value={data.template ?? ''} onChange={(v) => setData({ ...templateDials(v), sample: data.sample ?? '' })} options={VOICE_TEMPLATES} />
+            {data.template === 'flirty' && <Alert tone="info">Flirty stays suggestive, never explicit. Drafts are checked against the content policy.</Alert>}
             {DIALS.map((d) => (
               <Choice
                 key={d.key}
@@ -241,6 +242,7 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
                 options={['1', '2', '3', '4', '5'].map((n) => ({ value: n, label: n }))}
               />
             ))}
+            <Choice legend="Claims gate: what needs evidence before it can be published?" value={data.claims ?? '4'} onChange={(v) => setData({ ...data, claims: v })} options={CLAIMS_GATE} />
             <Field label="A sentence you would actually write" hint="Optional. It helps us match your voice." multiline value={data.sample ?? ''} onChange={(e) => setData({ ...data, sample: e.target.value })} />
           </Stack>
         ) : (
