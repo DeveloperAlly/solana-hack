@@ -40,6 +40,11 @@ jobs:
         env:
           SPIKE_KEYS: ${{ secrets.SPIKE_KEYS }}
           DEVNET_RPC_URL: ${{ secrets.DEVNET_RPC_URL }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
         run: |
           test -n "$SPIKE_KEYS" || { echo "MISSING: SPIKE_KEYS"; exit 1; }
           TOKEN=$(openssl rand -hex 32)
@@ -48,7 +53,12 @@ jobs:
           SELFTEST_TOKEN="$TOKEN" node -e '
             const k = JSON.parse(process.env.SPIKE_KEYS);
             const out = { REGISTRAR_KEY: JSON.stringify(k.registrar), SELFTEST_TOKEN: process.env.SELFTEST_TOKEN,
-              RPC_URL: process.env.DEVNET_RPC_URL || "https://api.devnet.solana.com" };
+              RPC_URL: process.env.DEVNET_RPC_URL || "https://api.devnet.solana.com",
+              // S1-S4 product API: Supabase (auth check + data) and the LLM gateway.
+              SUPABASE_URL: process.env.SUPABASE_URL || "", SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY || "",
+              SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY || "", OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
+              OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || "openrouter/auto" };
+            for (const k of Object.keys(out)) if (!out[k]) { delete out[k]; console.log("not set: " + k); }
             require("fs").writeFileSync(process.env.RUNNER_TEMP + "/worker-secrets.json", JSON.stringify(out), { mode: 0o600 });'
       - name: Deploy to Cloudflare (jamjam.tech)
         env:

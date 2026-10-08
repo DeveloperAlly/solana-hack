@@ -1,12 +1,9 @@
 // Waterlily Worker: serves the SPA from static assets and answers /api/* (wrangler.jsonc run_worker_first).
 import { registrarFromSecret, registerKitAttestation } from './registry';
+import { handleApi } from './api';
+import { HttpError, json as jsonOut, type Env as AppEnv } from './env';
 
-interface Env {
-  ASSETS: { fetch(req: Request): Promise<Response> };
-  REGISTRAR_KEY: string; // secret: 64-byte devnet keypair as a JSON array
-  RPC_URL: string; // secret: devnet RPC endpoint (G-RPC)
-  SELFTEST_TOKEN: string; // secret: set fresh by every deploy run, used only by the post-deploy check
-}
+type Env = AppEnv;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
@@ -55,6 +52,14 @@ export default {
         const status = (e as { context?: { statusCode?: unknown } })?.context?.statusCode;
         return json({ ok: false, at, error: 'registration failed', upstreamStatus: typeof status === 'number' ? status : null }, 502);
       }
+    }
+    try {
+      const res = await handleApi(req, env, url);
+      if (res) return res;
+    } catch (e) {
+      if (e instanceof HttpError) return jsonOut({ error: e.message }, e.status);
+      console.error('api error', e);
+      return jsonOut({ error: 'something went wrong' }, 500);
     }
     return json({ error: 'not found' }, 404);
   },

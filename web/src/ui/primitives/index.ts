@@ -5,3 +5,6 @@ export { Text } from './Text';
 export { Heading } from './Heading';
 export { Link } from './Link';
 export { Button } from './Button';
+export { Field } from './Field';
+export { Alert } from './Alert';
+export { Choice } from './Choice';

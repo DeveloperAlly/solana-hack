@@ -1,7 +1,7 @@
 // M1: route and nav config. Shells and nav read from here; no nav markup is hand-written.
 export type RouteTag = 'HACKATHON' | 'HACKATHON (THIN)' | 'COMING SOON' | 'EXPERIMENTAL' | 'ROADMAP';
 export type RouteSection = 'public' | 'onboarding' | 'system' | 'hub';
-export type ScreenId = 'landing' | 'workbench' | 'placeholder';
+export type ScreenId = 'landing' | 'workbench' | 'placeholder' | 'signin' | 'build';
 
 export interface RouteDef {
   path: string;
@@ -16,8 +16,8 @@ export const routes: RouteDef[] = [
   { path: '/how-it-works', label: 'How it works', section: 'public', tag: 'HACKATHON', screen: 'placeholder' },
   { path: '/verify', label: 'Check a post', section: 'public', tag: 'HACKATHON', screen: 'placeholder' },
   { path: '/ledger', label: 'Ledger', section: 'public', tag: 'HACKATHON', screen: 'placeholder' },
-  { path: '/sign-in', label: 'Sign in', section: 'onboarding', tag: 'HACKATHON', screen: 'placeholder' },
-  { path: '/build', label: 'Build your brand', section: 'onboarding', tag: 'HACKATHON', screen: 'placeholder' },
+  { path: '/sign-in', label: 'Sign in', section: 'onboarding', tag: 'HACKATHON', screen: 'signin' },
+  { path: '/build/*', label: 'Build your brand', section: 'onboarding', tag: 'HACKATHON', screen: 'build' },
   { path: '/system', label: 'Workbench', section: 'system', tag: 'HACKATHON', screen: 'workbench' },
 ];
 

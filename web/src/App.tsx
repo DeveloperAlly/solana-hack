@@ -3,6 +3,9 @@ import { routes } from './config/routes';
 import { Landing } from './screens/landing/Landing';
 import { Placeholder } from './screens/placeholder/Placeholder';
 import { Workbench } from './system/Workbench';
+import { SignIn } from './screens/signin/SignIn';
+import { Build } from './screens/build/Build';
+import { RequireAuth } from './lib/auth';
 
 export function App() {
   return (
@@ -11,7 +14,13 @@ export function App() {
         <Route
           key={r.path}
           path={r.path}
-          element={r.screen === 'landing' ? <Landing /> : r.screen === 'workbench' ? <Workbench /> : <Placeholder route={r} />}
+          element={
+            r.screen === 'landing' ? <Landing />
+            : r.screen === 'workbench' ? <Workbench />
+            : r.screen === 'signin' ? <SignIn />
+            : r.screen === 'build' ? <RequireAuth><Build /></RequireAuth>
+            : <Placeholder route={r} />
+          }
         />
       ))}
       <Route path="*" element={<Placeholder route={{ path: '*', label: 'Page not found', section: 'public', tag: 'HACKATHON', screen: 'placeholder' }} />} />
