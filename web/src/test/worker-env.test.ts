@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { rpcHostLabel, safeError } from '../../worker/env';
 
 describe('Worker log redaction', () => {
@@ -114,5 +114,23 @@ describe('attestation expiry', () => {
     expect(attestationLive(0n, now)).toBe(true);
     expect(attestationLive(1_900_000_000n, now)).toBe(true);
     expect(attestationLive(1_700_000_000n, now)).toBe(false);
+  });
+});
+
+describe('paged reads', () => {
+  it('reads every row past a server row cap', async () => {
+    const { db } = await import('../../worker/db');
+    const total = 450;
+    const seen: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      seen.push(url);
+      const off = Number(new URL(url).searchParams.get('offset'));
+      const n = Math.max(0, Math.min(200, total - off));
+      return new Response(JSON.stringify(Array.from({ length: n }, (_, i) => ({ i: off + i }))));
+    }));
+    const rows = await db.selectAll<{ i: number }>({ SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SECRET_KEY: 's' } as never, 'evidence', 'brand_id=eq.b&order=created_at.asc,id.asc');
+    expect(rows).toHaveLength(total);
+    expect(seen).toHaveLength(3);
+    vi.unstubAllGlobals();
   });
 });

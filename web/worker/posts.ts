@@ -255,9 +255,10 @@ export function policyVerdict(claims: string, template: string | null, raw: unkn
   const ok = !!r && Array.isArray(r.unsupported) && r.unsupported.every((x) => typeof x === 'string')
     && (Object.keys(CATEGORIES) as Category[]).every((k) => typeof r[k] === 'boolean');
   if (!ok) throw new HttpError(502, 'the approval check returned an unusable answer, so nothing was approved; try again');
-  // Every unsupported claim is kept (only each one's text is capped): dropping any would let a later evidence
-  // batch clear the rest and pass a post that still has an unsupported claim.
-  const unsupported = (r!.unsupported as string[]).map((x) => x.slice(0, 200));
+  // Every unsupported claim is kept whole: dropping one, or cutting its text, would let a later evidence batch clear
+  // a shortened claim whose missing qualifier was the unsupported part. Only the screen shortens them for display.
+  // (4000 is the longest a post can be, so no claim from a post is cut by it.)
+  const unsupported = (r!.unsupported as string[]).map((x) => x.slice(0, 4000));
   const enforced: Category[] = template === 'flirty' ? ['sexual', 'minors', 'explicitLanguage'] : ['sexual', 'minors'];
   const blocked = enforced.filter((k) => r![k] === true).map((k) => CATEGORIES[k]);
   return { claims, template, unsupported, blocked, passed: blocked.length === 0 && unsupported.length === 0 };

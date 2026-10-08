@@ -89,6 +89,8 @@ describe('approval gates: claims and content policy', () => {
   it('passes only with no unsupported claims and no blocked category', () => {
     expect(policyVerdict('4', 'friendly', clean).passed).toBe(true);
     expect(policyVerdict('5', null, { ...clean, unsupported: ['2x faster'] })).toMatchObject({ passed: false, unsupported: ['2x faster'] });
+    const long = `we are faster than ${'every rival '.repeat(30)}in independent tests run by nobody`;
+    expect(policyVerdict('5', null, { ...clean, unsupported: [long] }).unsupported).toEqual([long]);
     expect(policyVerdict('4', 'friendly', { ...clean, sexual: true })).toMatchObject({ passed: false, blocked: ['sexual content'] });
     expect(policyVerdict('4', 'playful', { ...clean, minors: true }).passed).toBe(false);
   });

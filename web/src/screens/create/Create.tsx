@@ -150,7 +150,7 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
         </Stack>
         {post.status === 'drafted' && post.checks.policy && !post.checks.policy.passed && (
           <Alert tone="warning" title={post.checks.policy.blocked?.length ? 'Blocked by the content policy' : 'Blocked by your claims gate'}>
-            {post.checks.policy.blocked?.length ? `Found: ${post.checks.policy.blocked.join(', ')}. This cannot be published. Rewrite it, then approve again.` : `No evidence for: ${post.checks.policy.unsupported.join(' · ')}. Add a source on your brand, or rewrite, then approve again.`}
+            {post.checks.policy.blocked?.length ? `Found: ${post.checks.policy.blocked.join(', ')}. This cannot be published. Rewrite it, then approve again.` : `No evidence for: ${post.checks.policy.unsupported.map((u) => (u.length > 200 ? `${u.slice(0, 200)}…` : u)).join(' · ')}. Add a source on your brand, or rewrite, then approve again.`}
           </Alert>
         )}
         {post.checks.notes && post.checks.notes.length > 0 && <Text variant="small" tone="secondary">To improve: {post.checks.notes.join(' · ')}</Text>}

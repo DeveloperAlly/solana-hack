@@ -40,7 +40,8 @@ async function brandState(env: Env, brand: Brand) {
   const [answers, sources, evidence, sections, gates, kits] = await Promise.all([
     db.select<Answer>(env, 'answers', f),
     db.select(env, 'sources', `${f}&select=id,url,title,status,error,fetched_at&order=created_at`),
-    db.select<Evidence>(env, 'evidence', `${f}&order=created_at`),
+    // Paged: the kit snapshot records all evidence, so a response row cap must not drop any.
+    db.selectAll<Evidence>(env, 'evidence', `${f}&order=created_at.asc,id.asc`),
     db.select<Section>(env, 'kit_sections', f),
     db.select<Gate>(env, 'gates', f),
     db.select<Kit>(env, 'kits', `${f}&select=id,version,hash,status,signature,attestation,created_at,error,payload&order=version.desc`),
