@@ -41,3 +41,19 @@ describe('database error logging', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('LLM error logging', () => {
+  it('logs the status and provider code, never the provider message', async () => {
+    const { chat } = await import('../../worker/llm');
+    const { vi } = await import('vitest');
+    const logged: unknown[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...a) => { logged.push(a); });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: { code: 400, message: 'Bad input: my secret founder story' } }), { status: 400 })));
+    await expect(chat({ OPENROUTER_API_KEY: 'k' } as never, 's', 'u')).rejects.toMatchObject({ status: 502 });
+    const out = JSON.stringify(logged);
+    expect(out).toContain('"status":400');
+    expect(out).not.toContain('founder story');
+    spy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+});
