@@ -1,10 +1,11 @@
 import { requireUser, type User } from './auth';
 import { db } from './db';
-import { HttpError, json, sha256Hex, type Env } from './env';
+import { HttpError, json, safeError, sha256Hex, type Env } from './env';
 import { readPage } from './ingest';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
+import { approvePost, draftPost, editPost, ledger, registerPost, verifyText, type Post } from './posts';
 
 interface Brand { id: string; owner_id: string; name: string; type: string; description: string | null; website: string | null; goal: string | null; channel: string | null }
 interface Answer { step: string; data: Record<string, string>; skipped: boolean }
@@ -112,19 +113,36 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
     // Only hashes and ids go onchain (R27): brand id, kit hash, version, approver id.
     const out = await registerKitAttestation(env.RPC_URL, registrar, { brand_id: brand.id, hash, kit_version: String(version), approver: user.id, domain_verified: 'false' });
-    const [done] = await db.update<Kit>(env, 'kits', db.eq('id', kit.id), { status: 'registered', signature: out.signature, attestation: out.attestation });
+    const [done] = await db.update<Kit>(env, 'kits', db.eq('id', kit.id), { status: 'registered', signature: out.signature, attestation: out.attestation, registered_at: new Date().toISOString() });
     return { kit: done, explorer: out.explorer, attestationExplorer: out.attestationExplorer, registrar: out.registrar };
   } catch (e) {
-    console.error('kit registration failed', e);
+    console.error('kit registration failed', safeError(e));
     await db.update(env, 'kits', db.eq('id', kit.id), { status: 'failed', error: 'registration failed' });
     throw new HttpError(502, 'registering on Solana failed, try again');
   }
+}
+
+/** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
+export async function publicLimit(req: Request, env: Env, scope: string) {
+  if (!env.PUBLIC_LIMITER) return;
+  // Keyed per endpoint and IP, so browsing the Ledger does not use up Verify checks.
+  const { success } = await env.PUBLIC_LIMITER.limit({ key: `${scope}:${req.headers.get('cf-connecting-ip') ?? 'unknown'}` });
+  if (!success) throw new HttpError(429, 'too many checks from your network; wait a minute and try again');
 }
 
 /** Authenticated product API (S1-S4). Returns null for paths it does not own. */
 export async function handleApi(req: Request, env: Env, url: URL): Promise<Response | null> {
   const p = url.pathname.split('/').filter(Boolean); // ['api', ...]
   const m = req.method;
+  // Public (no sign-in): Verify and Ledger (S6), limited per client IP because they query the database and Solana.
+  if ((p[1] === 'verify' || p[1] === 'ledger') && p.length === 2) await publicLimit(req, env, p[1]);
+  if (p[1] === 'verify' && p.length === 2 && m === 'POST') {
+    const b = await body(req);
+    // Over-long text is refused, never truncated: a truncated text could match a post it does not equal.
+    if (typeof b.text === 'string' && b.text.length > 8000) throw new HttpError(413, 'that is longer than any post we register (8,000 characters)');
+    return json(await verifyText(env, str(b.text, 8000)));
+  }
+  if (p[1] === 'ledger' && p.length === 2 && m === 'GET') return json(await ledger(env));
   if (p[1] !== 'me' && p[1] !== 'brands') return null;
   const user = await requireUser(req, env);
 
@@ -197,5 +215,27 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     }
   }
   if (p[3] === 'kit' && p[4] === 'register' && m === 'POST') return json(await registerKit(env, user, brand), 201);
+  // S5 Create: posts in the brand voice; human approval before registration (R8).
+  if (p[3] === 'posts') {
+    if (p.length === 4 && m === 'GET') return json({ posts: await db.select<Post>(env, 'posts', `${db.eq('brand_id', brand.id)}&order=created_at.desc&limit=20`) });
+    if (p.length === 4 && m === 'POST') {
+      const b = await body(req);
+      const brief = str(b.brief, 1000);
+      if (!brief) throw new HttpError(400, 'say what the post is about');
+      return json({ post: await draftPost(env, brand, brief, str(b.channel, 40)) }, 201);
+    }
+    const [post] = p[4] && /^[0-9a-f-]{36}$/.test(p[4]) ? await db.select<Post>(env, 'posts', `${db.eq('id', p[4])}&${db.eq('brand_id', brand.id)}`) : [];
+    if (!post) throw new HttpError(404, 'post not found');
+    const b = await body(req);
+    // Every change names the revision the person saw; if the post changed since (another tab), it is refused.
+    if (b.rev !== post.rev) throw new HttpError(409, 'this post changed since you loaded it; reload to see the latest version');
+    if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str(b.body, 4000)) });
+    if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
+    if (p[5] === 'register' && m === 'POST') {
+      // Refused, not cut: a truncated link would be stored, and shown on Verify, as a different address.
+      if (typeof b.publishedUrl === 'string' && b.publishedUrl.trim().length > 500) throw new HttpError(400, 'that link is longer than 500 characters; use the post\'s short link');
+      return json(await registerPost(env, user, post, str(b.publishedUrl, 500)), 201);
+    }
+  }
   return json({ error: 'not found' }, 404);
 }

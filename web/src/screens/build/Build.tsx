@@ -390,10 +390,11 @@ function KitStep({ state, onChange, onBack }: { state: BrandState; onChange: () 
       {error && <Alert tone="danger">{error}</Alert>}
       <Nav onBack={onBack}>
         <Button onClick={register} disabled={busy || gatesDone.length < 3}>
-          {busy ? 'Registering on Solana…' : latest?.status === 'registered' ? `Register kit v${latest.version + 1}` : 'Register kit v1'}
+          {busy ? 'Registering on Solana…' : `Register kit v${(latest?.version ?? 0) + 1}`}
         </Button>
       </Nav>
       {gatesDone.length < 3 && <Text variant="small" tone="secondary">Approve purpose, positioning and voice to register.</Text>}
+      {state.kits.some((k) => k.status === 'registered') && <Button href="/create" variant="secondary">Start creating</Button>}
     </Stack>
   );
 }

@@ -12,7 +12,10 @@ async function rest<T>(env: Env, path: string, init: RequestInit & { prefer?: st
   });
   const text = await res.text();
   if (!res.ok) {
-    console.error('db error', res.status, path, text);
+    // Logging policy: table, method, status and PostgREST error code only. Filters and response bodies are never logged.
+    let code: string | undefined;
+    try { code = (JSON.parse(text) as { code?: string }).code; } catch { /* not JSON */ }
+    console.error('db error', { table: path.split('?')[0], method: init.method ?? 'GET', status: res.status, code });
     throw new HttpError(500, 'database error');
   }
   return (text ? JSON.parse(text) : null) as T;

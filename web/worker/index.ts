@@ -1,7 +1,7 @@
 // Waterlily Worker: serves the SPA from static assets and answers /api/* (wrangler.jsonc run_worker_first).
 import { registrarFromSecret, registerKitAttestation } from './registry';
 import { handleApi } from './api';
-import { HttpError, json as jsonOut, type Env as AppEnv } from './env';
+import { HttpError, json as jsonOut, rpcHostLabel, safeError, type Env as AppEnv } from './env';
 
 type Env = AppEnv;
 
@@ -28,8 +28,15 @@ export default {
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(req);
 
     if (url.pathname === '/api/health' && req.method === 'GET') {
-      const registrar = env.REGISTRAR_KEY ? (await registrarFromSecret(env.REGISTRAR_KEY)).address : null;
-      return json({ ok: true, registrar, rpcConfigured: !!env.RPC_URL });
+      // Error-handling policy: a bad key is caught here and reported only through safeError, never thrown uncaught.
+      let registrar: string | null = null;
+      let registrarError: string | undefined;
+      if (env.REGISTRAR_KEY) {
+        try { registrar = (await registrarFromSecret(env.REGISTRAR_KEY)).address; } catch (e) { registrarError = safeError(e).name; console.error('health: registrar key unusable', safeError(e)); }
+      }
+      // ok is false when a registrar key is set but unusable: every registration would fail. The status stays 200 so
+      // the Settings screen can still read the diagnostic fields.
+      return json({ ok: !registrarError, registrar, registrarError, rpcConfigured: !!env.RPC_URL });
     }
 
     // S0 done-when (3): one Registrar-signed devnet registration. Deploy-run only (token), so the
@@ -46,11 +53,22 @@ export default {
         });
         return json({ ok: true, at, ...out });
       } catch (e) {
-        // Full detail stays in Worker logs; the response is public (it is posted to issue #4), so it
-        // carries only a stable message and, if present, the upstream HTTP status (G-RPC diagnosis).
-        console.error('registry selftest failed', e);
-        const status = (e as { context?: { statusCode?: unknown } })?.context?.statusCode;
-        return json({ ok: false, at, error: 'registration failed', upstreamStatus: typeof status === 'number' ? status : null }, 502);
+        // Logging policy: the log line is the sanitised safeError output (URLs reduced to known hosts, message capped),
+        // not the raw error. The response is public (it is posted to issue #4), so it carries only a stable message
+        // and, if present, the upstream HTTP status (G-RPC diagnosis).
+        console.error('registry selftest failed', safeError(e));
+        const err = e as { name?: unknown; context?: { statusCode?: unknown; __code?: unknown } };
+        const status = err?.context?.statusCode;
+        const code = err?.context?.__code;
+        // Response policy: only the error class and the numeric @solana/kit error code are returned, never the error
+        // message. The log line is the redacted safeError copy.
+        return json({
+          ok: false, at, error: 'registration failed',
+          upstreamStatus: typeof status === 'number' ? status : null,
+          errorName: typeof err?.name === 'string' ? err.name.slice(0, 60) : null,
+          solanaErrorCode: typeof code === 'number' ? code : null,
+          rpcHost: rpcHostLabel(env.RPC_URL),
+        }, 502);
       }
     }
     try {
@@ -58,7 +76,7 @@ export default {
       if (res) return res;
     } catch (e) {
       if (e instanceof HttpError) return jsonOut({ error: e.message }, e.status);
-      console.error('api error', e);
+      console.error('api error', safeError(e));
       return jsonOut({ error: 'something went wrong' }, 500);
     }
     return json({ error: 'not found' }, 404);
