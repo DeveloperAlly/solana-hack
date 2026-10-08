@@ -229,7 +229,17 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
         <Text tone="secondary">Short answers are fine. Skip anything and come back later.</Text>
         {known.length > 0 && (
           <Alert tone="info" title="Already found on your pages">
-            {known.slice(0, 3).map((e) => e.claim).join(' · ')}
+            <Stack gap={1} as="ul">
+              {known.slice(0, 3).map((e) => {
+                const src = state.sources.find((x) => x.id === e.source_id);
+                return (
+                  <li key={e.id}>
+                    {e.claim}
+                    {src && <> (<Link href={src.url} external>{src.title || src.url}</Link>)</>}
+                  </li>
+                );
+              })}
+            </Stack>
           </Alert>
         )}
         {isVoice ? (
