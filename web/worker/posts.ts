@@ -118,12 +118,13 @@ const POLISH: Record<string, string> = {
   shorten: 'Shorten to the platform norm (LinkedIn about 600 characters, X under 280). Keep the point, the facts and the voice.',
   clarify: 'Simplify sentences and remove jargon. Same length or shorter. Keep the facts and the voice.',
   beautify: 'Structure for scanning: a hook first line, short blocks with blank lines between them, lists as lines starting with "•". For LinkedIn you may set up to 3 key phrases in Unicode mathematical bold. Keep the words otherwise.',
-  beautify_accessible: 'Structure for scanning: a hook first line, short blocks with blank lines between them, lists as lines starting with "•". Use no Unicode styling at all (screen readers read it letter by letter). Keep the words otherwise.',
+  beautify_accessible: 'Structure for scanning: a hook first line, short blocks with blank lines between them, lists as lines starting with "•". Use no Unicode styling at all: this is the accessible variant, plain letters only. Keep the words otherwise.',
 };
 export const POLISH_ACTIONS = Object.keys(POLISH);
 
 /**
- * Maps Unicode "styled" letters and digits to plain ones; screen readers spell styled ones out letter by letter.
+ * Maps Unicode "styled" letters and digits to plain ones. Policy: the accessible Beautify variant contains no styled
+ * letters, whatever the model returns.
  * Blocks scanned: Letterlike Symbols (U+2100-214F), Enclosed Alphanumerics (U+2460-24FF), fullwidth forms
  * (U+FF01-FF5E), Mathematical Alphanumeric Symbols (U+1D400-1D7FF) and the Enclosed Alphanumeric Supplement up to
  * U+1F1E5 (flags after it are left alone). A character is replaced only when NFKC turns it into a single plain
@@ -200,9 +201,14 @@ export async function polishPost(env: Env, post: Post, action: string) {
   const { text } = await chat(env, system, user);
   // Type-checked like drafts (modelPost): a malformed reply becomes an empty body (a clean 502), never a crash.
   const out = modelPost(parseJson<unknown>(text));
-  let body = action === 'review' ? post.body : out.body.trim().slice(0, 4000);
+  let body = action === 'review' ? post.body : out.body.trim();
+  // Refused, not cut: truncating would drop words (or qualifiers) and the scores would describe text we did not keep.
+  if (body.length > 4000) throw new HttpError(422, 'the polished post came back longer than 4,000 characters, so nothing was saved; try again or edit it yourself');
   // The accessible variant is guaranteed, not requested: styled Unicode letters are mapped back to plain ones.
+  const modelBody = body;
   if (action === 'beautify_accessible') body = plainLetters(body);
+  // The model scored its own text; if mapping changed it, those scores no longer describe what is saved.
+  const rescored = body !== modelBody;
   // Shorten must actually meet the platform limit; a longer result is refused, not saved.
   const limit = platformLimit(post.channel);
   if (action === 'shorten' && limit && xWeightedLength(body) > limit) throw new HttpError(422, `Shorten came back at ${xWeightedLength(body)} characters as X counts them, over the ${limit} limit; try again or edit it yourself`);
@@ -210,12 +216,16 @@ export async function polishPost(env: Env, post: Post, action: string) {
   // Shorten must also be shorter than what it started from, measured the way the channel counts.
   const size = (t: string) => (limit ? xWeightedLength(t) : [...t].length);
   if (action === 'shorten' && size(body) >= size(post.body)) throw new HttpError(422, 'Shorten did not make the post any shorter; try again or edit it yourself');
+  // Clarify is asked for the same length or shorter; a longer result is refused rather than saved.
+  if (action === 'clarify' && size(body) > size(post.body)) throw new HttpError(422, 'Clarify made the post longer, so nothing was saved; try again or edit it yourself');
   const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
   const checks: Checks = {
     // Review never changes the text, so its scores stay the ones that describe that text; only its notes are new.
     ...post.checks, slop: slopCheck(body),
-    voiceFit: action === 'review' ? post.checks.voiceFit ?? null : num(out.voiceFit), platform: action === 'review' ? post.checks.platform ?? null : num(out.platform),
-    notes: out.notes.slice(0, 4).map((n) => n.slice(0, 200)), history: pushHistory(post), lastAction: action,
+    voiceFit: action === 'review' ? post.checks.voiceFit ?? null : rescored ? null : num(out.voiceFit),
+    platform: action === 'review' ? post.checks.platform ?? null : rescored ? null : num(out.platform),
+    notes: rescored ? ['Styled letters were replaced with plain ones after scoring, so the scores were cleared. Run Review for notes on this text.'] : out.notes.slice(0, 4).map((n) => n.slice(0, 200)),
+    history: pushHistory(post), lastAction: action,
     source: action === 'review' ? post.checks.source : 'ai',
   };
   // Compare-and-swap on the revision read before the model call: an edit, undo or registration meanwhile wins.
