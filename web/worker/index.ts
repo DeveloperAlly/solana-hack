@@ -58,8 +58,8 @@ export default {
         const err = e as { name?: unknown; context?: { statusCode?: unknown; __code?: unknown } };
         const status = err?.context?.statusCode;
         const code = err?.context?.__code;
-        // Public-safe diagnosis only: the error class and the numeric @solana/kit error code, never the
-        // message (it can contain the RPC URL and its API key). Workers Logs keep a redacted copy (safeError).
+        // Response policy: only the error class and the numeric @solana/kit error code are returned, never the error
+        // message. The log line is the redacted safeError copy.
         return json({
           ok: false, at, error: 'registration failed',
           upstreamStatus: typeof status === 'number' ? status : null,
