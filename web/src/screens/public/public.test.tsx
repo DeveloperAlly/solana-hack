@@ -28,7 +28,7 @@ describe('kit export', () => {
       sections: [{ section: 'purpose', body: 'Help brands prove what they said.', citations: ['e1'], status: 'approved' }],
       gates: [{ gate: 'purpose', approved_by: 'u', approved_at: '2026-10-08T00:00:00Z', note: null }],
       kits: [{ id: 'k', version: 1, hash: 'sha256:abc', status: 'registered', signature: 'sig', attestation: 'att', created_at: '', error: null,
-        payload: { sections: [{ section: 'purpose', body: 'Help brands prove what they said.', citations: ['e1'], status: 'approved' }], gates: [{ gate: 'purpose', approved_by: 'u', approved_at: '2026-10-08T00:00:00Z' }] } }],
+        payload: { sources: [{ id: 's', url: 'https://example.com', title: 'Example', status: 'read' }], sections: [{ section: 'purpose', body: 'Help brands prove what they said.', citations: ['e1'], status: 'approved' }], gates: [{ gate: 'purpose', approved_by: 'u', approved_at: '2026-10-08T00:00:00Z' }] } }],
     } as BrandState;
     const md = kitMarkdown(s);
     expect(md).toContain('# Waterlily brand kit');
@@ -68,6 +68,14 @@ describe('kit export', () => {
     const md = kitMarkdown(s);
     expect(md).toContain('https://original.example');
     expect(md).not.toContain('added-later');
+  });
+  it('never lists live sources under a registered version that has no sources snapshot', () => {
+    const s = { brand: { name: 'W' }, answers: [], evidence: [], gates: [], sections: [],
+      sources: [{ id: 's9', url: 'https://live-only.example', title: null, status: 'read', error: null }],
+      kits: [{ id: 'k', version: 1, hash: 'h', status: 'registered', signature: null, attestation: null, created_at: '', error: null, payload: { sections: [], gates: [] } }] } as unknown as BrandState;
+    const md = kitMarkdown(s);
+    expect(md).not.toContain('live-only');
+    expect(md).toContain('sources were not recorded for this version');
   });
   it('labels an export with no registered kit as a draft', () => {
     const s = { brand: { name: 'W' }, answers: [], evidence: [], sources: [], gates: [], kits: [],
