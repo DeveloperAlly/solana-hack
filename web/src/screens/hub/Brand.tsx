@@ -36,7 +36,10 @@ export function kitMarkdown(s: BrandState): string {
   for (const g of gates) lines.push(`- ${g.gate}: approved ${g.approved_at}${'note' in g && g.note ? ` (${g.note})` : ''}`);
   lines.push('', '## what/context/sources');
   // A registered export lists the sources recorded in that version; only a draft export lists the live ones.
-  for (const src of kit ? kit.payload?.sources ?? s.sources : s.sources) lines.push(`- ${src.title || src.url}: ${src.url} (${src.status})`);
+  // A registered version without a sources snapshot (registered before snapshots existed) says so; it never borrows
+  // the live list, which its fingerprint does not cover.
+  if (kit && !kit.payload?.sources) lines.push('- (sources were not recorded for this version)');
+  for (const src of kit ? kit.payload?.sources ?? [] : s.sources) lines.push(`- ${src.title || src.url}: ${src.url} (${src.status})`);
   return lines.filter((l) => l !== undefined).join('\n') + '\n';
 }
 
