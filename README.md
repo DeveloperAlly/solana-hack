@@ -60,4 +60,6 @@ To run the app and API together, put the Worker settings in `web/.dev.vars`: `SU
 npm run build && npx wrangler dev   # serves dist/ and /api/* on http://localhost:8787
 ```
 
+Registering a kit or post also needs a provisioned Registrar: `REGISTRAR_KEY` is a 64-byte Solana keypair as a JSON array of numbers, funded with devnet SOL, that has already created the `WATERLILY` credential and `WL-KIT` schema (the devnet spike in [`spike/`](./spike/) does this). With an unprovisioned key, every step up to registration works and registration fails.
+
 This repo is structured with aDNA ([adna.network](https://adna.network)), an open standard for agentic project context.

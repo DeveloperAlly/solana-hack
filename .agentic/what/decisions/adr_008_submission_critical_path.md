@@ -28,7 +28,6 @@ tags: [adr, scope, hackathon, critical-path]
 ## Consequences
 - The demo and README show build, run and prove, and say plainly which parts are coming soon.
 - [ADR-003](./adr_003_superhub_business_model.md) is unchanged: the cut features remain in the product map and return after the submission.
-- STATE.md's "Next" list follows this order.
 
 ## Ratification
 Pending. This ADR records the plan the work has followed since 2026-10-08; it becomes accepted only when the owner ratifies it here.
