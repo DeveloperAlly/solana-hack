@@ -20,7 +20,7 @@ last_edited_by: agent
   - [#17](https://github.com/DeveloperAlly/solana-hack/pull/17): the voice step from research 06.
 
   Retarget #16 and #17 to main once their bases merge.
-- **Database:** schema `spec/db/001`–`004` is applied to Supabase (004 adds `posts.rev`, used for compare-and-swap on every post change). RLS is on with no policies, so only the Worker reads and writes.
+- **Database:** five migrations are applied to Supabase, confirmed with `list_migrations` on 2026-10-08: `spine_001`, `posts_002`, `posts_registering_003`, `posts_rev_004` and `posts_registration_times_005`. Their files are `spec/db/001` on main and `002`–`005` in PR #13 (carried up the stack). 004 adds `posts.rev` for compare-and-swap on every post change. 005 adds `registering_at` and `registered_at`. RLS is on with no policies, so only the Worker reads and writes.
 - **Not yet proven live:** the deployed registry selftest returned 502 after #11. #14 adds the safe diagnostics needed to find the cause.
 **Deadline:** Colosseum Crypto World's Fair, Oct 12 2026, 11:59pm PT (Oct 13, 5:59pm Melbourne). Waterlily's own kit v1 is due by Oct 9.
 
@@ -40,7 +40,7 @@ last_edited_by: agent
 - [ADR-007](./.agentic/what/decisions/adr_007_pitch_positioning.md): the pitch makes end to end (build, run, prove, pay) the differentiator and leads the sale with crypto and developer brands; build scope unchanged. Deck v2 text and notes are in [pitch_deck_2026_10_06.md](./.agentic/what/context/pitch_deck_2026_10_06.md) (draft; placeholders to fill), with the [review](./.agentic/what/context/vc_judge_review_2026_10_06.md) behind it.
 - Demo: Waterlily builds its own brand from scratch, live (headline). aDNA is the second case (strong written brand, no social). film.fun and GamersLab are semi-established case studies. Polish actions include Beautify.
 
-- Critical path to submission (2026-10-08): finish the spine, a thin S5, and Verify and Ledger first, then the submission assets. Payouts, X and LinkedIn OAuth, quests, claims, the full settings and the remaining canvas batches are cut and labelled "coming soon". Review loops run on code PRs only.
+- [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md): the submission critical path. The spine, a thin Create, and Verify and Ledger come first, then the submission assets. Payouts, X and LinkedIn OAuth, quests, claims, the full settings and the remaining canvas batches are cut and labelled "coming soon" (owner, 2026-10-08).
 - Helius devnet RPC (G-RPC) and a funded OpenRouter key are in the deploy secrets (owner, 2026-10-08). The Registrar is `E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG`.
 
 ## Blockers
@@ -59,7 +59,7 @@ last_edited_by: agent
   2. Read the #14 fields in Workers Logs and fix the registry 502.
   3. Run the full flow on https://jamjam.tech: sign-in, ingest, gates, kit v1, then a post through Verify. Check the rows in Supabase.
   4. Register Waterlily's own kit v1 (due Oct 9).
-  5. Make the submission assets: the presentation video and the demo video (3 minutes or less each), the logo, the go-to-market strategy, demand validation, and the repo link (the README is written for judges).
+  5. Make the submission assets ([Colosseum hackathon page](https://www.colosseum.com/hackathon)): the presentation video, the product demo video (3 minutes or less), the logo, the go-to-market strategy, demand validation, and the repo link (the README is written for judges).
 - **Earlier items**, superseded where they conflict with the critical path above:
 
 0. Owner reviews the remaining [backend map](./.agentic/what/context/backend_map.md) gaps.
