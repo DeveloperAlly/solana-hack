@@ -1,5 +1,6 @@
 import { PublicShell } from '../../ui/shells/PublicShell';
 import { Badge, Box, Button, Container, Grid, Heading, Link, Stack, Text } from '../../ui/primitives';
+import { INTERVIEW_MINUTES } from '../build/steps';
 
 const sample = [
   { name: 'Purpose', state: 'Approved' },
@@ -25,7 +26,9 @@ export function Landing() {
               <Heading level={1} size="4xl">Build your brand. Then start creating.</Heading>
               <Text>Answer a few questions and link what you already have. You get a brand kit: purpose, positioning, audience and voice. Then draft posts in that voice, checked before you see them, and approve what goes out.</Text>
               <Button href="/sign-in">Build my brand</Button>
-              <Text variant="small" tone="secondary">About 15 minutes of your time. No website yet? A name is enough. No wallet needed.</Text>
+              {/* Each claim is backed by the product: the step config sets the minutes, Basics needs only a name, and the
+                  server Registrar signs registrations (ADR-006). How it works explains all three. */}
+              <Text variant="small" tone="secondary">About {INTERVIEW_MINUTES} minutes of questions. No website yet? A name is enough. No wallet needed: <Link href="/how-it-works">see how it works</Link>.</Text>
             </Stack>
             <Box padding={5} border="default" radius="box" aria-label="Example brand kit">
               <Stack gap={3}>
