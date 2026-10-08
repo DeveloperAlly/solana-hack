@@ -5,7 +5,7 @@ import { api, ApiError } from '../../lib/api';
 
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
-  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit'; policy?: { claims: string; unsupported: string[]; blocked?: string[]; passed: boolean } };
+  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit'; policy?: { v?: number; claims: string; unsupported: string[]; blocked?: string[]; passed: boolean } };
   signature: string | null; published_url: string | null; rev: number;
 }
 const POLISH = [
@@ -16,7 +16,8 @@ const POLISH = [
   { action: 'beautify_accessible', label: 'Beautify (accessible)' },
 ];
 // Same rule as the server (isCurrentPolicy): only a passing result in the current shape lets a post register.
-const policyCurrent = (p?: { passed: boolean; blocked?: string[]; unsupported?: string[] }) => !!p && p.passed && Array.isArray(p.blocked) && !p.blocked.length && Array.isArray(p.unsupported) && !p.unsupported.length;
+const POLICY_VERSION = 2; // must match the server's POLICY_VERSION
+const policyCurrent = (p?: { v?: number; passed: boolean; blocked?: string[]; unsupported?: string[] }) => !!p && p.v === POLICY_VERSION && p.passed && Array.isArray(p.blocked) && !p.blocked.length && Array.isArray(p.unsupported) && !p.unsupported.length;
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
 
 /** S5 Create (thin): draft a post in the approved voice, check it, approve it, register it. */

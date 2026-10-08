@@ -254,7 +254,12 @@ export const CLAIMS_POLICY: Record<string, string> = {
 // blocked for every brand; explicit language is blocked for Flirty (research 06 guardrail), allowed elsewhere.
 const CATEGORIES = { sexual: 'sexual content', minors: 'content sexualising or targeting minors', explicitLanguage: 'explicit language' } as const;
 type Category = keyof typeof CATEGORIES;
-export interface PolicyResult { claims: string; template: string | null; unsupported: string[]; blocked: string[]; passed: boolean }
+/**
+ * Version of the approval check. Bumped when what a passing result means changes; 2 = checked against the evidence
+ * snapshot of the post's kit version. A result from an earlier version is not current and must be run again.
+ */
+export const POLICY_VERSION = 2;
+export interface PolicyResult { v: number; claims: string; template: string | null; unsupported: string[]; blocked: string[]; passed: boolean }
 
 /**
  * Decides from the checker's raw reply; pure, so the gate is testable without a model. The reply must have exactly
@@ -271,7 +276,7 @@ export function policyVerdict(claims: string, template: string | null, raw: unkn
   const unsupported = (r!.unsupported as string[]).map((x) => x.slice(0, 4000));
   const enforced: Category[] = template === 'flirty' ? ['sexual', 'minors', 'explicitLanguage'] : ['sexual', 'minors'];
   const blocked = enforced.filter((k) => r![k] === true).map((k) => CATEGORIES[k]);
-  return { claims, template, unsupported, blocked, passed: blocked.length === 0 && unsupported.length === 0 };
+  return { v: POLICY_VERSION, claims, template, unsupported, blocked, passed: blocked.length === 0 && unsupported.length === 0 };
 }
 
 /**
@@ -296,7 +301,7 @@ async function postPolicy(env: Env, post: Post): Promise<{ claims: string; templ
  */
 export function isCurrentPolicy(p: unknown): boolean {
   const r = p as Partial<PolicyResult> | undefined;
-  return !!r && r.passed === true && Array.isArray(r.blocked) && r.blocked.length === 0 && Array.isArray(r.unsupported) && r.unsupported.length === 0 && 'template' in r;
+  return !!r && r.v === POLICY_VERSION && r.passed === true && Array.isArray(r.blocked) && r.blocked.length === 0 && Array.isArray(r.unsupported) && r.unsupported.length === 0 && 'template' in r;
 }
 
 /** Every non-assumption evidence row for a brand, paged in a fixed order, so no supporting fact is silently left out. */

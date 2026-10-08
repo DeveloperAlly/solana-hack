@@ -36,7 +36,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-const approved = { id: 'p', rev: 2, brand_id: 'b', status: 'approved', body: 'Text.', kit_version: 1, approved_by: 'u', checks: { policy: { passed: true, claims: '4', template: null, unsupported: [], blocked: [] } } } as never;
+const approved = { id: 'p', rev: 2, brand_id: 'b', status: 'approved', body: 'Text.', kit_version: 1, approved_by: 'u', checks: { policy: { v: 2, passed: true, claims: '4', template: null, unsupported: [], blocked: [] } } } as never;
 
 describe('post registration', () => {
   it('refuses a post whose stored result has the old fail-open shape', async () => {
