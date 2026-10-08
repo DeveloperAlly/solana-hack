@@ -6,7 +6,7 @@ updated: 2026-10-08
 last_edited_by: agent
 tags: [adr, scope, hackathon, critical-path]
 ---
-> **Status: proposed (awaiting the owner's ratification).** Until the Colosseum submission (Oct 12 2026, 11:59pm PT), the build follows one critical path: the spine, a thin Create, and Verify and Ledger, then the submission assets. Everything else waits, and the app should label it "coming soon" (deployment status lives in STATE.md).
+> **Status: proposed (awaiting the owner's ratification).** This ADR proposes that, until the Colosseum submission (Oct 12 2026, 11:59pm PT), the build follow one critical path: the spine, a thin Create, and Verify and Ledger, then the submission assets. Under this proposal everything else would wait, labelled "coming soon" in the app. None of it binds until Ally ratifies it (deployment status lives in STATE.md).
 
 # ADR-008: The submission critical path, and what is cut until after it
 
