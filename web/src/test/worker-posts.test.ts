@@ -12,6 +12,11 @@ describe('post checks', () => {
     expect(r.passed).toBe(false);
     expect(r.hits).toEqual(expect.arrayContaining(['unlock', 'seamless', '—', 'exclamation mark']));
   });
+  it('finds banned terms hidden in styled letters', () => {
+    expect(slopCheck('Time to 𝘂𝗻𝗹𝗼𝗰𝗸 growth').hits).toContain('unlock');
+    expect(slopCheck('A 𝐬𝐞𝐚𝐦𝐥𝐞𝐬𝐬 launch').hits).toContain('seamless');
+    expect(slopCheck('Now live！').hits).toContain('exclamation mark');
+  });
   it('collapses every whitespace run, line breaks included', async () => {
     expect(await contentHash('first line\nsecond line\n\nthird')).toBe(await contentHash('first line second line third'));
   });

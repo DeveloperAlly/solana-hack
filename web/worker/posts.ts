@@ -26,9 +26,11 @@ export function restoreEntry(entry: Snapshot | string): Snapshot {
 const BANNED = ['delve', 'unlock', 'unleash', 'elevate', 'seamless', 'game-changer', 'game changer', 'revolutioniz', 'cutting-edge', "in today's fast-paced", 'landscape', 'tapestry', 'empower', 'leverage', 'synergy', 'robust', 'harness', 'navigate the', "it's not just", 'more than just', '—'];
 
 export function slopCheck(text: string) {
-  const t = text.toLowerCase();
+  // Checked on a plain copy so styled letters (𝘂𝗻𝗹𝗼𝗰𝗸, ᴜɴʟᴏᴄᴋ, fullwidth ！) cannot hide a banned term; the post keeps its styling.
+  const plain = plainLetters(text).normalize('NFKC');
+  const t = plain.toLowerCase();
   const hits = BANNED.filter((w) => t.includes(w));
-  if ((text.match(/!/g) ?? []).length > 0) hits.push('exclamation mark');
+  if ((plain.match(/!/g) ?? []).length > 0) hits.push('exclamation mark');
   return { passed: hits.length === 0, hits };
 }
 
