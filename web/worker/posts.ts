@@ -22,8 +22,11 @@ export function slopCheck(text: string) {
   return { passed: hits.length === 0, hits };
 }
 
-/** Whitespace-normalised text, so the same post hashes the same however it was pasted. */
-export const normalise = (s: string) => s.replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
+/**
+ * Unicode NFC, then whitespace-normalised, so the same post hashes the same however it was pasted (spec/api/routes/
+ * create.ts: canonical hash is NFC). A decomposed "e" plus accent and a precomposed "é" hash identically.
+ */
+export const normalise = (s: string) => s.normalize('NFC').replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
 export const contentHash = async (s: string) => 'sha256:' + (await sha256Hex(normalise(s)));
 
 // Drafts use the latest *registered* kit snapshot (kits.payload), not the editable sections, so a post's
