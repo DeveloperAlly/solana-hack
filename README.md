@@ -25,7 +25,7 @@ Each item says where it stands: **on main** (merged and deployed), or **in revie
 9. **Verify and Ledger, public** (in review, #13). Paste a post to check whether it is official. The match is checked against the attestation on Solana, not just our database, and changing a single word breaks it. The ledger lists the latest registered kits and posts with explorer links.
 10. **Export** (in review, #15). The registered kit downloads as aDNA-style Markdown.
 
-Coming soon (labelled in the app): X and LinkedIn publishing, ambassador campaigns with USDC payouts, the inbox and analytics.
+Coming soon: X and LinkedIn publishing, ambassador campaigns with USDC payouts, the inbox and analytics. The hub screens that label these as coming soon are in review (#15).
 
 ## Architecture
 | Part | What | Where |
