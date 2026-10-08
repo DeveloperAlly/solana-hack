@@ -35,7 +35,8 @@ export function kitMarkdown(s: BrandState): string {
   lines.push('', '## what/decisions');
   for (const g of gates) lines.push(`- ${g.gate}: approved ${g.approved_at}${'note' in g && g.note ? ` (${g.note})` : ''}`);
   lines.push('', '## what/context/sources');
-  for (const src of s.sources) lines.push(`- ${src.title || src.url}: ${src.url} (${src.status})`);
+  // A registered export lists the sources recorded in that version; only a draft export lists the live ones.
+  for (const src of kit ? kit.payload?.sources ?? s.sources : s.sources) lines.push(`- ${src.title || src.url}: ${src.url} (${src.status})`);
   return lines.filter((l) => l !== undefined).join('\n') + '\n';
 }
 

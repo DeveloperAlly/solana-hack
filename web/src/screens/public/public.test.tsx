@@ -60,6 +60,15 @@ describe('kit export', () => {
         payload: { brand: { id: 'b', name: 'Original' }, sections: [], gates: [] } }] } as unknown as BrandState;
     expect(kitMarkdown(s)).toContain('# Original brand kit');
   });
+  it('lists the sources recorded in the registered version, not ones added later', () => {
+    const s = { brand: { name: 'W' }, answers: [], evidence: [], gates: [], sections: [],
+      sources: [{ id: 's2', url: 'https://added-later.example', title: null, status: 'read', error: null }],
+      kits: [{ id: 'k', version: 1, hash: 'h', status: 'registered', signature: null, attestation: null, created_at: '', error: null,
+        payload: { sources: [{ id: 's1', url: 'https://original.example', title: 'Original', status: 'read' }], sections: [], gates: [] } }] } as unknown as BrandState;
+    const md = kitMarkdown(s);
+    expect(md).toContain('https://original.example');
+    expect(md).not.toContain('added-later');
+  });
   it('labels an export with no registered kit as a draft', () => {
     const s = { brand: { name: 'W' }, answers: [], evidence: [], sources: [], gates: [], kits: [],
       sections: [{ section: 'purpose', body: 'Draft purpose.', citations: [], status: 'drafted' }] } as unknown as BrandState;

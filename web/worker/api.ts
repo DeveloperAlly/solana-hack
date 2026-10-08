@@ -103,6 +103,8 @@ async function registerKit(env: Env, user: User, brand: Brand) {
   const version = (st.kits[0]?.version ?? 0) + 1;
   const payload = {
     brand: { id: brand.id, name: brand.name },
+    // The sources read so far, so an export of this version lists exactly what it was built from.
+    sources: (st.sources as { id: string; url: string; title: string | null; status: string }[]).map((s) => ({ id: s.id, url: s.url, title: s.title, status: s.status })).sort((a, b) => a.id.localeCompare(b.id)),
     version,
     sections: st.sections.map((s) => ({ section: s.section, body: s.body, citations: [...s.citations].sort(), status: s.status })).sort((a, b) => a.section.localeCompare(b.section)),
     gates: st.gates.map((g) => ({ gate: g.gate, approved_by: g.approved_by, approved_at: g.approved_at })).sort((a, b) => a.gate.localeCompare(b.gate)),
