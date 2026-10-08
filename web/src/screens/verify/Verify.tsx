@@ -3,8 +3,8 @@ import { PublicShell } from '../../ui/shells/PublicShell';
 import { Alert, Button, Container, Field, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { api, ApiError } from '../../lib/api';
 
-interface Match { brand?: string | null; kitVersion?: number | null; approvedAt?: string | null; publishedUrl?: string | null; explorer?: string | null }
-interface Result extends Match { official: boolean; hash: string; matches?: Match[] }
+interface Match { onchain?: 'verified' | 'unavailable'; registeredAt?: string | null; brand?: string | null; kitVersion?: number | null; approvedAt?: string | null; publishedUrl?: string | null; explorer?: string | null }
+interface Result extends Match { official: boolean; hash: string; matches?: Match[]; note?: string }
 
 /** Verify-1 (S6): paste a post, see whether it is an official, registered post of a Waterlily brand. */
 export function Verify() {
@@ -43,11 +43,12 @@ export function Verify() {
           </form>
           {result?.official && (
             <Alert tone="success" title={`Official: ${result.brand ?? 'registered brand'}`}>
-              Approved {result.approvedAt ? new Date(result.approvedAt).toLocaleString() : ''}, written to kit v{result.kitVersion}.
+              Approved {result.approvedAt ? new Date(result.approvedAt).toLocaleString() : ''}, written to kit v{result.kitVersion}.{' '}
+              {result.onchain === 'verified' ? 'Checked on Solana just now: the attestation exists, Waterlily signed it, and it carries this fingerprint.' : 'Solana could not be reached just now, so this is from our index; use the explorer link to check the attestation.'}
             </Alert>
           )}
           {result && !result.official && (
-            <Alert tone="warning" title="Not an official post">No registration matches this text. It may be edited, or it was never approved by the brand.</Alert>
+            <Alert tone="warning" title="Not an official post">{result.note ? `No valid registration: ${result.note}.` : 'No registration matches this text. It may be edited, or it was never approved by the brand.'}</Alert>
           )}
           {result && (
             <Stack gap={1}>
