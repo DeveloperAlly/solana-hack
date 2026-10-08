@@ -175,7 +175,8 @@ export async function registerKitAttestation(rpcUrl: string, registrar: KeyPairS
     data,
   };
   if (!readBack.signerIsRegistrar || !readBack.credentialMatches || !readBack.schemaMatches || !readBack.fieldsMatch)
-    throw new Error('read-back mismatch: ' + JSON.stringify(readBack));
+    // Booleans only: the decoded data holds brand and approver ids, which must not reach retained logs.
+    throw new Error(`read-back mismatch: signer ${readBack.signerIsRegistrar}, credential ${readBack.credentialMatches}, schema ${readBack.schemaMatches}, fields ${readBack.fieldsMatch}`);
   return {
     signature, explorer: explorerTx(signature),
     attestation: attestation as Address, attestationExplorer: explorerAddress(attestation),

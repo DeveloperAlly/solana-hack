@@ -46,12 +46,13 @@ export function safeError(e: unknown) {
   };
 }
 
-const KNOWN_RPC_HOSTS = /(^|\.)(helius-rpc\.com|solana\.com)$/;
+// Exact public hostnames only: a provider subdomain can itself carry a credential (https://<key>.helius-rpc.com).
+const KNOWN_RPC_HOSTS = new Set(['devnet.helius-rpc.com', 'mainnet.helius-rpc.com', 'api.devnet.solana.com', 'api.testnet.solana.com', 'api.mainnet-beta.solana.com']);
 /** The RPC host only when it is a known provider (whose host carries no credential), else "custom". */
 export function rpcHostLabel(rpcUrl: string) {
   try {
     const h = new URL(rpcUrl).hostname;
-    return KNOWN_RPC_HOSTS.test(h) ? h : 'custom';
+    return KNOWN_RPC_HOSTS.has(h) ? h : 'custom';
   } catch {
     return 'invalid URL';
   }
