@@ -104,3 +104,13 @@ describe('kit policy from the voice answer', () => {
     expect(kitPolicy({ data: {}, skipped: true })).toEqual({ claims: '4', template: null });
   });
 });
+
+describe('attestation expiry', () => {
+  it('treats 0 as never expiring and a past expiry as not live', async () => {
+    const { attestationLive } = await import('../../worker/registry');
+    const now = 1_800_000_000_000;
+    expect(attestationLive(0n, now)).toBe(true);
+    expect(attestationLive(1_900_000_000n, now)).toBe(true);
+    expect(attestationLive(1_700_000_000n, now)).toBe(false);
+  });
+});

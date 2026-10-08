@@ -115,6 +115,8 @@ async function registerKit(env: Env, user: User, brand: Brand) {
   const version = (st.kits[0]?.version ?? 0) + 1;
   const payload = {
     brand: { id: brand.id, name: brand.name },
+    // The sources read so far, so an export of this version lists exactly what it was built from.
+    sources: (st.sources as { id: string; url: string; title: string | null; status: string }[]).map((s) => ({ id: s.id, url: s.url, title: s.title, status: s.status })).sort((a, b) => a.id.localeCompare(b.id)),
     version,
     sections: st.sections.map((s) => ({ section: s.section, body: s.body, citations: [...s.citations].sort(), status: s.status })).sort((a, b) => a.section.localeCompare(b.section)),
     gates: st.gates.map((g) => ({ gate: g.gate, approved_by: g.approved_by, approved_at: g.approved_at })).sort((a, b) => a.gate.localeCompare(b.gate)),
@@ -226,12 +228,13 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const skipped = b.skipped === true;
     const [prev] = step === 'voice' ? await db.select<Answer>(env, 'answers', `${db.eq('brand_id', brand.id)}&${db.eq('step', 'voice')}`) : [];
     // The voice answer carries the template and claims gate a kit registers. Changing it after Gate 3 reopens that
-    // gate (and marks the voice section for redrafting), so a kit can only register policy a person approved.
+    // gate and removes the voice section, which must be drafted again, so a kit can only register policy a person approved.
     // The gate is removed *before* the new answer is saved: if anything fails in between, the state is safe (no gate),
     // and a concurrent registration can never pair the new policy with the old approval.
     if (step === 'voice' && voiceChanged(prev, { data, skipped })) {
       await db.del(env, 'gates', `${db.eq('brand_id', brand.id)}&${db.eq('gate', 'voice')}`);
-      await db.update(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&${db.eq('section', 'voice')}`, { status: 'drafted' });
+      // The old voice text described the old settings, so it is removed: Gate 3 can only be approved on a fresh draft.
+      await db.del(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&${db.eq('section', 'voice')}`);
     }
     const [row] = await db.upsert(env, 'answers', { brand_id: brand.id, step, data, skipped, updated_at: new Date().toISOString() }, 'brand_id,step');
     // Owner answers are evidence, dated (P2: "owner answer, date").

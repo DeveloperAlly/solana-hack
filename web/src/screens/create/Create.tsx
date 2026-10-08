@@ -114,7 +114,8 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
       setError(msg(e));
     }
     try {
-      // Reload either way: a blocked approval records why, which changes the post's revision.
+      // Reload either way: a blocked approval or a failed registration can change the post (and its revision), and
+      // the next action must carry the revision the server now has.
       await onChange();
     } catch {
       // Keep the action's error on screen; the list refreshes on the next action.

@@ -12,7 +12,7 @@ interface Source { id: string; url: string; title: string | null; status: string
 interface Evidence { id: string; section: string; claim: string; quote: string | null; origin: string; source_id: string | null }
 interface Section { section: string; body: string; citations: string[]; status: string }
 interface Gate { gate: string; approved_by: string; approved_at: string; note: string | null }
-export interface KitPayload { brand?: { id: string; name: string }; sections: { section: string; body: string; citations: string[]; status: string }[]; gates: { gate: string; approved_by: string | null; approved_at: string }[] }
+export interface KitPayload { brand?: { id: string; name: string }; sources?: { id: string; url: string; title: string | null; status: string }[]; sections: { section: string; body: string; citations: string[]; status: string }[]; gates: { gate: string; approved_by: string | null; approved_at: string }[] }
 interface Kit { id: string; version: number; hash: string; status: string; signature: string | null; attestation: string | null; created_at: string; error: string | null; payload?: KitPayload | null }
 export interface BrandState { brand: Brand; answers: Answer[]; sources: Source[]; evidence: Evidence[]; sections: Section[]; gates: Gate[]; kits: Kit[] }
 
@@ -233,7 +233,7 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
         )}
         {isVoice ? (
           <Stack gap={5}>
-            {state.gates.some((g) => g.gate === 'voice') && <Alert tone="warning">Your voice is approved (Gate 3). Saving a change here reopens Gate 3, and the voice section needs drafting and approving again before the next kit version.</Alert>}
+            {state.gates.some((g) => g.gate === 'voice') && <Alert tone="warning">Your voice is approved (Gate 3). Saving a change here reopens Gate 3 and clears the voice section, which you then draft and approve again before the next kit version.</Alert>}
             <Choice legend="Start from a template (it sets the dials below)" value={data.template ?? ''} onChange={(v) => setData({ ...templateDials(v), sample: data.sample ?? '' })} options={VOICE_TEMPLATES} />
             {data.template === 'flirty' && <Alert tone="info">Flirty stays light and playful. Before any post can be approved it is checked for sexual content, anything involving minors and explicit language, and blocked if it has any of them.</Alert>}
             {DIALS.map((d) => (
