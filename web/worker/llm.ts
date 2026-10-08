@@ -23,7 +23,7 @@ export async function chat(env: Env, system: string, user: string): Promise<{ te
     }
     const data = (await res.json()) as { choices?: { message?: { content?: string } }[]; model?: string; error?: { message?: string; code?: unknown } };
     if (!res.ok) {
-      // Status and provider error code only: provider messages can echo the prompt (owner answers, page text).
+      // Logging policy: status and provider error code only. Provider messages are never logged, so prompt content cannot reach the logs.
       console.error('llm error', { status: res.status, code: typeof data.error?.code === 'string' || typeof data.error?.code === 'number' ? data.error.code : undefined });
       throw new HttpError(502, 'the AI model returned an error');
     }
