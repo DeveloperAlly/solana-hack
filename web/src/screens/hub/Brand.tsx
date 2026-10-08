@@ -17,7 +17,8 @@ export function kitMarkdown(s: BrandState): string {
   const gates = kit?.payload?.gates ?? s.gates;
   const changed = !!kit && s.sections.some((live) => sections.find((x) => x.section === live.section)?.body !== live.body);
   const lines = [
-    `# ${s.brand.name} brand kit`,
+    // The registered name is part of the hash; a later rename does not change what this version says.
+    `# ${kit?.payload?.brand?.name ?? s.brand.name} brand kit`,
     '',
     `version: ${kit ? kit.version : 'draft (not registered)'}  `,
     `fingerprint: ${kit?.hash ?? 'not registered'}  `,

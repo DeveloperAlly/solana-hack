@@ -49,9 +49,16 @@ describe('kit export', () => {
     } as unknown as BrandState;
     const md = kitMarkdown(s);
     expect(md).toContain('The registered purpose.');
+    expect(md).toContain('# Waterlily brand kit');
     expect(md).not.toContain('Edited after v1.');
     expect(md).toContain('sections edited since v1 are not in this export');
     expect(md).toContain('- purpose: approved 2026-10-08T00:00:00Z');
+  });
+  it('uses the brand name registered in the snapshot, not a later rename', () => {
+    const s = { brand: { name: 'Renamed' }, answers: [], evidence: [], sources: [], gates: [], sections: [],
+      kits: [{ id: 'k', version: 1, hash: 'h', status: 'registered', signature: null, attestation: null, created_at: '', error: null,
+        payload: { brand: { id: 'b', name: 'Original' }, sections: [], gates: [] } }] } as unknown as BrandState;
+    expect(kitMarkdown(s)).toContain('# Original brand kit');
   });
   it('labels an export with no registered kit as a draft', () => {
     const s = { brand: { name: 'W' }, answers: [], evidence: [], sources: [], gates: [], kits: [],

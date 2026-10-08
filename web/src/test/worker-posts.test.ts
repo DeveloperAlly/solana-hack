@@ -12,6 +12,9 @@ describe('post checks', () => {
     expect(r.passed).toBe(false);
     expect(r.hits).toEqual(expect.arrayContaining(['unlock', 'seamless', '—', 'exclamation mark']));
   });
+  it('collapses every whitespace run, line breaks included', async () => {
+    expect(await contentHash('first line\nsecond line\n\nthird')).toBe(await contentHash('first line second line third'));
+  });
   it('hashes canonically equivalent Unicode the same (NFC)', async () => {
     expect(await contentHash('Caf\u0065\u0301 launch.')).toBe(await contentHash('Caf\u00e9 launch.'));
   });

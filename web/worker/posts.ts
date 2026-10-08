@@ -33,10 +33,11 @@ export function slopCheck(text: string) {
 }
 
 /**
- * Unicode NFC, then whitespace-normalised, so the same post hashes the same however it was pasted (spec/api/routes/
- * create.ts: canonical hash is NFC). A decomposed "e" plus accent and a precomposed "é" hash identically.
+ * The canonical form that is hashed (spec/api/routes/create.ts: NFC, whitespace collapsed): Unicode NFC, then every
+ * run of whitespace, line breaks included, becomes one space. A post pasted through a platform that rewraps lines or
+ * joins paragraphs still verifies; changing any word does not.
  */
-export const normalise = (s: string) => s.normalize('NFC').replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
+export const normalise = (s: string) => s.normalize('NFC').replace(/\s+/g, ' ').trim();
 export const contentHash = async (s: string) => 'sha256:' + (await sha256Hex(normalise(s)));
 
 // Drafts use the latest *registered* kit snapshot (kits.payload), not the editable sections, so a post's
@@ -247,7 +248,7 @@ async function attemptExpired(env: Env, post: Post) {
 export async function reconcilePost(env: Env, post: Post) {
   if (!post.attestation || !post.hash || !post.signature) throw new HttpError(409, 'a registration is already in progress');
   const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
-  const onchain = await readKitAttestation(env.RPC_URL, registrar.address, post.attestation, post.hash);
+  const onchain = await readKitAttestation(env.RPC_URL, registrar.address, post.attestation, { hash: post.hash, brand_id: post.brand_id, kit_version: String(post.kit_version) });
   if (onchain === 'verified') return finishRegistration(env, post, explorerTx(post.signature));
   if (onchain === 'missing' && (await attemptExpired(env, post))) {
     const [reset] = await db.update<Post>(env, 'posts', attemptFilter(post.id, post.signature), RESET);
@@ -276,7 +277,7 @@ export async function verifyText(env: Env, text: string) {
   // Registrar signed it under the WATERLILY credential and WL-KIT schema, and it carries this hash.
   const registrar = env.REGISTRAR_KEY ? (await registrarFromSecret(env.REGISTRAR_KEY)).address : null;
   const checked = await Promise.all(rows.slice(0, 10).map(async (p) => ({
-    p, onchain: registrar && p.attestation ? await readKitAttestation(env.RPC_URL, registrar, p.attestation, hash) : ('unavailable' as const),
+    p, onchain: registrar && p.attestation ? await readKitAttestation(env.RPC_URL, registrar, p.attestation, { hash, brand_id: p.brand_id, kit_version: String(p.kit_version) }) : ('unavailable' as const),
   })));
   const verified = checked.filter((c) => c.onchain === 'verified');
   // Some rows could not be checked: the result is partial, and says so.
