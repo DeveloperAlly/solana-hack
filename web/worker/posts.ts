@@ -2,12 +2,13 @@ import type { User } from './auth';
 import { db } from './db';
 import { HttpError, safeError, sha256Hex, type Env } from './env';
 import { chat, parseJson, SLOP_RULES } from './llm';
-import { explorerTx, registerKitAttestation, registrarFromSecret } from './registry';
+import { explorerTx, NotLanded, prepareKitAttestation, readKitAttestation, registrarFromSecret } from './registry';
 
 export interface Post {
   id: string; brand_id: string; brief: string; channel: string | null; body: string; checks: Checks; status: string;
   kit_version: number | null; hash: string | null; approved_by: string | null; approved_at: string | null;
   signature: string | null; attestation: string | null; published_url: string | null; created_at: string; rev: number;
+  registering_at?: string | null; registered_at?: string | null;
 }
 // A history entry is the full visible state before a change, so Undo restores the text *and* the scores and notes
 // that described it. Older rows stored only the text (string); those restore with scores cleared.
@@ -150,31 +151,70 @@ export function cleanPublishedUrl(raw: string): string | null {
   try {
     const u = new URL(raw);
     if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error('scheme');
+    // Shown publicly by Verify, so never keep a username or password embedded in the link.
+    if (u.username || u.password) throw new Error('credentials');
     return u.toString().slice(0, 500);
   } catch {
-    throw new HttpError(400, 'the published link must be an http or https address');
+    throw new HttpError(400, 'the published link must be a plain http or https address, without a username or password');
   }
 }
 
+// A send whose outcome was unknown is reconciled after this long: by then its blockhash has expired, so if the
+// attestation does not exist it never will.
+const RECONCILE_AFTER_MS = 3 * 60 * 1000;
+
 export async function registerPost(env: Env, user: User, post: Post, publishedUrl: string) {
-  if (post.status !== 'approved') throw new HttpError(409, post.status === 'registered' ? 'already registered' : post.status === 'registering' ? 'a registration is already in progress' : 'approve the post first');
+  if (post.status === 'registering') return reconcilePost(env, post);
+  if (post.status !== 'approved') throw new HttpError(409, post.status === 'registered' ? 'already registered' : 'approve the post first');
   if (!post.kit_version) throw new HttpError(409, 'register the kit first, so the post can point at a kit version');
   const url = cleanPublishedUrl(publishedUrl);
-  // Claim the post first (approved -> registering, conditional), so two requests cannot both write to chain.
-  const [claimed] = await db.update<Post>(env, 'posts', casFilter(post, ['approved']), { status: 'registering', rev: (post.rev ?? 0) + 1 });
-  if (!claimed) throw new HttpError(409, 'a registration is already in progress');
-  const hash = await contentHash(claimed.body);
+  const hash = await contentHash(post.body);
+  const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
+  // Only hashes and ids go onchain (R27): brand id, content hash, kit version, approver id, domain flag.
+  const tx = await prepareKitAttestation(env.RPC_URL, registrar, { brand_id: post.brand_id, hash, kit_version: String(post.kit_version), approver: post.approved_by ?? user.id, domain_verified: 'false' });
+  // Claim the post and record the signature and attestation address *before* sending (compare-and-swap on the
+  // approved revision), so two requests cannot both write, and any later failure can be reconciled, never re-sent.
+  const [claimed] = await db.update<Post>(env, 'posts', casFilter(post, ['approved']), {
+    status: 'registering', rev: (post.rev ?? 0) + 1, hash, signature: tx.signature, attestation: tx.attestation, published_url: url, registering_at: new Date().toISOString(),
+  });
+  if (!claimed) throw new HttpError(409, 'this post changed or a registration is already in progress; reload');
   try {
-    const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
-    // Only hashes and ids go onchain (R27): brand id, content hash, kit version, approver id.
-    const out = await registerKitAttestation(env.RPC_URL, registrar, { brand_id: post.brand_id, hash, kit_version: String(claimed.kit_version), approver: claimed.approved_by ?? user.id, domain_verified: 'false' });
-    const [row] = await db.update<Post>(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'registered', hash, signature: out.signature, attestation: out.attestation, published_url: url });
-    return { post: row, explorer: out.explorer };
+    await tx.send();
   } catch (e) {
-    console.error('post registration failed', safeError(e));
-    await db.update(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'approved' });
-    throw new HttpError(502, 'registering on Solana failed, try again');
+    console.error('post registration send failed', safeError(e));
+    if (e instanceof NotLanded) {
+      // Certainly not on chain: reopen the post for another try.
+      await db.update(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'approved', hash: null, signature: null, attestation: null, registering_at: null });
+      throw new HttpError(502, 'Solana rejected the registration, try again');
+    }
+    // Outcome unknown: keep it locked with its signature; the next Register click reconciles it against the chain.
+    throw new HttpError(502, 'sent to Solana but not confirmed yet. It stays locked; press Register again in a few minutes to check.');
   }
+  return finishRegistration(env, claimed, tx.explorer);
+}
+
+async function finishRegistration(env: Env, post: Post, explorer: string) {
+  const [row] = await db.update<Post>(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'registered', registered_at: new Date().toISOString() });
+  if (!row) throw new HttpError(500, 'registered on Solana, but saving that failed; press Register again to finish');
+  return { post: row, explorer };
+}
+
+/** A post left in 'registering' (unknown outcome or a failed save): settle it from what is actually on chain. */
+export async function reconcilePost(env: Env, post: Post) {
+  if (!post.attestation || !post.hash || !post.signature) throw new HttpError(409, 'a registration is already in progress');
+  const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
+  const onchain = await readKitAttestation(env.RPC_URL, registrar.address, post.attestation, post.hash);
+  if (onchain === 'verified') return finishRegistration(env, post, explorerTx(post.signature));
+  const age = Date.now() - new Date(post.registering_at ?? 0).getTime();
+  if (onchain === 'missing' && age > RECONCILE_AFTER_MS) {
+    await db.update(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'registering')}`, { status: 'approved', hash: null, signature: null, attestation: null, registering_at: null });
+    throw new HttpError(409, 'the earlier registration never reached Solana; press Register to try again');
+  }
+  if (onchain === 'mismatch') {
+    console.error('attestation mismatch on reconcile', { post: post.id });
+    throw new HttpError(500, 'the onchain record does not match this post; it stays locked for review');
+  }
+  throw new HttpError(409, 'the registration is still settling on Solana; try again in a minute');
 }
 
 /**
@@ -184,13 +224,22 @@ export async function registerPost(env: Env, user: User, post: Post, publishedUr
 export async function verifyText(env: Env, text: string) {
   if (!text.trim()) throw new HttpError(400, 'paste a post to check');
   const hash = await contentHash(text);
-  const posts = await db.select<Post>(env, 'posts', `${db.eq('hash', hash)}&${db.eq('status', 'registered')}&order=approved_at.asc&limit=20`);
-  if (!posts.length) return { official: false, hash, matches: [] };
-  const ids = [...new Set(posts.map((p) => p.brand_id))];
+  const rows = await db.select<Post>(env, 'posts', `${db.eq('hash', hash)}&${db.eq('status', 'registered')}&order=registered_at.asc&limit=10`);
+  if (!rows.length) return { official: false, hash, matches: [] };
+  // The database is an index; Solana is the proof. Each match is checked onchain: it must exist, be signed by the
+  // Registrar under the WATERLILY credential and WL-KIT schema, and carry this hash.
+  const registrar = env.REGISTRAR_KEY ? (await registrarFromSecret(env.REGISTRAR_KEY)).address : null;
+  const checked = await Promise.all(rows.map(async (p) => ({
+    p, onchain: registrar && p.attestation ? await readKitAttestation(env.RPC_URL, registrar, p.attestation, hash) : ('unavailable' as const),
+  })));
+  // A record whose attestation is gone or does not match is not official.
+  const live = checked.filter((c) => c.onchain === 'verified' || c.onchain === 'unavailable');
+  if (!live.length) return { official: false, hash, matches: [], note: 'a record exists, but its Solana attestation is missing or does not match' };
+  const ids = [...new Set(live.map((c) => c.p.brand_id))];
   const brands = await db.select<{ id: string; name: string }>(env, 'brands', `id=in.(${ids.join(',')})&select=id,name`);
-  const matches = posts.map((p) => ({
+  const matches = live.map(({ p, onchain }) => ({
     brand: brands.find((b) => b.id === p.brand_id)?.name ?? null, kitVersion: p.kit_version, approvedAt: p.approved_at,
-    publishedUrl: p.published_url, explorer: p.signature ? explorerTx(p.signature) : null,
+    registeredAt: p.registered_at ?? null, publishedUrl: p.published_url, explorer: p.signature ? explorerTx(p.signature) : null, onchain,
   }));
   return { official: true, hash, ...matches[0], matches };
 }
@@ -199,13 +248,13 @@ export async function verifyText(env: Env, text: string) {
 export async function ledger(env: Env) {
   const [kits, posts] = await Promise.all([
     db.select<{ brand_id: string; version: number; hash: string; signature: string; created_at: string }>(env, 'kits', `${db.eq('status', 'registered')}&select=brand_id,version,hash,signature,created_at&order=created_at.desc&limit=50`),
-    db.select<Post>(env, 'posts', `${db.eq('status', 'registered')}&select=brand_id,kit_version,hash,signature,approved_at&order=approved_at.desc&limit=50`),
+    db.select<Post>(env, 'posts', `${db.eq('status', 'registered')}&select=brand_id,kit_version,hash,signature,registered_at&order=registered_at.desc&limit=50`),
   ]);
   const ids = [...new Set([...kits, ...posts].map((r) => r.brand_id))];
   const brands = ids.length ? await db.select<{ id: string; name: string }>(env, 'brands', `id=in.(${ids.join(',')})&select=id,name`) : [];
   const name = (id: string) => brands.find((b) => b.id === id)?.name ?? 'unknown';
   return {
     kits: kits.map((k) => ({ type: 'kit', brand: name(k.brand_id), version: k.version, hash: k.hash, at: k.created_at, explorer: explorerTx(k.signature) })),
-    content: posts.map((p) => ({ type: 'content', brand: name(p.brand_id), kitVersion: p.kit_version, hash: p.hash, at: p.approved_at, explorer: p.signature ? explorerTx(p.signature) : null })),
+    content: posts.map((p) => ({ type: 'content', brand: name(p.brand_id), kitVersion: p.kit_version, hash: p.hash, at: p.registered_at ?? null, explorer: p.signature ? explorerTx(p.signature) : null })),
   };
 }

@@ -164,6 +164,10 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
           {post.status !== 'registered' && dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('save', () => api(base, { method: 'PUT', body: { body: text } }))}>Save edits</Button>}
           {hiddenAi && <Button disabled={!!busy} onClick={() => run('redraft', () => api(`/brands/${brandId}/posts`, { body: { brief: post.brief, channel: post.channel ?? '' } }))}>{busy === 'redraft' ? 'Drafting…' : 'Draft again'}</Button>}
           {post.status === 'drafted' && !hiddenAi && !dirty && <Button disabled={!!busy || !slop?.passed} onClick={() => run('approve', () => api(`${base}/approve`, { body: {} }))}>{busy === 'approve' ? 'Approving…' : 'Approve'}</Button>}
+          {post.status === 'registering' && (
+            // A send whose outcome was unknown: the server checks Solana and finishes or reopens it.
+            <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url } }))}>{busy === 'register' ? 'Checking Solana…' : 'Check registration'}</Button>
+          )}
           {post.status === 'approved' && (
             <Button disabled={!!busy} onClick={() => run('register', async () => {
               const r = await api<{ explorer: string }>(`${base}/register`, { body: { publishedUrl: url } });
