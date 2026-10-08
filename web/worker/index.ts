@@ -28,7 +28,7 @@ export default {
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(req);
 
     if (url.pathname === '/api/health' && req.method === 'GET') {
-      // Caught here so a bad key never becomes an uncaught exception (which Workers Logs would retain verbatim).
+      // Error-handling policy: a bad key is caught here and reported only through safeError, never thrown uncaught.
       let registrar: string | null = null;
       let registrarError: string | undefined;
       if (env.REGISTRAR_KEY) {
