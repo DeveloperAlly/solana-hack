@@ -6,23 +6,16 @@ last_edited_by: agent
 ---
 # STATE
 
-**Phase:** Build: the product spine is on main and the rest of the UI waits in a PR stack. Purpose (ADR-002), business model and product map (ADR-003) and the Brand Builder architecture (accepted 2026-10-06) are decided. The phased build plan is [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4).
+**Phase:** Build: the product spine and the full UI are on main (all PRs through #18 merged 2026-10-08); registration on the live app is blocked on the RPC secret (see Blockers). Purpose (ADR-002), business model and product map (ADR-003) and the Brand Builder architecture (accepted 2026-10-06) are decided. The phased build plan is [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4).
 
 **Where the build is (2026-10-08):**
 - **On main:**
   - S0 registry route ([PR #10](https://github.com/DeveloperAlly/solana-hack/pull/10));
   - S1–S4: email-code sign-in, intake with URL ingest and quoted evidence, AI-drafted sections, three gates, and kit v1 registration ([PR #11](https://github.com/DeveloperAlly/solana-hack/pull/11)).
-- **Open, merge in this order:**
-  - [#14](https://github.com/DeveloperAlly/solana-hack/pull/14): registry diagnostics;
-  - [#13](https://github.com/DeveloperAlly/solana-hack/pull/13): S5–S6 thin, covering create, approve, register, Verify and Ledger;
-  - [#15](https://github.com/DeveloperAlly/solana-hack/pull/15): full landing and the signed-in hub. It contains #13;
-  - [#16](https://github.com/DeveloperAlly/solana-hack/pull/16): polish actions with undo;
-  - [#17](https://github.com/DeveloperAlly/solana-hack/pull/17): the voice step from research 06.
-
-  Retarget #16 and #17 to main once their bases merge.
-- **Database:** seven migrations are applied to Supabase, confirmed with `list_migrations` on 2026-10-08: `spine_001`, `posts_002`, `posts_registering_003`, `posts_rev_004`, `posts_registration_times_005`, `posts_last_valid_block_height_006` and `kits_registered_at_007`. Their files are `spec/db/001` on main and `002`–`007` in PR #13 (carried up the stack). 004 adds `posts.rev` for compare-and-swap on every post change. 005 adds `registering_at` and `registered_at`. 006 adds `last_valid_block_height`, so an unconfirmed registration is reopened only once it can no longer land. 007 adds `kits.registered_at` for ledger order. RLS is on with no policies, so only the Worker reads and writes.
-- **Not yet proven live:** the deployed registry selftest returned 502 after #11. #14 adds the safe diagnostics needed to find the cause.
-- **No live use yet:** on 2026-10-08 the live database had 0 users, brands, kits and posts. Nobody has signed in on jamjam.tech, so the spine on main is unproven end to end. CI only type-checks and builds the build, gate and kit paths; there are no tests for them yet. The automated tests cover the UI, and the post and verify logic in the open PRs.
+  - Merged 2026-10-08, in this order: [#14](https://github.com/DeveloperAlly/solana-hack/pull/14) registry diagnostics; [#13](https://github.com/DeveloperAlly/solana-hack/pull/13) S5–S6 thin (create, approve, register, Verify and Ledger); [#15](https://github.com/DeveloperAlly/solana-hack/pull/15) full landing and the signed-in hub; [#16](https://github.com/DeveloperAlly/solana-hack/pull/16) polish actions with undo; [#17](https://github.com/DeveloperAlly/solana-hack/pull/17) the voice step from research 06; [#18](https://github.com/DeveloperAlly/solana-hack/pull/18) README and STATE.
+- **Database:** seven migrations are applied to Supabase, confirmed with `list_migrations` on 2026-10-08: `spine_001`, `posts_002`, `posts_registering_003`, `posts_rev_004`, `posts_registration_times_005`, `posts_last_valid_block_height_006` and `kits_registered_at_007`. Their files are `spec/db/001`–`007` on main. 004 adds `posts.rev` for compare-and-swap on every post change. 005 adds `registering_at` and `registered_at`. 006 adds `last_valid_block_height`, so an unconfirmed registration is reopened only once it can no longer land. 007 adds `kits.registered_at` for ledger order. RLS is on with no policies, so only the Worker reads and writes.
+- **Not yet proven live:** the deployed registry selftest still returns 502. #14's diagnostics are deployed and found the cause (see Blockers).
+- **No live use yet:** on 2026-10-08 the live database had 0 users, brands, kits and posts. Nobody has signed in on jamjam.tech, so the spine on main is unproven end to end. CI only type-checks and builds the build, gate and kit paths; there are no tests for them yet. The automated tests cover the UI and the post, polish, approval and verify logic.
 **Deadline:** Colosseum Crypto World's Fair, Oct 12 2026, 11:59pm PT (Oct 13, 5:59pm Melbourne). Waterlily's own kit v1 is due by Oct 9.
 
 ## Recent decisions
@@ -41,8 +34,8 @@ last_edited_by: agent
 - [ADR-007](./.agentic/what/decisions/adr_007_pitch_positioning.md): the pitch makes end to end (build, run, prove, pay) the differentiator and leads the sale with crypto and developer brands; build scope unchanged. Deck v2 text and notes are in [pitch_deck_2026_10_06.md](./.agentic/what/context/pitch_deck_2026_10_06.md) (draft; placeholders to fill), with the [review](./.agentic/what/context/vc_judge_review_2026_10_06.md) behind it.
 - Demo: Waterlily builds its own brand from scratch, live (headline). aDNA is the second case (strong written brand, no social). film.fun and GamersLab are semi-established case studies. Polish actions include Beautify.
 
-- [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed, awaiting the owner's ratification): the submission critical path. The spine, a thin Create, and Verify and Ledger come first, then the submission assets. Payouts, X and LinkedIn OAuth, quests, claims, the full settings and the remaining canvas batches are cut. The hub screens that label them "coming soon" are in review in #15, not yet live.
-- Helius devnet RPC (G-RPC) and a funded OpenRouter key: the owner reports adding both to the deploy secrets (2026-10-08, in a working session, so there is no public record to link). The deploy workflow cannot prove it (the RPC falls back to the public endpoint and a missing OpenRouter key is skipped), so treat this as unverified until `/api/health` on the live app reports `rpcConfigured: true` and `aiConfigured: true` (those fields deploy with #14). The Registrar is `E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG`.
+- [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed, awaiting the owner's ratification): the submission critical path. The spine, a thin Create, and Verify and Ledger come first, then the submission assets. Payouts, X and LinkedIn OAuth, quests, claims, the full settings and the remaining canvas batches are cut. The hub screens that label them "coming soon" are on main (#15).
+- Helius devnet RPC (G-RPC) and a funded OpenRouter key: the owner reports adding both to the deploy secrets (2026-10-08, in a working session, so there is no public record to link). The deploy workflow cannot prove it (the RPC falls back to the public endpoint and a missing OpenRouter key is skipped), The live `/api/health` now reports `rpcConfigured: true`, but the self-test shows that RPC is Helius mainnet, not devnet (see Blockers); `aiConfigured` is not yet confirmed. The Registrar is `E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG`.
 
 ## Blockers
 - Registry 502 on the live app: cause found 2026-10-08 after #14 deployed. The self-test reports `rpcHost: mainnet.helius-rpc.com` and Solana error 3230000 (account not found) for `26JVvYKHuXzFTvGqiADhhVS1B4kG1NT54qZrQ5cf3cxF`, the WL-KIT v1 schema the spike created on devnet ([issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4)). The `DEVNET_RPC_URL` deploy secret points at Helius mainnet; it must be the devnet endpoint `https://devnet.helius-rpc.com/?api-key=<key>` ([Helius endpoints](https://www.helius.dev/docs/api-reference/endpoints)). Owner action: update the secret, then re-run the deploy.
@@ -56,8 +49,8 @@ last_edited_by: agent
 
 ## Next
 - **Now (2026-10-08):**
-  1. Merge the PR stack in the order above.
-  2. Read the #14 fields in Workers Logs and fix the registry 502.
+  1. Done 2026-10-08: the PR stack is merged.
+  2. Owner: set `DEVNET_RPC_URL` to the Helius devnet endpoint and re-run the deploy, so the registry self-test passes (see Blockers).
   3. Run the full flow on https://jamjam.tech: sign-in, ingest, gates, kit v1, then a post through Verify. Check the rows in Supabase.
   4. Register Waterlily's own kit v1 (due Oct 9).
   5. Make the submission assets ([Colosseum hackathon page](https://www.colosseum.com/hackathon)): the presentation video, the product demo video (3 minutes or less), the logo, the go-to-market strategy, demand validation, and the repo link (the README is written for judges).
