@@ -276,6 +276,7 @@ describe('shorten respects the platform limit', () => {
     expect(xWeightedLength('see https://example.com/a/very/long/path/that/is/longer/than/twenty/three')).toBe(4 + 23);
     expect(xWeightedLength('ok 👍🏽')).toBe(3 + 2);
     expect(xWeightedLength('字'.repeat(150))).toBe(300);
+    expect(xWeightedLength('x '.repeat(128) + 'http://t.co/x:')).toBe(256 + 23 + 1);
   });
   it('refuses to save a Shorten result that is still over the X limit', async () => {
     let patched = false;
@@ -288,5 +289,39 @@ describe('shorten respects the platform limit', () => {
     const post = { id: 'p', rev: 0, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'long', channel: 'X', checks: { slop: { passed: true, hits: [] }, voiceFit: null, platform: null, notes: [] } } as unknown as Post;
     await expect(polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'shorten')).rejects.toMatchObject({ status: 422 });
     expect(patched).toBe(false);
+  });
+});
+
+describe('model replies', () => {
+  it('turns wrong field types into empty values instead of crashing', async () => {
+    const { modelPost } = await import('../../worker/posts');
+    expect(modelPost({ body: {}, notes: 'x' })).toMatchObject({ body: '', notes: [] });
+    expect(modelPost(null)).toMatchObject({ body: '', notes: [] });
+    expect(modelPost({ body: 'ok', notes: ['a', 3] })).toMatchObject({ body: 'ok', notes: ['a'] });
+  });
+});
+
+describe('claims gate uses the kit snapshot, with bounded cost', () => {
+  function stubKit(evidence: { claim: string; origin?: string }[]) {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(url);
+      if (url.startsWith('https://openrouter.ai')) return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ unsupported: [], sexual: false, minors: false, explicitLanguage: false }) } }] }));
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ payload: { policy: { claims: '4', template: 'friendly' }, evidence } }]));
+      return new Response('[]');
+    }));
+    return urls;
+  }
+  const post = { brand_id: 'b', kit_version: 1, body: 'p' } as unknown as Post;
+  it('checks claims against the registered kit evidence, not live rows', async () => {
+    const { policyCheck } = await import('../../worker/posts');
+    const urls = stubKit([{ claim: 'Founded 2024', origin: 'source' }]);
+    await policyCheck({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post);
+    expect(urls.some((u) => u.includes('/evidence?'))).toBe(false);
+  });
+  it('fails closed when evidence would need more than the allowed number of model calls', async () => {
+    const { policyCheck } = await import('../../worker/posts');
+    stubKit(Array.from({ length: 1000 }, (_, i) => ({ claim: `fact ${i} ${'z'.repeat(400)}`, origin: 'source' })));
+    await expect(policyCheck({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post)).rejects.toMatchObject({ status: 422 });
   });
 });

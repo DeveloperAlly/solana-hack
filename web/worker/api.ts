@@ -125,10 +125,9 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     policy: kitPolicy(st.answers.find((a) => a.step === 'voice')),
     // The cited evidence itself (claim and quote), not just ids: evidence rows can be replaced later (owner answers
     // are rewritten on every save), and a post pinned to this version must still see what the kit relied on.
-    evidence: (() => {
-      const cited = new Set(st.sections.flatMap((s) => s.citations));
-      return st.evidence.filter((e) => cited.has(e.id)).map((e) => ({ id: e.id, claim: e.claim, quote: e.quote, origin: e.origin })).sort((a, b) => a.id.localeCompare(b.id));
-    })(),
+    // All recorded evidence (assumptions excluded): polish reads the cited part, and the claims gate for posts written
+    // to this version checks against all of it, so neither depends on rows that can change after registration.
+    evidence: st.evidence.filter((e) => e.origin !== 'assumption').map((e) => ({ id: e.id, claim: e.claim, quote: e.quote, origin: e.origin })).sort((a, b) => a.id.localeCompare(b.id)),
   };
   const hash = 'sha256:' + (await sha256Hex(canonical(payload)));
   const [kit] = await db.insert<Kit>(env, 'kits', { brand_id: brand.id, version, hash, payload, approved_by: user.id, status: 'pending' });
@@ -136,7 +135,7 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
     // Only hashes and ids go onchain (R27): brand id, kit hash, version, approver id.
     const out = await registerKitAttestation(env.RPC_URL, registrar, { brand_id: brand.id, hash, kit_version: String(version), approver: user.id, domain_verified: 'false' });
-    const [done] = await db.update<Kit>(env, 'kits', db.eq('id', kit.id), { status: 'registered', signature: out.signature, attestation: out.attestation });
+    const [done] = await db.update<Kit>(env, 'kits', db.eq('id', kit.id), { status: 'registered', signature: out.signature, attestation: out.attestation, registered_at: new Date().toISOString() });
     return { kit: done, explorer: out.explorer, attestationExplorer: out.attestationExplorer, registrar: out.registrar };
   } catch (e) {
     console.error('kit registration failed', safeError(e));
@@ -154,7 +153,9 @@ const LEGACY_TEMPLATES: Record<string, string> = { friendly_expert: 'friendly' }
  * it changes the answer, reopens Gate 3 for a fresh approval). A skipped voice registers the Standard gate.
  */
 export function kitPolicy(voice: { data: Record<string, string>; skipped: boolean } | undefined) {
-  if (!voice || voice.skipped) return { claims: '4', template: null };
+  // No answer at all is not a skip: nobody chose (or chose to skip) a claims gate, so nothing is registered.
+  if (!voice) throw new HttpError(409, 'save the Voice step (or skip it) before registering, so the kit records its claims gate');
+  if (voice.skipped) return { claims: '4', template: null };
   if (!['3', '4', '5'].includes(voice.data.claims)) throw new HttpError(409, 'your voice was saved before the claims gate existed: open the Voice step, choose a claims gate and save, then approve Gate 3 again');
   const t = voice.data.template;
   return { claims: voice.data.claims, template: t ? LEGACY_TEMPLATES[t] ?? t : null };
@@ -231,6 +232,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     // gate and removes the voice section, which must be drafted again, so a kit can only register policy a person approved.
     // The gate is removed *before* the new answer is saved: if anything fails in between, the state is safe (no gate),
     // and a concurrent registration can never pair the new policy with the old approval.
+    // An identical save changes nothing (not even updated_at), so an approved Gate 3 stays valid.
+    if (step === 'voice' && prev && !voiceChanged(prev, { data, skipped })) return json({ answer: prev });
     if (step === 'voice' && voiceChanged(prev, { data, skipped })) {
       await db.del(env, 'gates', `${db.eq('brand_id', brand.id)}&${db.eq('gate', 'voice')}`);
       // The old voice text described the old settings, so it is removed: Gate 3 can only be approved on a fresh draft.

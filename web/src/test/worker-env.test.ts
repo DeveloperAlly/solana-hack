@@ -15,6 +15,7 @@ describe('Worker log redaction', () => {
     expect(s.message).not.toContain('shortKey_9');
     expect(s.message).not.toContain('tenant-k3y');
     expect(s.message).toContain('[url]');
+    expect(safeError(new Error('at HTTPS://rpc.example/v2/abc123-secret')).message).not.toContain('abc123');
   });
   it('reports the RPC host only for known providers', () => {
     expect(rpcHostLabel('https://devnet.helius-rpc.com/?api-key=k')).toBe('devnet.helius-rpc.com');
@@ -102,6 +103,7 @@ describe('kit policy from the voice answer', () => {
     expect(kitPolicy({ data: { template: 'friendly_expert', claims: '5' }, skipped: false })).toEqual({ claims: '5', template: 'friendly' });
     expect(() => kitPolicy({ data: { template: 'professional' }, skipped: false })).toThrow(/claims gate/);
     expect(kitPolicy({ data: {}, skipped: true })).toEqual({ claims: '4', template: null });
+    expect(() => kitPolicy(undefined)).toThrow(/Voice step/);
   });
 });
 

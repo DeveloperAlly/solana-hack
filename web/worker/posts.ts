@@ -44,11 +44,11 @@ export const contentHash = async (s: string) => 'sha256:' + (await sha256Hex(nor
 // kit_version always names the kit its voice came from.
 async function voiceContext(env: Env, brandId: string, version?: number | null) {
   const which = version ? `&${db.eq('version', String(version))}` : '';
-  const [kit] = await db.select<{ version: number; payload: { sections?: { section: string; body: string; citations?: string[] }[]; evidence?: { claim: string; quote: string | null }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}${which}&select=version,payload&order=version.desc&limit=1`);
+  const [kit] = await db.select<{ version: number; payload: { brand?: { name?: string }; sections?: { section: string; body: string; citations?: string[] }[]; evidence?: { claim: string; quote: string | null }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}${which}&select=version,payload&order=version.desc&limit=1`);
   if (!kit) throw new HttpError(409, 'register your brand kit first, so posts are written to a fixed kit version');
   const pick = (id: string) => kit.payload.sections?.find((s) => s.section === id)?.body ?? '';
   const citations = [...new Set((kit.payload.sections ?? []).flatMap((s) => s.citations ?? []))].filter((id) => /^[0-9a-f-]{36}$/.test(id));
-  return { kitVersion: kit.version, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose'), citations, evidence: kit.payload.evidence };
+  return { kitVersion: kit.version, brandName: kit.payload.brand?.name, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose'), citations, evidence: kit.payload.evidence };
 }
 
 /** Filter for a compare-and-swap: this post, at the revision we read, in one of the allowed states. */
@@ -62,14 +62,25 @@ export async function changePost(env: Env, post: Post, statuses: string[], patch
   return row;
 }
 
+/** A model reply as a post, with every field type-checked: a wrong type becomes empty, never a crash. */
+export function modelPost(raw: unknown): { body: string; voiceFit: unknown; platform: unknown; notes: string[] } {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  return {
+    body: typeof r.body === 'string' ? r.body : '',
+    voiceFit: r.voiceFit, platform: r.platform,
+    notes: Array.isArray(r.notes) ? r.notes.filter((n): n is string => typeof n === 'string') : [],
+  };
+}
+
 export async function draftPost(env: Env, brand: { id: string; name: string }, brief: string, channel: string) {
   const ctx = await voiceContext(env, brand.id);
   if (!ctx.voice) throw new HttpError(409, 'the registered kit has no voice section');
-  const system = `You write one social post for "${brand.name}" in its approved voice. Stay inside the facts in the kit; do not invent numbers, customers or claims. ${SLOP_RULES} Then score it. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 3, what to improve)}.`;
+  // The brand name is the one registered in the kit the post is written to, not a later rename.
+  const system = `You write one social post for "${ctx.brandName ?? brand.name}" in its approved voice. Stay inside the facts in the kit; do not invent numbers, customers or claims. ${SLOP_RULES} Then score it. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 3, what to improve)}.`;
   const user = `Channel: ${channel || 'LinkedIn'}\nBrief: ${brief}\n\nVoice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}`;
   const { text, model } = await chat(env, system, user);
-  const out = parseJson<{ body?: string; voiceFit?: number; platform?: number; notes?: string[] }>(text);
-  let body = (out.body ?? '').trim().slice(0, 4000);
+  const out = modelPost(parseJson<unknown>(text));
+  let body = out.body.trim().slice(0, 4000);
   if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
   // R9: an AI draft that fails the slop check gets one automatic rewrite; if it still fails it is stored
   // but never shown (the UI hides AI text whose slop check failed).
@@ -78,12 +89,12 @@ export async function draftPost(env: Env, brand: { id: string; name: string }, b
   const first = slopCheck(body);
   if (!first.passed) {
     const fix = await chat(env, `Rewrite the draft post without these: ${first.hits.join(', ')}. Keep the meaning, facts and voice. ${SLOP_RULES} Then score the rewrite. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 3)}.`, `${user}\n\nDraft to rewrite:\n${body}`);
-    const fixed = parseJson<{ body?: string; voiceFit?: number; platform?: number; notes?: string[] }>(fix.text);
-    const fixedBody = (fixed.body ?? '').trim().slice(0, 4000);
+    const fixed = modelPost(parseJson<unknown>(fix.text));
+    const fixedBody = fixed.body.trim().slice(0, 4000);
     if (fixedBody) { body = fixedBody; scored = fixed; }
   }
   const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
-  const checks: Checks = { slop: slopCheck(body), voiceFit: num(scored.voiceFit), platform: num(scored.platform), notes: (scored.notes ?? []).slice(0, 3).map((n) => String(n).slice(0, 200)), source: 'ai' };
+  const checks: Checks = { slop: slopCheck(body), voiceFit: num(scored.voiceFit), platform: num(scored.platform), notes: scored.notes.slice(0, 3).map((n) => n.slice(0, 200)), source: 'ai' };
   const [post] = await db.insert<Post>(env, 'posts', { brand_id: brand.id, brief: brief.slice(0, 1000), channel: channel || null, body, checks, status: 'drafted', model, kit_version: ctx.kitVersion });
   return post;
 }
@@ -136,7 +147,8 @@ const X_LIGHT = [[0, 4351], [8192, 8205], [8208, 8223], [8242, 8247]];
 /** A post's length as X counts it (weighted), so Shorten can check the real limit. */
 export function xWeightedLength(text: string): number {
   let n = 0;
-  const withoutUrls = text.replace(/https?:\/\/\S+/gi, () => { n += 23; return ''; });
+  // A URL ends before trailing punctuation (as twitter-text extracts it); that punctuation is counted as text.
+  const withoutUrls = text.replace(/https?:\/\/\S+/gi, (u) => { const tail = u.match(/[.,:;!?)\]'"]+$/)?.[0] ?? ''; n += 23; return tail; });
   for (const { segment } of new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(withoutUrls)) {
     if (/\p{Extended_Pictographic}/u.test(segment)) { n += 2; continue; }
     for (const ch of segment) {
@@ -162,7 +174,8 @@ export async function polishPost(env: Env, post: Post, action: string) {
   const ctx = await voiceContext(env, post.brand_id, post.kit_version);
   // The evidence the registered kit cites, so Review can tell sourced claims from unsupported ones.
   // Kits registered from now on carry their cited evidence; older kits fall back to looking the ids up.
-  const evidence = ctx.evidence ?? (ctx.citations.length ? await db.select<{ claim: string; quote: string | null }>(env, 'evidence', `id=in.(${ctx.citations.join(',')})&select=claim,quote`) : []);
+  const cited = new Set(ctx.citations);
+  const evidence = (ctx.evidence as { id?: string; claim: string; quote: string | null }[] | undefined)?.filter((e) => !e.id || cited.has(e.id)) ?? (ctx.citations.length ? await db.select<{ claim: string; quote: string | null }>(env, 'evidence', `id=in.(${ctx.citations.join(',')})&select=claim,quote`) : []);
   const facts = evidence.map((e) => `- ${e.claim}${e.quote ? ` (source: "${e.quote.slice(0, 160)}")` : ''}`).join('\n') || '(the kit cites no evidence; treat every factual claim as unsupported)';
   const system = `You polish one ${post.channel || 'LinkedIn'} post for a brand with the approved kit below. ${POLISH[action]} A factual claim is supported only if the evidence list states it. ${SLOP_RULES} Then score the resulting post against the kit. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 4)}.`;
   const user = `Voice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}\n\nEvidence:\n${facts}\n\nPost:\n${post.body}`;
@@ -177,7 +190,9 @@ export async function polishPost(env: Env, post: Post, action: string) {
   if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
   const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
   const checks: Checks = {
-    ...post.checks, slop: slopCheck(body), voiceFit: num(out.voiceFit), platform: num(out.platform),
+    // Review never changes the text, so its scores stay the ones that describe that text; only its notes are new.
+    ...post.checks, slop: slopCheck(body),
+    voiceFit: action === 'review' ? post.checks.voiceFit ?? null : num(out.voiceFit), platform: action === 'review' ? post.checks.platform ?? null : num(out.platform),
     notes: (out.notes ?? []).slice(0, 4).map((n) => String(n).slice(0, 200)), history: pushHistory(post), lastAction: action,
     source: action === 'review' ? post.checks.source : 'ai', policy: undefined,
   };
@@ -229,11 +244,13 @@ export function policyVerdict(claims: string, template: string | null, raw: unkn
  * The claims gate and template that govern a post: from the registered kit it was written to (kits record them
  * since this change), else from the brand's voice answer for kits registered before that.
  */
-async function postPolicy(env: Env, post: Post): Promise<{ claims: string; template: string | null }> {
+async function postPolicy(env: Env, post: Post): Promise<{ claims: string; template: string | null; evidence?: { claim: string; origin?: string }[] }> {
   if (post.kit_version) {
-    const [kit] = await db.select<{ payload: { policy?: { claims?: string; template?: string } } }>(env, 'kits', `${db.eq('brand_id', post.brand_id)}&${db.eq('version', String(post.kit_version))}&${db.eq('status', 'registered')}&select=payload`);
+    const [kit] = await db.select<{ payload: { policy?: { claims?: string; template?: string }; evidence?: { claim: string; origin?: string }[] } }>(env, 'kits', `${db.eq('brand_id', post.brand_id)}&${db.eq('version', String(post.kit_version))}&${db.eq('status', 'registered')}&select=payload`);
     const pol = kit?.payload?.policy;
-    if (pol && CLAIMS_POLICY[pol.claims ?? '']) return { claims: pol.claims!, template: pol.template ?? null };
+    // The kit's own evidence snapshot: claims are judged against what the registered kit contained, which cannot
+    // change after approval (live rows can be deleted when an answer is edited).
+    if (pol && CLAIMS_POLICY[pol.claims ?? '']) return { claims: pol.claims!, template: pol.template ?? null, evidence: kit.payload.evidence };
   }
   const [voice] = await db.select<{ data: Record<string, string> }>(env, 'answers', `${db.eq('brand_id', post.brand_id)}&${db.eq('step', 'voice')}&select=data`);
   return { claims: CLAIMS_POLICY[voice?.data?.claims ?? ''] ? voice!.data.claims : '4', template: voice?.data?.template ?? null };
@@ -260,14 +277,20 @@ export async function allEvidence(env: Env, brandId: string) {
   return out;
 }
 
+const MAX_EVIDENCE_BATCHES = 8; // about 190k characters of evidence
+
 /**
  * Pre-approval check: the post's claims gate against the brand's evidence, and the content policy categories.
  * Fails closed: if the check cannot run or answers in the wrong shape, approval waits.
  */
 export async function policyCheck(env: Env, post: Post): Promise<PolicyResult> {
-  const { claims, template } = await postPolicy(env, post);
+  const { claims, template, evidence } = await postPolicy(env, post);
   const flirty = template === 'flirty';
-  const batches = evidenceBatches((await allEvidence(env, post.brand_id)).map((e) => `- ${e.claim}`));
+  const facts0 = evidence ? evidence.filter((e) => e.origin !== 'assumption') : await allEvidence(env, post.brand_id);
+  const batches = evidenceBatches(facts0.map((e) => `- ${e.claim}`));
+  // Bounded cost: at most MAX_EVIDENCE_BATCHES model calls per approval. Beyond that the check cannot be complete,
+  // so it fails closed rather than approving on partial evidence.
+  if (batches.length > MAX_EVIDENCE_BATCHES) throw new HttpError(422, `your brand has more evidence than one approval can check (${batches.length} batches, limit ${MAX_EVIDENCE_BATCHES}); remove sources you no longer need`);
   const facts = batches[0];
   const system = `You check one social post before a brand approves it. Do not rewrite it.
 1. Claims gate, ${CLAIMS_POLICY[claims]}. List each claim in the post that the evidence does not support, quoted briefly. Anything the evidence states, or that is plainly opinion where opinions are allowed, is supported.
@@ -430,7 +453,7 @@ export async function verifyText(env: Env, text: string) {
   const partial = checked.some((c) => c.onchain === 'unavailable');
   if (!verified.length) {
     // Could not check Solana: say so, never certify from the index alone.
-    if (checked.some((c) => c.onchain === 'unavailable')) return { official: false, checked: false, hash, matches: [], note: 'Solana could not be checked just now, so this cannot be confirmed; try again in a minute' };
+    if (checked.some((c) => c.onchain === 'unavailable') || truncated) return { official: false, checked: false, hash, matches: [], note: truncated ? 'more than 10 registrations share this text and none of the first 10 verified, so this cannot be confirmed' : 'Solana could not be checked just now, so this cannot be confirmed; try again in a minute' };
     return { official: false, checked: true, hash, matches: [], note: 'a record exists, but its Solana attestation is missing or does not match' };
   }
   const ids = [...new Set(verified.map((c) => c.p.brand_id))];
@@ -447,14 +470,14 @@ export async function verifyText(env: Env, text: string) {
 /** Public ledger: the latest 50 registrations of each type: brand name, fingerprint, version and explorer link. Content stays private. */
 export async function ledger(env: Env) {
   const [kits, posts] = await Promise.all([
-    db.select<{ brand_id: string; version: number; hash: string; signature: string; created_at: string }>(env, 'kits', `${db.eq('status', 'registered')}&select=brand_id,version,hash,signature,created_at&order=created_at.desc&limit=50`),
+    db.select<{ brand_id: string; version: number; hash: string; signature: string; registered_at: string | null }>(env, 'kits', `${db.eq('status', 'registered')}&select=brand_id,version,hash,signature,registered_at&order=registered_at.desc.nullslast&limit=50`),
     db.select<Post>(env, 'posts', `${db.eq('status', 'registered')}&select=brand_id,kit_version,hash,signature,registered_at&order=registered_at.desc&limit=50`),
   ]);
   const ids = [...new Set([...kits, ...posts].map((r) => r.brand_id))];
   const brands = ids.length ? await db.select<{ id: string; name: string }>(env, 'brands', `id=in.(${ids.join(',')})&select=id,name`) : [];
   const name = (id: string) => brands.find((b) => b.id === id)?.name ?? 'unknown';
   return {
-    kits: kits.map((k) => ({ type: 'kit', brand: name(k.brand_id), version: k.version, hash: k.hash, at: k.created_at, explorer: explorerTx(k.signature) })),
+    kits: kits.map((k) => ({ type: 'kit', brand: name(k.brand_id), version: k.version, hash: k.hash, at: k.registered_at, explorer: explorerTx(k.signature) })),
     content: posts.map((p) => ({ type: 'content', brand: name(p.brand_id), kitVersion: p.kit_version, hash: p.hash, at: p.registered_at ?? null, explorer: p.signature ? explorerTx(p.signature) : null })),
   };
 }

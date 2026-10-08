@@ -28,7 +28,8 @@ export async function sha256Hex(s: string) {
 /**
  * A log-safe view of an error: class, @solana/kit code, HTTP status, and the message with anything that
  * looks like a credential removed (URL paths and queries, unknown hosts, api-key/token params, long base58 runs).
- * RPC errors can embed the provider URL and its API key; Workers Logs must never retain that.
+ * Defensive: we do not rely on any library's error format, so any URL or key-shaped text in a message is treated as
+ * possibly secret (the RPC URL itself carries the provider key) and stripped before Workers Logs can retain it.
  */
 export function safeError(e: unknown) {
   const err = e as { name?: unknown; message?: unknown; context?: { statusCode?: unknown; __code?: unknown } };
@@ -39,7 +40,7 @@ export function safeError(e: unknown) {
     status: typeof err?.context?.statusCode === 'number' ? err.context.statusCode : undefined,
     message: message
       // Keep only the host, and only for known providers: keys can sit in the path, the query or a custom subdomain.
-      .replace(/https?:\/\/[^\s"'<>]+/g, (u) => { const h = rpcHostLabel(u); return h === 'custom' || h === 'invalid URL' ? '[url]' : `https://${h}/[path]`; })
+      .replace(/https?:\/\/[^\s"'<>]+/gi, (u) => { const h = rpcHostLabel(u); return h === 'custom' || h === 'invalid URL' ? '[url]' : `https://${h}/[path]`; })
       .replace(/(api[-_]?key|token|secret|key)=([^&\s"']+)/gi, '$1=[redacted]')
       .replace(/\b[1-9A-HJ-NP-Za-km-z]{60,}\b/g, '[redacted]')
       .slice(0, 500),
