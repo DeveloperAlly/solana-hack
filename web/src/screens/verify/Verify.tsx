@@ -3,8 +3,8 @@ import { PublicShell } from '../../ui/shells/PublicShell';
 import { Alert, Button, Container, Field, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { api, ApiError } from '../../lib/api';
 
-interface Match { onchain?: 'verified' | 'unavailable'; registeredAt?: string | null; brand?: string | null; kitVersion?: number | null; approvedAt?: string | null; publishedUrl?: string | null; explorer?: string | null }
-interface Result extends Match { official: boolean; hash: string; matches?: Match[]; note?: string }
+interface Match { domainVerified?: boolean; registeredAt?: string | null; brand?: string | null; kitVersion?: number | null; approvedAt?: string | null; publishedUrl?: string | null; explorer?: string | null }
+interface Result extends Match { official: boolean; checked?: boolean; hash: string; matches?: Match[]; note?: string; truncated?: boolean }
 
 /** Verify-1 (S6): paste a post, see whether it is an official, registered post of a Waterlily brand. */
 export function Verify() {
@@ -42,12 +42,16 @@ export function Verify() {
             </Stack>
           </form>
           {result?.official && (
-            <Alert tone="success" title={`Official: ${result.brand ?? 'registered brand'}`}>
+            <Alert tone="success" title={`Registered by ${result.brand ?? 'a Waterlily brand'}`}>
               Approved {result.approvedAt ? new Date(result.approvedAt).toLocaleString() : ''}, written to kit v{result.kitVersion}.{' '}
-              {result.onchain === 'verified' ? 'Checked on Solana just now: the attestation exists, Waterlily signed it, and it carries this fingerprint.' : 'Solana could not be reached just now, so this is from our index; use the explorer link to check the attestation.'}
+              Checked on Solana just now: the attestation exists, Waterlily signed it, and it carries this fingerprint.{' '}
+              {result.domainVerified ? '' : 'The brand name is self-declared: this brand has not proven it controls its domain yet.'}
             </Alert>
           )}
-          {result && !result.official && (
+          {result && !result.official && result.checked === false && (
+            <Alert tone="info" title="Could not check right now">{result.note}</Alert>
+          )}
+          {result && !result.official && result.checked !== false && (
             <Alert tone="warning" title="Not an official post">{result.note ? `No valid registration: ${result.note}.` : 'No registration matches this text. It may be edited, or it was never approved by the brand.'}</Alert>
           )}
           {result && (
@@ -61,7 +65,7 @@ export function Verify() {
           {result?.matches && result.matches.length > 1 && (
             // The same text can be registered by more than one brand; show every registration, earliest first.
             <Stack gap={2}>
-              <Text variant="label">This exact text is registered {result.matches.length} times. The earliest is shown above.</Text>
+              <Text variant="label">This exact text is registered {result.matches.length}{result.truncated ? '+' : ''} times. The earliest is shown above{result.truncated ? '; only the first 10 are checked' : ''}.</Text>
               <Stack as="ol" gap={1}>
                 {result.matches.map((m, i) => (
                   <li key={i}>

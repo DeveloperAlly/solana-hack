@@ -21,9 +21,10 @@ export async function chat(env: Env, system: string, user: string): Promise<{ te
       await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
       continue;
     }
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[]; model?: string; error?: { message?: string } };
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[]; model?: string; error?: { message?: string; code?: unknown } };
     if (!res.ok) {
-      console.error('llm error', res.status, data.error?.message);
+      // Status and provider error code only: provider messages can echo the prompt (owner answers, page text).
+      console.error('llm error', { status: res.status, code: typeof data.error?.code === 'string' || typeof data.error?.code === 'number' ? data.error.code : undefined });
       throw new HttpError(502, 'the AI model returned an error');
     }
     const text = data.choices?.[0]?.message?.content ?? '';
