@@ -42,7 +42,7 @@ last_edited_by: agent
 - Demo: Waterlily builds its own brand from scratch, live (headline). aDNA is the second case (strong written brand, no social). film.fun and GamersLab are semi-established case studies. Polish actions include Beautify.
 
 - [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed, awaiting the owner's ratification): the submission critical path. The spine, a thin Create, and Verify and Ledger come first, then the submission assets. Payouts, X and LinkedIn OAuth, quests, claims, the full settings and the remaining canvas batches are cut. The hub screens that label them "coming soon" are in review in #15, not yet live.
-- Helius devnet RPC (G-RPC) and a funded OpenRouter key are in the deploy secrets (owner, 2026-10-08). The Registrar is `E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG`.
+- Helius devnet RPC (G-RPC) and a funded OpenRouter key: the owner reports adding both to the deploy secrets (2026-10-08, in a working session, so there is no public record to link). The deploy workflow cannot prove it (the RPC falls back to the public endpoint and a missing OpenRouter key is skipped), so treat this as unverified until `/api/health` on the live app reports `rpcConfigured: true` and `aiConfigured: true` (those fields deploy with #14). The Registrar is `E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG`.
 
 ## Blockers
 - Registry 502 on the live app: cause unknown until #14 deploys.
