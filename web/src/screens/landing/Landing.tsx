@@ -74,7 +74,7 @@ export function Landing() {
             <Grid min="md">
               <Stack gap={2} align="start">
                 <Heading level={2} size="xl">Proof built in</Heading>
-                <Text tone="secondary">Your approved kit and approved posts are registered on Solana, so anyone can check what really came from you. Only fingerprints go on chain; your content stays yours.</Text>
+                <Text tone="secondary">Your approved kit and approved posts are registered on Solana, so anyone can check what really came from you. On chain go only fingerprints and ids: the content hash, your brand and approver ids, the kit version, and whether your domain is verified. Your content itself stays yours.</Text>
                 <Link href="/verify">Check a post</Link>
               </Stack>
               <Stack gap={2} align="start">
