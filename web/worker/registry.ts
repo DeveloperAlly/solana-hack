@@ -121,6 +121,12 @@ export async function prepareKitAttestation(rpcUrl: string, registrar: KeyPairSi
   };
 }
 
+/** True when an attestation's expiry (unix seconds, 0 = never) has not passed. */
+export function attestationLive(expiry: bigint | number, nowMs = Date.now()) {
+  const e = BigInt(expiry);
+  return e === 0n || e * 1000n > BigInt(nowMs);
+}
+
 /** The chain's current block height (confirmed), or null if the RPC cannot be read. */
 export async function currentBlockHeight(rpcUrl: string): Promise<bigint | null> {
   try { return await createSolanaRpc(rpcUrl).getBlockHeight({ commitment: 'confirmed' }).send(); } catch { return null; }
@@ -138,6 +144,8 @@ export async function readKitAttestation(rpcUrl: string, registrarAddress: Addre
     const a = await fetchMaybeAttestation(rpc, attestation as Address, { commitment: 'confirmed' });
     if (!a.exists) return 'missing';
     if (a.data.signer !== registrarAddress || a.data.credential !== credential || a.data.schema !== schema) return 'mismatch';
+    // An attestation with a finite expiry (unix seconds) stops counting once it passes; 0 means it never expires.
+    if (!attestationLive(a.data.expiry)) return 'mismatch';
     const s = await fetchSchema(rpc, schema);
     const data = deserializeAttestationData(s.data, a.data.data) as Record<string, unknown>;
     // Every attributed field must match what the index claims, not just the hash.
