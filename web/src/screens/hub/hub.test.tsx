@@ -21,7 +21,7 @@ function mockApi() {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     const body = url === '/api/me' ? { user: { email: 'owner@example.com' }, brands: [brand] }
       : url === '/api/health' ? { ok: true, registrar: 'E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG', rpcConfigured: true, aiConfigured: true, model: 'openrouter/auto' }
-      : url.endsWith('/posts') ? { posts: [post] }
+      : /\/posts(\?limit=\d+)?$/.test(url) ? { posts: [post], more: false }
       : url === `/api/brands/${brand.id}` ? state : {};
     return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
   }));
