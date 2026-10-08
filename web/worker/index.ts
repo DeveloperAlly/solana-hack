@@ -49,8 +49,18 @@ export default {
         // Full detail stays in Worker logs; the response is public (it is posted to issue #4), so it
         // carries only a stable message and, if present, the upstream HTTP status (G-RPC diagnosis).
         console.error('registry selftest failed', e);
-        const status = (e as { context?: { statusCode?: unknown } })?.context?.statusCode;
-        return json({ ok: false, at, error: 'registration failed', upstreamStatus: typeof status === 'number' ? status : null }, 502);
+        const err = e as { name?: unknown; context?: { statusCode?: unknown; __code?: unknown } };
+        const status = err?.context?.statusCode;
+        const code = err?.context?.__code;
+        // Public-safe diagnosis only: the error class and the numeric @solana/kit error code, never the
+        // message (it can contain the RPC URL and its API key). Full detail is in Workers Logs.
+        return json({
+          ok: false, at, error: 'registration failed',
+          upstreamStatus: typeof status === 'number' ? status : null,
+          errorName: typeof err?.name === 'string' ? err.name.slice(0, 60) : null,
+          solanaErrorCode: typeof code === 'number' ? code : null,
+          rpcHost: (() => { try { return new URL(env.RPC_URL).host; } catch { return 'invalid URL'; } })(),
+        }, 502);
       }
     }
     try {
