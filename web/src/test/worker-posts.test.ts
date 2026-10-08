@@ -145,6 +145,8 @@ describe('shorten respects the platform limit', () => {
     expect(xWeightedLength('你好')).toBe(4);
     expect(xWeightedLength('see https://example.com/a/very/long/path/that/is/longer/than/twenty/three')).toBe(4 + 23);
     expect(xWeightedLength('ok 👍🏽')).toBe(3 + 2);
+    expect(xWeightedLength('🇦🇺')).toBe(2);
+    expect(xWeightedLength('1️⃣')).toBe(2);
     expect(xWeightedLength('字'.repeat(150))).toBe(300);
     expect(xWeightedLength('x '.repeat(128) + 'http://t.co/x:')).toBe(256 + 23 + 1);
   });

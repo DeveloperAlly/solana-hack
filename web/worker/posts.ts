@@ -150,7 +150,8 @@ export function xWeightedLength(text: string): number {
   // A URL ends before trailing punctuation (as twitter-text extracts it); that punctuation is counted as text.
   const withoutUrls = text.replace(/https?:\/\/\S+/gi, (u) => { const tail = u.match(/[.,:;!?)\]'"]+$/)?.[0] ?? ''; n += 23; return tail; });
   for (const { segment } of new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(withoutUrls)) {
-    if (/\p{Extended_Pictographic}/u.test(segment)) { n += 2; continue; }
+    // Emoji graphemes: pictographs, flags (regional-indicator pairs) and keycaps (base + U+20E3) each count 2.
+    if (/\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3/u.test(segment)) { n += 2; continue; }
     for (const ch of segment) {
       const cp = ch.codePointAt(0)!;
       n += X_LIGHT.some(([a, b]) => cp >= a && cp <= b) ? 1 : 2;
@@ -179,8 +180,9 @@ export async function polishPost(env: Env, post: Post, action: string) {
   const system = `You polish one ${post.channel || 'LinkedIn'} post for a brand with the approved kit below. ${POLISH[action]} A factual claim is supported only if the evidence list states it. ${SLOP_RULES} Then score the resulting post against the kit. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 4)}.`;
   const user = `Voice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}\n\nEvidence:\n${facts}\n\nPost:\n${post.body}`;
   const { text } = await chat(env, system, user);
-  const out = parseJson<{ body?: string; voiceFit?: number; platform?: number; notes?: string[] }>(text);
-  let body = action === 'review' ? post.body : (out.body ?? '').trim().slice(0, 4000);
+  // Type-checked like drafts (modelPost): a malformed reply becomes an empty body (a clean 502), never a crash.
+  const out = modelPost(parseJson<unknown>(text));
+  let body = action === 'review' ? post.body : out.body.trim().slice(0, 4000);
   // The accessible variant is guaranteed, not requested: styled Unicode letters are mapped back to plain ones.
   if (action === 'beautify_accessible') body = plainLetters(body);
   // Shorten must actually meet the platform limit; a longer result is refused, not saved.
@@ -192,7 +194,7 @@ export async function polishPost(env: Env, post: Post, action: string) {
     // Review never changes the text, so its scores stay the ones that describe that text; only its notes are new.
     ...post.checks, slop: slopCheck(body),
     voiceFit: action === 'review' ? post.checks.voiceFit ?? null : num(out.voiceFit), platform: action === 'review' ? post.checks.platform ?? null : num(out.platform),
-    notes: (out.notes ?? []).slice(0, 4).map((n) => String(n).slice(0, 200)), history: pushHistory(post), lastAction: action,
+    notes: out.notes.slice(0, 4).map((n) => n.slice(0, 200)), history: pushHistory(post), lastAction: action,
     source: action === 'review' ? post.checks.source : 'ai',
   };
   // Compare-and-swap on the revision read before the model call: an edit, undo or registration meanwhile wins.
