@@ -8,6 +8,7 @@ export interface Env {
   SUPABASE_SECRET_KEY: string; // secret: server-only, bypasses RLS
   OPENROUTER_API_KEY: string; // secret
   OPENROUTER_MODEL?: string; // optional model slug; default openrouter/auto
+  PUBLIC_LIMITER?: { limit(o: { key: string }): Promise<{ success: boolean }> }; // Workers rate limiting binding
 }
 
 export const json = (body: unknown, status = 200) =>

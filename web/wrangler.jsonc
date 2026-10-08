@@ -22,5 +22,9 @@
   // `wrangler deploy --secrets-file` (never committed).
   // Owner decision 2026-10-06, recorded at https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6014295120 :
   // the app runs on the apex of jamjam.tech. Deploying creates the DNS record and certificate.
-  "routes": [{ "pattern": "jamjam.tech", "custom_domain": true }]
+  "routes": [{ "pattern": "jamjam.tech", "custom_domain": true }],
+  // Per-IP abuse limit for the anonymous endpoints (/api/verify, /api/ledger), which query the database and Solana.
+  // Workers rate limiting binding; namespace_id is an account-unique number we choose; period must be 10 or 60.
+  // 6 per minute matches the spec's 30 verifications per five minutes (spec/api/routes/brand_builder.ts).
+  "ratelimits": [{ "name": "PUBLIC_LIMITER", "namespace_id": "1001", "simple": { "limit": 6, "period": 60 } }]
 }
