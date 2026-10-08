@@ -12,6 +12,9 @@ describe('post checks', () => {
     expect(r.passed).toBe(false);
     expect(r.hits).toEqual(expect.arrayContaining(['unlock', 'seamless', '—', 'exclamation mark']));
   });
+  it('hashes canonically equivalent Unicode the same (NFC)', async () => {
+    expect(await contentHash('Caf\u0065\u0301 launch.')).toBe(await contentHash('Caf\u00e9 launch.'));
+  });
   it('hashes whitespace variants the same and an edited word differently', async () => {
     const a = await contentHash('We built Waterlily.\n\nIt proves  what brands said.');
     expect(await contentHash('  We built Waterlily.\r\n\r\n\r\nIt proves what brands said. ')).toBe(a);
@@ -140,10 +143,10 @@ describe('approval gates: claims and content policy', () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       urls.push(url);
       const offset = Number(new URL(url).searchParams.get('offset'));
-      return new Response(JSON.stringify(Array.from({ length: offset === 0 ? 200 : 13 }, (_, i) => ({ claim: `f${offset + i}` }))));
+      return new Response(JSON.stringify(Array.from({ length: offset < 2400 ? 200 : 13 }, (_, i) => ({ claim: `f${offset + i}` }))));
     }));
     const all = await allEvidence(env, 'b');
-    expect(all).toHaveLength(213);
+    expect(all).toHaveLength(2613);
     expect(urls[0]).toContain('origin=neq.assumption');
     expect(urls[0]).toContain('order=created_at.asc,id.asc');
   });
@@ -166,6 +169,7 @@ describe('accessible beautify', () => {
     const { plainLetters } = await import('../../worker/posts');
     expect(plainLetters('𝗕𝘂𝗶𝗹𝘁 𝗳𝗼𝗿 𝟮𝟬𝟮𝟲 and 𝑖𝑡𝑎𝑙𝑖𝑐 • kept')).toBe('Built for 2026 and italic • kept');
     expect(plainLetters('Ｗｅ ⓢⓗⓘⓟ ① ℍ𝕖𝕪 🄰 🇦🇺')).toBe('We ship 1 Hey A 🇦🇺');
+    expect(plainLetters('98℉, 10Ω, Brand™, ⑩ items, ＃1')).toBe('98℉, 10Ω, Brand™, ⑩ items, #1');
   });
 });
 

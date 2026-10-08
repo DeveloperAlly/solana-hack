@@ -32,8 +32,11 @@ export function slopCheck(text: string) {
   return { passed: hits.length === 0, hits };
 }
 
-/** Whitespace-normalised text, so the same post hashes the same however it was pasted. */
-export const normalise = (s: string) => s.replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
+/**
+ * Unicode NFC, then whitespace-normalised, so the same post hashes the same however it was pasted (spec/api/routes/
+ * create.ts: canonical hash is NFC). A decomposed "e" plus accent and a precomposed "é" hash identically.
+ */
+export const normalise = (s: string) => s.normalize('NFC').replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
 export const contentHash = async (s: string) => 'sha256:' + (await sha256Hex(normalise(s)));
 
 // Drafts use the latest *registered* kit snapshot (kits.payload), not the editable sections, so a post's
@@ -104,14 +107,18 @@ const POLISH: Record<string, string> = {
 export const POLISH_ACTIONS = Object.keys(POLISH);
 
 /**
- * Maps Unicode "styled" letters and digits to plain characters with NFKC; screen readers spell styled ones out
- * letter by letter. Covered: Letterlike Symbols (U+2100-214F), Enclosed Alphanumerics (U+2460-24FF), fullwidth
- * forms (U+FF01-FF5E), Mathematical Alphanumeric Symbols (U+1D400-1D7FF) and the Enclosed Alphanumeric Supplement
- * up to U+1F1E5 (regional-indicator flags after it are left alone). Any character in these blocks that NFKC does
- * not reduce to plain ASCII is removed.
+ * Maps Unicode "styled" letters and digits to plain ones; screen readers spell styled ones out letter by letter.
+ * Blocks scanned: Letterlike Symbols (U+2100-214F), Enclosed Alphanumerics (U+2460-24FF), fullwidth forms
+ * (U+FF01-FF5E), Mathematical Alphanumeric Symbols (U+1D400-1D7FF) and the Enclosed Alphanumeric Supplement up to
+ * U+1F1E5 (flags after it are left alone). A character is replaced only when NFKC turns it into a single plain
+ * letter or digit, or fullwidth ASCII punctuation; real symbols such as ℉, Ω or ™ are kept as written.
  */
 const STYLED = /[\u{2100}-\u{214F}\u{2460}-\u{24FF}\u{FF01}-\u{FF5E}\u{1D400}-\u{1D7FF}\u{1F100}-\u{1F1E5}]/gu;
-export const plainLetters = (s: string) => s.replace(STYLED, (c) => { const n = c.normalize('NFKC'); return /^[\x20-\x7E]+$/.test(n) ? n : ''; });
+export const plainLetters = (s: string) => s.replace(STYLED, (c) => {
+  const n = c.normalize('NFKC');
+  const fullwidth = c >= '\uFF01' && c <= '\uFF5E';
+  return /^[A-Za-z0-9]$/.test(n) || (fullwidth && /^[\x21-\x7E]$/.test(n)) ? n : c;
+});
 
 export const isPolishAction = (a: unknown): a is string => typeof a === 'string' && Object.hasOwn(POLISH, a);
 
@@ -198,7 +205,8 @@ async function postPolicy(env: Env, post: Post): Promise<{ claims: string; templ
 /** Every non-assumption evidence row for a brand, paged in a fixed order, so no supporting fact is silently left out. */
 export async function allEvidence(env: Env, brandId: string) {
   const out: { claim: string }[] = [];
-  for (let offset = 0; offset < 2000; offset += 200) {
+  // No total cap: keep paging until a short page, so a claim supported by any row can be found.
+  for (let offset = 0; ; offset += 200) {
     const page = await db.select<{ claim: string }>(env, 'evidence', `${db.eq('brand_id', brandId)}&origin=neq.assumption&select=claim&order=created_at.asc,id.asc&limit=200&offset=${offset}`);
     out.push(...page);
     if (page.length < 200) break;

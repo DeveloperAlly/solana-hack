@@ -237,7 +237,12 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   if (p[3] === 'kit' && p[4] === 'register' && m === 'POST') return json(await registerKit(env, user, brand), 201);
   // S5 Create: posts in the brand voice; human approval before registration (R8).
   if (p[3] === 'posts') {
-    if (p.length === 4 && m === 'GET') return json({ posts: await db.select<Post>(env, 'posts', `${db.eq('brand_id', brand.id)}&order=created_at.desc&limit=20`) });
+    if (p.length === 4 && m === 'GET') {
+      // Newest first; ?limit grows as the owner asks for older posts (one extra row says whether more exist).
+      const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 20, 1), 500);
+      const rows = await db.select<Post>(env, 'posts', `${db.eq('brand_id', brand.id)}&order=created_at.desc,id.desc&limit=${limit + 1}`);
+      return json({ posts: rows.slice(0, limit), more: rows.length > limit });
+    }
     if (p.length === 4 && m === 'POST') {
       const b = await body(req);
       const brief = str(b.brief, 1000);

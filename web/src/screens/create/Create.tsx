@@ -25,10 +25,14 @@ export function Create() {
   const [brief, setBrief] = useState('');
   const [channel, setChannel] = useState('LinkedIn');
   const [busy, setBusy] = useState(false);
+  const [shown, setShown] = useState(20);
+  const [more, setMore] = useState(false);
 
-  async function load(id = brandId) {
+  async function load(id = brandId, limit = shown) {
     if (!id) return;
-    setPosts((await api<{ posts: Post[] }>(`/brands/${id}/posts`)).posts);
+    const r = await api<{ posts: Post[]; more?: boolean }>(`/brands/${id}/posts?limit=${limit}`);
+    setPosts(r.posts);
+    setMore(!!r.more);
   }
   useEffect(() => {
     api<{ brands: { id: string }[] }>('/me')
@@ -78,6 +82,9 @@ export function Create() {
           {posts.map((p) => (
             <PostCard key={p.id} post={p} brandId={brandId!} onChange={() => load()} />
           ))}
+          {more && (
+            <Button variant="secondary" onClick={() => { const n = shown + 20; setShown(n); load(brandId, n).catch((e) => setError(msg(e))); }}>Show older posts</Button>
+          )}
         </Stack>
       </Container>
     </AppShell>
