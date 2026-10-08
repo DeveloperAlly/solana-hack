@@ -128,4 +128,7 @@ describe('published links', () => {
     expect(() => cleanPublishedUrl('https://user:pass@example.com/post')).toThrow();
     expect(() => cleanPublishedUrl('https://user@example.com/post')).toThrow();
   });
+  it('drops fragments and credential-like query parameters, keeping the rest', () => {
+    expect(cleanPublishedUrl('https://example.com/post?id=7&access_token=s3cret&X-Amz-Signature=abc#frag')).toBe('https://example.com/post?id=7');
+  });
 });
