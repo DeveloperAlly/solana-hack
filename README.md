@@ -2,7 +2,7 @@
 
 **Waterlily: build your brand, run it, prove it.**
 
-Waterlily builds a brand from scratch through a short guided interview. It then drafts content in that brand's voice, and a person approves everything. A proof layer on Solana records what is official, so anyone can check that a post really came from the brand. Purpose: [ADR-002](./.agentic/what/decisions/adr_002_purpose_build_run_prove.md). Product map: [ADR-003](./.agentic/what/decisions/adr_003_superhub_business_model.md). Hackathon scope: [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md).
+Waterlily builds a brand from scratch through a short guided interview. It then drafts content in that brand's voice, and a person approves everything. A proof layer on Solana records what is official, so anyone can check that a post really came from the brand. Purpose: [ADR-002](./.agentic/what/decisions/adr_002_purpose_build_run_prove.md). Product map: [ADR-003](./.agentic/what/decisions/adr_003_superhub_business_model.md). Hackathon scope: [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed).
 
 **Live (devnet):** https://jamjam.tech
 **Built for:** Colosseum Crypto World's Fair (submissions close Oct 12, 11:59pm PT).
@@ -12,7 +12,7 @@ Each item says where it stands: **on main** (merged and deployed), or **in revie
 
 1. **Sign in with an email code** (on main). There is no password, no wallet and no seed phrase. A server Registrar signs every on-chain registration ([ADR-006](./.agentic/what/decisions/adr_006_wallet_identity_split.md)). The code only arrives once the Supabase email template includes it (an owner setting, tracked in STATE).
 2. **Read before asking** (on main). Paste your site and Waterlily extracts facts. It keeps only the facts it can quote word for word from the page, and each one keeps its source. Facts found are shown beside the interview questions.
-3. **Short interview** (on main), about 15 minutes: basics and origin; why, how and what; alternatives and audience; voice. You can skip any step and resume later. The voice step on main has 4 templates and 3 dials. **In review (#17):** 12 templates and 8 dials, with claims treated as a gate rather than a slider ([research 06](./.agentic/what/context/research/06_voice_templates.md)).
+3. **Short interview** (on main), about 15 minutes: basics and origin; why, how and what; alternatives and audience; voice. Basics needs a brand name. Every question step after it can be skipped and finished later. The voice step on main has 4 templates and 3 dials. **In review (#17):** 12 templates and 8 dials, with claims treated as a gate rather than a slider ([research 06](./.agentic/what/context/research/06_voice_templates.md)).
 4. **AI-drafted kit** (on main). Purpose, positioning, audience, voice, origin and messaging are drafted from your answers and sources. Each draft cites the evidence it used, and unsupported points are labelled as assumptions.
 5. **Three decision gates** (on main). Purpose, positioning and voice must each be approved by a person. Each approval records who approved it and when.
 6. **Kit v1 on Solana** (on main; live proof pending). The kit is hashed (canonical JSON, SHA-256) and written as a Solana Attestation Service (SAS) attestation signed by the Registrar. On chain: the brand id, the kit hash, the kit version, the approver id and a domain-verified flag. No kit text goes on chain. The deployed self-test of this path is failing; diagnostics are in #14 (see STATE).

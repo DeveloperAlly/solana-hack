@@ -1,12 +1,12 @@
 ---
 type: adr
-status: accepted
+status: proposed
 created: 2026-10-08
 updated: 2026-10-08
 last_edited_by: agent
 tags: [adr, scope, hackathon, critical-path]
 ---
-> **Status: accepted.** Until the Colosseum submission (Oct 12 2026, 11:59pm PT), the build follows one critical path: the spine, a thin Create, and Verify and Ledger, then the submission assets. Everything else is labelled "coming soon" in the app.
+> **Status: proposed (awaiting the owner's ratification).** Until the Colosseum submission (Oct 12 2026, 11:59pm PT), the build follows one critical path: the spine, a thin Create, and Verify and Ledger, then the submission assets. Everything else is labelled "coming soon" in the app.
 
 # ADR-008: The submission critical path, and what is cut until after it
 
@@ -31,4 +31,4 @@ tags: [adr, scope, hackathon, critical-path]
 - STATE.md's "Next" list follows this order.
 
 ## Ratification
-Ratified by Ally Haire in chat, 2026-10-08 ("yes go"), in reply to the ranked critical-path list that set out this order and these cuts.
+Pending. In chat on 2026-10-08 the owner replied "yes go" to the ranked critical-path list that set out this order and these cuts, and the work has followed it since. Only the owner promotes an ADR to accepted, so this stays proposed until they do.

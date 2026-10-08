@@ -40,7 +40,7 @@ last_edited_by: agent
 - [ADR-007](./.agentic/what/decisions/adr_007_pitch_positioning.md): the pitch makes end to end (build, run, prove, pay) the differentiator and leads the sale with crypto and developer brands; build scope unchanged. Deck v2 text and notes are in [pitch_deck_2026_10_06.md](./.agentic/what/context/pitch_deck_2026_10_06.md) (draft; placeholders to fill), with the [review](./.agentic/what/context/vc_judge_review_2026_10_06.md) behind it.
 - Demo: Waterlily builds its own brand from scratch, live (headline). aDNA is the second case (strong written brand, no social). film.fun and GamersLab are semi-established case studies. Polish actions include Beautify.
 
-- [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md): the submission critical path. The spine, a thin Create, and Verify and Ledger come first, then the submission assets. Payouts, X and LinkedIn OAuth, quests, claims, the full settings and the remaining canvas batches are cut and labelled "coming soon" (owner, 2026-10-08).
+- [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed; the owner said "yes go" to the plan on 2026-10-08, and the ADR awaits ratification): the submission critical path. The spine, a thin Create, and Verify and Ledger come first, then the submission assets. Payouts, X and LinkedIn OAuth, quests, claims, the full settings and the remaining canvas batches are cut and labelled "coming soon".
 - Helius devnet RPC (G-RPC) and a funded OpenRouter key are in the deploy secrets (owner, 2026-10-08). The Registrar is `E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG`.
 
 ## Blockers
