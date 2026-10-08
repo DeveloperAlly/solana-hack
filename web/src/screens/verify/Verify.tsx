@@ -3,7 +3,8 @@ import { PublicShell } from '../../ui/shells/PublicShell';
 import { Alert, Button, Container, Field, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { api, ApiError } from '../../lib/api';
 
-interface Result { official: boolean; hash: string; brand?: string | null; kitVersion?: number | null; approvedAt?: string | null; publishedUrl?: string | null; explorer?: string | null }
+interface Match { brand?: string | null; kitVersion?: number | null; approvedAt?: string | null; publishedUrl?: string | null; explorer?: string | null }
+interface Result extends Match { official: boolean; hash: string; matches?: Match[] }
 
 /** Verify-1 (S6): paste a post, see whether it is an official, registered post of a Waterlily brand. */
 export function Verify() {
@@ -54,6 +55,22 @@ export function Verify() {
               <Text variant="mono">{result.hash}</Text>
               {result.explorer && <Link href={result.explorer} external>See the registration on Solana Explorer</Link>}
               {result.publishedUrl && <Link href={result.publishedUrl} external>See the published post</Link>}
+            </Stack>
+          )}
+          {result?.matches && result.matches.length > 1 && (
+            // The same text can be registered by more than one brand; show every registration, earliest first.
+            <Stack gap={2}>
+              <Text variant="label">This exact text is registered {result.matches.length} times. The earliest is shown above.</Text>
+              <Stack as="ol" gap={1}>
+                {result.matches.map((m, i) => (
+                  <li key={i}>
+                    <Text variant="small">
+                      {m.brand ?? 'Registered brand'}, kit v{m.kitVersion}, approved {m.approvedAt ? new Date(m.approvedAt).toLocaleString() : 'unknown'}
+                      {m.explorer && <> · <Link href={m.explorer} external>Explorer</Link></>}
+                    </Text>
+                  </li>
+                ))}
+              </Stack>
             </Stack>
           )}
         </Stack>

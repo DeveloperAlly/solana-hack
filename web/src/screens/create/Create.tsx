@@ -5,7 +5,7 @@ import { api, ApiError } from '../../lib/api';
 
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
-  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: string[]; lastAction?: string; source?: 'ai' | 'edit' };
+  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit' };
   signature: string | null; published_url: string | null;
 }
 const POLISH = [
@@ -118,7 +118,8 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
             Found: {slop?.hits.join(', ')}. Draft it again.
           </Alert>
         ) : post.status === 'drafted' ? (
-          <Field label="Post" multiline rows={8} value={text} onChange={(e: { target: { value: string } }) => setText(e.target.value)} />
+          // Locked while an action runs, so a reload after polish cannot overwrite text typed in the meantime.
+          <Field label="Post" multiline rows={8} value={text} disabled={!!busy} hint={busy ? 'Locked until the change finishes.' : undefined} onChange={(e: { target: { value: string } }) => setText(e.target.value)} />
         ) : (
           // Approved and registered text is read-only, so what is registered is exactly what was approved.
           <Box padding={4} background="subtle" radius="box"><Text>{post.body}</Text></Box>

@@ -7,9 +7,19 @@ import { explorerTx, registerKitAttestation, registrarFromSecret } from './regis
 export interface Post {
   id: string; brand_id: string; brief: string; channel: string | null; body: string; checks: Checks; status: string;
   kit_version: number | null; hash: string | null; approved_by: string | null; approved_at: string | null;
-  signature: string | null; attestation: string | null; published_url: string | null; created_at: string;
+  signature: string | null; attestation: string | null; published_url: string | null; created_at: string; rev: number;
 }
-interface Checks { slop: { passed: boolean; hits: string[] }; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit'; history?: string[]; lastAction?: string }
+// A history entry is the full visible state before a change, so Undo restores the text *and* the scores and notes
+// that described it. Older rows stored only the text (string); those restore with scores cleared.
+export interface Snapshot { body: string; slop: Checks['slop']; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit' }
+interface Checks { slop: { passed: boolean; hits: string[] }; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit'; history?: (Snapshot | string)[]; lastAction?: string }
+
+const snapshot = (post: Post): Snapshot => ({ body: post.body, slop: post.checks.slop, voiceFit: post.checks.voiceFit ?? null, platform: post.checks.platform ?? null, notes: post.checks.notes ?? [], source: post.checks.source });
+export const pushHistory = (post: Post) => [...(post.checks.history ?? []), snapshot(post)].slice(-10);
+export function restoreEntry(entry: Snapshot | string): Snapshot {
+  if (typeof entry === 'string') return { body: entry, slop: slopCheck(entry), voiceFit: null, platform: null, notes: [], source: 'edit' };
+  return { ...entry, slop: slopCheck(entry.body) };
+}
 
 // Same banned list the drafting prompt carries (llm.ts SLOP_RULES), checked again on the output.
 const BANNED = ['delve', 'unlock', 'unleash', 'elevate', 'seamless', 'game-changer', 'game changer', 'revolutioniz', 'cutting-edge', "in today's fast-paced", 'landscape', 'tapestry', 'empower', 'leverage', 'synergy', 'robust', 'harness', 'navigate the', "it's not just", 'more than just', '—'];
@@ -27,11 +37,23 @@ export const contentHash = async (s: string) => 'sha256:' + (await sha256Hex(nor
 
 // Drafts use the latest *registered* kit snapshot (kits.payload), not the editable sections, so a post's
 // kit_version always names the kit its voice came from.
-async function voiceContext(env: Env, brandId: string) {
-  const [kit] = await db.select<{ version: number; payload: { sections?: { section: string; body: string }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}&select=version,payload&order=version.desc&limit=1`);
+async function voiceContext(env: Env, brandId: string, version?: number | null) {
+  const which = version ? `&${db.eq('version', String(version))}` : '';
+  const [kit] = await db.select<{ version: number; payload: { sections?: { section: string; body: string }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}${which}&select=version,payload&order=version.desc&limit=1`);
   if (!kit) throw new HttpError(409, 'register your brand kit first, so posts are written to a fixed kit version');
   const pick = (id: string) => kit.payload.sections?.find((s) => s.section === id)?.body ?? '';
   return { kitVersion: kit.version, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose') };
+}
+
+/** Filter for a compare-and-swap: this post, at the revision we read, in one of the allowed states. */
+export const casFilter = (post: Pick<Post, 'id' | 'rev'>, statuses: string[]) =>
+  `${db.eq('id', post.id)}&${db.eq('rev', String(post.rev ?? 0))}&status=in.(${statuses.join(',')})`;
+
+/** Changes a post only if nobody else changed it since it was read; otherwise 409, so stale requests never overwrite. */
+export async function changePost(env: Env, post: Post, statuses: string[], patch: Partial<Post>) {
+  const [row] = await db.update<Post>(env, 'posts', casFilter(post, statuses), { ...patch, rev: (post.rev ?? 0) + 1 });
+  if (!row) throw new HttpError(409, 'this post changed in another window or is being registered; reload and try again');
+  return row;
 }
 
 export async function draftPost(env: Env, brand: { id: string; name: string }, brief: string, channel: string) {
@@ -45,27 +67,28 @@ export async function draftPost(env: Env, brand: { id: string; name: string }, b
   if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
   // R9: an AI draft that fails the slop check gets one automatic rewrite; if it still fails it is stored
   // but never shown (the UI hides AI text whose slop check failed).
+  // The rewrite is scored again with the same context, so the scores shown always describe the text shown.
+  let scored = out;
   const first = slopCheck(body);
   if (!first.passed) {
-    const fix = await chat(env, `Rewrite this post without these: ${first.hits.join(', ')}. Keep the meaning, facts and voice. ${SLOP_RULES} Reply with JSON only: {"body": string}.`, body);
-    const fixed = (parseJson<{ body?: string }>(fix.text).body ?? '').trim().slice(0, 4000);
-    if (fixed) body = fixed;
+    const fix = await chat(env, `Rewrite the draft post without these: ${first.hits.join(', ')}. Keep the meaning, facts and voice. ${SLOP_RULES} Then score the rewrite. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 3)}.`, `${user}\n\nDraft to rewrite:\n${body}`);
+    const fixed = parseJson<{ body?: string; voiceFit?: number; platform?: number; notes?: string[] }>(fix.text);
+    const fixedBody = (fixed.body ?? '').trim().slice(0, 4000);
+    if (fixedBody) { body = fixedBody; scored = fixed; }
   }
   const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
-  const checks: Checks = { slop: slopCheck(body), voiceFit: num(out.voiceFit), platform: num(out.platform), notes: (out.notes ?? []).slice(0, 3).map((n) => String(n).slice(0, 200)), source: 'ai' };
+  const checks: Checks = { slop: slopCheck(body), voiceFit: num(scored.voiceFit), platform: num(scored.platform), notes: (scored.notes ?? []).slice(0, 3).map((n) => String(n).slice(0, 200)), source: 'ai' };
   const [post] = await db.insert<Post>(env, 'posts', { brand_id: brand.id, brief: brief.slice(0, 1000), channel: channel || null, body, checks, status: 'drafted', model, kit_version: ctx.kitVersion });
   return post;
 }
 
 export async function editPost(env: Env, post: Post, body: string) {
-  if (post.status === 'registered') throw new HttpError(409, 'a registered post cannot change; draft a new one');
+  if (post.status === 'registered' || post.status === 'registering') throw new HttpError(409, post.status === 'registered' ? 'a registered post cannot change; draft a new one' : 'this post is being registered and cannot change');
   const text = body.trim().slice(0, 4000);
   if (!text) throw new HttpError(400, 'the post cannot be empty');
   // Scores belonged to the old text; a person's edit is shown even if it fails the slop check (only approval is blocked).
-  const history = [...(post.checks.history ?? []), post.body].slice(-10);
-  const checks: Checks = { ...post.checks, slop: slopCheck(text), voiceFit: null, platform: null, notes: [], source: 'edit', history, lastAction: 'edit' };
-  const [row] = await db.update<Post>(env, 'posts', db.eq('id', post.id), { body: text, checks, status: 'drafted', approved_by: null, approved_at: null });
-  return row;
+  const checks: Checks = { ...post.checks, slop: slopCheck(text), voiceFit: null, platform: null, notes: [], source: 'edit', history: pushHistory(post), lastAction: 'edit' };
+  return changePost(env, post, ['drafted', 'approved'], { body: text, checks, status: 'drafted', approved_by: null, approved_at: null });
 }
 
 // Polish actions (architecture §6): single click, always reversible (the previous text is kept in checks.history).
@@ -78,38 +101,48 @@ const POLISH: Record<string, string> = {
 };
 export const POLISH_ACTIONS = Object.keys(POLISH);
 
+export const isPolishAction = (a: unknown): a is string => typeof a === 'string' && Object.hasOwn(POLISH, a);
+
 export async function polishPost(env: Env, post: Post, action: string) {
-  if (post.status === 'registered') throw new HttpError(409, 'a registered post cannot change; draft a new one');
-  const how = POLISH[action];
-  if (!how) throw new HttpError(400, 'unknown polish action');
-  const system = `You polish one ${post.channel || 'LinkedIn'} post. ${how} ${SLOP_RULES} Reply with JSON only: {"body": string, "notes": string[]}.`;
-  const { text } = await chat(env, system, post.body);
-  const out = parseJson<{ body?: string; notes?: string[] }>(text);
+  if (!isPolishAction(action)) throw new HttpError(400, 'unknown polish action');
+  if (post.status !== 'drafted' && post.status !== 'approved') throw new HttpError(409, post.status === 'registered' ? 'a registered post cannot change; draft a new one' : 'this post is being registered and cannot change');
+  // Every action sees the kit version the post was written to, so Review can judge voice and claims,
+  // and every result is re-scored against it: the scores shown always describe the text shown.
+  const ctx = await voiceContext(env, post.brand_id, post.kit_version);
+  const system = `You polish one ${post.channel || 'LinkedIn'} post for a brand with the approved kit below. ${POLISH[action]} ${SLOP_RULES} Then score the resulting post against the kit. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 4)}.`;
+  const user = `Voice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}\n\nPost:\n${post.body}`;
+  const { text } = await chat(env, system, user);
+  const out = parseJson<{ body?: string; voiceFit?: number; platform?: number; notes?: string[] }>(text);
   const body = action === 'review' ? post.body : (out.body ?? '').trim().slice(0, 4000);
   if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
-  const history = [...(post.checks.history ?? []), post.body].slice(-10);
-  const checks: Checks = { ...post.checks, slop: slopCheck(body), voiceFit: action === 'review' ? post.checks.voiceFit : null, platform: action === 'review' ? post.checks.platform : null, notes: (out.notes ?? []).slice(0, 4).map((n) => String(n).slice(0, 200)), history, lastAction: action, source: action === 'review' ? post.checks.source : 'ai' };
-  const [row] = await db.update<Post>(env, 'posts', db.eq('id', post.id), { body, checks, status: 'drafted', approved_by: null, approved_at: null });
-  return row;
+  const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
+  const checks: Checks = {
+    ...post.checks, slop: slopCheck(body), voiceFit: num(out.voiceFit), platform: num(out.platform),
+    notes: (out.notes ?? []).slice(0, 4).map((n) => String(n).slice(0, 200)), history: pushHistory(post), lastAction: action,
+    source: action === 'review' ? post.checks.source : 'ai',
+  };
+  // Compare-and-swap on the revision read before the model call: an edit, undo or registration meanwhile wins.
+  return changePost(env, post, ['drafted', 'approved'], { body, checks, status: 'drafted', approved_by: null, approved_at: null });
 }
 
 export async function undoPost(env: Env, post: Post) {
-  if (post.status === 'registered') throw new HttpError(409, 'a registered post cannot change');
+  if (post.status !== 'drafted' && post.status !== 'approved') throw new HttpError(409, 'a registered post cannot change');
   const history = [...(post.checks.history ?? [])];
-  const prev = history.pop();
-  if (prev === undefined) throw new HttpError(409, 'nothing to undo');
+  const entry = history.pop();
+  if (entry === undefined) throw new HttpError(409, 'nothing to undo');
   // The restored text was already shown to the owner, so it stays visible whatever its slop result.
-  const checks: Checks = { ...post.checks, slop: slopCheck(prev), voiceFit: null, platform: null, notes: [], history, lastAction: 'undo', source: 'edit' };
-  const [row] = await db.update<Post>(env, 'posts', db.eq('id', post.id), { body: prev, checks, status: 'drafted', approved_by: null, approved_at: null });
-  return row;
+  const prev = restoreEntry(entry);
+  const checks: Checks = { ...post.checks, slop: prev.slop, voiceFit: prev.voiceFit, platform: prev.platform, notes: prev.notes, history, lastAction: 'undo', source: 'edit' };
+  return changePost(env, post, ['drafted', 'approved'], { body: prev.body, checks, status: 'drafted', approved_by: null, approved_at: null });
 }
 
 // Human approval before anything is registered or published (R8).
 export async function approvePost(env: Env, user: User, post: Post) {
-  if (post.status === 'registered') return post;
+  if (post.status === 'registered' || post.status === 'approved') return post;
+  if (post.status !== 'drafted') throw new HttpError(409, 'this post is being registered');
   if (!post.checks.slop?.passed) throw new HttpError(409, 'fix the slop check first: ' + post.checks.slop.hits.join(', '));
-  const [row] = await db.update<Post>(env, 'posts', db.eq('id', post.id), { status: 'approved', approved_by: user.id, approved_at: new Date().toISOString() });
-  return row;
+  // Approves exactly the revision whose checks were read: an edit in between bumps rev and this fails with 409.
+  return changePost(env, post, ['drafted'], { status: 'approved', approved_by: user.id, approved_at: new Date().toISOString() });
 }
 
 export function cleanPublishedUrl(raw: string): string | null {
@@ -128,7 +161,7 @@ export async function registerPost(env: Env, user: User, post: Post, publishedUr
   if (!post.kit_version) throw new HttpError(409, 'register the kit first, so the post can point at a kit version');
   const url = cleanPublishedUrl(publishedUrl);
   // Claim the post first (approved -> registering, conditional), so two requests cannot both write to chain.
-  const [claimed] = await db.update<Post>(env, 'posts', `${db.eq('id', post.id)}&${db.eq('status', 'approved')}`, { status: 'registering' });
+  const [claimed] = await db.update<Post>(env, 'posts', casFilter(post, ['approved']), { status: 'registering', rev: (post.rev ?? 0) + 1 });
   if (!claimed) throw new HttpError(409, 'a registration is already in progress');
   const hash = await contentHash(claimed.body);
   try {
@@ -144,20 +177,25 @@ export async function registerPost(env: Env, user: User, post: Post, publishedUr
   }
 }
 
-/** Public: is this text an official post (or kit) of a Waterlily brand? */
+/**
+ * Public: is this text an official post of a Waterlily brand? Identical text can be registered by more than one
+ * brand, so every match is returned, earliest first; the top-level fields describe the earliest registration.
+ */
 export async function verifyText(env: Env, text: string) {
   if (!text.trim()) throw new HttpError(400, 'paste a post to check');
   const hash = await contentHash(text);
-  const [post] = await db.select<Post>(env, 'posts', `${db.eq('hash', hash)}&${db.eq('status', 'registered')}&limit=1`);
-  if (!post) return { official: false, hash };
-  const [brand] = await db.select<{ name: string }>(env, 'brands', `${db.eq('id', post.brand_id)}&select=name`);
-  return {
-    official: true, hash, brand: brand?.name ?? null, kitVersion: post.kit_version, approvedAt: post.approved_at,
-    publishedUrl: post.published_url, explorer: post.signature ? explorerTx(post.signature) : null,
-  };
+  const posts = await db.select<Post>(env, 'posts', `${db.eq('hash', hash)}&${db.eq('status', 'registered')}&order=approved_at.asc&limit=20`);
+  if (!posts.length) return { official: false, hash, matches: [] };
+  const ids = [...new Set(posts.map((p) => p.brand_id))];
+  const brands = await db.select<{ id: string; name: string }>(env, 'brands', `id=in.(${ids.join(',')})&select=id,name`);
+  const matches = posts.map((p) => ({
+    brand: brands.find((b) => b.id === p.brand_id)?.name ?? null, kitVersion: p.kit_version, approvedAt: p.approved_at,
+    publishedUrl: p.published_url, explorer: p.signature ? explorerTx(p.signature) : null,
+  }));
+  return { official: true, hash, ...matches[0], matches };
 }
 
-/** Public ledger: registrations grouped by type: brand name, fingerprint, version and explorer link. Content stays private. */
+/** Public ledger: the latest 50 registrations of each type: brand name, fingerprint, version and explorer link. Content stays private. */
 export async function ledger(env: Env) {
   const [kits, posts] = await Promise.all([
     db.select<{ brand_id: string; version: number; hash: string; signature: string; created_at: string }>(env, 'kits', `${db.eq('status', 'registered')}&select=brand_id,version,hash,signature,created_at&order=created_at.desc&limit=50`),

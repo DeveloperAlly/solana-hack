@@ -12,7 +12,8 @@ interface Source { id: string; url: string; title: string | null; status: string
 interface Evidence { id: string; section: string; claim: string; quote: string | null; origin: string; source_id: string | null }
 interface Section { section: string; body: string; citations: string[]; status: string }
 interface Gate { gate: string; approved_by: string; approved_at: string; note: string | null }
-interface Kit { id: string; version: number; hash: string; status: string; signature: string | null; attestation: string | null; created_at: string; error: string | null }
+export interface KitPayload { sections: { section: string; body: string; citations: string[]; status: string }[]; gates: { gate: string; approved_by: string | null; approved_at: string }[] }
+interface Kit { id: string; version: number; hash: string; status: string; signature: string | null; attestation: string | null; created_at: string; error: string | null; payload?: KitPayload | null }
 export interface BrandState { brand: Brand; answers: Answer[]; sources: Source[]; evidence: Evidence[]; sections: Section[]; gates: Gate[]; kits: Kit[] }
 
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Try again.');

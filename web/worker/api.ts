@@ -40,7 +40,7 @@ async function brandState(env: Env, brand: Brand) {
     db.select<Evidence>(env, 'evidence', `${f}&order=created_at`),
     db.select<Section>(env, 'kit_sections', f),
     db.select<Gate>(env, 'gates', f),
-    db.select<Kit>(env, 'kits', `${f}&select=id,version,hash,status,signature,attestation,created_at,error&order=version.desc`),
+    db.select<Kit>(env, 'kits', `${f}&select=id,version,hash,status,signature,attestation,created_at,error,payload&order=version.desc`),
   ]);
   return { brand, answers, sources, evidence, sections, gates, kits };
 }
