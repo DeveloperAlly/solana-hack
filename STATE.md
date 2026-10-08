@@ -22,6 +22,7 @@ last_edited_by: agent
 - Hosting: the app runs on the apex of jamjam.tech as a Cloudflare Worker custom domain, deployed from GitHub Actions on merge to main ([PR #6](https://github.com/DeveloperAlly/solana-hack/pull/6)); live since 2026-10-06 (owner, 2026-10-06, [recorded on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6014295120); supersedes the waterlily.ai hosting in R30). The owner added the repo deploy settings; CI checks their names.
 - ADR-006: email sign-in (Supabase OTP); a server Registrar keypair signs registrations; a wallet only for USDC payouts (owner, 2026-10-06; G-WALLET decided).
 - Wireframes: voices follow research 06 (12 templates, 9 dimensions, claims gate); licensing screens stay parked; aDNA stays the sample brand.
+- [ADR-007](./.agentic/what/decisions/adr_007_pitch_positioning.md): the pitch makes end to end (build, run, prove, pay) the differentiator and leads the sale with crypto and developer brands; build scope unchanged. Deck v2 text and notes are in [pitch_deck_2026_10_06.md](./.agentic/what/context/pitch_deck_2026_10_06.md) (draft; placeholders to fill), with the [review](./.agentic/what/context/vc_judge_review_2026_10_06.md) behind it.
 - Demo: Waterlily builds its own brand from scratch, live (headline). aDNA is the second case (strong written brand, no social). film.fun and GamersLab are semi-established case studies. Polish actions include Beautify.
 
 ## Blockers
