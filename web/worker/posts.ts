@@ -145,7 +145,19 @@ export const plainLetters = (s: string) => s
     const fullwidth = c >= '\uFF01' && c <= '\uFF5E';
     return /^[A-Za-z0-9]$/.test(n) || (fullwidth && /^[\x21-\x7E]$/.test(n)) ? n : c;
   })
-  .replace(SUPER_RUN, (run) => (NUMERIC_RUN.test(run) ? run : [...run].map(toPlain).join('')));
+  .replace(SUPER_RUN, (run, at: number, all: string) => (NUMERIC_RUN.test(run) || insideIpa(all, at, run.length) ? run : [...run].map(toPlain).join('')));
+
+// Phonetic transcriptions are meaning, not styling: /ʰɪ/ and [ʜɪ] are written that way on purpose. A run inside a
+// /…/ or […] span on one line that contains an IPA or modifier letter is left as written.
+const IPA_SPAN = /\/[^/\n]{1,80}\/|\[[^\]\n]{1,80}\]/gu;
+const IPA_CHAR = /[\u{0250}-\u{02FF}\u{1D00}-\u{1DBF}]/u;
+function insideIpa(all: string, at: number, len: number) {
+  for (const m of all.matchAll(IPA_SPAN)) {
+    const start = m.index ?? 0;
+    if (start < at && at + len <= start + m[0].length && IPA_CHAR.test(m[0])) return true;
+  }
+  return false;
+}
 
 // X's counting rules, from twitter-text 3.1.0 configs.version3: weight 2 by default, 1 for these code point ranges,
 // 23 for any URL, 2 for any emoji sequence; the limit is 280 of these.
@@ -195,6 +207,9 @@ export async function polishPost(env: Env, post: Post, action: string) {
   const limit = platformLimit(post.channel);
   if (action === 'shorten' && limit && xWeightedLength(body) > limit) throw new HttpError(422, `Shorten came back at ${xWeightedLength(body)} characters as X counts them, over the ${limit} limit; try again or edit it yourself`);
   if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
+  // Shorten must also be shorter than what it started from, measured the way the channel counts.
+  const size = (t: string) => (limit ? xWeightedLength(t) : [...t].length);
+  if (action === 'shorten' && size(body) >= size(post.body)) throw new HttpError(422, 'Shorten did not make the post any shorter; try again or edit it yourself');
   const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
   const checks: Checks = {
     // Review never changes the text, so its scores stay the ones that describe that text; only its notes are new.
