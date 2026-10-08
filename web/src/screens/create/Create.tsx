@@ -94,9 +94,15 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
     setError(null);
     try {
       await fn();
-      await onChange();
     } catch (e) {
       setError(msg(e));
+    }
+    try {
+      // Reload either way: a failed registration can still change the post (locked, reopened, new revision), and the
+      // next action must carry the revision the server now has.
+      await onChange();
+    } catch {
+      // Keep the action's error on screen; the list refreshes on the next action.
     } finally {
       setBusy(null);
     }
