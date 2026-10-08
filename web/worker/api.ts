@@ -123,9 +123,10 @@ async function registerKit(env: Env, user: User, brand: Brand) {
 }
 
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
-export async function publicLimit(req: Request, env: Env) {
+export async function publicLimit(req: Request, env: Env, scope: string) {
   if (!env.PUBLIC_LIMITER) return;
-  const { success } = await env.PUBLIC_LIMITER.limit({ key: req.headers.get('cf-connecting-ip') ?? 'unknown' });
+  // Keyed per endpoint and IP, so browsing the Ledger does not use up Verify checks.
+  const { success } = await env.PUBLIC_LIMITER.limit({ key: `${scope}:${req.headers.get('cf-connecting-ip') ?? 'unknown'}` });
   if (!success) throw new HttpError(429, 'too many checks from your network; wait a minute and try again');
 }
 
@@ -134,7 +135,7 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   const p = url.pathname.split('/').filter(Boolean); // ['api', ...]
   const m = req.method;
   // Public (no sign-in): Verify and Ledger (S6), limited per client IP because they query the database and Solana.
-  if ((p[1] === 'verify' || p[1] === 'ledger') && p.length === 2) await publicLimit(req, env);
+  if ((p[1] === 'verify' || p[1] === 'ledger') && p.length === 2) await publicLimit(req, env, p[1]);
   if (p[1] === 'verify' && p.length === 2 && m === 'POST') {
     const b = await body(req);
     return json(await verifyText(env, str(b.text, 8000)));

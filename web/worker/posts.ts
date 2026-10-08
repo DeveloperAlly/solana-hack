@@ -236,24 +236,31 @@ export async function reconcilePost(env: Env, post: Post) {
 export async function verifyText(env: Env, text: string) {
   if (!text.trim()) throw new HttpError(400, 'paste a post to check');
   const hash = await contentHash(text);
-  const rows = await db.select<Post>(env, 'posts', `${db.eq('hash', hash)}&${db.eq('status', 'registered')}&order=registered_at.asc&limit=10`);
-  if (!rows.length) return { official: false, hash, matches: [] };
-  // The database is an index; Solana is the proof. Each match is checked onchain: it must exist, be signed by the
-  // Registrar under the WATERLILY credential and WL-KIT schema, and carry this hash.
+  // At most 10 registrations are checked onchain per request (each costs RPC reads); an 11th row signals truncation.
+  const rows = await db.select<Post>(env, 'posts', `${db.eq('hash', hash)}&${db.eq('status', 'registered')}&order=registered_at.asc&limit=11`);
+  const truncated = rows.length > 10;
+  if (!rows.length) return { official: false, checked: true, hash, matches: [] };
+  // The database is an index; Solana is the proof. "Official" requires a verified attestation: it exists, the
+  // Registrar signed it under the WATERLILY credential and WL-KIT schema, and it carries this hash.
   const registrar = env.REGISTRAR_KEY ? (await registrarFromSecret(env.REGISTRAR_KEY)).address : null;
-  const checked = await Promise.all(rows.map(async (p) => ({
+  const checked = await Promise.all(rows.slice(0, 10).map(async (p) => ({
     p, onchain: registrar && p.attestation ? await readKitAttestation(env.RPC_URL, registrar, p.attestation, hash) : ('unavailable' as const),
   })));
-  // A record whose attestation is gone or does not match is not official.
-  const live = checked.filter((c) => c.onchain === 'verified' || c.onchain === 'unavailable');
-  if (!live.length) return { official: false, hash, matches: [], note: 'a record exists, but its Solana attestation is missing or does not match' };
-  const ids = [...new Set(live.map((c) => c.p.brand_id))];
+  const verified = checked.filter((c) => c.onchain === 'verified');
+  if (!verified.length) {
+    // Could not check Solana: say so, never certify from the index alone.
+    if (checked.some((c) => c.onchain === 'unavailable')) return { official: false, checked: false, hash, matches: [], note: 'Solana could not be checked just now, so this cannot be confirmed; try again in a minute' };
+    return { official: false, checked: true, hash, matches: [], note: 'a record exists, but its Solana attestation is missing or does not match' };
+  }
+  const ids = [...new Set(verified.map((c) => c.p.brand_id))];
   const brands = await db.select<{ id: string; name: string }>(env, 'brands', `id=in.(${ids.join(',')})&select=id,name`);
-  const matches = live.map(({ p, onchain }) => ({
+  const matches = verified.map(({ p }) => ({
     brand: brands.find((b) => b.id === p.brand_id)?.name ?? null, kitVersion: p.kit_version, approvedAt: p.approved_at,
-    registeredAt: p.registered_at ?? null, publishedUrl: p.published_url, explorer: p.signature ? explorerTx(p.signature) : null, onchain,
+    registeredAt: p.registered_at ?? null, publishedUrl: p.published_url, explorer: p.signature ? explorerTx(p.signature) : null,
+    // Every registration so far attests domain_verified 'false': the brand name is self-declared.
+    domainVerified: false,
   }));
-  return { official: true, hash, ...matches[0], matches };
+  return { official: true, checked: true, hash, ...matches[0], matches, truncated };
 }
 
 /** Public ledger: the latest 50 registrations of each type: brand name, fingerprint, version and explorer link. Content stays private. */

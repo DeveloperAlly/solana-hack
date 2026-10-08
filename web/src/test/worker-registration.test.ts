@@ -75,9 +75,26 @@ describe('post registration', () => {
 
 describe('verify checks Solana, not just the index', () => {
   const row = { brand_id: 'b', kit_version: 1, approved_at: 'a', registered_at: 'r', published_url: null, signature: 'SIG', attestation: 'ATT' };
-  it('is official when the attestation verifies', async () => {
+  it('is official when the attestation verifies, and says the domain is not verified', async () => {
     selectRows = [row]; reg.onchain = 'verified';
-    expect(await verifyText(env, 'Text.')).toMatchObject({ official: true, brand: 'Brand', onchain: 'verified' });
+    expect(await verifyText(env, 'Text.')).toMatchObject({ official: true, checked: true, brand: 'Brand', domainVerified: false, truncated: false });
+  });
+  it('returns every brand that registered the same text, earliest first', async () => {
+    selectRows = [row, { ...row, brand_id: 'b2', kit_version: 2 }]; reg.onchain = 'verified';
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.includes('/brands?') ? [{ id: 'b', name: 'First' }, { id: 'b2', name: 'Second' }] : selectRows))));
+    const r = await verifyText(env, 'Same words.');
+    expect(r.matches.map((m) => m.brand)).toEqual(['First', 'Second']);
+    expect(r).toMatchObject({ brand: 'First', kitVersion: 1 });
+  });
+  it('never certifies from the index when Solana cannot be checked', async () => {
+    selectRows = [row]; reg.onchain = 'unavailable';
+    expect(await verifyText(env, 'Text.')).toMatchObject({ official: false, checked: false, note: expect.stringContaining('could not be checked') });
+  });
+  it('checks at most 10 registrations and reports truncation', async () => {
+    selectRows = Array.from({ length: 11 }, () => row); reg.onchain = 'verified';
+    const r = await verifyText(env, 'Text.');
+    expect(r.matches).toHaveLength(10);
+    expect(r).toMatchObject({ truncated: true });
   });
   it('is not official when the attestation is missing or does not match', async () => {
     selectRows = [row]; reg.onchain = 'mismatch';

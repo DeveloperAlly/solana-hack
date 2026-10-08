@@ -36,18 +36,9 @@ describe('post concurrency and verify', () => {
     expect(calls[0]).toContain('rev=eq.2');
     expect(calls[0]).toContain('"rev":3');
   });
-  it('returns every brand that registered the same text, earliest first', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.includes('/posts?')) return new Response(JSON.stringify([
-        { brand_id: 'b1', kit_version: 1, approved_at: '2026-10-01T00:00:00Z', published_url: null, signature: 'sig1' },
-        { brand_id: 'b2', kit_version: 2, approved_at: '2026-10-02T00:00:00Z', published_url: null, signature: null },
-      ]));
-      return new Response(JSON.stringify([{ id: 'b1', name: 'First' }, { id: 'b2', name: 'Second' }]));
-    }));
-    const r = await verifyText(env, 'Same words.');
-    expect(r.official).toBe(true);
-    expect(r.matches.map((m) => m.brand)).toEqual(['First', 'Second']);
-    expect(r).toMatchObject({ brand: 'First', kitVersion: 1 });
+  it('without a Registrar to check Solana, verify never certifies', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([{ brand_id: 'b1', kit_version: 1, attestation: 'A', signature: 's' }]))));
+    expect(await verifyText(env, 'Same words.')).toMatchObject({ official: false, checked: false });
   });
 });
 
