@@ -113,7 +113,7 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
     // Only hashes and ids go onchain (R27): brand id, kit hash, version, approver id.
     const out = await registerKitAttestation(env.RPC_URL, registrar, { brand_id: brand.id, hash, kit_version: String(version), approver: user.id, domain_verified: 'false' });
-    const [done] = await db.update<Kit>(env, 'kits', db.eq('id', kit.id), { status: 'registered', signature: out.signature, attestation: out.attestation });
+    const [done] = await db.update<Kit>(env, 'kits', db.eq('id', kit.id), { status: 'registered', signature: out.signature, attestation: out.attestation, registered_at: new Date().toISOString() });
     return { kit: done, explorer: out.explorer, attestationExplorer: out.attestationExplorer, registrar: out.registrar };
   } catch (e) {
     console.error('kit registration failed', safeError(e));

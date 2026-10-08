@@ -33,10 +33,10 @@ export const contentHash = async (s: string) => 'sha256:' + (await sha256Hex(nor
 // Drafts use the latest *registered* kit snapshot (kits.payload), not the editable sections, so a post's
 // kit_version always names the kit its voice came from.
 async function voiceContext(env: Env, brandId: string) {
-  const [kit] = await db.select<{ version: number; payload: { sections?: { section: string; body: string }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}&select=version,payload&order=version.desc&limit=1`);
+  const [kit] = await db.select<{ version: number; payload: { brand?: { name?: string }; sections?: { section: string; body: string }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}&select=version,payload&order=version.desc&limit=1`);
   if (!kit) throw new HttpError(409, 'register your brand kit first, so posts are written to a fixed kit version');
   const pick = (id: string) => kit.payload.sections?.find((s) => s.section === id)?.body ?? '';
-  return { kitVersion: kit.version, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose') };
+  return { kitVersion: kit.version, brandName: kit.payload.brand?.name, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose') };
 }
 
 /** Filter for a compare-and-swap: this post, at the revision we read, in one of the allowed states. */
@@ -50,14 +50,25 @@ export async function changePost(env: Env, post: Post, statuses: string[], patch
   return row;
 }
 
+/** A model reply as a post, with every field type-checked: a wrong type becomes empty, never a crash. */
+export function modelPost(raw: unknown): { body: string; voiceFit: unknown; platform: unknown; notes: string[] } {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  return {
+    body: typeof r.body === 'string' ? r.body : '',
+    voiceFit: r.voiceFit, platform: r.platform,
+    notes: Array.isArray(r.notes) ? r.notes.filter((n): n is string => typeof n === 'string') : [],
+  };
+}
+
 export async function draftPost(env: Env, brand: { id: string; name: string }, brief: string, channel: string) {
   const ctx = await voiceContext(env, brand.id);
   if (!ctx.voice) throw new HttpError(409, 'the registered kit has no voice section');
-  const system = `You write one social post for "${brand.name}" in its approved voice. Stay inside the facts in the kit; do not invent numbers, customers or claims. ${SLOP_RULES} Then score it. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 3, what to improve)}.`;
+  // The brand name is the one registered in the kit the post is written to, not a later rename.
+  const system = `You write one social post for "${ctx.brandName ?? brand.name}" in its approved voice. Stay inside the facts in the kit; do not invent numbers, customers or claims. ${SLOP_RULES} Then score it. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 3, what to improve)}.`;
   const user = `Channel: ${channel || 'LinkedIn'}\nBrief: ${brief}\n\nVoice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}`;
   const { text, model } = await chat(env, system, user);
-  const out = parseJson<{ body?: string; voiceFit?: number; platform?: number; notes?: string[] }>(text);
-  let body = (out.body ?? '').trim().slice(0, 4000);
+  const out = modelPost(parseJson<unknown>(text));
+  let body = out.body.trim().slice(0, 4000);
   if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
   // R9: an AI draft that fails the slop check gets one automatic rewrite; if it still fails it is stored
   // but never shown (the UI hides AI text whose slop check failed).
@@ -66,12 +77,12 @@ export async function draftPost(env: Env, brand: { id: string; name: string }, b
   const first = slopCheck(body);
   if (!first.passed) {
     const fix = await chat(env, `Rewrite the draft post without these: ${first.hits.join(', ')}. Keep the meaning, facts and voice. ${SLOP_RULES} Then score the rewrite. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 3)}.`, `${user}\n\nDraft to rewrite:\n${body}`);
-    const fixed = parseJson<{ body?: string; voiceFit?: number; platform?: number; notes?: string[] }>(fix.text);
-    const fixedBody = (fixed.body ?? '').trim().slice(0, 4000);
+    const fixed = modelPost(parseJson<unknown>(fix.text));
+    const fixedBody = fixed.body.trim().slice(0, 4000);
     if (fixedBody) { body = fixedBody; scored = fixed; }
   }
   const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
-  const checks: Checks = { slop: slopCheck(body), voiceFit: num(scored.voiceFit), platform: num(scored.platform), notes: (scored.notes ?? []).slice(0, 3).map((n) => String(n).slice(0, 200)), source: 'ai' };
+  const checks: Checks = { slop: slopCheck(body), voiceFit: num(scored.voiceFit), platform: num(scored.platform), notes: scored.notes.slice(0, 3).map((n) => n.slice(0, 200)), source: 'ai' };
   const [post] = await db.insert<Post>(env, 'posts', { brand_id: brand.id, brief: brief.slice(0, 1000), channel: channel || null, body, checks, status: 'drafted', model, kit_version: ctx.kitVersion });
   return post;
 }
@@ -200,7 +211,7 @@ export async function verifyText(env: Env, text: string) {
   const partial = checked.some((c) => c.onchain === 'unavailable');
   if (!verified.length) {
     // Could not check Solana: say so, never certify from the index alone.
-    if (checked.some((c) => c.onchain === 'unavailable')) return { official: false, checked: false, hash, matches: [], note: 'Solana could not be checked just now, so this cannot be confirmed; try again in a minute' };
+    if (checked.some((c) => c.onchain === 'unavailable') || truncated) return { official: false, checked: false, hash, matches: [], note: truncated ? 'more than 10 registrations share this text and none of the first 10 verified, so this cannot be confirmed' : 'Solana could not be checked just now, so this cannot be confirmed; try again in a minute' };
     return { official: false, checked: true, hash, matches: [], note: 'a record exists, but its Solana attestation is missing or does not match' };
   }
   const ids = [...new Set(verified.map((c) => c.p.brand_id))];
@@ -217,14 +228,14 @@ export async function verifyText(env: Env, text: string) {
 /** Public ledger: the latest 50 registrations of each type: brand name, fingerprint, version and explorer link. Content stays private. */
 export async function ledger(env: Env) {
   const [kits, posts] = await Promise.all([
-    db.select<{ brand_id: string; version: number; hash: string; signature: string; created_at: string }>(env, 'kits', `${db.eq('status', 'registered')}&select=brand_id,version,hash,signature,created_at&order=created_at.desc&limit=50`),
+    db.select<{ brand_id: string; version: number; hash: string; signature: string; registered_at: string | null }>(env, 'kits', `${db.eq('status', 'registered')}&select=brand_id,version,hash,signature,registered_at&order=registered_at.desc.nullslast&limit=50`),
     db.select<Post>(env, 'posts', `${db.eq('status', 'registered')}&select=brand_id,kit_version,hash,signature,registered_at&order=registered_at.desc&limit=50`),
   ]);
   const ids = [...new Set([...kits, ...posts].map((r) => r.brand_id))];
   const brands = ids.length ? await db.select<{ id: string; name: string }>(env, 'brands', `id=in.(${ids.join(',')})&select=id,name`) : [];
   const name = (id: string) => brands.find((b) => b.id === id)?.name ?? 'unknown';
   return {
-    kits: kits.map((k) => ({ type: 'kit', brand: name(k.brand_id), version: k.version, hash: k.hash, at: k.created_at, explorer: explorerTx(k.signature) })),
+    kits: kits.map((k) => ({ type: 'kit', brand: name(k.brand_id), version: k.version, hash: k.hash, at: k.registered_at, explorer: explorerTx(k.signature) })),
     content: posts.map((p) => ({ type: 'content', brand: name(p.brand_id), kitVersion: p.kit_version, hash: p.hash, at: p.registered_at ?? null, explorer: p.signature ? explorerTx(p.signature) : null })),
   };
 }
