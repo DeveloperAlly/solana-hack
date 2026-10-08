@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../worker/env';
 
 // The Solana side is mocked; these tests pin the database state machine around it.
-const reg = vi.hoisted(() => ({ send: vi.fn(), onchain: 'verified' as string, height: 100n as bigint | null }));
+const reg = vi.hoisted(() => ({ send: vi.fn(), onchain: 'verified' as string, chainAt: 100n as bigint | null }));
 vi.mock('../../worker/registry', () => {
   class NotLanded extends Error {}
   return {
@@ -10,7 +10,7 @@ vi.mock('../../worker/registry', () => {
     explorerTx: (s: string) => `https://explorer/${s}`,
     registrarFromSecret: async () => ({ address: 'REGISTRAR' }),
     prepareKitAttestation: async () => ({ signature: 'SIG', attestation: 'ATT', explorer: 'https://explorer/SIG', lastValidBlockHeight: 150n, send: reg.send }),
-    currentBlockHeight: async () => reg.height,
+    currentBlockHeight: async () => reg.chainAt,
     readKitAttestation: async () => reg.onchain,
   };
 });
@@ -66,10 +66,10 @@ describe('post registration', () => {
   it('reopens on block height, not wall time, and only the attempt it checked', async () => {
     reg.onchain = 'missing';
     const locked = { ...(approved as object), status: 'registering', hash: 'h', signature: 'SIG', attestation: 'ATT', last_valid_block_height: '150', registering_at: new Date(Date.now() - 60 * 60 * 1000).toISOString() } as never;
-    reg.height = 140n; // an hour later, but the chain has not passed the height: it could still land
+    reg.chainAt = 140n; // an hour later, but the chain has not passed the height: it could still land
     await expect(reconcilePost(env, locked)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('settling') });
     expect(writes).toHaveLength(0);
-    reg.height = 151n;
+    reg.chainAt = 151n;
     await expect(reconcilePost(env, locked)).rejects.toMatchObject({ message: expect.stringContaining('never reached') });
     expect(writes[0].url).toContain('signature=eq.SIG');
     expect(writes[0].body).toMatchObject({ status: 'approved', last_valid_block_height: null });
