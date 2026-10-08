@@ -20,7 +20,7 @@ last_edited_by: agent
   - [#17](https://github.com/DeveloperAlly/solana-hack/pull/17): the voice step from research 06.
 
   Retarget #16 and #17 to main once their bases merge.
-- **Database:** schema `spec/db/001`–`003` is applied to Supabase. RLS is on with no policies, so only the Worker reads and writes.
+- **Database:** schema `spec/db/001`–`004` is applied to Supabase (004 adds `posts.rev`, used for compare-and-swap on every post change). RLS is on with no policies, so only the Worker reads and writes.
 - **Not yet proven live:** the deployed registry selftest returned 502 after #11. #14 adds the safe diagnostics needed to find the cause.
 **Deadline:** Colosseum Crypto World's Fair, Oct 12 2026, 11:59pm PT (Oct 13, 5:59pm Melbourne). Waterlily's own kit v1 is due by Oct 9.
 

@@ -25,7 +25,7 @@ Waterlily builds a brand from scratch through a short guided interview. It then 
    - Every AI draft passes a no-AI-slop check before you see it. A failing draft is hidden.
    - Each draft shows voice-fit and platform scores.
    - Polish actions: Review, Shorten, Clarify, Beautify, and Beautify (accessible). Every change can be undone.
-8. **Approve, then register.** Nothing is registered without approval. You publish the post yourself (copy, then paste the link back), and its content hash is registered.
+8. **Approve, then register.** Nothing is registered without approval. Before a post can be approved, it is checked against your claims gate (every claim needs support in your recorded evidence, at the strictness you chose) and the content policy (never explicit). You publish the post yourself (copy, then paste the link back), and its content hash is registered.
 9. **Verify and Ledger (public).** Paste a post to check whether it is official. Changing a single word breaks the match. The ledger lists every registered kit and post with explorer links.
 10. **Export.** The kit downloads as aDNA-style Markdown.
 
