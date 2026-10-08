@@ -352,6 +352,10 @@ export function cleanPublishedUrl(raw: string): string | null {
     if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error('scheme');
     // Shown publicly by Verify, so never keep a username or password embedded in the link.
     if (u.username || u.password) throw new Error('credentials');
+    // Shown publicly by Verify, so the fragment and any credential-like query parameter are dropped (other parameters,
+    // which some platforms need to locate a post, are kept).
+    u.hash = '';
+    for (const k of [...u.searchParams.keys()]) if (/token|key|secret|sig|auth|pass|session|code|cred/i.test(k)) u.searchParams.delete(k);
     return u.toString().slice(0, 500);
   } catch {
     throw new HttpError(400, 'the published link must be a plain http or https address, without a username or password');
