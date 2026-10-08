@@ -40,10 +40,11 @@ export const contentHash = async (s: string) => 'sha256:' + (await sha256Hex(nor
 // kit_version always names the kit its voice came from.
 async function voiceContext(env: Env, brandId: string, version?: number | null) {
   const which = version ? `&${db.eq('version', String(version))}` : '';
-  const [kit] = await db.select<{ version: number; payload: { sections?: { section: string; body: string }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}${which}&select=version,payload&order=version.desc&limit=1`);
+  const [kit] = await db.select<{ version: number; payload: { sections?: { section: string; body: string; citations?: string[] }[] } }>(env, 'kits', `${db.eq('brand_id', brandId)}&${db.eq('status', 'registered')}${which}&select=version,payload&order=version.desc&limit=1`);
   if (!kit) throw new HttpError(409, 'register your brand kit first, so posts are written to a fixed kit version');
   const pick = (id: string) => kit.payload.sections?.find((s) => s.section === id)?.body ?? '';
-  return { kitVersion: kit.version, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose') };
+  const citations = [...new Set((kit.payload.sections ?? []).flatMap((s) => s.citations ?? []))].filter((id) => /^[0-9a-f-]{36}$/.test(id));
+  return { kitVersion: kit.version, voice: pick('voice'), messaging: pick('messaging'), positioning: pick('positioning'), purpose: pick('purpose'), citations };
 }
 
 /** Filter for a compare-and-swap: this post, at the revision we read, in one of the allowed states. */
@@ -102,6 +103,12 @@ const POLISH: Record<string, string> = {
 };
 export const POLISH_ACTIONS = Object.keys(POLISH);
 
+/**
+ * Maps Unicode "styled" letters and digits (Mathematical Alphanumeric Symbols, U+1D400-U+1D7FF, such as bold or
+ * italic text used on LinkedIn) to plain characters. Screen readers spell those out letter by letter.
+ */
+export const plainLetters = (s: string) => s.replace(/[\u{1D400}-\u{1D7FF}]/gu, (c) => c.normalize('NFKC'));
+
 export const isPolishAction = (a: unknown): a is string => typeof a === 'string' && Object.hasOwn(POLISH, a);
 
 export async function polishPost(env: Env, post: Post, action: string) {
@@ -110,11 +117,16 @@ export async function polishPost(env: Env, post: Post, action: string) {
   // Every action sees the kit version the post was written to, so Review can judge voice and claims,
   // and every result is re-scored against it: the scores shown always describe the text shown.
   const ctx = await voiceContext(env, post.brand_id, post.kit_version);
-  const system = `You polish one ${post.channel || 'LinkedIn'} post for a brand with the approved kit below. ${POLISH[action]} ${SLOP_RULES} Then score the resulting post against the kit. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 4)}.`;
-  const user = `Voice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}\n\nPost:\n${post.body}`;
+  // The evidence the registered kit cites, so Review can tell sourced claims from unsupported ones.
+  const evidence = ctx.citations.length ? await db.select<{ claim: string; quote: string | null }>(env, 'evidence', `id=in.(${ctx.citations.join(',')})&select=claim,quote`) : [];
+  const facts = evidence.map((e) => `- ${e.claim}${e.quote ? ` (source: "${e.quote.slice(0, 160)}")` : ''}`).join('\n') || '(the kit cites no evidence; treat every factual claim as unsupported)';
+  const system = `You polish one ${post.channel || 'LinkedIn'} post for a brand with the approved kit below. ${POLISH[action]} A factual claim is supported only if the evidence list states it. ${SLOP_RULES} Then score the resulting post against the kit. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 4)}.`;
+  const user = `Voice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}\n\nEvidence:\n${facts}\n\nPost:\n${post.body}`;
   const { text } = await chat(env, system, user);
   const out = parseJson<{ body?: string; voiceFit?: number; platform?: number; notes?: string[] }>(text);
-  const body = action === 'review' ? post.body : (out.body ?? '').trim().slice(0, 4000);
+  let body = action === 'review' ? post.body : (out.body ?? '').trim().slice(0, 4000);
+  // The accessible variant is guaranteed, not requested: styled Unicode letters are mapped back to plain ones.
+  if (action === 'beautify_accessible') body = plainLetters(body);
   if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
   const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
   const checks: Checks = {

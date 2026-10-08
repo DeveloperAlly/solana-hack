@@ -81,3 +81,31 @@ describe('polish safety', () => {
     expect(calls[0].body).toMatchObject({ body: 'Before.', rev: 5, checks: { voiceFit: 90, notes: ['earlier note'], history: [] } });
   });
 });
+
+describe('accessible beautify', () => {
+  it('maps styled Unicode letters back to plain text', async () => {
+    const { plainLetters } = await import('../../worker/posts');
+    expect(plainLetters('𝗕𝘂𝗶𝗹𝘁 𝗳𝗼𝗿 𝟮𝟬𝟮𝟲 and 𝑖𝑡𝑎𝑙𝑖𝑐 • kept')).toBe('Built for 2026 and italic • kept');
+  });
+});
+
+describe('polish grounding', () => {
+  it('sends the cited evidence to the model and saves accessible output as plain letters', async () => {
+    let prompt = '';
+    let saved: Record<string, unknown> = {};
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      if (url.startsWith('https://openrouter.ai')) {
+        prompt = JSON.parse(String(init.body)).messages[1].content;
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ body: '𝗪𝗲 𝘀𝗵𝗶𝗽 weekly.', voiceFit: 80, platform: 70, notes: [] }) } }] }));
+      }
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ version: 1, payload: { sections: [{ section: 'voice', body: 'Plain.', citations: ['11111111-1111-1111-1111-111111111111'] }] } }]));
+      if (url.includes('/evidence?')) return new Response(JSON.stringify([{ claim: 'Ships weekly', quote: 'we ship every week' }]));
+      if (init?.method === 'PATCH') { saved = JSON.parse(String(init.body)); return new Response(JSON.stringify([{ id: 'p' }])); }
+      return new Response('[]');
+    }));
+    const post = { id: 'p', rev: 0, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'We ship weekly.', channel: 'LinkedIn', checks: { slop: { passed: true, hits: [] }, voiceFit: null, platform: null, notes: [] } } as unknown as Post;
+    await polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'beautify_accessible');
+    expect(prompt).toContain('Ships weekly');
+    expect(saved.body).toBe('We ship weekly.');
+  });
+});
