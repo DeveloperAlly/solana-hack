@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { casFilter, changePost, cleanPublishedUrl, contentHash, isPolishAction, polishPost, pushHistory, restoreEntry, slopCheck, undoPost, verifyText, type Post } from '../../worker/posts';
+import { casFilter, changePost, cleanPublishedUrl, contentHash, approvePost, isPolishAction, policyVerdict, polishPost, pushHistory, restoreEntry, slopCheck, undoPost, verifyText, type Post } from '../../worker/posts';
 import type { Env } from '../../worker/env';
 
 const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k' } as Env;
@@ -84,6 +84,107 @@ describe('polish safety', () => {
   });
 });
 
+describe('approval gates: claims and content policy', () => {
+  const clean = { unsupported: [], sexual: false, minors: false, explicitLanguage: false };
+  it('passes only with no unsupported claims and no blocked category', () => {
+    expect(policyVerdict('4', 'friendly', clean).passed).toBe(true);
+    expect(policyVerdict('5', null, { ...clean, unsupported: ['2x faster'] })).toMatchObject({ passed: false, unsupported: ['2x faster'] });
+    const long = `we are faster than ${'every rival '.repeat(30)}in independent tests run by nobody`;
+    expect(policyVerdict('5', null, { ...clean, unsupported: [long] }).unsupported).toEqual([long]);
+    expect(policyVerdict('4', 'friendly', { ...clean, sexual: true })).toMatchObject({ passed: false, blocked: ['sexual content'] });
+    expect(policyVerdict('4', 'playful', { ...clean, minors: true }).passed).toBe(false);
+  });
+  it('blocks explicit language for Flirty only', () => {
+    expect(policyVerdict('4', 'flirty', { ...clean, explicitLanguage: true })).toMatchObject({ passed: false, blocked: ['explicit language'] });
+    expect(policyVerdict('4', 'candid_founder', { ...clean, explicitLanguage: true }).passed).toBe(true);
+  });
+  it('fails closed on a malformed classifier reply', () => {
+    for (const bad of [{}, null, { unsupported: 'none', sexual: false, minors: false, explicitLanguage: false }, { unsupported: [], sexual: 'no', minors: false, explicitLanguage: false }, { unsupported: [1], sexual: false, minors: false, explicitLanguage: false }, { unsupported: [], sexual: false, minors: false }]) {
+      expect(() => policyVerdict('4', null, bad)).toThrow(/unusable/);
+    }
+  });
+
+  function stub(reply: unknown, voice: Record<string, string>, kitPolicy?: Record<string, string>) {
+    const writes: Record<string, unknown>[] = [];
+    let system = '';
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      if (url.startsWith('https://openrouter.ai')) {
+        system = JSON.parse(String(init.body)).messages[0].content;
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(reply) } }] }));
+      }
+      // The post's registered kit carries its policy and evidence snapshot; the live voice answer (voice) is
+      // returned too, to show it is not what the check uses.
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ payload: { policy: kitPolicy ?? voice, evidence: [{ claim: 'Founded in 2024', origin: 'source' }] } }]));
+      if (url.includes('/answers?')) return new Response(JSON.stringify([{ data: voice }]));
+      if (init.method === 'PATCH') { writes.push(JSON.parse(String(init.body))); return new Response(JSON.stringify([{ id: 'p' }])); }
+      return new Response('[]');
+    }));
+    return { writes, system: () => system };
+  }
+  const llmEnv = { ...env, OPENROUTER_API_KEY: 'k' } as Env;
+  const post = { id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'We are 2x faster.', checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [] } } as unknown as Post;
+  const user = { id: 'u' } as never;
+
+  it('blocks approval when the claims gate finds an unsupported claim, and records why', async () => {
+    const s = stub({ ...clean, unsupported: ['2x faster'] }, { template: 'professional', claims: '5' });
+    await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('claims gate (strict)') });
+    expect(s.system()).toContain('strict: every claim');
+    expect(s.writes[0]).toMatchObject({ rev: 2, checks: { policy: { passed: false, unsupported: ['2x faster'] } } });
+    expect(s.writes[0]).toMatchObject({ status: 'drafted', approved_by: null });
+  });
+  it('uses the registered kit policy over a later voice answer', async () => {
+    const s = stub({ ...clean, unsupported: ['2x faster'] }, { template: 'friendly', claims: '3' }, { claims: '5', template: 'professional' });
+    await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ message: expect.stringContaining('strict') });
+    expect(s.system()).toContain('strict: every claim');
+  });
+  it('blocks prohibited content and tells the checker when the voice is flirty', async () => {
+    const s = stub({ ...clean, sexual: true }, { template: 'flirty', claims: '4' });
+    await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('content policy (sexual content)') });
+    expect(s.system()).toContain('flirty voice');
+  });
+  it('re-checks a post approved before the checks existed, and reopens it if it fails', async () => {
+    const s = stub({ ...clean, minors: true }, { template: 'friendly', claims: '4' });
+    const legacy = { ...(post as object), status: 'approved', checks: { ...post.checks } } as unknown as Post;
+    await expect(approvePost(llmEnv, user, legacy)).rejects.toMatchObject({ status: 409 });
+    expect(s.writes[0]).toMatchObject({ status: 'drafted', checks: { policy: { passed: false } } });
+  });
+  it('pages through all evidence for the claims check', async () => {
+    const { allEvidence } = await import('../../worker/posts');
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(url);
+      const offset = Number(new URL(url).searchParams.get('offset'));
+      return new Response(JSON.stringify(Array.from({ length: offset < 2400 ? 200 : 13 }, (_, i) => ({ claim: `f${offset + i}` }))));
+    }));
+    const all = await allEvidence(env, 'b');
+    expect(all).toHaveLength(2413);
+    expect(urls[0]).toContain('origin=neq.assumption');
+    expect(urls[0]).toContain('order=created_at.asc,id.asc');
+  });
+  it('refuses a post written to a kit registered before evidence snapshots, without reading live evidence', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(url);
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ payload: { sections: [] } }]));
+      return new Response(JSON.stringify([{ claim: 'Added after signing', origin: 'source' }]));
+    }));
+    await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('register a new kit version') });
+    expect(urls.some((u) => u.includes('/evidence?') || u.includes('/answers?'))).toBe(false);
+  });
+  it('approves when both checks pass', async () => {
+    const s = stub(clean, { template: 'friendly', claims: '3' });
+    await approvePost(llmEnv, user, post);
+    expect(s.writes[0]).toMatchObject({ status: 'approved', approved_by: 'u', checks: { policy: { passed: true, claims: '3' } } });
+  });
+  it('fails closed when the check cannot run or answers badly', async () => {
+    const s = stub(clean, { template: 'friendly', claims: '4' });
+    await expect(approvePost({ ...env } as Env, user, post)).rejects.toMatchObject({ status: 503 });
+    stub({ unsupported: [] }, { template: 'friendly', claims: '4' });
+    await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 502 });
+    expect(s.writes).toHaveLength(0);
+  });
+});
+
 describe('accessible beautify', () => {
   it('maps styled Unicode letters back to plain text', async () => {
     const { plainLetters } = await import('../../worker/posts');
@@ -158,6 +259,64 @@ describe('polish uses the kit evidence snapshot', () => {
   });
 });
 
+describe('claims check over large evidence', () => {
+  it('splits evidence into bounded batches', async () => {
+    const { evidenceBatches } = await import('../../worker/posts');
+    const b = evidenceBatches(Array.from({ length: 300 }, (_, i) => `- fact ${i} ${'x'.repeat(200)}`));
+    expect(b.length).toBeGreaterThan(1);
+    expect(b.every((x) => x.length <= 24000)).toBe(true);
+    expect(b.join('\n').split('\n')).toHaveLength(300);
+  });
+  it('keeps a long owner answer whole instead of cutting its end off', async () => {
+    const { evidenceBatches } = await import('../../worker/posts');
+    const long = `- why: ${'y'.repeat(2050)} SUPPORTING-END`;
+    expect(evidenceBatches([long]).join('\n')).toContain('SUPPORTING-END');
+    const huge = 'z'.repeat(50000);
+    const parts = evidenceBatches([huge]);
+    expect(parts.every((x) => x.length <= 24000)).toBe(true);
+    expect(parts.join('')).toBe(huge);
+  });
+  it('counts the batches an evidence set needs', async () => {
+    const { evidenceBatchCount, MAX_EVIDENCE_BATCHES } = await import('../../worker/posts');
+    expect(evidenceBatchCount([{ claim: 'short' }])).toBe(1);
+    const big = Array.from({ length: 1000 }, (_, i) => ({ claim: `fact ${i} ${'x'.repeat(300)}` }));
+    expect(evidenceBatchCount(big)).toBeGreaterThan(MAX_EVIDENCE_BATCHES);
+  });
+  it('only re-checks still-unsupported claims against later batches', async () => {
+    const { policyCheck } = await import('../../worker/posts');
+    const prompts: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      if (url.startsWith('https://openrouter.ai')) {
+        const user = JSON.parse(String(init.body)).messages[1].content as string;
+        prompts.push(user);
+        const reply = prompts.length === 1 ? { unsupported: ['Founded 2019', 'Used by 40 teams'], sexual: false, minors: false, explicitLanguage: false } : { supported: ['Used by 40 teams'] };
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(reply) } }] }));
+      }
+      if (url.includes('/kits?')) {
+        const evidence = Array.from({ length: 200 }, (_, i) => ({ claim: `fact ${i} ${'y'.repeat(200)}`, origin: 'source' }));
+        return new Response(JSON.stringify([{ payload: { policy: { claims: '4', template: 'friendly' }, evidence } }]));
+      }
+      return new Response('[]');
+    }));
+    const r = await policyCheck({ ...env, OPENROUTER_API_KEY: 'k' } as Env, { brand_id: 'b', kit_version: 1, body: 'p' } as unknown as Post);
+    expect(prompts.length).toBeGreaterThan(1);
+    expect(prompts[1]).toContain('- Founded 2019');
+    expect(r).toMatchObject({ unsupported: ['Founded 2019'], passed: false });
+  });
+  it('keeps every unsupported claim, so a later batch cannot clear a dropped one', () => {
+    const many = Array.from({ length: 8 }, (_, i) => `claim ${i}`);
+    expect(policyVerdict('4', null, { unsupported: many, sexual: false, minors: false, explicitLanguage: false }).unsupported).toHaveLength(8);
+  });
+  it('treats only the current result shape as passing', async () => {
+    const { isCurrentPolicy } = await import('../../worker/posts');
+    expect(isCurrentPolicy({ v: 2, claims: '4', template: null, unsupported: [], blocked: [], passed: true })).toBe(true);
+    // A passing result from before evidence snapshots (no version) must be run again.
+    expect(isCurrentPolicy({ claims: '4', template: null, unsupported: [], blocked: [], passed: true })).toBe(false);
+    expect(isCurrentPolicy({ claims: '4', unsupported: [], explicit: false, passed: true })).toBe(false);
+    expect(isCurrentPolicy(undefined)).toBe(false);
+  });
+});
+
 describe('shorten respects the platform limit', () => {
   it('knows X is 280 and other channels have no hard limit', async () => {
     const { platformLimit } = await import('../../worker/posts');
@@ -208,5 +367,30 @@ describe('model replies', () => {
     expect(modelPost({ body: {}, notes: 'x' })).toMatchObject({ body: '', notes: [] });
     expect(modelPost(null)).toMatchObject({ body: '', notes: [] });
     expect(modelPost({ body: 'ok', notes: ['a', 3] })).toMatchObject({ body: 'ok', notes: ['a'] });
+  });
+});
+
+describe('claims gate uses the kit snapshot, with bounded cost', () => {
+  function stubKit(evidence: { claim: string; origin?: string }[]) {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(url);
+      if (url.startsWith('https://openrouter.ai')) return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ unsupported: [], sexual: false, minors: false, explicitLanguage: false }) } }] }));
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ payload: { policy: { claims: '4', template: 'friendly' }, evidence } }]));
+      return new Response('[]');
+    }));
+    return urls;
+  }
+  const post = { brand_id: 'b', kit_version: 1, body: 'p' } as unknown as Post;
+  it('checks claims against the registered kit evidence, not live rows', async () => {
+    const { policyCheck } = await import('../../worker/posts');
+    const urls = stubKit([{ claim: 'Founded 2024', origin: 'source' }]);
+    await policyCheck({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post);
+    expect(urls.some((u) => u.includes('/evidence?'))).toBe(false);
+  });
+  it('fails closed when evidence would need more than the allowed number of model calls', async () => {
+    const { policyCheck } = await import('../../worker/posts');
+    stubKit(Array.from({ length: 1000 }, (_, i) => ({ claim: `fact ${i} ${'z'.repeat(400)}`, origin: 'source' })));
+    await expect(policyCheck({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post)).rejects.toMatchObject({ status: 422 });
   });
 });

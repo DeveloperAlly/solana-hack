@@ -13,7 +13,7 @@ export interface Post {
 // A history entry is the full visible state before a change, so Undo restores the text *and* the scores and notes
 // that described it. Older rows stored only the text (string); those restore with scores cleared.
 export interface Snapshot { body: string; slop: Checks['slop']; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit' }
-interface Checks { slop: { passed: boolean; hits: string[] }; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit'; history?: (Snapshot | string)[]; lastAction?: string }
+interface Checks { slop: { passed: boolean; hits: string[] }; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit'; history?: (Snapshot | string)[]; lastAction?: string; policy?: PolicyResult }
 
 const snapshot = (post: Post): Snapshot => ({ body: post.body, slop: post.checks.slop, voiceFit: post.checks.voiceFit ?? null, platform: post.checks.platform ?? null, notes: post.checks.notes ?? [], source: post.checks.source });
 export const pushHistory = (post: Post) => [...(post.checks.history ?? []), snapshot(post)].slice(-10);
@@ -108,7 +108,7 @@ export async function editPost(env: Env, post: Post, body: string) {
   const text = body.trim().slice(0, 4000);
   if (!text) throw new HttpError(400, 'the post cannot be empty');
   // Scores belonged to the old text; a person's edit is shown even if it fails the slop check (only approval is blocked).
-  const checks: Checks = { ...post.checks, slop: slopCheck(text), voiceFit: null, platform: null, notes: [], source: 'edit', history: pushHistory(post), lastAction: 'edit' };
+  const checks: Checks = { ...post.checks, slop: slopCheck(text), voiceFit: null, platform: null, notes: [], source: 'edit', history: pushHistory(post), lastAction: 'edit', policy: undefined };
   return changePost(env, post, ['drafted', 'approved'], { body: text, checks, status: 'drafted', approved_by: null, approved_at: null });
 }
 
@@ -194,7 +194,8 @@ export async function polishPost(env: Env, post: Post, action: string) {
   const ctx = await voiceContext(env, post.brand_id, post.kit_version);
   // The evidence the registered kit cites, so Review can tell sourced claims from unsupported ones.
   // Kits registered from now on carry their cited evidence; older kits fall back to looking the ids up.
-  const evidence = ctx.evidence ?? (ctx.citations.length ? await db.select<{ claim: string; quote: string | null }>(env, 'evidence', `id=in.(${ctx.citations.join(',')})&select=claim,quote`) : []);
+  const cited = new Set(ctx.citations);
+  const evidence = (ctx.evidence as { id?: string; claim: string; quote: string | null }[] | undefined)?.filter((e) => !e.id || cited.has(e.id)) ?? (ctx.citations.length ? await db.select<{ claim: string; quote: string | null }>(env, 'evidence', `id=in.(${ctx.citations.join(',')})&select=claim,quote`) : []);
   const facts = evidence.map((e) => `- ${e.claim}${e.quote ? ` (source: "${e.quote.slice(0, 160)}")` : ''}`).join('\n') || '(the kit cites no evidence; treat every factual claim as unsupported)';
   const system = `You polish one ${post.channel || 'LinkedIn'} post for a brand with the approved kit below. ${POLISH[action]} A factual claim is supported only if the evidence list states it. ${SLOP_RULES} Then score the resulting post against the kit. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 4)}.`;
   const user = `Voice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}\n\nEvidence:\n${facts}\n\nPost:\n${post.body}`;
@@ -226,7 +227,7 @@ export async function polishPost(env: Env, post: Post, action: string) {
     platform: action === 'review' ? post.checks.platform ?? null : rescored ? null : num(out.platform),
     notes: rescored ? ['Styled letters were replaced with plain ones after scoring, so the scores were cleared. Run Review for notes on this text.'] : out.notes.slice(0, 4).map((n) => n.slice(0, 200)),
     history: pushHistory(post), lastAction: action,
-    source: action === 'review' ? post.checks.source : 'ai',
+    source: action === 'review' ? post.checks.source : 'ai', policy: undefined,
   };
   // Compare-and-swap on the revision read before the model call: an edit, undo or registration meanwhile wins.
   return changePost(env, post, ['drafted', 'approved'], { body, checks, status: 'drafted', approved_by: null, approved_at: null });
@@ -239,17 +240,155 @@ export async function undoPost(env: Env, post: Post) {
   if (entry === undefined) throw new HttpError(409, 'nothing to undo');
   // The restored text was already shown to the owner, so it stays visible whatever its slop result.
   const prev = restoreEntry(entry);
-  const checks: Checks = { ...post.checks, slop: prev.slop, voiceFit: prev.voiceFit, platform: prev.platform, notes: prev.notes, history, lastAction: 'undo', source: 'edit' };
+  const checks: Checks = { ...post.checks, slop: prev.slop, voiceFit: prev.voiceFit, platform: prev.platform, notes: prev.notes, history, lastAction: 'undo', source: 'edit', policy: undefined };
   return changePost(env, post, ['drafted', 'approved'], { body: prev.body, checks, status: 'drafted', approved_by: null, approved_at: null });
 }
 
-// Human approval before anything is registered or published (R8).
+// Research 06: claims strictness is a gate, not a slider, and Flirty needs a hard content-policy gate.
+export const CLAIMS_POLICY: Record<string, string> = {
+  '5': 'strict: every claim about the brand, its product, customers or results must be supported by the evidence list',
+  '4': 'standard: every factual claim (numbers, customers, results, comparisons, firsts) must be supported by the evidence list; opinions and intentions are fine',
+  '3': 'light: opinions are fine; any number, statistic or named customer must be supported by the evidence list',
+};
+// Content categories the checker must answer for every post. Sexual content and anything sexualising minors are
+// blocked for every brand; explicit language is blocked for Flirty (research 06 guardrail), allowed elsewhere.
+const CATEGORIES = { sexual: 'sexual content', minors: 'content sexualising or targeting minors', explicitLanguage: 'explicit language' } as const;
+type Category = keyof typeof CATEGORIES;
+/**
+ * Version of the approval check. Bumped when what a passing result means changes; 2 = checked against the evidence
+ * snapshot of the post's kit version. A result from an earlier version is not current and must be run again.
+ */
+export const POLICY_VERSION = 2;
+export interface PolicyResult { v: number; claims: string; template: string | null; unsupported: string[]; blocked: string[]; passed: boolean }
+
+/**
+ * Decides from the checker's raw reply; pure, so the gate is testable without a model. The reply must have exactly
+ * the expected types (a string array and three booleans); anything else is rejected, so the gate fails closed.
+ */
+export function policyVerdict(claims: string, template: string | null, raw: unknown): PolicyResult {
+  const r = raw as Record<string, unknown> | null;
+  const ok = !!r && Array.isArray(r.unsupported) && r.unsupported.every((x) => typeof x === 'string')
+    && (Object.keys(CATEGORIES) as Category[]).every((k) => typeof r[k] === 'boolean');
+  if (!ok) throw new HttpError(502, 'the approval check returned an unusable answer, so nothing was approved; try again');
+  // Every unsupported claim is kept whole: dropping one, or cutting its text, would let a later evidence batch clear
+  // a shortened claim whose missing qualifier was the unsupported part. Only the screen shortens them for display.
+  // (4000 is the longest a post can be, so no claim from a post is cut by it.)
+  const unsupported = (r!.unsupported as string[]).map((x) => x.slice(0, 4000));
+  const enforced: Category[] = template === 'flirty' ? ['sexual', 'minors', 'explicitLanguage'] : ['sexual', 'minors'];
+  const blocked = enforced.filter((k) => r![k] === true).map((k) => CATEGORIES[k]);
+  return { v: POLICY_VERSION, claims, template, unsupported, blocked, passed: blocked.length === 0 && unsupported.length === 0 };
+}
+
+/**
+ * The claims gate and template that govern a post: from the registered kit it was written to (kits record them
+ * since this change), else from the brand's voice answer for kits registered before that.
+ */
+async function postPolicy(env: Env, post: Post): Promise<{ claims: string; template: string | null; evidence: { claim: string; origin?: string }[] }> {
+  if (post.kit_version) {
+    const [kit] = await db.select<{ payload: { policy?: { claims?: string; template?: string }; evidence?: { claim: string; origin?: string }[] } }>(env, 'kits', `${db.eq('brand_id', post.brand_id)}&${db.eq('version', String(post.kit_version))}&${db.eq('status', 'registered')}&select=payload`);
+    const pol = kit?.payload?.policy;
+    // The kit's own evidence snapshot: claims are judged against what the registered kit contained, which cannot
+    // change after approval (live rows can be deleted when an answer is edited).
+    if (pol && CLAIMS_POLICY[pol.claims ?? ''] && Array.isArray(kit.payload.evidence)) return { claims: pol.claims!, template: pol.template ?? null, evidence: kit.payload.evidence };
+  }
+  // No fallback to the brand's live evidence or voice answer: a source added after the kit was signed could then
+  // approve a post whose attestation names a kit that never contained it. Such a post is drafted again instead.
+  throw new HttpError(409, post.kit_version
+    ? `this post was written to kit v${post.kit_version}, which was registered before kits recorded their evidence; register a new kit version, then draft the post again`
+    : 'this post is not tied to a registered kit; draft it again');
+}
+
+/**
+ * A passing result in the current shape. Results stored by the earlier, fail-open check ({explicit, passed}) do not
+ * count: they have no per-category verdict, so the post is checked again before it can be approved or registered.
+ */
+export function isCurrentPolicy(p: unknown): boolean {
+  const r = p as Partial<PolicyResult> | undefined;
+  return !!r && r.v === POLICY_VERSION && r.passed === true && Array.isArray(r.blocked) && r.blocked.length === 0 && Array.isArray(r.unsupported) && r.unsupported.length === 0 && 'template' in r;
+}
+
+/** Every non-assumption evidence row for a brand, paged in a fixed order, so no supporting fact is silently left out. */
+export async function allEvidence(env: Env, brandId: string) {
+  const out: { claim: string }[] = [];
+  // No total cap: keep paging until a short page, so a claim supported by any row can be found.
+  for (let offset = 0; ; offset += 200) {
+    const page = await db.select<{ claim: string }>(env, 'evidence', `${db.eq('brand_id', brandId)}&origin=neq.assumption&select=claim&order=created_at.asc,id.asc&limit=200&offset=${offset}`);
+    out.push(...page);
+    if (page.length < 200) break;
+  }
+  return out;
+}
+
+export const MAX_EVIDENCE_BATCHES = 8; // about 190k characters of evidence
+/** How many classifier batches an evidence set needs; registration refuses a kit that one approval could not check. */
+export const evidenceBatchCount = (evidence: { claim: string }[]) => evidenceBatches(evidence.map((e) => `- ${e.claim}`)).length;
+
+/**
+ * Pre-approval check: the post's claims gate against the brand's evidence, and the content policy categories.
+ * Fails closed: if the check cannot run or answers in the wrong shape, approval waits.
+ */
+export async function policyCheck(env: Env, post: Post): Promise<PolicyResult> {
+  const { claims, template, evidence } = await postPolicy(env, post);
+  const flirty = template === 'flirty';
+  const facts0 = (evidence ?? []).filter((e) => e.origin !== 'assumption');
+  const batches = evidenceBatches(facts0.map((e) => `- ${e.claim}`));
+  // Bounded cost: at most MAX_EVIDENCE_BATCHES model calls per approval. Beyond that the check cannot be complete,
+  // so it fails closed rather than approving on partial evidence.
+  if (batches.length > MAX_EVIDENCE_BATCHES) throw new HttpError(422, `your brand has more evidence than one approval can check (${batches.length} batches, limit ${MAX_EVIDENCE_BATCHES}); remove sources you no longer need on the Your links step, then register a new kit version`);
+  const facts = batches[0];
+  const system = `You check one social post before a brand approves it. Do not rewrite it.
+1. Claims gate, ${CLAIMS_POLICY[claims]}. List each claim in the post that the evidence does not support, quoted briefly. Anything the evidence states, or that is plainly opinion where opinions are allowed, is supported.
+2. Content: answer each question true or false.
+   sexual: does it contain sexual content (descriptions of sexual acts or nudity, or sexual innuendo beyond light flirtation)?
+   minors: does it sexualise, or direct romantic or sexual content at, anyone who is or appears to be under 18?
+   explicitLanguage: does it use profanity, slurs or crude sexual words?${flirty ? '\n   This brand uses a flirty voice: light, playful flirtation is fine and is not sexual content.' : ''}
+Reply with JSON only, all four keys: {"unsupported": string[], "sexual": boolean, "minors": boolean, "explicitLanguage": boolean}.`;
+  const { text } = await chat(env, system, `Evidence:\n${facts}\n\nPost:\n${post.body}`);
+  let verdict = policyVerdict(claims, template, parseJson<unknown>(text));
+  // All evidence is considered, a bounded batch at a time: later batches only re-check the claims still unsupported.
+  for (const batch of batches.slice(1)) {
+    if (!verdict.unsupported.length) break;
+    const r = await chat(env, `You check whether evidence supports claims. Claims gate, ${CLAIMS_POLICY[claims]}. Reply with JSON only: {"supported": string[]}, each item copied exactly from the claims list.`, `Claims:\n${verdict.unsupported.map((c) => `- ${c}`).join('\n')}\n\nEvidence:\n${batch}`);
+    const supported = parseJson<{ supported?: unknown }>(r.text).supported;
+    if (!Array.isArray(supported) || !supported.every((x) => typeof x === 'string')) throw new HttpError(502, 'the approval check returned an unusable answer, so nothing was approved; try again');
+    const unsupported = verdict.unsupported.filter((c) => !supported.includes(c));
+    verdict = { ...verdict, unsupported, passed: verdict.blocked.length === 0 && unsupported.length === 0 };
+  }
+  return verdict;
+}
+
+/** Evidence lines in batches of at most ~24k characters, so each model call stays well inside its context. */
+export function evidenceBatches(lines: string[], maxChars = 24000): string[] {
+  const out: string[] = [];
+  let cur = '';
+  // Every line is kept whole (a claim cut short could hide the part that supports a post). Only a line longer than a
+  // whole batch, which the answer and source limits do not produce, is split, into consecutive batch-sized pieces.
+  const pieces = lines.flatMap((line) => (line.length <= maxChars ? [line] : Array.from({ length: Math.ceil(line.length / maxChars) }, (_, i) => line.slice(i * maxChars, (i + 1) * maxChars))));
+  for (const l of pieces) {
+    if (cur && cur.length + l.length + 1 > maxChars) { out.push(cur); cur = ''; }
+    cur = cur ? `${cur}\n${l}` : l;
+  }
+  out.push(cur || '(no evidence recorded)');
+  return out;
+}
+
+// Human approval before anything is registered or published (R8), after the slop, claims and content checks.
 export async function approvePost(env: Env, user: User, post: Post) {
-  if (post.status === 'registered' || post.status === 'approved') return post;
-  if (post.status !== 'drafted') throw new HttpError(409, 'this post is being registered');
+  if (post.status === 'registered') return post;
+  // Posts approved before the claims and content checks existed have no passing result; they are checked now.
+  if (post.status === 'approved' && isCurrentPolicy(post.checks.policy)) return post;
+  if (post.status !== 'drafted' && post.status !== 'approved') throw new HttpError(409, 'this post is being registered');
   if (!post.checks.slop?.passed) throw new HttpError(409, 'fix the slop check first: ' + post.checks.slop.hits.join(', '));
+  const policy = await policyCheck(env, post);
+  if (!policy.passed) {
+    // Record why, against this revision, so the screen can show it; then refuse.
+    await changePost(env, post, ['drafted', 'approved'], { checks: { ...post.checks, policy } as Checks, status: 'drafted', approved_by: null, approved_at: null });
+    throw new HttpError(409, policy.blocked.length
+      ? `blocked by the content policy (${policy.blocked.join(', ')}): this cannot be published. Rewrite it, then approve again.`
+      : `blocked by the claims gate (${policy.claims === '5' ? 'strict' : policy.claims === '3' ? 'light' : 'standard'}): no evidence for ${policy.unsupported.map((u) => `"${u}"`).join(', ')}. Add a source on your brand, or rewrite, then approve again.`);
+  }
   // Approves exactly the revision whose checks were read: an edit in between bumps rev and this fails with 409.
-  return changePost(env, post, ['drafted'], { status: 'approved', approved_by: user.id, approved_at: new Date().toISOString() });
+  return changePost(env, post, ['drafted', 'approved'], { status: 'approved', approved_by: user.id, approved_at: new Date().toISOString(), checks: { ...post.checks, policy } as Checks });
 }
 
 export function cleanPublishedUrl(raw: string): string | null {
@@ -275,6 +414,8 @@ const RECONCILE_AFTER_MS = 3 * 60 * 1000;
 export async function registerPost(env: Env, user: User, post: Post, publishedUrl: string) {
   if (post.status === 'registering') return reconcilePost(env, post);
   if (post.status !== 'approved') throw new HttpError(409, post.status === 'registered' ? 'already registered' : 'approve the post first');
+  // Registration requires a passing claims and content check, including for posts approved before those checks existed.
+  if (!isCurrentPolicy(post.checks.policy)) throw new HttpError(409, 'this post needs the claims and content checks first: press Run approval checks');
   if (!post.kit_version) throw new HttpError(409, 'register the kit first, so the post can point at a kit version');
   const url = cleanPublishedUrl(publishedUrl);
   const hash = await contentHash(post.body);

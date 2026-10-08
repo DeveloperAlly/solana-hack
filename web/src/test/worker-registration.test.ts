@@ -36,9 +36,20 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-const approved = { id: 'p', rev: 2, brand_id: 'b', status: 'approved', body: 'Text.', kit_version: 1, approved_by: 'u', checks: {} } as never;
+const approved = { id: 'p', rev: 2, brand_id: 'b', status: 'approved', body: 'Text.', kit_version: 1, approved_by: 'u', checks: { policy: { v: 2, passed: true, claims: '4', template: null, unsupported: [], blocked: [] } } } as never;
 
 describe('post registration', () => {
+  it('refuses a post whose stored result has the old fail-open shape', async () => {
+    const old = { ...(approved as object), checks: { policy: { claims: '4', unsupported: [], explicit: false, passed: true } } } as never;
+    await expect(registerPost(env, user, old, '')).rejects.toMatchObject({ status: 409 });
+    expect(writes).toHaveLength(0);
+  });
+  it('refuses a post approved before the claims and content checks existed', async () => {
+    const legacy = { ...(approved as object), checks: {} } as never;
+    await expect(registerPost(env, user, legacy, '')).rejects.toMatchObject({ status: 409, message: expect.stringContaining('Run approval checks') });
+    expect(reg.send).not.toHaveBeenCalled();
+    expect(writes).toHaveLength(0);
+  });
   it('records signature and attestation in the claim, before sending', async () => {
     reg.send.mockImplementation(async () => { expect(writes[0].body).toMatchObject({ status: 'registering', signature: 'SIG', attestation: 'ATT', rev: 3 }); });
     const r = await registerPost(env, user, approved, '');

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { rpcHostLabel, safeError } from '../../worker/env';
 
 describe('Worker log redaction', () => {
@@ -73,6 +73,18 @@ describe('public endpoint limit', () => {
   });
 });
 
+describe('voice answer changes', () => {
+  it('reopens Gate 3 on the first save and on any change, not on an identical save', async () => {
+    const { voiceChanged } = await import('../../worker/api');
+    const a = { data: { template: 'flirty', claims: '5', formality: '2' }, skipped: false };
+    expect(voiceChanged(undefined, a)).toBe(true); // first save reopens any gate approved before it
+    expect(voiceChanged(a, { data: { formality: '2', claims: '5', template: 'flirty' }, skipped: false })).toBe(false);
+    expect(voiceChanged(a, { ...a, data: { ...a.data, template: 'professional' } })).toBe(true);
+    expect(voiceChanged(a, { ...a, data: { ...a.data, claims: '3' } })).toBe(true);
+    expect(voiceChanged(a, { ...a, skipped: true })).toBe(true);
+  });
+});
+
 describe('registrar key errors', () => {
   it('never carry any part of a malformed key', async () => {
     const { registrarFromSecret } = await import('../../worker/registry');
@@ -85,6 +97,16 @@ describe('registrar key errors', () => {
   });
 });
 
+describe('kit policy from the voice answer', () => {
+  it('maps legacy templates, refuses a missing claims gate, and defaults only a skipped voice', async () => {
+    const { kitPolicy } = await import('../../worker/api');
+    expect(kitPolicy({ data: { template: 'friendly_expert', claims: '5' }, skipped: false })).toEqual({ claims: '5', template: 'friendly' });
+    expect(() => kitPolicy({ data: { template: 'professional' }, skipped: false })).toThrow(/claims gate/);
+    expect(kitPolicy({ data: {}, skipped: true })).toEqual({ claims: '4', template: null });
+    expect(() => kitPolicy(undefined)).toThrow(/Voice step/);
+  });
+});
+
 describe('attestation expiry', () => {
   it('treats 0 as never expiring and a past expiry as not live', async () => {
     const { attestationLive } = await import('../../worker/registry');
@@ -92,5 +114,23 @@ describe('attestation expiry', () => {
     expect(attestationLive(0n, now)).toBe(true);
     expect(attestationLive(1_900_000_000n, now)).toBe(true);
     expect(attestationLive(1_700_000_000n, now)).toBe(false);
+  });
+});
+
+describe('paged reads', () => {
+  it('reads every row past a server row cap', async () => {
+    const { db } = await import('../../worker/db');
+    const total = 450;
+    const seen: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      seen.push(url);
+      const off = Number(new URL(url).searchParams.get('offset'));
+      const n = Math.max(0, Math.min(200, total - off));
+      return new Response(JSON.stringify(Array.from({ length: n }, (_, i) => ({ i: off + i }))));
+    }));
+    const rows = await db.selectAll<{ i: number }>({ SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SECRET_KEY: 's' } as never, 'evidence', 'brand_id=eq.b&order=created_at.asc,id.asc');
+    expect(rows).toHaveLength(total);
+    expect(seen).toHaveLength(3);
+    vi.unstubAllGlobals();
   });
 });

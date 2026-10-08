@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useParams } from 'react-router';
 import { PublicShell } from '../../ui/shells/PublicShell';
 import { Alert, Box, Button, Choice, Container, Field, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { api, ApiError } from '../../lib/api';
-import { DIALS, STEPS, VOICE_TEMPLATES, type Step } from './steps';
+import { CLAIMS_GATE, DIALS, STEPS, templateDials, normaliseVoice, VOICE_TEMPLATES, type Step } from './steps';
 
 // Shapes returned by GET /api/brands/:id (web/worker/api.ts).
 export interface Brand { id: string; name: string; type: string; description: string | null; website: string | null; goal: string | null; channel: string | null }
@@ -155,6 +155,21 @@ function SourcesStep({ state, onChange, onNext, onBack }: { state: BrandState; o
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
 
+  async function remove(id: string) {
+    setBusy(true);
+    setError(null);
+    setResult(null);
+    try {
+      await api(`/brands/${state.brand.id}/sources/${id}`, { method: 'DELETE' });
+      setResult('Removed the link and the facts read from it. Redraft any section that cited them before you register.');
+    } catch (err) {
+      setError(msg(err));
+    } finally {
+      setBusy(false);
+      await onChange();
+    }
+  }
+
   async function add(e: FormEvent) {
     e.preventDefault();
     if (!url.trim()) return setError('Paste a link first.');
@@ -187,10 +202,13 @@ function SourcesStep({ state, onChange, onNext, onBack }: { state: BrandState; o
         <Stack gap={2} as="ul">
           {state.sources.map((s) => (
             <li key={s.id}>
-              <Text>
-                {s.title || s.url} · {s.status === 'read' ? `${state.evidence.filter((e) => e.source_id === s.id).length} facts` : s.status}
-                {s.error ? ` (${s.error})` : ''}
-              </Text>
+              <Stack gap={1}>
+                <Text>
+                  {s.title || s.url} · {s.status === 'read' ? `${state.evidence.filter((e) => e.source_id === s.id).length} facts` : s.status}
+                  {s.error ? ` (${s.error})` : ''}
+                </Text>
+                <Button variant="secondary" onClick={() => remove(s.id)} disabled={busy} aria-label={`Remove ${s.title || s.url}`}>Remove</Button>
+              </Stack>
             </li>
           ))}
         </Stack>
@@ -203,7 +221,8 @@ function SourcesStep({ state, onChange, onNext, onBack }: { state: BrandState; o
 function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: BrandState; onSaved: () => Promise<void>; onBack: () => void }) {
   const prev = state.answers.find((a) => a.step === step.answerStep);
   const isVoice = step.answerStep === 'voice';
-  const [data, setData] = useState<Record<string, string>>(prev?.data ?? (isVoice ? { template: 'candid_founder', formality: '2', energy: '3', humour: '2' } : {}));
+  // Voice answers saved by the older form are normalised onto today's templates and dials, so every displayed value is saved.
+  const [data, setData] = useState<Record<string, string>>(isVoice ? normaliseVoice(prev?.data) : prev?.data ?? {});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Ingestion tags facts with kit sections (worker/kit.ts SECTIONS); map each answer step to the section it feeds.
@@ -244,7 +263,9 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
         )}
         {isVoice ? (
           <Stack gap={5}>
-            <Choice legend="Which sounds most like you?" value={data.template ?? ''} onChange={(v) => setData({ ...data, template: v })} options={VOICE_TEMPLATES} />
+            {state.gates.some((g) => g.gate === 'voice') && <Alert tone="warning">Your voice is approved (Gate 3). Saving a change here reopens Gate 3 and clears the voice section, which you then draft and approve again before the next kit version.</Alert>}
+            <Choice legend="Start from a template (it sets the dials below)" value={data.template ?? ''} onChange={(v) => setData({ ...templateDials(v), sample: data.sample ?? '' })} options={VOICE_TEMPLATES} />
+            {data.template === 'flirty' && <Alert tone="info">Flirty stays light and playful. Before any post can be approved it is checked for sexual content, anything involving minors and explicit language, and blocked if it has any of them.</Alert>}
             {DIALS.map((d) => (
               <Choice
                 key={d.key}
@@ -254,6 +275,7 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
                 options={['1', '2', '3', '4', '5'].map((n) => ({ value: n, label: n }))}
               />
             ))}
+            <Choice legend="Claims gate: what needs evidence before it can be published?" value={data.claims ?? '4'} onChange={(v) => setData({ ...data, claims: v })} options={CLAIMS_GATE} />
             <Field label="A sentence you would actually write" hint="Optional. It helps us match your voice." multiline value={data.sample ?? ''} onChange={(e) => setData({ ...data, sample: e.target.value })} />
           </Stack>
         ) : (

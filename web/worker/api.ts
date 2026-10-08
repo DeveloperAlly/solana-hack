@@ -5,13 +5,13 @@ import { readPage } from './ingest';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
-import { approvePost, draftPost, editPost, ledger, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
+import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
 export const MAX_POSTS = 500;
 
 interface Brand { id: string; owner_id: string; name: string; type: string; description: string | null; website: string | null; goal: string | null; channel: string | null }
-interface Answer { step: string; data: Record<string, string>; skipped: boolean }
+interface Answer { step: string; data: Record<string, string>; skipped: boolean; updated_at?: string }
 interface Evidence { id: string; section: string; claim: string; quote: string | null; origin: string; source_id: string | null }
 interface Section { section: string; body: string; citations: string[]; status: string }
 interface Gate { gate: string; approved_by: string; approved_at: string; note: string | null }
@@ -40,7 +40,8 @@ async function brandState(env: Env, brand: Brand) {
   const [answers, sources, evidence, sections, gates, kits] = await Promise.all([
     db.select<Answer>(env, 'answers', f),
     db.select(env, 'sources', `${f}&select=id,url,title,status,error,fetched_at&order=created_at`),
-    db.select<Evidence>(env, 'evidence', `${f}&order=created_at`),
+    // Paged: the kit snapshot records all evidence, so a response row cap must not drop any.
+    db.selectAll<Evidence>(env, 'evidence', `${f}&order=created_at.asc,id.asc`),
     db.select<Section>(env, 'kit_sections', f),
     db.select<Gate>(env, 'gates', f),
     db.select<Kit>(env, 'kits', `${f}&select=id,version,hash,status,signature,attestation,created_at,error,payload&order=version.desc`),
@@ -108,6 +109,17 @@ async function registerKit(env: Env, user: User, brand: Brand) {
   const live = new Set(st.evidence.map((e) => e.id));
   const stale = st.sections.filter((s) => s.citations.some((id) => !live.has(id))).map((s) => s.section);
   if (stale.length) throw new HttpError(409, `these sections cite answers you have since changed; draft them again first: ${stale.join(', ')}`);
+  // Gate 3 must postdate the voice answer it approved. Reads of gates and answers are separate requests, so a voice
+  // change racing this registration could pair the old approval with the new answer; this check refuses that pair.
+  const voiceGate = st.gates.find((g) => g.gate === 'voice');
+  const voiceAnswer = st.answers.find((a) => a.step === 'voice');
+  if (voiceGate && voiceAnswer?.updated_at && new Date(voiceAnswer.updated_at) > new Date(voiceGate.approved_at)) {
+    throw new HttpError(409, 'your voice changed after Gate 3 was approved; approve the voice again first');
+  }
+  // Every gated section must be in the snapshot. A voice save deletes Gate 3 and the voice section, so a read that
+  // raced it could hold the old gate but no section; that kit would be unusable for posts.
+  const absent = GATES.filter((g) => !st.sections.some((s) => s.section === g));
+  if (absent.length) throw new HttpError(409, `draft and approve these sections first: ${absent.join(', ')}`);
   const version = (st.kits[0]?.version ?? 0) + 1;
   const payload = {
     brand: { id: brand.id, name: brand.name },
@@ -116,13 +128,28 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     version,
     sections: st.sections.map((s) => ({ section: s.section, body: s.body, citations: [...s.citations].sort(), status: s.status })).sort((a, b) => a.section.localeCompare(b.section)),
     gates: st.gates.map((g) => ({ gate: g.gate, approved_by: g.approved_by, approved_at: g.approved_at })).sort((a, b) => a.gate.localeCompare(b.gate)),
+    // The claims gate and voice template are part of the registered kit, so approval of a post written to this
+    // version applies this version's policy even if the voice answers change later.
+    policy: kitPolicy(st.answers.find((a) => a.step === 'voice')),
     // The cited evidence itself (claim and quote), not just ids: evidence rows can be replaced later (owner answers
     // are rewritten on every save), and a post pinned to this version must still see what the kit relied on.
-    evidence: (() => {
-      const cited = new Set(st.sections.flatMap((s) => s.citations));
-      return st.evidence.filter((e) => cited.has(e.id)).map((e) => ({ id: e.id, claim: e.claim, quote: e.quote, origin: e.origin })).sort((a, b) => a.id.localeCompare(b.id));
-    })(),
+    // All recorded evidence (assumptions excluded): polish reads the cited part, and the claims gate for posts written
+    // to this version checks against all of it, so neither depends on rows that can change after registration.
+    evidence: st.evidence.filter((e) => e.origin !== 'assumption').map((e) => ({ id: e.id, claim: e.claim, quote: e.quote, origin: e.origin })).sort((a, b) => a.id.localeCompare(b.id)),
   };
+  // Posts written to this version are approved against this evidence, at most MAX_EVIDENCE_BATCHES model calls each;
+  // a larger set would register a kit no post could ever be approved under, so it is refused before signing.
+  const batches = evidenceBatchCount(payload.evidence);
+  if (batches > MAX_EVIDENCE_BATCHES) throw new HttpError(422, `your sources hold more evidence than one approval can check (${batches} batches, limit ${MAX_EVIDENCE_BATCHES}); remove sources you no longer need on the Your links step`);
+  // The snapshot came from separate reads. Read the voice gate, answer and section again: if any changed while this
+  // ran (a voice save in flight), the snapshot may pair rows from two revisions, so refuse rather than sign it.
+  const again = await brandState(env, brand);
+  const voiceKey = (x: typeof st) => JSON.stringify([
+    x.gates.find((g) => g.gate === 'voice')?.approved_at ?? null,
+    x.answers.find((a) => a.step === 'voice')?.updated_at ?? null,
+    x.sections.find((s) => s.section === 'voice')?.body ?? null,
+  ]);
+  if (voiceKey(again) !== voiceKey(st)) throw new HttpError(409, 'your voice changed while registering; check Gate 3 and try again');
   const hash = 'sha256:' + (await sha256Hex(canonical(payload)));
   const [kit] = await db.insert<Kit>(env, 'kits', { brand_id: brand.id, version, hash, payload, approved_by: user.id, status: 'pending' });
   try {
@@ -136,6 +163,32 @@ async function registerKit(env: Env, user: User, brand: Brand) {
     await db.update(env, 'kits', db.eq('id', kit.id), { status: 'failed', error: 'registration failed' });
     throw new HttpError(502, 'registering on Solana failed, try again');
   }
+}
+
+// Voice templates from the first form, mapped to their research 06 equivalent (same map as the Voice step).
+const LEGACY_TEMPLATES: Record<string, string> = { friendly_expert: 'friendly' };
+
+/**
+ * The policy a kit registers, from the approved voice answer. An answer saved by the older form has no claims gate;
+ * rather than silently default it, registration is refused until the owner saves the Voice step once (which, since
+ * it changes the answer, reopens Gate 3 for a fresh approval). A skipped voice registers the Standard gate.
+ */
+export function kitPolicy(voice: { data: Record<string, string>; skipped: boolean } | undefined) {
+  // No answer at all is not a skip: nobody chose (or chose to skip) a claims gate, so nothing is registered.
+  if (!voice) throw new HttpError(409, 'save the Voice step (or skip it) before registering, so the kit records its claims gate');
+  if (voice.skipped) return { claims: '4', template: null };
+  if (!['3', '4', '5'].includes(voice.data.claims)) throw new HttpError(409, 'your voice was saved before the claims gate existed: open the Voice step, choose a claims gate and save, then approve Gate 3 again');
+  const t = voice.data.template;
+  return { claims: voice.data.claims, template: t ? LEGACY_TEMPLATES[t] ?? t : null };
+}
+
+/**
+ * True when a voice save must reopen Gate 3: the first save (steps are not enforced in order, so a gate could exist
+ * before any voice answer) or any change to template, dials, claims, sample or skipped.
+ */
+export function voiceChanged(prev: { data: Record<string, string>; skipped: boolean } | undefined, next: { data: Record<string, string>; skipped: boolean }) {
+  if (!prev) return true;
+  return prev.skipped !== next.skipped || canonical(prev.data) !== canonical(next.data);
 }
 
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
@@ -196,12 +249,36 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const raw = (b.data ?? {}) as Record<string, unknown>;
     for (const [k, v] of Object.entries(raw).slice(0, 20)) data[k.slice(0, 60)] = str(v, 2000);
     const skipped = b.skipped === true;
+    const [prev] = step === 'voice' ? await db.select<Answer>(env, 'answers', `${db.eq('brand_id', brand.id)}&${db.eq('step', 'voice')}`) : [];
+    // The voice answer carries the template and claims gate a kit registers. Changing it after Gate 3 reopens that
+    // gate and removes the voice section, which must be drafted again, so a kit can only register policy a person approved.
+    // The gate is removed *before* the new answer is saved: if anything fails in between, the state is safe (no gate),
+    // and a concurrent registration can never pair the new policy with the old approval.
+    // An identical save changes nothing (not even updated_at), so an approved Gate 3 stays valid.
+    if (step === 'voice' && prev && !voiceChanged(prev, { data, skipped })) return json({ answer: prev });
+    if (step === 'voice' && voiceChanged(prev, { data, skipped })) {
+      await db.del(env, 'gates', `${db.eq('brand_id', brand.id)}&${db.eq('gate', 'voice')}`);
+      // The old voice text described the old settings, so it is removed: Gate 3 can only be approved on a fresh draft.
+      await db.del(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&${db.eq('section', 'voice')}`);
+    }
     const [row] = await db.upsert(env, 'answers', { brand_id: brand.id, step, data, skipped, updated_at: new Date().toISOString() }, 'brand_id,step');
     // Owner answers are evidence, dated (P2: "owner answer, date").
     await db.del(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}`);
     const rows = skipped ? [] : Object.entries(data).filter(([, v]) => v).map(([k, v]) => ({ brand_id: brand.id, section: step, claim: `${k}: ${v}`, origin: 'owner_answer' }));
     if (rows.length) await db.insert(env, 'evidence', rows);
     return json({ answer: row });
+  }
+  if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
+    // Removing a source removes the facts read from it. Sections that cited them then need redrafting before the next
+    // registration (registerKit refuses stale citations); kits already registered keep their own evidence snapshot.
+    const id = p[4];
+    if (!/^[0-9a-f-]{36}$/i.test(id)) throw new HttpError(404, 'not found');
+    const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
+    const [src] = await db.select<{ id: string }>(env, 'sources', `${f}&select=id`);
+    if (!src) throw new HttpError(404, 'not found');
+    await db.del(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('source_id', id)}`);
+    await db.del(env, 'sources', f);
+    return json({ removed: id });
   }
   if (p[3] === 'sources' && p.length === 4 && m === 'POST') {
     const b = await body(req);

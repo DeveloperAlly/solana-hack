@@ -5,7 +5,7 @@ import { api, ApiError } from '../../lib/api';
 
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
-  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit' };
+  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit'; policy?: { v?: number; claims: string; unsupported: string[]; blocked?: string[]; passed: boolean } };
   signature: string | null; published_url: string | null; rev: number;
 }
 const POLISH = [
@@ -15,6 +15,9 @@ const POLISH = [
   { action: 'beautify', label: 'Beautify' },
   { action: 'beautify_accessible', label: 'Beautify (accessible)' },
 ];
+// Same rule as the server (isCurrentPolicy): only a passing result in the current shape lets a post register.
+const POLICY_VERSION = 2; // must match the server's POLICY_VERSION
+const policyCurrent = (p?: { v?: number; passed: boolean; blocked?: string[]; unsupported?: string[] }) => !!p && p.v === POLICY_VERSION && p.passed && Array.isArray(p.blocked) && !p.blocked.length && Array.isArray(p.unsupported) && !p.unsupported.length;
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
 
 /** S5 Create (thin): draft a post in the approved voice, check it, approve it, register it. */
@@ -116,8 +119,8 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
       setError(msg(e));
     }
     try {
-      // Reload either way: a failed registration can still change the post (locked, reopened, new revision), and the
-      // next action must carry the revision the server now has.
+      // Reload either way: a blocked approval or a failed registration can change the post (and its revision), and
+      // the next action must carry the revision the server now has.
       await onChange();
     } catch {
       // Keep the action's error on screen; the list refreshes on the next action.
@@ -146,6 +149,11 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
           <Text variant="small">Voice fit: {post.checks.voiceFit ?? 'n/a'}</Text>
           <Text variant="small">Platform: {post.checks.platform ?? 'n/a'}</Text>
         </Stack>
+        {post.status === 'drafted' && post.checks.policy && !post.checks.policy.passed && (
+          <Alert tone="warning" title={post.checks.policy.blocked?.length ? 'Blocked by the content policy' : 'Blocked by your claims gate'}>
+            {post.checks.policy.blocked?.length ? `Found: ${post.checks.policy.blocked.join(', ')}. This cannot be published. Rewrite it, then approve again.` : `No evidence for: ${post.checks.policy.unsupported.map((u) => (u.length > 200 ? `${u.slice(0, 200)}…` : u)).join(' · ')}. Add a source on your brand, or rewrite, then approve again.`}
+          </Alert>
+        )}
         {post.checks.notes && post.checks.notes.length > 0 && <Text variant="small" tone="secondary">To improve: {post.checks.notes.join(' · ')}</Text>}
         {post.status === 'drafted' && (
           <Stack gap={2}>
@@ -185,7 +193,11 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
             // A send whose outcome was unknown: the server checks Solana and finishes or reopens it.
             <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url, rev: post.rev } }))}>{busy === 'register' ? 'Checking Solana…' : 'Check registration'}</Button>
           )}
-          {post.status === 'approved' && (
+          {post.status === 'approved' && !policyCurrent(post.checks.policy) && (
+            // Approved before the claims and content checks existed: run them before it can be registered.
+            <Button disabled={!!busy} onClick={() => run('approve', () => api(`${base}/approve`, { body: { rev: post.rev } }))}>{busy === 'approve' ? 'Checking…' : 'Run approval checks'}</Button>
+          )}
+          {post.status === 'approved' && policyCurrent(post.checks.policy) && (
             <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url, rev: post.rev } }))}>{busy === 'register' ? 'Registering on Solana…' : 'Register post'}</Button>
           )}
         </Stack>

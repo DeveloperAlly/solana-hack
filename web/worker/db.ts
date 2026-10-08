@@ -25,6 +25,18 @@ const q = (v: string) => encodeURIComponent(v);
 
 export const db = {
   select: <T>(env: Env, table: string, filter: string) => rest<T[]>(env, `${table}?${filter}`),
+  /**
+   * Every matching row, read in pages of 200 until a short page, so a server-side row cap cannot silently drop rows.
+   * The filter must carry a total order (for example order=created_at.asc,id.asc) so pages neither skip nor repeat.
+   */
+  selectAll: async <T>(env: Env, table: string, filter: string) => {
+    const out: T[] = [];
+    for (let offset = 0; ; offset += 200) {
+      const page = await rest<T[]>(env, `${table}?${filter}&limit=200&offset=${offset}`);
+      out.push(...page);
+      if (page.length < 200) return out;
+    }
+  },
   insert: <T>(env: Env, table: string, row: unknown) =>
     rest<T[]>(env, table, { method: 'POST', body: JSON.stringify(row), prefer: 'return=representation' }),
   upsert: <T>(env: Env, table: string, row: unknown, onConflict: string) =>
