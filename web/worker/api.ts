@@ -7,6 +7,9 @@ import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
 import { approvePost, draftPost, editPost, ledger, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
+/** The most posts the Create list will show; older ones stay in the database. */
+export const MAX_POSTS = 500;
+
 interface Brand { id: string; owner_id: string; name: string; type: string; description: string | null; website: string | null; goal: string | null; channel: string | null }
 interface Answer { step: string; data: Record<string, string>; skipped: boolean; updated_at?: string }
 interface Evidence { id: string; section: string; claim: string; quote: string | null; origin: string; source_id: string | null }
@@ -279,9 +282,11 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   if (p[3] === 'posts') {
     if (p.length === 4 && m === 'GET') {
       // Newest first; ?limit grows as the owner asks for older posts (one extra row says whether more exist).
-      const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 20, 1), 500);
+      // At the MAX_POSTS ceiling there is no further page, so 'more' is false and 'capped' says older posts exist.
+      const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 20, 1), MAX_POSTS);
       const rows = await db.select<Post>(env, 'posts', `${db.eq('brand_id', brand.id)}&order=created_at.desc,id.desc&limit=${limit + 1}`);
-      return json({ posts: rows.slice(0, limit), more: rows.length > limit });
+      const older = rows.length > limit;
+      return json({ posts: rows.slice(0, limit), more: older && limit < MAX_POSTS, capped: older && limit >= MAX_POSTS });
     }
     if (p.length === 4 && m === 'POST') {
       const b = await body(req);

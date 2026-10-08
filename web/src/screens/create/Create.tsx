@@ -29,12 +29,14 @@ export function Create() {
   const [busy, setBusy] = useState(false);
   const [shown, setShown] = useState(20);
   const [more, setMore] = useState(false);
+  const [capped, setCapped] = useState(false);
 
   async function load(id = brandId, limit = shown) {
     if (!id) return;
-    const r = await api<{ posts: Post[]; more?: boolean }>(`/brands/${id}/posts?limit=${limit}`);
+    const r = await api<{ posts: Post[]; more?: boolean; capped?: boolean }>(`/brands/${id}/posts?limit=${limit}`);
     setPosts(r.posts);
     setMore(!!r.more);
+    setCapped(!!r.capped);
   }
   useEffect(() => {
     api<{ brands: { id: string }[] }>('/me')
@@ -85,8 +87,9 @@ export function Create() {
             <PostCard key={p.id} post={p} brandId={brandId!} onChange={() => load()} />
           ))}
           {more && (
-            <Button variant="secondary" onClick={() => { const n = shown + 20; setShown(n); load(brandId, n).catch((e) => setError(msg(e))); }}>Show older posts</Button>
+            <Button variant="secondary" onClick={() => { const n = Math.min(shown + 20, 500); setShown(n); load(brandId, n).catch((e) => setError(msg(e))); }}>Show older posts</Button>
           )}
+          {capped && <Text variant="small" tone="secondary">Showing the newest 500 posts. Older posts are kept, and registered ones can still be checked on Verify.</Text>}
         </Stack>
       </Container>
     </AppShell>
