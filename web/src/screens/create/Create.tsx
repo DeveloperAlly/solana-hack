@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { PublicShell } from '../../ui/shells/PublicShell';
+import { AppShell } from '../../ui/shells/AppShell';
 import { Alert, Box, Button, Container, Field, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { api, ApiError } from '../../lib/api';
 
@@ -51,7 +51,7 @@ export function Create() {
   }
 
   return (
-    <PublicShell>
+    <AppShell>
       <Container width="wizard">
         <Stack gap={6}>
           <Stack gap={2}>
@@ -73,7 +73,7 @@ export function Create() {
           ))}
         </Stack>
       </Container>
-    </PublicShell>
+    </AppShell>
   );
 }
 

@@ -1,0 +1,4 @@
+.badge { display: inline-flex; align-items: center; padding: var(--wl-chip-padY) var(--wl-chip-padX); border: var(--wl-border-width-default) solid var(--wl-border-input); border-radius: var(--wl-radius-pill); font-size: var(--wl-chip-font-size); font-weight: var(--wl-chip-font-weight); white-space: nowrap; color: var(--wl-text-primary); background: var(--wl-bg-canvas); }
+.solid { background: var(--wl-bg-inverse); color: var(--wl-text-inverse); border-color: var(--wl-bg-inverse); }
+.success { background: var(--wl-status-success-bg); color: var(--wl-status-success-fg); border-color: var(--wl-status-success-border); }
+.warning { background: var(--wl-status-warning-bg); color: var(--wl-status-warning-fg); border-color: var(--wl-status-warning-border); }

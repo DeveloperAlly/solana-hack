@@ -29,7 +29,7 @@ export default {
 
     if (url.pathname === '/api/health' && req.method === 'GET') {
       const registrar = env.REGISTRAR_KEY ? (await registrarFromSecret(env.REGISTRAR_KEY)).address : null;
-      return json({ ok: true, registrar, rpcConfigured: !!env.RPC_URL });
+      return json({ ok: true, registrar, rpcConfigured: !!env.RPC_URL, aiConfigured: !!env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || 'openrouter/auto' });
     }
 
     // S0 done-when (3): one Registrar-signed devnet registration. Deploy-run only (token), so the

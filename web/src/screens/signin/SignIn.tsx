@@ -11,7 +11,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function SignIn() {
   const { session } = useAuth();
   const [params] = useSearchParams();
-  const next = /^\/(?!\/)/.test(params.get('next') ?? '') ? params.get('next')! : '/build';
+  const next = /^\/(?!\/)/.test(params.get('next') ?? '') ? params.get('next')! : '/home';
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');

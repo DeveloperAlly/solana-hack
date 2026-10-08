@@ -9,6 +9,11 @@ import { RequireAuth } from './lib/auth';
 import { Create } from './screens/create/Create';
 import { Verify } from './screens/verify/Verify';
 import { Ledger } from './screens/ledger/Ledger';
+import { Home } from './screens/hub/Home';
+import { Brand } from './screens/hub/Brand';
+import { Settings } from './screens/hub/Settings';
+import { ComingSoon } from './screens/hub/ComingSoon';
+import { HowItWorks } from './screens/public/HowItWorks';
 
 export function App() {
   return (
@@ -25,6 +30,11 @@ export function App() {
             : r.screen === 'create' ? <RequireAuth><Create /></RequireAuth>
             : r.screen === 'verify' ? <Verify />
             : r.screen === 'ledger' ? <Ledger />
+            : r.screen === 'how' ? <HowItWorks />
+            : r.screen === 'home' ? <RequireAuth><Home /></RequireAuth>
+            : r.screen === 'brand' ? <RequireAuth><Brand /></RequireAuth>
+            : r.screen === 'settings' ? <RequireAuth><Settings /></RequireAuth>
+            : r.screen === 'soon' ? <RequireAuth><ComingSoon route={r} /></RequireAuth>
             : <Placeholder route={r} />
           }
         />
