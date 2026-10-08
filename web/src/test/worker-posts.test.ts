@@ -47,3 +47,12 @@ describe('post concurrency and verify', () => {
     expect(await verifyText(env, 'Same words.')).toMatchObject({ official: false, checked: false });
   });
 });
+
+describe('model replies', () => {
+  it('turns wrong field types into empty values instead of crashing', async () => {
+    const { modelPost } = await import('../../worker/posts');
+    expect(modelPost({ body: {}, notes: 'x' })).toMatchObject({ body: '', notes: [] });
+    expect(modelPost(null)).toMatchObject({ body: '', notes: [] });
+    expect(modelPost({ body: 'ok', notes: ['a', 3] })).toMatchObject({ body: 'ok', notes: ['a'] });
+  });
+});

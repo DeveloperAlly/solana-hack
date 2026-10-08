@@ -89,7 +89,8 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
   const [url, setUrl] = useState(post.published_url ?? '');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [explorer, setExplorer] = useState<string | null>(post.signature ? `https://explorer.solana.com/tx/${post.signature}?cluster=devnet` : null);
+  // Derived from the post on every render, so a reload after reconciliation shows the link without a remount.
+  const explorer = post.status === 'registered' && post.signature ? `https://explorer.solana.com/tx/${post.signature}?cluster=devnet` : null;
   useEffect(() => setText(post.body), [post.body]);
   const base = `/brands/${brandId}/posts/${post.id}`;
   const dirty = post.status === 'drafted' && text.trim() !== post.body;
@@ -160,10 +161,7 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
             <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url, rev: post.rev } }))}>{busy === 'register' ? 'Checking Solana…' : 'Check registration'}</Button>
           )}
           {post.status === 'approved' && (
-            <Button disabled={!!busy} onClick={() => run('register', async () => {
-              const r = await api<{ explorer: string }>(`${base}/register`, { body: { publishedUrl: url, rev: post.rev } });
-              setExplorer(r.explorer);
-            })}>{busy === 'register' ? 'Registering on Solana…' : 'Register post'}</Button>
+            <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url, rev: post.rev } }))}>{busy === 'register' ? 'Registering on Solana…' : 'Register post'}</Button>
           )}
         </Stack>
       </Stack>

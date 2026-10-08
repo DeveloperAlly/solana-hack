@@ -107,6 +107,10 @@ describe('verify checks Solana, not just the index', () => {
     selectRows = [row]; reg.onchain = 'unavailable';
     expect(await verifyText(env, 'Text.')).toMatchObject({ official: false, checked: false, note: expect.stringContaining('could not be checked') });
   });
+  it('is indeterminate, not a definite no, when the first 10 fail and more exist', async () => {
+    selectRows = Array.from({ length: 11 }, () => row); reg.onchain = 'mismatch';
+    expect(await verifyText(env, 'Text.')).toMatchObject({ official: false, checked: false, note: expect.stringContaining('more than 10') });
+  });
   it('checks at most 10 registrations and reports truncation', async () => {
     selectRows = Array.from({ length: 11 }, () => row); reg.onchain = 'verified';
     const r = await verifyText(env, 'Text.');
