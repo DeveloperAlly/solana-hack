@@ -112,9 +112,10 @@ describe('approval gates: claims and content policy', () => {
         system = JSON.parse(String(init.body)).messages[0].content;
         return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(reply) } }] }));
       }
-      if (url.includes('/kits?')) return new Response(JSON.stringify(kitPolicy ? [{ payload: { policy: kitPolicy } }] : []));
+      // The post's registered kit carries its policy and evidence snapshot; the live voice answer (voice) is
+      // returned too, to show it is not what the check uses.
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ payload: { policy: kitPolicy ?? voice, evidence: [{ claim: 'Founded in 2024', origin: 'source' }] } }]));
       if (url.includes('/answers?')) return new Response(JSON.stringify([{ data: voice }]));
-      if (url.includes('/evidence?')) return new Response(JSON.stringify([{ claim: 'Founded in 2024', origin: 'source' }]));
       if (init.method === 'PATCH') { writes.push(JSON.parse(String(init.body))); return new Response(JSON.stringify([{ id: 'p' }])); }
       return new Response('[]');
     }));
@@ -159,6 +160,16 @@ describe('approval gates: claims and content policy', () => {
     expect(all).toHaveLength(2413);
     expect(urls[0]).toContain('origin=neq.assumption');
     expect(urls[0]).toContain('order=created_at.asc,id.asc');
+  });
+  it('refuses a post written to a kit registered before evidence snapshots, without reading live evidence', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(url);
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ payload: { sections: [] } }]));
+      return new Response(JSON.stringify([{ claim: 'Added after signing', origin: 'source' }]));
+    }));
+    await expect(approvePost(llmEnv, user, post)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('register a new kit version') });
+    expect(urls.some((u) => u.includes('/evidence?') || u.includes('/answers?'))).toBe(false);
   });
   it('approves when both checks pass', async () => {
     const s = stub(clean, { template: 'friendly', claims: '3' });
@@ -281,14 +292,13 @@ describe('claims check over large evidence', () => {
         const reply = prompts.length === 1 ? { unsupported: ['Founded 2019', 'Used by 40 teams'], sexual: false, minors: false, explicitLanguage: false } : { supported: ['Used by 40 teams'] };
         return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(reply) } }] }));
       }
-      if (url.includes('/evidence?')) {
-        const offset = Number(new URL(url).searchParams.get('offset'));
-        return new Response(JSON.stringify(offset === 0 ? Array.from({ length: 200 }, (_, i) => ({ claim: `fact ${i} ${'y'.repeat(200)}` })) : []));
+      if (url.includes('/kits?')) {
+        const evidence = Array.from({ length: 200 }, (_, i) => ({ claim: `fact ${i} ${'y'.repeat(200)}`, origin: 'source' }));
+        return new Response(JSON.stringify([{ payload: { policy: { claims: '4', template: 'friendly' }, evidence } }]));
       }
-      if (url.includes('/answers?')) return new Response(JSON.stringify([{ data: { claims: '4', template: 'friendly' } }]));
       return new Response('[]');
     }));
-    const r = await policyCheck({ ...env, OPENROUTER_API_KEY: 'k' } as Env, { brand_id: 'b', kit_version: null, body: 'p' } as unknown as Post);
+    const r = await policyCheck({ ...env, OPENROUTER_API_KEY: 'k' } as Env, { brand_id: 'b', kit_version: 1, body: 'p' } as unknown as Post);
     expect(prompts.length).toBeGreaterThan(1);
     expect(prompts[1]).toContain('- Founded 2019');
     expect(r).toMatchObject({ unsupported: ['Founded 2019'], passed: false });

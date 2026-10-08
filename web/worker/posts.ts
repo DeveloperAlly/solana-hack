@@ -283,16 +283,19 @@ export function policyVerdict(claims: string, template: string | null, raw: unkn
  * The claims gate and template that govern a post: from the registered kit it was written to (kits record them
  * since this change), else from the brand's voice answer for kits registered before that.
  */
-async function postPolicy(env: Env, post: Post): Promise<{ claims: string; template: string | null; evidence?: { claim: string; origin?: string }[] }> {
+async function postPolicy(env: Env, post: Post): Promise<{ claims: string; template: string | null; evidence: { claim: string; origin?: string }[] }> {
   if (post.kit_version) {
     const [kit] = await db.select<{ payload: { policy?: { claims?: string; template?: string }; evidence?: { claim: string; origin?: string }[] } }>(env, 'kits', `${db.eq('brand_id', post.brand_id)}&${db.eq('version', String(post.kit_version))}&${db.eq('status', 'registered')}&select=payload`);
     const pol = kit?.payload?.policy;
     // The kit's own evidence snapshot: claims are judged against what the registered kit contained, which cannot
     // change after approval (live rows can be deleted when an answer is edited).
-    if (pol && CLAIMS_POLICY[pol.claims ?? '']) return { claims: pol.claims!, template: pol.template ?? null, evidence: kit.payload.evidence };
+    if (pol && CLAIMS_POLICY[pol.claims ?? ''] && Array.isArray(kit.payload.evidence)) return { claims: pol.claims!, template: pol.template ?? null, evidence: kit.payload.evidence };
   }
-  const [voice] = await db.select<{ data: Record<string, string> }>(env, 'answers', `${db.eq('brand_id', post.brand_id)}&${db.eq('step', 'voice')}&select=data`);
-  return { claims: CLAIMS_POLICY[voice?.data?.claims ?? ''] ? voice!.data.claims : '4', template: voice?.data?.template ?? null };
+  // No fallback to the brand's live evidence or voice answer: a source added after the kit was signed could then
+  // approve a post whose attestation names a kit that never contained it. Such a post is drafted again instead.
+  throw new HttpError(409, post.kit_version
+    ? `this post was written to kit v${post.kit_version}, which was registered before kits recorded their evidence; register a new kit version, then draft the post again`
+    : 'this post is not tied to a registered kit; draft it again');
 }
 
 /**
@@ -327,7 +330,7 @@ export const evidenceBatchCount = (evidence: { claim: string }[]) => evidenceBat
 export async function policyCheck(env: Env, post: Post): Promise<PolicyResult> {
   const { claims, template, evidence } = await postPolicy(env, post);
   const flirty = template === 'flirty';
-  const facts0 = evidence ? evidence.filter((e) => e.origin !== 'assumption') : await allEvidence(env, post.brand_id);
+  const facts0 = (evidence ?? []).filter((e) => e.origin !== 'assumption');
   const batches = evidenceBatches(facts0.map((e) => `- ${e.claim}`));
   // Bounded cost: at most MAX_EVIDENCE_BATCHES model calls per approval. Beyond that the check cannot be complete,
   // so it fails closed rather than approving on partial evidence.
