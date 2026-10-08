@@ -6,7 +6,7 @@ updated: 2026-10-08
 last_edited_by: agent
 tags: [adr, scope, hackathon, critical-path]
 ---
-> **Status: proposed (awaiting the owner's ratification).** Until the Colosseum submission (Oct 12 2026, 11:59pm PT), the build follows one critical path: the spine, a thin Create, and Verify and Ledger, then the submission assets. Everything else is labelled "coming soon" in the app.
+> **Status: proposed (awaiting the owner's ratification).** Until the Colosseum submission (Oct 12 2026, 11:59pm PT), the build follows one critical path: the spine, a thin Create, and Verify and Ledger, then the submission assets. Everything else waits, and the app should label it "coming soon" (deployment status lives in STATE.md).
 
 # ADR-008: The submission critical path, and what is cut until after it
 
@@ -22,7 +22,7 @@ tags: [adr, scope, hackathon, critical-path]
    3. a thin Create (draft, check, approve, register);
    4. public Verify and Ledger;
    5. the submission assets.
-2. **Cut until after the submission:** ambassador payouts, X and LinkedIn OAuth publishing, quests, claims (licensing), the full settings, the remaining canvas batches, and the PRD and P0/P1 documentation rework. Each cut screen stays in the app, labelled "coming soon" or "roadmap".
+2. **Cut until after the submission:** ambassador payouts, X and LinkedIn OAuth publishing, quests, claims (licensing), the full settings, the remaining canvas batches, and the PRD and P0/P1 documentation rework. Where a cut feature has a screen, the screen should say "coming soon" or "roadmap" rather than be removed.
 3. **Process:** review loops run on code PRs only; docs PRs are reviewed by the owner.
 
 ## Consequences
@@ -31,4 +31,4 @@ tags: [adr, scope, hackathon, critical-path]
 - STATE.md's "Next" list follows this order.
 
 ## Ratification
-Pending. In chat on 2026-10-08 the owner replied "yes go" to the ranked critical-path list that set out this order and these cuts, and the work has followed it since. Only the owner promotes an ADR to accepted, so this stays proposed until they do.
+Pending. This ADR records the plan the work has followed since 2026-10-08; it becomes accepted only when the owner ratifies it here.

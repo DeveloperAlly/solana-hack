@@ -20,9 +20,9 @@ last_edited_by: agent
   - [#17](https://github.com/DeveloperAlly/solana-hack/pull/17): the voice step from research 06.
 
   Retarget #16 and #17 to main once their bases merge.
-- **Database:** five migrations are applied to Supabase, confirmed with `list_migrations` on 2026-10-08: `spine_001`, `posts_002`, `posts_registering_003`, `posts_rev_004`, `posts_registration_times_005` and `posts_last_valid_block_height_006`. Their files are `spec/db/001` on main and `002`–`006` in PR #13 (carried up the stack). 004 adds `posts.rev` for compare-and-swap on every post change. 005 adds `registering_at` and `registered_at`. 006 adds `last_valid_block_height`, so an unconfirmed registration is reopened only once it can no longer land. RLS is on with no policies, so only the Worker reads and writes.
+- **Database:** six migrations are applied to Supabase, confirmed with `list_migrations` on 2026-10-08: `spine_001`, `posts_002`, `posts_registering_003`, `posts_rev_004`, `posts_registration_times_005` and `posts_last_valid_block_height_006`. Their files are `spec/db/001` on main and `002`–`006` in PR #13 (carried up the stack). 004 adds `posts.rev` for compare-and-swap on every post change. 005 adds `registering_at` and `registered_at`. 006 adds `last_valid_block_height`, so an unconfirmed registration is reopened only once it can no longer land. RLS is on with no policies, so only the Worker reads and writes.
 - **Not yet proven live:** the deployed registry selftest returned 502 after #11. #14 adds the safe diagnostics needed to find the cause.
-- **No live use yet:** on 2026-10-08 the live database had 0 users, brands, kits and posts. Nobody has signed in on jamjam.tech, so the spine on main is unproven end to end. It is tested only in CI and unit tests.
+- **No live use yet:** on 2026-10-08 the live database had 0 users, brands, kits and posts. Nobody has signed in on jamjam.tech, so the spine on main is unproven end to end. CI only type-checks and builds the build, gate and kit paths; there are no tests for them yet. The automated tests cover the UI, and the post and verify logic in the open PRs.
 **Deadline:** Colosseum Crypto World's Fair, Oct 12 2026, 11:59pm PT (Oct 13, 5:59pm Melbourne). Waterlily's own kit v1 is due by Oct 9.
 
 ## Recent decisions
@@ -41,7 +41,7 @@ last_edited_by: agent
 - [ADR-007](./.agentic/what/decisions/adr_007_pitch_positioning.md): the pitch makes end to end (build, run, prove, pay) the differentiator and leads the sale with crypto and developer brands; build scope unchanged. Deck v2 text and notes are in [pitch_deck_2026_10_06.md](./.agentic/what/context/pitch_deck_2026_10_06.md) (draft; placeholders to fill), with the [review](./.agentic/what/context/vc_judge_review_2026_10_06.md) behind it.
 - Demo: Waterlily builds its own brand from scratch, live (headline). aDNA is the second case (strong written brand, no social). film.fun and GamersLab are semi-established case studies. Polish actions include Beautify.
 
-- [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed; the owner said "yes go" to the plan on 2026-10-08, and the ADR awaits ratification): the submission critical path. The spine, a thin Create, and Verify and Ledger come first, then the submission assets. Payouts, X and LinkedIn OAuth, quests, claims, the full settings and the remaining canvas batches are cut. The hub screens that label them "coming soon" are in review in #15, not yet live.
+- [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed, awaiting the owner's ratification): the submission critical path. The spine, a thin Create, and Verify and Ledger come first, then the submission assets. Payouts, X and LinkedIn OAuth, quests, claims, the full settings and the remaining canvas batches are cut. The hub screens that label them "coming soon" are in review in #15, not yet live.
 - Helius devnet RPC (G-RPC) and a funded OpenRouter key are in the deploy secrets (owner, 2026-10-08). The Registrar is `E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG`.
 
 ## Blockers
