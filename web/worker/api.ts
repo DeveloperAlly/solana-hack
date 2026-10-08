@@ -140,14 +140,15 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   const p = url.pathname.split('/').filter(Boolean); // ['api', ...]
   const m = req.method;
   // Public (no sign-in): Verify and Ledger (S6), limited per client IP because they query the database and Solana.
-  if ((p[1] === 'verify' || p[1] === 'ledger') && p.length === 2) await publicLimit(req, env, p[1]);
+  // Only the supported methods are counted, so stray requests (a GET to /api/verify) cannot use up a visitor's quota.
   if (p[1] === 'verify' && p.length === 2 && m === 'POST') {
+    await publicLimit(req, env, 'verify');
     const b = await body(req);
     // Over-long text is refused, never truncated: a truncated text could match a post it does not equal.
     if (typeof b.text === 'string' && b.text.length > 8000) throw new HttpError(413, 'that is longer than any post we register (8,000 characters)');
     return json(await verifyText(env, str(b.text, 8000)));
   }
-  if (p[1] === 'ledger' && p.length === 2 && m === 'GET') return json(await ledger(env));
+  if (p[1] === 'ledger' && p.length === 2 && m === 'GET') { await publicLimit(req, env, 'ledger'); return json(await ledger(env)); }
   if (p[1] !== 'me' && p[1] !== 'brands') return null;
   const user = await requireUser(req, env);
 
