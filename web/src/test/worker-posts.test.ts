@@ -146,6 +146,7 @@ describe('shorten respects the platform limit', () => {
     expect(xWeightedLength('see https://example.com/a/very/long/path/that/is/longer/than/twenty/three')).toBe(4 + 23);
     expect(xWeightedLength('ok 👍🏽')).toBe(3 + 2);
     expect(xWeightedLength('字'.repeat(150))).toBe(300);
+    expect(xWeightedLength('x '.repeat(128) + 'http://t.co/x:')).toBe(256 + 23 + 1);
   });
   it('refuses to save a Shorten result that is still over the X limit', async () => {
     let patched = false;
@@ -158,5 +159,14 @@ describe('shorten respects the platform limit', () => {
     const post = { id: 'p', rev: 0, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'long', channel: 'X', checks: { slop: { passed: true, hits: [] }, voiceFit: null, platform: null, notes: [] } } as unknown as Post;
     await expect(polishPost({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post, 'shorten')).rejects.toMatchObject({ status: 422 });
     expect(patched).toBe(false);
+  });
+});
+
+describe('model replies', () => {
+  it('turns wrong field types into empty values instead of crashing', async () => {
+    const { modelPost } = await import('../../worker/posts');
+    expect(modelPost({ body: {}, notes: 'x' })).toMatchObject({ body: '', notes: [] });
+    expect(modelPost(null)).toMatchObject({ body: '', notes: [] });
+    expect(modelPost({ body: 'ok', notes: ['a', 3] })).toMatchObject({ body: 'ok', notes: ['a'] });
   });
 });

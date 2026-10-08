@@ -206,7 +206,9 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
   const [data, setData] = useState<Record<string, string>>(prev?.data ?? (isVoice ? { template: 'candid_founder', formality: '2', energy: '3', humour: '2' } : {}));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const known = state.evidence.filter((e) => e.origin === 'source' && e.section === (step.answerStep === 'golden_circle' ? 'purpose' : step.answerStep));
+  // Ingestion tags facts with kit sections (worker/kit.ts SECTIONS); map each answer step to the section it feeds.
+  const evidenceSection: Record<string, string> = { golden_circle: 'purpose', alternatives: 'positioning' };
+  const known = state.evidence.filter((e) => e.origin === 'source' && e.section === (evidenceSection[step.answerStep ?? ''] ?? step.answerStep));
 
   async function save(skipped: boolean) {
     setBusy(true);
