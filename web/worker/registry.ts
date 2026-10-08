@@ -22,7 +22,7 @@ export const explorerAddress = (a: string) => `https://explorer.solana.com/addre
 type Rpc = ReturnType<typeof createSolanaRpc>;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Thrown for any unusable REGISTRAR_KEY. Its message is fixed: parser messages can quote parts of the key. */
+/** Thrown for any unusable REGISTRAR_KEY. Its message is fixed by design: we never forward a parser's or library's error text, since we do not control what it includes. */
 export class RegistrarKeyError extends Error {
   constructor() { super('REGISTRAR_KEY is not a valid 64-byte keypair array'); this.name = 'RegistrarKeyError'; }
 }
