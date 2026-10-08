@@ -10,6 +10,12 @@ describe('Worker log redaction', () => {
     expect(s.message).toContain('https://devnet.helius-rpc.com/');
     expect(s).toMatchObject({ name: 'Error', status: 403, solanaErrorCode: 8100002 });
   });
+  it('drops URL paths and unknown hosts, where keys can also live', () => {
+    const s = safeError(new Error('fetch https://solana-devnet.g.alchemy.com/v2/shortKey_9 and https://tenant-k3y.example.com/rpc failed'));
+    expect(s.message).not.toContain('shortKey_9');
+    expect(s.message).not.toContain('tenant-k3y');
+    expect(s.message).toContain('[url]');
+  });
   it('reports the RPC host only for known providers', () => {
     expect(rpcHostLabel('https://devnet.helius-rpc.com/?api-key=k')).toBe('devnet.helius-rpc.com');
     expect(rpcHostLabel('https://api.devnet.solana.com')).toBe('api.devnet.solana.com');
