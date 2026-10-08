@@ -71,7 +71,7 @@ async function sign(rpc: Rpc, feePayer: KeyPairSigner, ixs: Instruction[]) {
     (tx) => setTransactionMessageLifetimeUsingBlockhash(bh, tx),
     (tx) => appendTransactionMessageInstructions(ixs, tx));
   const signed = await signTransactionMessageWithSigners(msg);
-  return { signature: getSignatureFromTransaction(signed) as string, wire: getBase64EncodedWireTransaction(signed) };
+  return { signature: getSignatureFromTransaction(signed) as string, wire: getBase64EncodedWireTransaction(signed), lastValidBlockHeight: bh.lastValidBlockHeight };
 }
 
 async function submit(rpc: Rpc, signed: { signature: string; wire: ReturnType<typeof getBase64EncodedWireTransaction> }) {
@@ -114,9 +114,16 @@ export async function prepareKitAttestation(rpcUrl: string, registrar: KeyPairSi
   })]);
   return {
     signature: signed.signature, attestation: attestation as string, explorer: explorerTx(signed.signature),
+    /** After this block height the transaction can no longer land. */
+    lastValidBlockHeight: signed.lastValidBlockHeight,
     /** Sends and confirms. Throws NotLanded when it certainly failed; any other error leaves the outcome unknown. */
     send: () => submit(rpc, signed),
   };
+}
+
+/** The chain's current block height (confirmed), or null if the RPC cannot be read. */
+export async function currentBlockHeight(rpcUrl: string): Promise<bigint | null> {
+  try { return await createSolanaRpc(rpcUrl).getBlockHeight({ commitment: 'confirmed' }).send(); } catch { return null; }
 }
 
 /**
