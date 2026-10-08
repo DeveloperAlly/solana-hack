@@ -22,3 +22,5 @@ body {
   white-space: nowrap;
   border: 0;
 }
+/* Lists laid out by Stack or Grid are layout, not bulleted text. */
+ul.wl-list, ol.wl-list { list-style: none; margin: 0; padding: 0; }

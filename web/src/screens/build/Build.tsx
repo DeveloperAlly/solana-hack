@@ -12,7 +12,8 @@ interface Source { id: string; url: string; title: string | null; status: string
 interface Evidence { id: string; section: string; claim: string; quote: string | null; origin: string; source_id: string | null }
 interface Section { section: string; body: string; citations: string[]; status: string }
 interface Gate { gate: string; approved_by: string; approved_at: string; note: string | null }
-interface Kit { id: string; version: number; hash: string; status: string; signature: string | null; attestation: string | null; created_at: string; error: string | null }
+export interface KitPayload { brand?: { id: string; name: string }; sources?: { id: string; url: string; title: string | null; status: string }[]; sections: { section: string; body: string; citations: string[]; status: string }[]; gates: { gate: string; approved_by: string | null; approved_at: string }[] }
+interface Kit { id: string; version: number; hash: string; status: string; signature: string | null; attestation: string | null; created_at: string; error: string | null; payload?: KitPayload | null }
 export interface BrandState { brand: Brand; answers: Answer[]; sources: Source[]; evidence: Evidence[]; sections: Section[]; gates: Gate[]; kits: Kit[] }
 
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
@@ -205,7 +206,9 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
   const [data, setData] = useState<Record<string, string>>(prev?.data ?? (isVoice ? { template: 'candid_founder', formality: '2', energy: '3', humour: '2' } : {}));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const known = state.evidence.filter((e) => e.origin === 'source' && e.section === (step.answerStep === 'golden_circle' ? 'purpose' : step.answerStep));
+  // Ingestion tags facts with kit sections (worker/kit.ts SECTIONS); map each answer step to the section it feeds.
+  const evidenceSection: Record<string, string> = { golden_circle: 'purpose', alternatives: 'positioning' };
+  const known = state.evidence.filter((e) => e.origin === 'source' && e.section === (evidenceSection[step.answerStep ?? ''] ?? step.answerStep));
 
   async function save(skipped: boolean) {
     setBusy(true);
@@ -226,7 +229,17 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
         <Text tone="secondary">Short answers are fine. Skip anything and come back later.</Text>
         {known.length > 0 && (
           <Alert tone="info" title="Already found on your pages">
-            {known.slice(0, 3).map((e) => e.claim).join(' · ')}
+            <Stack gap={1} as="ul">
+              {known.slice(0, 3).map((e) => {
+                const src = state.sources.find((x) => x.id === e.source_id);
+                return (
+                  <li key={e.id}>
+                    {e.claim}
+                    {src && <> (<Link href={src.url} external>{src.title || src.url}</Link>)</>}
+                  </li>
+                );
+              })}
+            </Stack>
           </Alert>
         )}
         {isVoice ? (
@@ -394,6 +407,7 @@ function KitStep({ state, onChange, onBack }: { state: BrandState; onChange: () 
         </Button>
       </Nav>
       {gatesDone.length < 3 && <Text variant="small" tone="secondary">Approve purpose, positioning and voice to register.</Text>}
+      {/* Any registered version is enough to create from, even if a later attempt failed. */}
       {state.kits.some((k) => k.status === 'registered') && <Button href="/create" variant="secondary">Start creating</Button>}
     </Stack>
   );

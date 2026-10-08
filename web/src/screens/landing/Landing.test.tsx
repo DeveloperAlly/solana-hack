@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import axe from 'axe-core';
 import { renderWithRouter } from '../../test/render';
 import { App } from '../../App';
@@ -9,9 +9,9 @@ describe('Landing in PublicShell', () => {
     renderWithRouter(<App />, '/');
     const nav = screen.getByRole('navigation', { name: 'Main' });
     expect(nav).toHaveTextContent('Waterlily');
-    expect(screen.getByRole('link', { name: 'How it works' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Check a post' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'How it works' })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'Check a post' })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Build your brand. Then start creating.');
     expect(screen.getByRole('link', { name: 'Build my brand' })).toHaveAttribute('href', '/sign-in');
   });

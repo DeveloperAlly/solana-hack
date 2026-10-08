@@ -8,3 +8,5 @@ export { Button } from './Button';
 export { Field } from './Field';
 export { Alert } from './Alert';
 export { Choice } from './Choice';
+export { Grid } from './Grid';
+export { Badge } from './Badge';

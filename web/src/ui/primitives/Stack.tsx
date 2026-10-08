@@ -15,10 +15,11 @@ const justifyMap = { start: 'flex-start', center: 'center', end: 'flex-end', bet
 const alignMap = { start: 'flex-start', center: 'center', end: 'flex-end', stretch: 'stretch', baseline: 'baseline' } as const;
 
 /** P2 Stack: flex layout with token gaps. */
-export function Stack({ as: As = 'div', direction = 'column', gap = 4, align = 'stretch', justify = 'start', wrap = false, style, ...rest }: StackProps) {
+export function Stack({ as: As = 'div', direction = 'column', gap = 4, align = 'stretch', justify = 'start', wrap = false, style, className, ...rest }: StackProps) {
   return (
     <As
       {...rest}
+      className={[As === 'ul' || As === 'ol' ? 'wl-list' : null, className].filter(Boolean).join(' ') || undefined}
       style={{
         display: 'flex',
         flexDirection: direction,

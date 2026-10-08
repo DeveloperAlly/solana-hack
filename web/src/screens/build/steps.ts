@@ -16,7 +16,7 @@ export interface Step {
 
 export const STEPS: Step[] = [
   { slug: 'basics', title: 'Basics', kind: 'basics', minutes: 2, intro: 'Name, what it is, and where you want it in a year.' },
-  { slug: 'sources', title: 'Your links', kind: 'sources', minutes: 1, intro: 'Add your site or any page about you. We read it first, so we only ask what is missing.' },
+  { slug: 'sources', title: 'Your links', kind: 'sources', minutes: 1, intro: 'Add your site or any page about you. We read it first and show what we found beside each question.' },
   {
     slug: 'origin', title: 'Origin', kind: 'questions', answerStep: 'origin', minutes: 3,
     questions: [
@@ -68,3 +68,6 @@ export const DIALS = [
   { key: 'energy', label: 'Energy', low: 'Calm', high: 'Excited' },
   { key: 'humour', label: 'Humour', low: 'Serious', high: 'Funny' },
 ];
+
+/** Minutes for the interview itself (Basics and the question steps), from the step config, for public copy. */
+export const INTERVIEW_MINUTES = STEPS.filter((s) => s.kind === 'basics' || s.kind === 'questions').reduce((n, s) => n + (s.minutes ?? 0), 0);

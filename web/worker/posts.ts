@@ -66,7 +66,9 @@ export async function draftPost(env: Env, brand: { id: string; name: string }, b
   // The brand name is the one registered in the kit the post is written to, not a later rename.
   const system = `You write one social post for "${ctx.brandName ?? brand.name}" in its approved voice. Stay inside the facts in the kit; do not invent numbers, customers or claims. ${SLOP_RULES} Then score it. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 3, what to improve)}.`;
   const user = `Channel: ${channel || 'LinkedIn'}\nBrief: ${brief}\n\nVoice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}`;
-  const { text, model } = await chat(env, system, user);
+  const { text, model: firstModel } = await chat(env, system, user);
+  // The model recorded is the one that wrote the text kept: the rewrite's, when a rewrite is accepted.
+  let model = firstModel;
   const out = modelPost(parseJson<unknown>(text));
   let body = out.body.trim().slice(0, 4000);
   if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
@@ -79,7 +81,7 @@ export async function draftPost(env: Env, brand: { id: string; name: string }, b
     const fix = await chat(env, `Rewrite the draft post without these: ${first.hits.join(', ')}. Keep the meaning, facts and voice. ${SLOP_RULES} Then score the rewrite. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 3)}.`, `${user}\n\nDraft to rewrite:\n${body}`);
     const fixed = modelPost(parseJson<unknown>(fix.text));
     const fixedBody = fixed.body.trim().slice(0, 4000);
-    if (fixedBody) { body = fixedBody; scored = fixed; }
+    if (fixedBody) { body = fixedBody; scored = fixed; model = fix.model; }
   }
   const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
   const checks: Checks = { slop: slopCheck(body), voiceFit: num(scored.voiceFit), platform: num(scored.platform), notes: scored.notes.slice(0, 3).map((n) => n.slice(0, 200)), source: 'ai' };

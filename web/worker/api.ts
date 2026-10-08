@@ -7,6 +7,9 @@ import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
 import { approvePost, draftPost, editPost, ledger, registerPost, verifyText, type Post } from './posts';
 
+/** The most posts the Create list will show; older ones stay in the database. */
+export const MAX_POSTS = 500;
+
 interface Brand { id: string; owner_id: string; name: string; type: string; description: string | null; website: string | null; goal: string | null; channel: string | null }
 interface Answer { step: string; data: Record<string, string>; skipped: boolean }
 interface Evidence { id: string; section: string; claim: string; quote: string | null; origin: string; source_id: string | null }
@@ -40,7 +43,7 @@ async function brandState(env: Env, brand: Brand) {
     db.select<Evidence>(env, 'evidence', `${f}&order=created_at`),
     db.select<Section>(env, 'kit_sections', f),
     db.select<Gate>(env, 'gates', f),
-    db.select<Kit>(env, 'kits', `${f}&select=id,version,hash,status,signature,attestation,created_at,error&order=version.desc`),
+    db.select<Kit>(env, 'kits', `${f}&select=id,version,hash,status,signature,attestation,created_at,error,payload&order=version.desc`),
   ]);
   return { brand, answers, sources, evidence, sections, gates, kits };
 }
@@ -103,6 +106,8 @@ async function registerKit(env: Env, user: User, brand: Brand) {
   const version = (st.kits[0]?.version ?? 0) + 1;
   const payload = {
     brand: { id: brand.id, name: brand.name },
+    // The sources read so far, so an export of this version lists exactly what it was built from.
+    sources: (st.sources as { id: string; url: string; title: string | null; status: string }[]).map((s) => ({ id: s.id, url: s.url, title: s.title, status: s.status })).sort((a, b) => a.id.localeCompare(b.id)),
     version,
     sections: st.sections.map((s) => ({ section: s.section, body: s.body, citations: [...s.citations].sort(), status: s.status })).sort((a, b) => a.section.localeCompare(b.section)),
     gates: st.gates.map((g) => ({ gate: g.gate, approved_by: g.approved_by, approved_at: g.approved_at })).sort((a, b) => a.gate.localeCompare(b.gate)),
@@ -135,14 +140,15 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   const p = url.pathname.split('/').filter(Boolean); // ['api', ...]
   const m = req.method;
   // Public (no sign-in): Verify and Ledger (S6), limited per client IP because they query the database and Solana.
-  if ((p[1] === 'verify' || p[1] === 'ledger') && p.length === 2) await publicLimit(req, env, p[1]);
+  // Only the supported methods are counted, so stray requests (a GET to /api/verify) cannot use up a visitor's quota.
   if (p[1] === 'verify' && p.length === 2 && m === 'POST') {
+    await publicLimit(req, env, 'verify');
     const b = await body(req);
     // Over-long text is refused, never truncated: a truncated text could match a post it does not equal.
     if (typeof b.text === 'string' && b.text.length > 8000) throw new HttpError(413, 'that is longer than any post we register (8,000 characters)');
     return json(await verifyText(env, str(b.text, 8000)));
   }
-  if (p[1] === 'ledger' && p.length === 2 && m === 'GET') return json(await ledger(env));
+  if (p[1] === 'ledger' && p.length === 2 && m === 'GET') { await publicLimit(req, env, 'ledger'); return json(await ledger(env)); }
   if (p[1] !== 'me' && p[1] !== 'brands') return null;
   const user = await requireUser(req, env);
 
@@ -217,7 +223,14 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   if (p[3] === 'kit' && p[4] === 'register' && m === 'POST') return json(await registerKit(env, user, brand), 201);
   // S5 Create: posts in the brand voice; human approval before registration (R8).
   if (p[3] === 'posts') {
-    if (p.length === 4 && m === 'GET') return json({ posts: await db.select<Post>(env, 'posts', `${db.eq('brand_id', brand.id)}&order=created_at.desc&limit=20`) });
+    if (p.length === 4 && m === 'GET') {
+      // Newest first; ?limit grows as the owner asks for older posts (one extra row says whether more exist).
+      // At the MAX_POSTS ceiling there is no further page, so 'more' is false and 'capped' says older posts exist.
+      const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 20, 1), MAX_POSTS);
+      const rows = await db.select<Post>(env, 'posts', `${db.eq('brand_id', brand.id)}&order=created_at.desc,id.desc&limit=${limit + 1}`);
+      const older = rows.length > limit;
+      return json({ posts: rows.slice(0, limit), more: older && limit < MAX_POSTS, capped: older && limit >= MAX_POSTS });
+    }
     if (p.length === 4 && m === 'POST') {
       const b = await body(req);
       const brief = str(b.brief, 1000);
