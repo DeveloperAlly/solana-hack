@@ -2,7 +2,7 @@
 type: manifest
 status: active
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-07
 last_edited_by: agent
 tags: [manifest, index]
 ---
@@ -34,12 +34,15 @@ The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose:
 | [.agentic/what/decisions/adr_004_docs_use_adna.md](./.agentic/what/decisions/adr_004_docs_use_adna.md) | accepted | ADR-004: docs use aDNA embedded form |
 | [.agentic/what/decisions/adr_005_ui_component_system.md](./.agentic/what/decisions/adr_005_ui_component_system.md) | proposed | ADR-005: UI in React on design tokens; components built slice by slice |
 | [.agentic/what/decisions/adr_006_wallet_identity_split.md](./.agentic/what/decisions/adr_006_wallet_identity_split.md) | accepted | ADR-006: wallet identity split |
+| [.agentic/what/decisions/adr_007_pitch_positioning.md](./.agentic/what/decisions/adr_007_pitch_positioning.md) | accepted | ADR-007: pitch positioning, end to end, sold first to crypto and developer brands |
 | [.agentic/what/context/component_inventory.md](./.agentic/what/context/component_inventory.md) | proposed | UI component inventory, first slice per component, screen-to-component map |
 | [.agentic/what/context/compendium_2026_10_06.md](./.agentic/what/context/compendium_2026_10_06.md) | active | Decision compendium 2026-10-06 (v2); source for the PRD rewrite |
 | [.agentic/what/context/brand_builder_architecture.md](./.agentic/what/context/brand_builder_architecture.md) | accepted | Brand Builder architecture, data model and per-section input spec |
 | [.agentic/what/context/backend_map.md](./.agentic/what/context/backend_map.md) | proposed | Backend map: endpoints, data sources, jobs and external APIs per screen; architecture gaps |
 | [spec/api/README.md](./spec/api/README.md) | proposed | Backend boilerplate stubs (comments only) and Supabase schema |
 | [.agentic/what/context/wireframe_audit_2026_10_06.md](./.agentic/what/context/wireframe_audit_2026_10_06.md) | active | Audit of the UI wireframes canvas against the spec (v1 and v2 re-review); input to the rework |
+| [.agentic/what/context/pitch_deck_2026_10_06.md](./.agentic/what/context/pitch_deck_2026_10_06.md) | draft | Pitch deck v2: slide text, speaker notes and placeholders to fill |
+| [.agentic/what/context/vc_judge_review_2026_10_06.md](./.agentic/what/context/vc_judge_review_2026_10_06.md) | active | VC and hackathon-judge review of the wireframes and docs; informs the deck |
 | [.agentic/what/context/swot.md](./.agentic/what/context/swot.md) | historical | SWOT of the licensing-era concept; still informs risks |
 | [.agentic/what/context/links.md](./.agentic/what/context/links.md) | active | Working links: wireframes, deck, PRD, research |
 | [.agentic/what/context/research/README.md](./.agentic/what/context/research/README.md) | active | Research index |
