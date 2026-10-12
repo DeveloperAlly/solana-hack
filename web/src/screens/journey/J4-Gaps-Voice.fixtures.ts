@@ -1,7 +1,8 @@
 /*
  * Sample data for J4-Gaps-Voice: canvas board J4-Gaps-Voice (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, board
  * J4-Gaps-Voice) and its note n-j4-gaps-voice, issue #48, backend map §4 row "BB-2 to BB-6". Round 1 paragraphs are the
- * board's; the board does not draw round 2, so its paragraphs stay bracketed placeholders.
+ * board's (the board shows B and Pressmaster picked; here nothing is picked until the person picks, per the review
+ * rule "never pre-select a choice"); the board does not draw round 2, so its paragraphs stay bracketed placeholders.
  */
 import type { GapsVoiceData } from './types';
 
@@ -13,7 +14,6 @@ export const gapsVoiceFixture: GapsVoiceData = {
     question: 'What do people use instead of JamJam today?',
     hint: 'Alternatives we found people compare against. Pick, edit or add your own.',
     options: ['Pressmaster', 'Google Pomelli', 'Canva Brand Kit'],
-    selected: ['Pressmaster'],
     source: 'Source: competitor research (research 10, segments A and B), each with its link. Delivered by H6 (#35).',
   },
   edgeQuestion: 'What can only you do?',
@@ -21,7 +21,6 @@ export const gapsVoiceFixture: GapsVoiceData = {
   originNote: 'Saved as evidence: "owner answer, [date]".',
   voice: {
     intro: 'Three paragraphs written from your site at different settings. Round 2 narrows around your pick.',
-    defaultPick: 'b',
     rounds: [
       [
         { value: 'a', title: 'A', tag: 'Plainspoken', body: "You've already said who you are. On your site, in your docs, in old posts. JamJam reads it, shows you where each line came from, and turns it into a kit you approve." },

@@ -4,7 +4,7 @@ import { Card } from '../../ui/composites/Card';
 import { KeyValueList } from '../../ui/composites/KeyValueList';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import { JourneyCopyButton } from '../../ui/domain/JourneyCopyButton';
-import { journeyPaths } from './paths';
+import { useJourneyHref } from './paths';
 import type { ApproveKitData } from './types';
 
 export interface ApproveRegisterPanelProps {
@@ -22,6 +22,7 @@ export interface ApproveRegisterPanelProps {
  * approved and offers Retry, Copy error details and Continue without registering. Composition only, no styles.
  */
 export function ApproveRegisterPanel({ onChain, approved, total, onRegister, failure }: ApproveRegisterPanelProps) {
+  const to = useJourneyHref();
   const [lastTry, setLastTry] = useState(failure?.lastTry ?? '');
   const ready = approved === total;
   return (
@@ -41,7 +42,7 @@ export function ApproveRegisterPanel({ onChain, approved, total, onRegister, fai
               {/* INTEGRATION: POST /api/registrations/:id/retry (backend map row "Onboard-6-Published, Kit-RegisterFailed"). */}
               <Button onClick={() => setLastTry('just now')}>Retry registration</Button>
               <JourneyCopyButton label="Copy error details" text={`Kit v1 registration failed: ${failure.reason}. Kit hash ${failure.hash}.`} />
-              <Button variant="secondary" href={journeyPaths.firstPost}>Continue without registering</Button>
+              <Button variant="secondary" href={to('firstPost')}>Continue without registering</Button>
             </>
           }
         />

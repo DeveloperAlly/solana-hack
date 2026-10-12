@@ -13,6 +13,7 @@ import type { DiffSegment } from '../../ui/composites/DiffView';
 import type { EvidenceStatus } from '../../ui/domain/EvidenceChip';
 import type { JourneyStatusRow } from '../../ui/domain/JourneyStatusList';
 import type { JourneyGateDecision } from '../../ui/domain/JourneyGateCard';
+import type { JourneyTarget } from './paths';
 
 export type { JourneyFact, JourneyChoiceOption, JourneyClaimSegment, JourneyChecklistItem, JourneyStepCard, DiffSegment, EvidenceStatus, JourneyStatusRow };
 
@@ -76,6 +77,7 @@ export interface MainData {
   headline: string;
   intro: string;
   siteDefault: string;
+  sitePlaceholder: string;
   example: MainExample | null;
   howSteps: JourneyStepCard[];
   features: { title: string; body: string; quote?: string }[];
@@ -123,11 +125,11 @@ export interface ConfirmData {
 /** J4-Gaps-Voice. */
 export interface GapsVoiceData {
   brandName: string;
-  alternatives: { question: string; hint: string; options: string[]; selected: string[]; source: string };
+  alternatives: { question: string; hint: string; options: string[]; source: string };
   edgeQuestion: string;
   originQuestion: string;
   originNote: string;
-  voice: { rounds: [JourneyChoiceOption[], JourneyChoiceOption[]]; defaultPick: string; intro: string };
+  voice: { rounds: [JourneyChoiceOption[], JourneyChoiceOption[]]; intro: string };
 }
 
 /** J5-Approve-Kit. `registration` is set when registering kit v1 failed (Kit-RegisterFailed). */
@@ -159,12 +161,16 @@ export interface ProofData {
   edited: { note: string; diff: DiffSegment[] };
 }
 
+/** A checklist item or record row that links to another board, named by its key in ./paths (the screen builds the href). */
+export type JourneyChecklistEntry = Omit<JourneyChecklistItem, 'href'> & { target?: JourneyTarget };
+export type JourneyRecordRow = Omit<JourneyStatusRow, 'href'> & { target?: JourneyTarget };
+
 /** J8-Hub-FirstRun. */
 export interface HubFirstRunData {
   brandName: string;
   status: string;
-  checklist: JourneyChecklistItem[];
+  checklist: JourneyChecklistEntry[];
   nextPost: string;
-  publicRecord: JourneyStatusRow[];
+  publicRecord: JourneyRecordRow[];
   comingSoon: string;
 }

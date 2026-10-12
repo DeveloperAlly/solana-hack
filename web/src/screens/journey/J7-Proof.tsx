@@ -26,13 +26,14 @@ import { JourneySplit } from '../../ui/domain/JourneySplit';
 import { VerifyReceiptLink } from '../../ui/domain/VerifyReceiptLink';
 import { JourneyStepFrame } from './JourneyStepFrame';
 import { ProofCheck } from './ProofCheck';
-import { journeyPaths } from './paths';
+import { useJourneyHref } from './paths';
 import type { ProofData } from './types';
 
 export function J7Proof({ data }: { data: ProofData }) {
+  const to = useJourneyHref();
   const transaction = <VerifyReceiptLink signature={data.signature} placeholder="[explorer link once registered]">View on Solana Explorer</VerifyReceiptLink>;
   return (
-    <JourneyStepFrame step="proof" title="Your first post is registered" footer={<Button href={journeyPaths.hub}>Plan the rest of my week</Button>}>
+    <JourneyStepFrame step="proof" title="Your first post is registered" footer={<Button href={to('hub')}>Plan the rest of my week</Button>}>
       <JourneyAha n={5} tone="inverse">Anyone can check this came from you.</JourneyAha>
       <JourneySplit
         ratio="5-7"
@@ -56,7 +57,7 @@ export function J7Proof({ data }: { data: ProofData }) {
               <Text variant="caption" tone="secondary">{data.edited.note}</Text>
               <DiffView segments={data.edited.diff} />
             </Card>
-            <Link href={journeyPaths.ledger}>See JamJam's public ledger</Link>
+            <Link href={to('ledger')}>See JamJam's public ledger</Link>
           </Card>
         }
       />

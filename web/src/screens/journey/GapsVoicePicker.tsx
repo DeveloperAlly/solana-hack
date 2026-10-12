@@ -16,7 +16,7 @@ export function GapsVoicePicker({ voice }: { voice: GapsVoiceData['voice'] }) {
   const { selections, actions } = useJourneyFlow('gapsVoice');
   const sentence = useDisclosure();
   const round = selections.voiceRound;
-  const pick = selections.voicePicks[round] ?? (round === 1 ? voice.defaultPick : '');
+  const pick = selections.voicePicks[round] ?? '';
   return (
     <Card variant="selected" as="div">
       <JourneyChoiceCards

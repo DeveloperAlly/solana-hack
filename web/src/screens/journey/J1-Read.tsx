@@ -11,7 +11,8 @@
  * | coverage  | GET /api/brands/:id/coverage (backend map row "Coverage-Map"; rules only)                                 | all six "Needs you" |
  *
  * States (note n-j1-read): success = facts streaming in, one source blocked (as drawn); loading = per-source "Reading…";
- * error = the site is blocked, the panel offers paste, upload or skip; empty = an empty site goes straight to questions.
+ * error = the site is blocked, the panel offers paste, upload or skip; empty = an empty site goes straight to the
+ * question-led fallback (BB-1-Basics, as Main's "No website?" link). Continue opens once there is a fact to keep.
  * The person can continue while reading goes on.
  */
 import type { ReactNode } from 'react';
@@ -26,10 +27,11 @@ import { JourneyProgress } from '../../ui/domain/JourneyProgress';
 import { JourneySplit } from '../../ui/domain/JourneySplit';
 import { JourneyStatusList } from '../../ui/domain/JourneyStatusList';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
+import { JourneyNextButton } from './JourneyNextButton';
 import { JourneyStepFrame } from './JourneyStepFrame';
 import { ReadAddMore } from './ReadAddMore';
 import { ReadBlockedSource } from './ReadBlockedSource';
-import { journeyPaths } from './paths';
+import { useJourneyHref } from './paths';
 import { useJourneySources } from './useJourneySources';
 import type { ReadData } from './types';
 
@@ -39,6 +41,7 @@ export interface ReadProps {
 }
 
 export function J1Read({ data, state = 'success' }: ReadProps) {
+  const to = useJourneyHref();
   const src = useJourneySources(data.sources);
   const { blocked } = src;
   const c = data.coverage;
@@ -46,8 +49,8 @@ export function J1Read({ data, state = 'success' }: ReadProps) {
   const noFacts: Record<ScreenState, ReactNode> = {
     success: null,
     loading: <StatePanel kind="loading" title={`Reading ${data.site}`} body="Facts appear here as each page is read, each with the line it came from." />,
-    error: <StatePanel kind="error" title={`We couldn't read ${data.site}`} body="Paste its text or upload a file on the left, or skip to a few questions." actions={<Button variant="secondary" href={journeyPaths.gapsVoice}>Skip to questions</Button>} />,
-    empty: <EmptyState title="Nothing to read on this site yet" body="We'll ask a few short questions instead." actions={<Button href={journeyPaths.gapsVoice}>Answer questions</Button>} />,
+    error: <StatePanel kind="error" title={`We couldn't read ${data.site}`} body="Paste its text or upload a file on the left, or skip to a few questions." actions={<Button variant="secondary" href={to('basics')}>Start with a few questions</Button>} />,
+    empty: <EmptyState title="Nothing to read on this site yet" body="We'll ask a few short questions instead." actions={<Button href={to('basics')}>Start with a few questions</Button>} />,
   };
   return (
     <JourneyStepFrame
@@ -57,7 +60,7 @@ export function J1Read({ data, state = 'success' }: ReadProps) {
       footer={
         <>
           <JourneyProgress grow label={<><strong>{c.found} of 6 kit sections found</strong> · {c.partly} partly · {c.needsYou} need you</>} value={c.percent} />
-          <Button href={journeyPaths.save}>Keep these and continue</Button>
+          <JourneyNextButton href={to('save')} ready={data.facts.length > 0} hint="Nothing to keep yet: facts appear as each page is read.">Keep these and continue</JourneyNextButton>
         </>
       }
     >

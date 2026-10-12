@@ -5,7 +5,6 @@
  * topic stays bracketed.
  */
 import type { HubFirstRunData } from './types';
-import { journeyPaths } from './paths';
 
 export const hubFirstRunFixture: HubFirstRunData = {
   brandName: 'JamJam',
@@ -13,15 +12,15 @@ export const hubFirstRunFixture: HubFirstRunData = {
   checklist: [
     { id: 'kit', label: 'Kit v1 approved and registered', hint: '', done: true },
     { id: 'post', label: 'First post official', hint: '', done: true },
-    { id: 'sources', label: 'Add 2 more sources', hint: 'raises readiness, fewer questions later', done: false, href: journeyPaths.read },
-    { id: 'plan', label: "Plan this week's posts", hint: '3 drafts from your messaging', done: false, href: journeyPaths.contentDashboard },
-    { id: 'ai', label: 'Connect your AI model key', hint: 'Settings › AI · your key, encrypted', done: false, href: journeyPaths.settingsAi },
-    { id: 'invite', label: 'Invite a teammate or partner', hint: 'coming soon', done: false, href: journeyPaths.partners },
+    { id: 'sources', label: 'Add 2 more sources', hint: 'raises readiness, fewer questions later', done: false, target: 'read' },
+    { id: 'plan', label: "Plan this week's posts", hint: '3 drafts from your messaging', done: false, target: 'contentDashboard' },
+    { id: 'ai', label: 'Connect your AI model key', hint: 'Settings › AI · your key, encrypted', done: false, target: 'settingsAi' },
+    { id: 'invite', label: 'Invite a teammate or partner', hint: 'coming soon', done: false, target: 'partners' },
   ],
   nextPost: '[Topic from your messaging pillar 2]',
   publicRecord: [
-    { label: 'Kit v1', value: 'Registered', href: journeyPaths.ledger },
-    { label: 'Launch post', value: 'Registered', href: journeyPaths.ledger },
+    { label: 'Kit v1', value: 'Registered', target: 'ledger' },
+    { label: 'Launch post', value: 'Registered', target: 'ledger' },
   ],
   comingSoon: 'Inbox, publishing to X and LinkedIn, ambassador campaigns, analytics. Each shows here when it ships.',
 };

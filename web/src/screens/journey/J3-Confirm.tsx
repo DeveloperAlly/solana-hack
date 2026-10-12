@@ -13,23 +13,28 @@
  * | deferredNote  | Static copy (decision D2: 11 sections deferred to Brand > Kit)                                      | never      |
  *
  * Accept, Edit and Reject persist through useJourneyFlow (INTEGRATION there: PUT and POST /api/brands/:id/sections/...).
+ * J4 opens only once every found card has a decision (accepted, edited or rejected).
  * Readiness here rises from the base by an equal share for each card confirmed, across the six cards; the live
  * figure comes from the coverage endpoint. States: success only (the board draws one state and its note names no others).
  */
-import { Button, Grid, Text } from '../../ui/primitives';
+import { Grid, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { SampleFlag } from '../../ui/composites/SampleFlag';
 import { JourneyAha } from '../../ui/domain/JourneyAha';
 import { JourneyFactCard } from '../../ui/domain/JourneyFactCard';
 import { JourneyProgress } from '../../ui/domain/JourneyProgress';
 import { ConfirmFactCard } from './ConfirmFactCard';
+import { JourneyNextButton } from './JourneyNextButton';
 import { JourneyStepFrame } from './JourneyStepFrame';
-import { journeyPaths } from './paths';
+import { useJourneyHref } from './paths';
 import { useJourneyFlow } from './useJourneyFlow';
 import type { ConfirmData } from './types';
 
 export function J3Confirm({ data }: { data: ConfirmData }) {
+  const to = useJourneyHref();
   const { selections, actions } = useJourneyFlow('confirm');
+  const decided = data.facts.every((f) => selections.factDecisions[f.id]);
+  const hint = 'Accept, edit or reject each card first.';
   const confirmed = data.facts.filter((f) => selections.factDecisions[f.id] === 'accepted' || selections.factDecisions[f.id] === 'edited').length;
   const cards = data.facts.length + 2;
   const readiness = data.readinessBase + Math.round(((100 - data.readinessBase) * confirmed) / cards);
@@ -41,7 +46,7 @@ export function J3Confirm({ data }: { data: ConfirmData }) {
       footer={
         <>
           <Text><strong>{confirmed} confirmed</strong> · {data.questionsLeft} questions left · {data.timeLeft}</Text>
-          <Button href={journeyPaths.gapsVoice}>Answer {data.questionsLeft} questions</Button>
+          <JourneyNextButton href={to('gapsVoice')} ready={decided} hint={hint}>Answer {data.questionsLeft} questions</JourneyNextButton>
         </>
       }
     >
@@ -60,7 +65,7 @@ export function J3Confirm({ data }: { data: ConfirmData }) {
             onUndo={() => actions.undoFact(f.id)}
           />
         ))}
-        <JourneyFactCard fact={data.voice} actions={<Button variant="secondary" href={journeyPaths.gapsVoice}>Pick by example</Button>} />
+        <JourneyFactCard fact={data.voice} actions={<JourneyNextButton href={to('gapsVoice')} ready={decided} hint={hint}>Pick by example</JourneyNextButton>} />
         <JourneyFactCard fact={data.missing} variant="dashed" />
       </Grid>
       <Text variant="small" tone="secondary">{data.deferredNote}</Text>

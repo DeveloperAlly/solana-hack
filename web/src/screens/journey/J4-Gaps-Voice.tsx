@@ -11,35 +11,39 @@
  * | voice.rounds   | POST …/draft-section (BB-6 samples): 3 paragraphs written from the site, round 2 around the pick | never      |
  *
  * Answers, alternatives and picks persist through useJourneyFlow (INTEGRATION there: PUT /api/brands/:id/answers/:step).
+ * Nothing is preselected. J5 opens once both questions are answered and the voice is set (a round 2 pick, or one sentence).
  * States: success only (the board draws one state and its note names no others).
  */
-import { Button, Field, Heading, Text } from '../../ui/primitives';
+import { Field, Heading, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { EvidenceChip } from '../../ui/domain/EvidenceChip';
 import { JourneyAddableToggles } from '../../ui/domain/JourneyAddableToggles';
 import { GapsVoicePicker } from './GapsVoicePicker';
+import { JourneyNextButton } from './JourneyNextButton';
 import { JourneyStepFrame } from './JourneyStepFrame';
-import { journeyPaths } from './paths';
-import { useJourneyFlow } from './useJourneyFlow';
+import { useJourneyHref } from './paths';
+import { useJourneyFlow, voiceDone } from './useJourneyFlow';
 import type { GapsVoiceData } from './types';
 
 export function J4GapsVoice({ data }: { data: GapsVoiceData }) {
+  const to = useJourneyHref();
   const { selections, actions } = useJourneyFlow('gapsVoice');
   const alt = data.alternatives;
   const options = [...alt.options, ...selections.customAlternatives];
   const answer = (id: string) => ({ value: selections.answers[id] ?? '', onChange: (e: { target: { value: string } }) => actions.setAnswer(id, e.target.value) });
   return (
-    <JourneyStepFrame step="gapsVoice" title="Two questions, then your voice" footer={<Button href={journeyPaths.approveKit}>Review my kit</Button>}>
+    <JourneyStepFrame step="gapsVoice" title="Two questions, then your voice" footer={<JourneyNextButton href={to('approveKit')} ready={voiceDone(selections)} hint="Answer both questions, then pick a voice in round 2 or write one sentence.">Review my kit</JourneyNextButton>}>
       <Card labelledBy="gaps-q1" header={<><Heading level={2} size="lg" id="gaps-q1">1. {alt.question}</Heading><EvidenceChip status="needs-you" /></>}>
         <Text variant="small" tone="secondary">{alt.hint}</Text>
         <JourneyAddableToggles
           label={`Alternatives to ${data.brandName}`}
           options={options}
-          selected={selections.alternatives ?? alt.selected}
+          selected={selections.alternatives}
           onChange={actions.setAlternatives}
-          onAdd={(o) => actions.addAlternative(o, alt.selected)}
+          onAdd={actions.addAlternative}
           addLabel="Another alternative"
         />
+        <Text variant="small">Compared against: {selections.alternatives.join(', ') || 'none picked yet'}</Text>
         <Text variant="caption" tone="secondary">{alt.source}</Text>
         <Field label={data.edgeQuestion} multiline rows={2} placeholder="[owner answer]" {...answer('edge')} />
       </Card>

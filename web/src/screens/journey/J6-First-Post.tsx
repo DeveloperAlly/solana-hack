@@ -25,10 +25,11 @@ import { JourneyPolishBar } from '../../ui/domain/JourneyPolishBar';
 import { JourneySplit } from '../../ui/domain/JourneySplit';
 import { JourneyStatusList } from '../../ui/domain/JourneyStatusList';
 import { JourneyStepFrame } from './JourneyStepFrame';
-import { journeyPaths } from './paths';
+import { useJourneyHref } from './paths';
 import type { FirstPostData } from './types';
 
 export function J6FirstPost({ data }: { data: FirstPostData }) {
+  const to = useJourneyHref();
   const [channel, setChannel] = useState(data.channels[0].id);
   const [claimId, setClaimId] = useState(data.claims[0]?.id);
   const [applied, setApplied] = useState<string[]>([]);
@@ -67,7 +68,7 @@ export function J6FirstPost({ data }: { data: FirstPostData }) {
               <Text variant="small">"{data.blocked.claim}" {data.blocked.message}</Text>
             </Card>
             {/* INTEGRATION: POST /api/brands/:id/posts/:id/approve {rev}, then POST …/register (web/worker/api.ts). */}
-            <Button href={journeyPaths.proof}>Approve and register</Button>
+            <Button href={to('proof')}>Approve and register</Button>
             <JourneyCopyButton label="Copy text" text={text} />
           </>
         }

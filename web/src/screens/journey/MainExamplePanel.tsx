@@ -1,7 +1,7 @@
 import { Badge, Link, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { JourneyFactCard } from '../../ui/domain/JourneyFactCard';
-import { journeyPaths } from './paths';
+import { useJourneyHref } from './paths';
 import type { MainExample } from './types';
 
 /**
@@ -9,6 +9,7 @@ import type { MainExample } from './types';
  * its first post, with Check it yourself. Rendered only when `example` exists; composition only, no styles.
  */
 export function MainExamplePanel({ example }: { example: MainExample }) {
+  const to = useJourneyHref();
   return (
     <Card variant="selected" labelledBy="main-example" header={<><Text as="strong" id="main-example">{example.title}</Text><Badge>{example.kitChip}</Badge></>}>
       {example.facts.map(({ fact, decision }) => (
@@ -20,7 +21,7 @@ export function MainExamplePanel({ example }: { example: MainExample }) {
         <Stack direction="row" gap={2} wrap>
           {example.post.badges.map((b) => <Badge key={b.label} tone={b.solid ? 'solid' : 'neutral'}>{b.label}</Badge>)}
         </Stack>
-        <Link href={journeyPaths.proof}>Check it yourself</Link>
+        <Link href={to('proof')}>Check it yourself</Link>
       </Card>
     </Card>
   );

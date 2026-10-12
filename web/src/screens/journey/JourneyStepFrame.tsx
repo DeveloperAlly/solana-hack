@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { PublicShell } from '../../ui/shells/PublicShell';
 import { WizardLayout } from '../../ui/layouts/WizardLayout';
 import { Badge, Link } from '../../ui/primitives';
-import { journeyPaths, publicNavHref, type JourneyStepId } from './paths';
+import { useJourneyHref, usePublicNavHref, type JourneyStepId } from './paths';
 import { useJourneyFlow } from './useJourneyFlow';
 
 export interface JourneyStepFrameProps {
@@ -20,14 +20,16 @@ export interface JourneyStepFrameProps {
  * and links back to done steps. Composition only: no styles.
  */
 export function JourneyStepFrame({ step, title, intro, footer, error, children }: JourneyStepFrameProps) {
+  const to = useJourneyHref();
+  const publicNav = usePublicNavHref();
   const flow = useJourneyFlow(step);
   return (
     <PublicShell
-      navHref={publicNavHref}
+      navHref={publicNav}
       actions={
         <>
           <Badge>{flow.status}</Badge>
-          <Link href={journeyPaths.main}>Save and exit</Link>
+          <Link href={to('main')}>Save and exit</Link>
         </>
       }
     >

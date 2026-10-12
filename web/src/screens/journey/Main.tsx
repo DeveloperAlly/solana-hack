@@ -5,7 +5,8 @@
  * | Field             | Source                                                                                         | Empty when |
  * |-------------------|------------------------------------------------------------------------------------------------|------------|
  * | chip, headline, intro, howSteps, features, builtInPublic | Static copy (canvas board Main)                         | never      |
- * | siteDefault       | Client: the address the visitor types; carried to J1 (decision D1, no sign-up first)           | blank field |
+ * | siteDefault       | Client: an address carried in (blank by default; the example address is a placeholder). Submitting starts the read on J1 (decision D1, no sign-up first) | blank field |
+ * | sitePlaceholder   | Static copy (canvas board Main shows jamjam.tech)                                               | never      |
  * | example           | JamJam's own kit v1 and launch post: GET /api/ledger (web/worker/api.ts, ledger) filtered to the JamJam brand, plus GET /api/brands/:id for the kit text | null until #36 registers them: the panel is hidden, never faked |
  *
  * States (canvas note n-main): success = example shown; empty = example hidden (not registered yet); error = an invalid
@@ -20,7 +21,7 @@ import { JourneyQuote } from '../../ui/domain/JourneyQuote';
 import { JourneySplit } from '../../ui/domain/JourneySplit';
 import { JourneyStepCards } from '../../ui/domain/JourneyStepCards';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { journeyPaths, publicNavHref } from './paths';
+import { useJourneyHref, usePublicNavHref } from './paths';
 import { MainExamplePanel } from './MainExamplePanel';
 import { siteUrl } from './validators';
 import type { MainData } from './types';
@@ -31,9 +32,11 @@ export interface MainProps {
 }
 
 export function Main({ data, state = 'success' }: MainProps) {
+  const to = useJourneyHref();
+  const publicNav = usePublicNavHref();
   const navigate = useNavigate();
   return (
-    <PublicShell navHref={publicNavHref}>
+    <PublicShell navHref={publicNav}>
       <Container width="app">
         <Stack gap={10}>
           <JourneySplit
@@ -44,9 +47,9 @@ export function Main({ data, state = 'success' }: MainProps) {
                 <Heading level={1} size="4xl">{data.headline}</Heading>
                 <Text tone="secondary">{data.intro}</Text>
                 {/* INTEGRATION: none here; J1 starts the read with POST /api/brands then POST /api/brands/:id/sources {url}. */}
-                <JourneyInlineForm key={state} label="Your website" submitLabel="Read my site" defaultValue={data.siteDefault} type="url" autoComplete="url" validate={siteUrl} showErrorsNow={state === 'error'} onSubmit={() => navigate(journeyPaths.read)} />
+                <JourneyInlineForm key={state} label="Your website" submitLabel="Read my site" defaultValue={data.siteDefault} placeholder={data.sitePlaceholder} type="url" autoComplete="url" validate={siteUrl} showErrorsNow={state === 'error'} onSubmit={() => navigate(to('read'))} />
                 <Text variant="small" tone="secondary">
-                  No sign-up to see what we find. No website? <Link href={journeyPaths.basics}>Start with a few questions</Link>. No wallet, ever.
+                  No sign-up to see what we find. No website? <Link href={to('basics')}>Start with a few questions</Link>. No wallet, ever.
                 </Text>
               </Stack>
             }
@@ -55,7 +58,7 @@ export function Main({ data, state = 'success' }: MainProps) {
           <Stack as="section" id="how" gap={5} aria-labelledby="main-how">
             <Heading level={2} id="main-how">What happens in the next few minutes</Heading>
             <JourneyStepCards label="Steps" items={data.howSteps} />
-            <div><Button href={journeyPaths.read}>Read my site</Button></div>
+            <div><Button href={to('read')}>Read my site</Button></div>
           </Stack>
           <Grid min="sm" gap={5}>
             {data.features.map((f) => (
@@ -69,12 +72,12 @@ export function Main({ data, state = 'success' }: MainProps) {
           <Card variant="subtle" labelledBy="main-public">
             <Heading level={2} size="xl" id="main-public">Built in public</Heading>
             <Text tone="secondary">{data.builtInPublic}</Text>
-            <div><Button variant="secondary" href={journeyPaths.ledger}>See JamJam's ledger</Button></div>
+            <div><Button variant="secondary" href={to('ledger')}>See JamJam's ledger</Button></div>
           </Card>
           <Stack as="footer" direction="row" gap={5} wrap>
             <Text as="span" variant="small" tone="secondary">jamjam.tech</Text>
-            <Link href={journeyPaths.proof}>Check a post</Link>
-            <Link href={journeyPaths.ledger}>Public ledger</Link>
+            <Link href={to('proof')}>Check a post</Link>
+            <Link href={to('ledger')}>Public ledger</Link>
             <Text as="span" variant="small" tone="secondary">Ambassadors: coming soon</Text>
           </Stack>
         </Stack>

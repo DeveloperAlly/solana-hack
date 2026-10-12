@@ -22,12 +22,14 @@ import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { JourneyChecklist } from '../../ui/domain/JourneyChecklist';
 import { JourneySplit } from '../../ui/domain/JourneySplit';
 import { JourneyStatusList } from '../../ui/domain/JourneyStatusList';
-import { hubNavHref, journeyPaths } from './paths';
+import { useJourneyHref, useHubNavHref } from './paths';
 import type { HubFirstRunData } from './types';
 
 export function J8HubFirstRun({ data }: { data: HubFirstRunData }) {
+  const to = useJourneyHref();
+  const hubNav = useHubNavHref();
   return (
-    <AppShell navHref={hubNavHref}>
+    <AppShell navHref={hubNav}>
       <Container width="app">
         <Stack gap={6}>
           <Stack direction="row" gap={4} align="end" justify="between" wrap>
@@ -35,19 +37,19 @@ export function J8HubFirstRun({ data }: { data: HubFirstRunData }) {
               <Heading level={1} size="2xl">Welcome, {data.brandName}</Heading>
               <Text tone="secondary">{data.status} <SampleFlag /></Text>
             </Stack>
-            <Button href={journeyPaths.draftReview}>Draft post 2</Button>
+            <Button href={to('draftReview')}>Draft post 2</Button>
           </Stack>
           <JourneySplit
             ratio="7-5"
-            first={<JourneyChecklist title="Get set up" items={data.checklist} />}
+            first={<JourneyChecklist title="Get set up" items={data.checklist.map(({ target, ...item }) => ({ ...item, href: target && to(target) }))} />}
             second={
               <>
                 <Card labelledBy="hub-next">
                   <Heading level={2} size="lg" id="hub-next">Next best post</Heading>
                   <Text variant="small">{data.nextPost}</Text>
-                  <div><Button variant="secondary" href={journeyPaths.draftReview}>Draft it</Button></div>
+                  <div><Button variant="secondary" href={to('draftReview')}>Draft it</Button></div>
                 </Card>
-                <JourneyStatusList title="Your public record" rows={data.publicRecord} />
+                <JourneyStatusList title="Your public record" rows={data.publicRecord.map(({ target, ...row }) => ({ ...row, href: target && to(target) }))} />
                 <Card variant="subtle" labelledBy="hub-soon" header={<><Heading level={2} size="lg" id="hub-soon">Coming soon</Heading><ComingSoonFlag tag="COMING SOON" /></>}>
                   <Text variant="small" tone="secondary">{data.comingSoon}</Text>
                 </Card>

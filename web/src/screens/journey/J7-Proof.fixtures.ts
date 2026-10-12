@@ -6,7 +6,6 @@
  */
 import type { ProofData } from './types';
 import { launchPost } from './journey.fixtures';
-import { journeyPaths } from './paths';
 
 export const proofFixture: ProofData = {
   record: [
@@ -18,7 +17,8 @@ export const proofFixture: ProofData = {
   signature: null,
   network: 'devnet',
   postText: launchPost,
-  checkLink: journeyPaths.proof,
+  // The live Check a post page (config/routes.ts, /verify); a per-post link needs the registration id (#36).
+  checkLink: 'https://jamjam.tech/verify',
   officialNote: 'Exact match to a post JamJam approved, from kit v1.',
   edited: {
     note: 'Today an edited copy shows "Not an official post". Showing what changed needs a fuzzy match Verify doesn\'t have yet (verifyText checks exact text).',

@@ -11,7 +11,8 @@ export const mainFixture: MainData = {
   headline: "Your brand, built from what you've already said. Proven on every post.",
   intro:
     'Paste your site. We read it and show every fact with the line we found it on. Then we draft your brand kit and your first post in your voice. You approve each one, and anyone can check it\'s really you.',
-  siteDefault: 'jamjam.tech',
+  siteDefault: '',
+  sitePlaceholder: 'jamjam.tech',
   example: {
     title: 'Real example: JamJam built itself',
     kitChip: 'Kit v1 · registered',
