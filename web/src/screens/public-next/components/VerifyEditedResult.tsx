@@ -3,7 +3,7 @@ import { DiffView } from '../../../ui/composites/DiffView';
 import { VerifyResultCard } from '../../../ui/domain/VerifyResultCard';
 import { VerifyReportForm } from '../../../ui/domain/VerifyReportForm';
 import { formatPercent } from '../format';
-import { checkHref } from '../paths';
+import { useVerifyLinks } from '../paths';
 import type { VerifyOutcome } from '../types';
 
 type Edited = Extract<VerifyOutcome, { kind: 'edited' }>;
@@ -15,6 +15,7 @@ type Edited = Extract<VerifyOutcome, { kind: 'edited' }>;
 export function VerifyEditedResult({ outcome }: { outcome: Edited }) {
   const { post, similarity, diff, brokenClaim } = outcome;
   const brand = post.brand.name;
+  const links = useVerifyLinks();
   return (
     <VerifyResultCard
       tone="edited"
@@ -22,7 +23,7 @@ export function VerifyEditedResult({ outcome }: { outcome: Edited }) {
       summary={`${formatPercent(similarity)} similar to a piece ${brand} approved. The changes were not approved.`}
       actions={
         <>
-          <Button href={checkHref(post.text)} variant="secondary">View the original and its receipt</Button>
+          <Button href={links.check(post.text)} variant="secondary">View the original and its receipt</Button>
           <VerifyReportForm triggerLabel={`Report to ${brand}`} brandName={brand} />
         </>
       }
