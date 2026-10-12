@@ -158,7 +158,9 @@ describe('approval gates: claims and content policy', () => {
     }));
     const all = await allEvidence(env, 'b');
     expect(all).toHaveLength(2413);
-    expect(urls[0]).toContain('origin=neq.assumption');
+    // Allow-list, not the old deny-list on origin (issue #57).
+    expect(urls[0]).toContain('review_status=eq.approved&trust=in.(owned,owner_answer,third_party)');
+    expect(urls[0]).not.toContain('origin=neq.assumption');
     expect(urls[0]).toContain('order=created_at.asc,id.asc');
   });
   it('refuses a post written to a kit registered before evidence snapshots, without reading live evidence', async () => {

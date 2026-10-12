@@ -78,7 +78,7 @@ function readyBrand(): Record<string, Row[]> {
   return {
     answers: [{ brand_id: 'b', step: 'voice', data: { template: 'friendly', claims: '4' }, skipped: false, updated_at: '2026-10-09T00:00:00.000Z' }],
     sources: [],
-    evidence: [{ id: 'e1', brand_id: 'b', section: 'origin', claim: 'why: proof', quote: null, origin: 'owner_answer', source_id: null, created_at: approvedAt }],
+    evidence: [{ id: 'e1', brand_id: 'b', section: 'origin', claim: 'why: proof', quote: null, origin: 'owner_answer', trust: 'owner_answer', review_status: 'approved', source_id: null, created_at: approvedAt }],
     kit_sections: ['purpose', 'positioning', 'voice', 'origin', 'audience', 'messaging'].map((section) => ({ brand_id: 'b', section, body: `${section} text`, citations: section === 'origin' ? ['e1'] : [], status: 'approved' })),
     gates: ['purpose', 'positioning', 'voice'].map((gate) => ({ brand_id: 'b', gate, approved_by: 'u', approved_at: approvedAt, note: null })),
     kits: [],
