@@ -44,7 +44,7 @@ Five sections after a contents slide. Product screens come from the [wireframe c
 | A2 | 02 UI Highlights | Brand Sign-Off | "Three decisions. You make them; JamJam does the rest." Screen: J5 Approve kit | Wireframe J5-Approve-Kit |
 | A3 | 02 UI Highlights | On-Voice Content | "Posts you approve without rewriting." Approved voice; claims without evidence blocked. Screen: J6 First post | Wireframe J6-First-Post |
 | A4 | 02 UI Highlights | Ambassador Seats | "More voices, still on-brand." Off-brand claims and missing disclosures caught before approval. Screen: Amb-3 Generate | Wireframe Amb-3-Generate |
-| A5 | 02 UI Highlights | Post Verification | "Your audience can tell you from a fake." Screen: J7 Prove | Wireframe J7-Proof |
+| A5 | 02 UI Highlights | Post Verification | "Your audience can tell you from a fake." Paste a post or link: Official only when it matches approved text from your verified accounts (account verification is designed: WL-ACCOUNT, wireframe Verify-4; today Verify matches exact approved text). Screen: J7 Prove | Wireframe J7-Proof |
 | A6 | 02 UI Highlights | Public Ledger | "A record of what's official that no one can quietly rewrite." Screen: Ledger | Wireframe Ledger |
 | A7 | 03 User Onboarding | Onboarding Journey | Read, Save, Confirm, Gaps and Voice, Approve Kit, First Post, Prove. Screen: J3 Confirm | Wireframes J1 to J7 |
 | A8 | 04 Intelligence Architecture | Intelligence Pipeline | Brand kit: Ingestor, Evidence Store, Gap Analyst, Interviewer, Drafters, owner's gates. Every post: voice draft (voice spec plus retrieved approved posts, best of 3), anti-slop pass, claims gate, owner approval (edits become learned rules), registry | [Architecture §2, §6, §6.1](./brand_builder_architecture.md) |
@@ -52,6 +52,6 @@ Five sections after a contents slide. Product screens come from the [wireframe c
 | A10 | 05 Future Features | Future Features | Direct publishing, unified inbox, analytics, carousels and video, ambassador campaigns, USDC tips, voice licensing, verified AI persona, stablecoin plans | [Backlog](../../how/backlog/backlog.md); [#76](https://github.com/DeveloperAlly/solana-hack/issues/76), [#77](https://github.com/DeveloperAlly/solana-hack/issues/77) |
 
 ## Before recording
-- [ ] Owner: confirm the launch prices on slide 9 and the ask on slide 11.
+- [ ] Owner: confirm the launch prices on the Business model slide (10) and the ask on the Team and ask slide (12).
 - [ ] Re-check the Superteam Earn sponsor count on the day.
 - [ ] The demo video is separate and recorded on jamjam.tech ([#60](https://github.com/DeveloperAlly/solana-hack/issues/60)).
