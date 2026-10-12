@@ -242,7 +242,6 @@ export interface DraftReviewData {
   /** Terms the kit's vocabulary section says to avoid (vocabulary check). */
   avoidTerms: string[];
   scoresNote: string;
-  publishOptions: FieldOption[];
   approvalNote: string;
   /** Opens with a failed polish action (artboard Draft-Review-PolishError). */
   failedAction?: PolishAction;

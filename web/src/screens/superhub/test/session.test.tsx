@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderScreen } from './renderScreen';
 
@@ -148,11 +148,40 @@ describe('Review round 3 (Codex on PR #81)', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Blog · Technical voice' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Post (editable)' })).toHaveValue('"Why agents need shared project context"');
     const publish = screen.getByRole('region', { name: 'Publish' });
-    await userEvent.click(within(publish).getByRole('radio', { name: /Schedule/ }));
+    await userEvent.click(within(publish).getByRole('radio', { name: /post it yourself/ }));
     await userEvent.click(within(publish).getByRole('button', { name: 'Approve' }));
     await userEvent.click(screen.getByRole('link', { name: 'Back to drafts awaiting approval' }));
     expect(screen.queryByRole('button', { name: /^Review Blog/ })).toBeNull();
     expect(screen.getByRole('button', { name: /^Review X post/ })).toBeInTheDocument();
+  });
+
+  it('publish routes come from the draft\'s channel: a blog draft offers only the paste-back route, an X draft also posts and schedules (Codex review on PR #81)', async () => {
+    renderScreen('Content-Dashboard');
+    await userEvent.click(screen.getByRole('button', { name: /^Review Blog/ }));
+    const blog = within(screen.getByRole('region', { name: 'Publish' }));
+    expect(blog.getAllByRole('radio')).toHaveLength(1);
+    expect(blog.getByRole('radio', { name: 'Copy, post it yourself, paste the URL back' })).toBeInTheDocument();
+    cleanup();
+    renderScreen('Content-Dashboard');
+    await userEvent.click(screen.getAllByRole('button', { name: /^Review X thread/ })[0]);
+    const x = within(screen.getByRole('region', { name: 'Publish' }));
+    expect(x.getByRole('radio', { name: 'Post to @[aDNA X handle] now' })).toBeInTheDocument();
+    expect(x.getByRole('radio', { name: 'Schedule: [suggested slot]' })).toBeInTheDocument();
+    expect(x.getByRole('radio', { name: /post it yourself/ })).toBeInTheDocument();
+  });
+
+  it('a brand switch on Draft-Review remounts it: brand A\'s edited text, route and decision do not carry to brand B (Codex review on PR #81)', async () => {
+    renderScreen('Draft-Review');
+    const box = () => screen.getByRole('textbox', { name: 'Post (editable)' });
+    const drawn = (box() as HTMLTextAreaElement).value;
+    await userEvent.type(box(), ' Edited for aDNA.');
+    const publish = () => within(screen.getByRole('region', { name: 'Publish' }));
+    await userEvent.click(publish().getByRole('radio', { name: /post it yourself/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'aDNA, switch brand' }));
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /GamersLab/ }));
+    expect(box()).toHaveValue(drawn);
+    for (const r of publish().getAllByRole('radio')) expect(r).not.toBeChecked();
+    expect(publish().getByRole('button', { name: 'Approve' })).toBeDisabled();
   });
 
   it('manual route: an approved draft waits for its URL (not Posted) and is Posted once a valid URL is pasted back', async () => {

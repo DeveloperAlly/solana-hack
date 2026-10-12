@@ -21,6 +21,7 @@ import { PageHeader } from '../../ui/layouts/PageHeader';
 import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { StatusNote } from './parts/StatusNote';
 import { useLeads } from './hooks/useLeads';
+import { LeadAction } from './parts/LeadAction';
 import { useHubLinks } from './paths';
 import type { LeadsData } from './types';
 
@@ -58,9 +59,7 @@ export function Leads({ data }: { data: LeadsData }) {
             { key: 'why', header: 'Why' },
             { key: 'status', header: 'Status', cell: (l) => <Badge>{leads.statusLabel[l.status]}</Badge> },
           ]}
-          actions={(l) => (l.status === 'new'
-            ? <Button variant="secondary" onClick={() => leads.draftOutreach(l.id)}>Draft outreach</Button>
-            : <Button variant="secondary" href={links.content}>Review</Button>)}
+          actions={(l) => <LeadAction lead={l} onDraft={leads.draftOutreach} contentHref={links.content} />}
         />
         <Text variant="small" tone="secondary">{data.outreachNote}</Text>
       </Card>

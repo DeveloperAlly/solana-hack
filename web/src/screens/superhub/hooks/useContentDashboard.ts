@@ -11,7 +11,9 @@ export function useContentDashboard(data: ContentDashboardData) {
   const [tab, setTab] = useState(data.tabs[0]?.id ?? '');
   const [channel, setChannel] = useState('all');
   const [session] = useHubSession();
-  const drafts = data.drafts.map((d) => ({ ...d, status: session.drafts[d.id] ? recordStatus(session.drafts[d.id]) : d.status }));
+  // One approval queue: the fixture drafts plus drafts created on other screens (Leads), each under its recorded status.
+  const all = [...data.drafts, ...Object.values(session.created).map((c) => c.summary)];
+  const drafts = all.map((d) => ({ ...d, status: session.drafts[d.id] ? recordStatus(session.drafts[d.id]) : d.status }));
   const draftsFor = (status?: DraftStatus) => drafts.filter((d) => d.status === status && (channel === 'all' || d.channel === channel));
   /** The drawn count, moved by the drafts that left or joined this state. */
   const countFor = (tab: ContentDashboardData['tabs'][number]) => {

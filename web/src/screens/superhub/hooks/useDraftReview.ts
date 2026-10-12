@@ -3,6 +3,8 @@ import { useHubSession } from './useHubSession';
 import type { DraftContent, DraftReviewData, PolishAction } from '../types';
 import { draftLength, evaluateDraftChecks } from './draftChecks';
 import { draftStatusOf, isPostUrl, type Decision, type DraftRecord } from './draftStatus';
+import { publishRoutesFor } from './publishRoutes';
+import { useActiveBrand } from '../../../flows/brand/activeBrand';
 
 export const polishLabels: Record<PolishAction, string> = { review: 'Review', shorten: 'Shorten', clarify: 'Clarify', beautify: 'Beautify' };
 
@@ -16,6 +18,9 @@ export type { Decision } from './draftStatus';
  */
 export function useDraftReview(data: DraftReviewData, draftId: string, draft: DraftContent, busy = false) {
   const [session, update] = useHubSession();
+  // Where this draft can go comes from its channel (config/platforms.ts), never one list for every draft.
+  const brand = useActiveBrand();
+  const routes = publishRoutesFor(draft.channel, brand.name);
   // A decision already taken on this draft (hub session) is where a reopened draft starts.
   const [recorded] = useState<DraftRecord | undefined>(session.drafts[draftId]);
   const [versions, setVersions] = useState(draft.versions);
@@ -66,7 +71,8 @@ export function useDraftReview(data: DraftReviewData, draftId: string, draft: Dr
   const blockers = checks.filter((c) => c.blocking).map((c) => c.reason ?? c.label);
   const length = draftLength(text, draft.channel);
   const overLimit = length.limit !== null && length.size > length.limit;
-  const canApprove = !busy && blockers.length === 0 && publish !== '';
+  const routeOk = routes.some((r) => r.value === publish);
+  const canApprove = !busy && blockers.length === 0 && routeOk;
 
   function polish(action: PolishAction) {
     if (locked) return;
@@ -95,7 +101,7 @@ export function useDraftReview(data: DraftReviewData, draftId: string, draft: Dr
     draft, length, text, setText: changeText, locked, versions, beautified, checks, blockers, overLimit, canApprove,
     failed, retry: () => failed && polish(failed), dismiss: () => setFailed(undefined), polish, undo,
     accessible, setAccessible, showOriginal, toggleOriginal: () => setShowOriginal((s) => !s),
-    publish, setPublish, decision, status: draftStatusOf(decision, publish, postedUrl), postedUrl, urlError, pasteUrl,
+    routes, routeLabel: routes.find((r) => r.value === publish)?.label ?? '', publish, setPublish, decision, status: draftStatusOf(decision, publish, postedUrl), postedUrl, urlError, pasteUrl,
     // INTEGRATION: POST /api/drafts/:id/approve (backend map row "Draft-Review"); approval is not on-chain.
     approve: () => canApprove && setDecision('approved'),
     // INTEGRATION: registration (SAS attestation by the Registrar) runs only on an approved post, then it is published.

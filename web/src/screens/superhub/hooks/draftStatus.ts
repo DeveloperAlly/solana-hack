@@ -16,6 +16,8 @@ export interface DraftRecord {
 
 /** The publish route that needs the person to post it and paste the URL back. */
 export const MANUAL_ROUTE = 'manual';
+/** The publish route that schedules the post for a slot. */
+export const SCHEDULE_ROUTE = 'schedule';
 
 export const draftStatusLabel: Record<DraftStatus, string> = {
   approval: 'Needs approval',
@@ -32,7 +34,7 @@ export const draftStatusLabel: Record<DraftStatus, string> = {
 export function draftStatusOf(decision: Decision | null, route: string, postedUrl?: string): DraftStatus {
   if (decision === 'rejected') return 'rejected';
   if (decision !== 'approved' && decision !== 'registered') return 'approval';
-  if (route === 'schedule') return 'scheduled';
+  if (route === SCHEDULE_ROUTE) return 'scheduled';
   if (route === MANUAL_ROUTE && !postedUrl) return 'awaiting-url';
   return 'posted';
 }

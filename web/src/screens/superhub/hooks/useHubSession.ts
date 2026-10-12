@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { createBrandScopedStore } from '../../../lib/brandScopedStore';
 import { activeBrand, resetActiveBrand, useActiveBrandId } from '../../../flows/brand/activeBrand';
 import type { DraftRecord } from './draftStatus';
+import type { DraftContent, DraftSummary } from '../types';
 
 /** What a person changes on one Superhub screen that later screens must show, for one brand. */
 export interface BrandScoped {
@@ -11,6 +12,11 @@ export interface BrandScoped {
   drafts: Record<string, DraftRecord>;
   /** Engagement rules switched off (their items leave the reply queue). */
   rulesOff: string[];
+  /**
+   * Drafts created on other screens (Leads' Draft outreach), by id: the dashboard row and the content Draft-Review
+   * shows. They join the one approval queue with the fixture drafts. `lead` is the lead an outreach draft was for.
+   */
+  created: Record<string, { summary: DraftSummary; content: DraftContent; lead?: string }>;
   /** The persona created in Influencer-Setup. */
   persona?: { name: string; line: string; voice: string };
 }
@@ -21,7 +27,7 @@ export interface HubSession extends BrandScoped {
   brand: string;
 }
 
-const emptyBrand: BrandScoped = { inbox: {}, drafts: {}, rulesOff: [] };
+const emptyBrand: BrandScoped = { inbox: {}, drafts: {}, rulesOff: [], created: {} };
 /** Everything but the brand choice, kept per brand (lib/brandScopedStore keyed by the app-wide active brand). */
 const byBrand = createBrandScopedStore<BrandScoped>(activeBrand);
 

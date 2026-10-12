@@ -25,10 +25,10 @@ export function ChecksAndPublish({ review, data }: ChecksAndPublishProps) {
       </Card>
       <Card as="section" labelledBy="draft-publish" header={<Heading level={2} size="lg" id="draft-publish">Publish</Heading>}>
         {review.decision ? (
-          <DraftDecision review={review} route={data.publishOptions.find((o) => o.value === review.publish)?.label ?? ''} />
+          <DraftDecision review={review} route={review.routeLabel} />
         ) : (
           <Stack gap={3}>
-            <Choice legend="Where it goes" options={data.publishOptions} value={review.publish} onChange={review.setPublish} />
+            <Choice legend="Where it goes" options={review.routes} value={review.publish} onChange={review.setPublish} />
             <Button onClick={review.approve} disabled={!review.canApprove}>Approve</Button>
             {review.blockers.length > 0 && <Text variant="small" tone="danger">Blocked before approval: {review.blockers.join('; ')}.</Text>}
             {review.blockers.length === 0 && !review.publish && <Text variant="small" tone="secondary">Choose where it goes to approve it.</Text>}

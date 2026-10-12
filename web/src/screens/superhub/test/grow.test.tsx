@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderScreen } from './renderScreen';
 
@@ -95,7 +95,23 @@ describe('Grow (n-eq, n-er, n-pa, n-le, n-is, n-iq)', () => {
     const rowA = screen.getByRole('rowheader', { name: '[Organisation A]' }).closest('tr')!;
     await userEvent.click(within(rowA as HTMLElement).getByRole('button', { name: 'Draft outreach' }));
     expect(within(rowA as HTMLElement).getByText('Draft in queue')).toBeInTheDocument();
-    expect(within(rowA as HTMLElement).getByRole('link', { name: 'Review' })).toHaveAttribute('href', '/screens/Content-Dashboard');
+    expect(within(rowA as HTMLElement).getByRole('button', { name: 'Review draft' })).toBeInTheDocument();
+  });
+
+  it('Leads: Draft outreach creates a real draft in the approval queue that survives a remount and opens in Draft-Review (Codex review on PR #81)', async () => {
+    renderScreen('Leads');
+    const rowA = () => screen.getByRole('rowheader', { name: '[Organisation A]' }).closest('tr') as HTMLElement;
+    await userEvent.click(within(rowA()).getByRole('button', { name: 'Draft outreach' }));
+    cleanup();
+    renderScreen('Leads', undefined, undefined, { freshSession: false });
+    expect(within(rowA()).getByText('Draft in queue')).toBeInTheDocument();
+    cleanup();
+    renderScreen('Content-Dashboard', undefined, undefined, { freshSession: false });
+    expect(screen.getByRole('tab', { name: /Needs approval \(7\)/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /^Review Outreach email/ }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Outreach email · [Organisation A]' })).toBeInTheDocument();
+    const publish = within(screen.getByRole('region', { name: 'Publish' }));
+    expect(publish.getAllByRole('radio')).toHaveLength(1);
   });
 
   it('Influencer-Setup: Create waits for brand and voice, the preview follows them, then the queue opens', async () => {

@@ -50,11 +50,6 @@ export const draftReview: DraftReviewData = {
   ],
   avoidTerms: ['seamless', 'revolutionize'],
   scoresNote: 'Scores are sample data until the scorers are calibrated.',
-  publishOptions: [
-    { value: 'now', label: 'Post to @[aDNA X handle] now' },
-    { value: 'schedule', label: 'Schedule: [suggested slot]' },
-    { value: 'manual', label: 'Copy, post it yourself, paste the URL back' },
-  ],
   approvalNote: "After you approve, registering puts the post's hash, the kit version and your name on Solana, so anyone can check it.",
 };
 

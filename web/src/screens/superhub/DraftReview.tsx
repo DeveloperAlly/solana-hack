@@ -15,7 +15,7 @@
  * | approvedNumbers   | claims (approved) that the claims gate allows                                               |
  * | polishResults     | `POST …/polish` output per action                                                           |
  * | scores            | Voice fit and platform scores: [placeholders], self-graded in the same call today (n-dr 3)  |
- * | publishOptions    | connections (post now), suggested slot (static default), manual paste-back                  |
+ * | (publish routes)  | From the draft's channel: config/platforms.ts (post now, schedule) plus manual paste-back   |
  * | failedAction      | A polish call that failed, with the reason (Draft-Review-PolishError)                       |
  *
  * States (n-dr): success = editing; loading = "Writing…" skeleton in the editor; error = a polish action failed
@@ -27,6 +27,7 @@ import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { HubPage } from './parts/HubPage';
 import { DraftReviewBody } from './parts/DraftReviewBody';
 import { useSelectedDraftId } from '../../flows/drafts/openDraft';
+import { useHubSession } from './hooks/useHubSession';
 import { useHubLinks } from './paths';
 import type { DraftReviewData } from './types';
 
@@ -40,7 +41,9 @@ export interface DraftReviewProps {
 export function DraftReview({ data, state = 'success', boardDraftId }: DraftReviewProps) {
   const links = useHubLinks();
   const draftId = useSelectedDraftId(boardDraftId);
-  const draft = draftId === undefined ? undefined : data.drafts[draftId];
+  const [session] = useHubSession();
+  // A fixture draft, or one created on another screen (Leads' Draft outreach) and held in the hub session.
+  const draft = draftId === undefined ? undefined : data.drafts[draftId] ?? session.created[draftId]?.content;
   const toContent = <Button href={links.contentEmpty}>Go to content</Button>;
   if (state === 'empty') return <HubPage section="create" sub="content"><EmptyState level={1} title="Nothing to review" body="Drafts land here after the brand and slop checks." actions={toContent} /></HubPage>;
   // No content for this id: say so, with no editor or decisions, rather than show another draft.
