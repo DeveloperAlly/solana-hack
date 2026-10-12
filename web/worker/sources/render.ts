@@ -1,4 +1,4 @@
-import { hopSession, MAX_LINK_LENGTH, MAX_PAGE_LINKS, MAX_TITLE, NOT_READ, readable, readText, tidy, USER_AGENT, type FetchGate, type HopSession, type SessionCookie } from '../ingest';
+import { hopSession, redirectLocation, MAX_LINK_LENGTH, MAX_PAGE_LINKS, MAX_TITLE, NOT_READ, readable, readText, tidy, USER_AGENT, type FetchGate, type HopSession, type SessionCookie } from '../ingest';
 import { PAGE_TEXT_MAX } from './types';
 
 /**
@@ -312,7 +312,7 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
       } catch {
         return void (await refuse());
       }
-      const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+      const location = redirectLocation(res);
       if (location) {
         await res.body?.cancel().catch(() => undefined);
         let next: URL;

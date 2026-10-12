@@ -301,6 +301,27 @@ describe('declared PDF page count', () => {
       const pdf = join(enc(body + head), data, enc(`\nendstream\nendobj\nstartxref\n${xrefAt}\n%%EOF\n`));
       expect(await pdfPageCount(pdf)).toBe(1);
     });
+    it('reads an indirect /Length stored inside an object stream (type 2 cross-reference entry, §7.5.7)', async () => {
+      const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+      // Object stream 5 holds the catalog (1), the page tree (2) and the content stream's length (4).
+      const packed = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [] /Count 1 >>', String(payload.length)];
+      let at = 0;
+      const pairs = [1, 2, 4].map((n, i) => { const pair = `${n} ${at}`; at += packed[i].length + 1; return pair; }).join(' ') + ' ';
+      const objStm = await deflate(pairs + packed.join(' '));
+      let body = '%PDF-1.5\n';
+      const o3 = body.length;
+      body += `3 0 obj\n<< /Length 4 0 R >>\nstream\n${payload}\nendstream\nendobj\n`;
+      const o5 = body.length;
+      const head5 = `5 0 obj\n<< /Type /ObjStm /N 3 /First ${pairs.length} /Filter /FlateDecode /Length ${objStm.length} >>\nstream\n`;
+      const xrefAt = o5 + head5.length + objStm.length + '\nendstream\nendobj\n'.length;
+      // /W [1 4 2]: type, offset or object stream number, generation or index.
+      const rows: [number, number, number][] = [[0, 0, 65535], [2, 5, 0], [2, 5, 1], [1, o3, 0], [2, 5, 2], [1, o5, 0], [1, xrefAt, 0]];
+      const raw = Buffer.alloc(rows.length * 7);
+      rows.forEach(([t, f2, f3], i) => { raw[i * 7] = t; raw.writeUInt32BE(f2, i * 7 + 1); raw.writeUInt16BE(f3, i * 7 + 5); });
+      const xs = await deflate(raw);
+      const pdf = join(enc(body + head5), objStm, enc('\nendstream\nendobj\n'), enc(`6 0 obj\n<< /Type /XRef /Size 7 /W [1 4 2] /Root 1 0 R /Filter /FlateDecode /Length ${xs.length} >>\nstream\n`), xs, enc(`\nendstream\nendobj\nstartxref\n${xrefAt}\n%%EOF\n`));
+      expect(await pdfPageCount(pdf)).toBe(1);
+    });
     it('gives no count when an indirect /Length cannot be resolved, rather than search the data', async () => {
       const { pdfPageCount } = await import('../../worker/sources/pdfpages');
       const objs = objectsWith(true);

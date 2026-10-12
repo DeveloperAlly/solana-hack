@@ -270,17 +270,22 @@ function unpredict(data: Uint8Array, parms: PdfDict | null): Uint8Array | null {
 }
 
 /**
- * The byte offset of each object as the file's cross-reference data gives it (§7.5.4 cross-reference table, §7.5.8
+/** Where the cross-reference data puts an object: at a byte offset, as the index-th object of an object stream, or
+ * nowhere (free). */
+type XrefEntry = { at: number } | { stream: number; index: number } | null;
+
+/**
+ * Where each object is, as the file's cross-reference data gives it (§7.5.4 cross-reference table, §7.5.8
  * cross-reference streams), newest section first, following /Prev through incremental updates (§7.5.6) and /XRefStm
- * in hybrid files (§7.5.8.4). An object whose newest entry is free or in an object stream maps to null. Read from the
+ * in hybrid files (§7.5.8.4). An object whose newest entry is free maps to null. Read from the
  * last startxref (§7.5.5). null when the data cannot be read.
  */
-async function xrefOffsets(text: string, bytes: Uint8Array, budget: Budget): Promise<Map<number, number | null> | null> {
+async function xrefOffsets(text: string, bytes: Uint8Array, budget: Budget): Promise<Map<number, XrefEntry> | null> {
   const sx = text.lastIndexOf('startxref');
   const first = sx < 0 ? null : readWord(text, skipSpace(text, sx + 9));
   if (!first || !nonNegativeInt(first.word)) return null;
-  const offsets = new Map<number, number | null>();
-  const keep = (num: number, at: number | null) => { if (!offsets.has(num)) offsets.set(num, at); };
+  const offsets = new Map<number, XrefEntry>();
+  const keep = (num: number, at: XrefEntry) => { if (!offsets.has(num)) offsets.set(num, at); };
   const queue = [Number(first.word)];
   const seen = new Set<number>();
   while (queue.length) {
@@ -308,7 +313,7 @@ async function xrefOffsets(text: string, bytes: Uint8Array, budget: Budget): Pro
           const gen = off && readWord(text, skipSpace(text, off.end));
           const type = gen && readWord(text, skipSpace(text, gen.end));
           if (!off || !gen || !type || !nonNegativeInt(off.word) || !nonNegativeInt(gen.word) || (type.word !== 'n' && type.word !== 'f')) return null;
-          keep(firstNum + k, type.word === 'n' ? Number(off.word) : null);
+          keep(firstNum + k, type.word === 'n' ? { at: Number(off.word) } : null);
           i = type.end;
         }
       }
@@ -353,9 +358,12 @@ async function xrefOffsets(text: string, bytes: Uint8Array, budget: Budget): Pro
       for (let s2 = 0; s2 < index.length; s2 += 2) {
         for (let k = 0; k < index[s2 + 1]; k++, row++) {
           if ((row + 1) * rowLen > raw.length) return null;
-          // §7.5.8.3 Table 18: type 1 is an object at a byte offset; type 0 free; type 2 in an object stream.
+          // §7.5.8.3 Table 18: type 1 is an object at a byte offset; type 2 is the index-th object of an object stream;
+          // type 0 is free.
           const type = field(row, 0, widths[0], 1);
-          keep(index[s2] + k, type === 1 ? field(row, widths[0], widths[1], 0) : null);
+          const f2 = field(row, widths[0], widths[1], 0);
+          const f3 = field(row, widths[0] + widths[1], widths[2], 0);
+          keep(index[s2] + k, type === 1 ? { at: f2 } : type === 2 ? { stream: f2, index: f3 } : null);
         }
       }
     }
@@ -474,21 +482,68 @@ const plainFlate = (dict: PdfDict) => {
   return (flate(f) || (f?.kind === 'array' && f.items.length === 1 && flate(f.items[0]))) && !dict.has('DecodeParms');
 };
 
+/**
+ * An object stored in an object stream (§7.5.7): its header is N pairs of integers, each an object number and that
+ * object's offset from /First. The object is found by number, or by its position in the header (`index`, from a type-2
+ * cross-reference entry), and must carry that number. Only as much is inflated as needed, within the budget.
+ * Returns undefined when the stream does not hold it, null when the stream cannot be read.
+ */
+async function readPacked(raw: Uint8Array, dict: PdfDict, num: number, index: number | null, budget: Budget): Promise<PdfValue | null | undefined> {
+  const n = int(dict, 'N');
+  const first = int(dict, 'First');
+  if (n === null || first === null) return undefined;
+  const head = await inflatePrefix(raw, first, budget);
+  if (head === null) return null;
+  let offset: number | null = null;
+  let at = 0;
+  for (let k = 0; k < n; k++) {
+    const objNum = parseObject(head, at);
+    const objOff = objNum && parseObject(head, objNum.end);
+    if (!objNum || !objOff || objNum.value.kind !== 'number' || objOff.value.kind !== 'number') break;
+    if (index === null ? objNum.value.value === num : k === index) {
+      if (objNum.value.value !== num) return undefined;
+      offset = objOff.value.value;
+      if (index !== null) break;
+    }
+    at = objOff.end;
+  }
+  if (offset === null || !Number.isInteger(offset) || offset < 0) return undefined;
+  const body = await inflatePrefix(raw, first + offset + OBJECT_SPAN, budget);
+  if (body === null) return null;
+  return parseObject(body, first + offset)?.value ?? null;
+}
+
 export async function pdfPageCount(bytes: Uint8Array): Promise<number | null> {
   const text = bytesToText(bytes);
   const budget: Budget = { left: MAX_INFLATE };
   // An indirect /Length is read where the cross-reference data says its object is (§7.3.8.2, §7.5.4, §7.5.8): the
   // object at that offset must be "N G obj" for that number, holding a non-negative integer. Read once, on first need.
-  let xref: Promise<Map<number, number | null> | null> | null = null;
-  const lengthOf = async (num: number): Promise<number | null> => {
+  let xref: Promise<Map<number, XrefEntry> | null> | null = null;
+  // The object `num` as the cross-reference data places it: at a byte offset, or inside an object stream (type 2,
+  // §7.5.7), whose own length is resolved the same way. `depth` stops a chain of streams that refer to each other.
+  const objectAt = async (num: number, depth: number): Promise<PdfValue | null> => {
+    if (depth > 4) return null;
     xref ??= xrefOffsets(text, bytes, budget);
-    const at = (await xref)?.get(num);
-    if (at === undefined || at === null) return null;
-    const head = objectHeader(text, skipSpace(text, at));
-    if (!head || head.num !== num) return null;
-    const v = parseObject(text, head.end);
-    return v && v.value.kind === 'number' && Number.isInteger(v.value.value) && v.value.value >= 0 ? v.value.value : null;
+    const entry = (await xref)?.get(num);
+    if (!entry) return null;
+    if ('at' in entry) {
+      const head = objectHeader(text, skipSpace(text, entry.at));
+      return head && head.num === num ? parseObject(text, head.end)?.value ?? null : null;
+    }
+    const container = (await xref)?.get(entry.stream);
+    if (!container || !('at' in container)) return null;
+    const head = objectHeader(text, skipSpace(text, container.at));
+    const found = head && head.num === entry.stream ? dictAt(text, head.end) : null;
+    if (!found || !typeIs(found.dict, 'ObjStm') || !plainFlate(found.dict)) return null;
+    const data = await streamData(text, found.dict, found.end, (n) => lengthAt(n, depth + 1));
+    if (!data) return null;
+    return (await readPacked(bytes.subarray(data.start, data.end), found.dict, num, entry.index, budget)) ?? null;
   };
+  const lengthAt = async (num: number, depth: number): Promise<number | null> => {
+    const v = await objectAt(num, depth);
+    return v && v.kind === 'number' && Number.isInteger(v.value) && v.value >= 0 ? v.value : null;
+  };
+  const lengthOf = (num: number) => lengthAt(num, 0);
   const scanned = await scanFile(text, lengthOf);
   if (!scanned) return null;
   const { objects, trailers } = scanned;
@@ -503,26 +558,9 @@ export async function pdfPageCount(bytes: Uint8Array): Promise<number | null> {
     const top = latest.get(num);
     for (const s of streams) {
       if (top && s.pos < top.pos) break;
-      const n = int(s.dict, 'N');
-      const first = int(s.dict, 'First');
-      if (n === null || first === null) continue;
-      const raw = bytes.subarray(s.data!.start, s.data!.end);
-      const head = await inflatePrefix(raw, first, budget);
-      if (head === null) return null;
-      // §7.5.7: the header is N pairs of integers, the object number and its offset from /First.
-      let offset: number | null = null;
-      let at = 0;
-      for (let k = 0; k < n; k++) {
-        const objNum = parseObject(head, at);
-        const objOff = objNum && parseObject(head, objNum.end);
-        if (!objNum || !objOff || objNum.value.kind !== 'number' || objOff.value.kind !== 'number') break;
-        if (objNum.value.value === num) offset = objOff.value.value;
-        at = objOff.end;
-      }
-      if (offset === null || !Number.isInteger(offset) || offset < 0) continue;
-      const body = await inflatePrefix(raw, first + offset + OBJECT_SPAN, budget);
-      if (body === null) return null;
-      return dictAt(body, first + offset)?.dict ?? null;
+      const v = await readPacked(bytes.subarray(s.data!.start, s.data!.end), s.dict, num, null, budget);
+      if (v === undefined) continue;
+      return v?.kind === 'dict' ? v.entries : null;
     }
     return top?.dict ?? null;
   };

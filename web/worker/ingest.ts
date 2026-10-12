@@ -57,6 +57,14 @@ export const MAX_LINK_LENGTH = 2048;
 export const MAX_TITLE = 200;
 /** At most this many redirects are followed, the same bound the Fetch standard sets: https://fetch.spec.whatwg.org/#http-redirect-fetch */
 export const MAX_REDIRECTS = 20;
+/**
+ * The statuses that are redirects, and only these: 301, 302, 303, 307 and 308 (Fetch standard "redirect status":
+ * https://fetch.spec.whatwg.org/#redirect-status). Any other 3xx (300, 304, 305, 306) is a final response, whatever
+ * Location it carries (PR #71 review).
+ */
+export const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
+/** The Location a redirect points to, or null when the response is not a redirect or names none. */
+export const redirectLocation = (res: Response): string | null => (REDIRECT_STATUSES.has(res.status) ? res.headers.get('location') : null);
 /** A check run on every address before it is fetched, the first one included; false means do not fetch it. */
 export type FetchGate = (url: URL) => Promise<boolean>;
 
@@ -142,7 +150,7 @@ export async function fetchPage(url: URL, gate?: FetchGate, session?: HopSession
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     if (!(await gate(current))) throw new HttpError(403, 'the link leads to an address its robots.txt does not let us read');
     const res = session ? await session.hop(current) : await fetchHop(current);
-    const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+    const location = redirectLocation(res);
     if (!location) return { res, url: current };
     await res.body?.cancel().catch(() => undefined);
     let next: URL;
@@ -231,34 +239,124 @@ export const NOT_READ = ['svg', 'nav', 'footer'];
 /** Elements whose closing ends a line of text. */
 const LINE_ENDS = new Set(['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'section', 'article']);
 
-/** True when an inline style's last display declaration is none (CSS cascade: the later declaration wins). */
-function styledNone(style: string): boolean {
-  let none = false;
-  for (const decl of style.split(';')) {
+/**
+ * True when a declaration block hides its element: its last display declaration is none, or its last visibility
+ * declaration is hidden or collapse (CSS cascade within one block: the later declaration wins). Hiding on visibility
+ * alone is the cautious side for this reader: text it cannot be sure is shown does not count as shown.
+ */
+function hidesElement(declarations: string): boolean {
+  let display = false;
+  let visibility = false;
+  for (const decl of declarations.split(';')) {
     const i = decl.indexOf(':');
-    if (i === -1 || decl.slice(0, i).trim().toLowerCase() !== 'display') continue;
-    none = decl.slice(i + 1).replace(/!\s*important\s*$/i, '').trim().toLowerCase() === 'none';
+    if (i === -1) continue;
+    const prop = decl.slice(0, i).trim().toLowerCase();
+    const value = decl.slice(i + 1).replace(/!\s*important\s*$/i, '').trim().toLowerCase();
+    if (prop === 'display') display = value === 'none';
+    else if (prop === 'visibility') visibility = value === 'hidden' || value === 'collapse';
   }
-  return none;
+  return display || visibility;
 }
+
+/** A compound selector of a tag, classes and an id, all optional but not all absent. */
+interface SimpleSelector { tag: string | null; classes: string[]; id: string | null }
+const SIMPLE = /^([a-z][a-z0-9-]*)?((?:[.#][a-z_-][\w-]*)*)$/i;
+const LEADING_SPACE = /\s*/y;
+
+/**
+ * The selectors that a page's own style sheet text hides, from its top-level rules only: a rule inside an at-rule
+ * (@media print, @supports and the like) applies only sometimes, and a selector with combinators, attributes or
+ * pseudo-classes cannot be matched without a full style engine, so both are left alone (PR #71 review).
+ */
+export function hidingSelectors(css: string): SimpleSelector[] {
+  const out: SimpleSelector[] = [];
+  const src = css.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  let i = 0;
+  while (i < src.length) {
+    const open = src.indexOf('{', i);
+    // An at-rule without a block ("@import ...;") ends at its semicolon.
+    LEADING_SPACE.lastIndex = i;
+    LEADING_SPACE.exec(src);
+    if (src[LEADING_SPACE.lastIndex] === '@') {
+      // Searched only up to the next block, so the walk stays linear in the size of the style sheet.
+      let semi = -1;
+      for (let k = i, stop = open === -1 ? src.length : open; k < stop; k++) if (src[k] === ';') { semi = k; break; }
+      if (semi !== -1) { i = semi + 1; continue; }
+    }
+    if (open === -1) break;
+    const prelude = src.slice(i, open).trim();
+    // The block, with any nested blocks inside it.
+    let depth = 1;
+    let j = open + 1;
+    for (; j < src.length && depth > 0; j++) { if (src[j] === '{') depth++; else if (src[j] === '}') depth--; }
+    const block = src.slice(open + 1, j - 1);
+    i = j;
+    if (prelude.startsWith('@') || block.includes('{') || !hidesElement(block)) continue;
+    for (const sel of prelude.split(',')) {
+      const m = SIMPLE.exec(sel.trim());
+      if (!m || (!m[1] && !m[2])) continue;
+      const parts = m[2].match(/[.#][^.#]+/g) ?? [];
+      const ids = parts.filter((x) => x[0] === '#').map((x) => x.slice(1));
+      if (ids.length > 1) continue;
+      out.push({ tag: m[1] ? m[1].toLowerCase() : null, classes: parts.filter((x) => x[0] === '.').map((x) => x.slice(1)), id: ids[0] ?? null });
+    }
+  }
+  return out;
+}
+
+const matches = (sel: SimpleSelector, name: string, attribs: Record<string, string>) => {
+  if (sel.tag && sel.tag !== name) return false;
+  if (sel.id && attribs.id !== sel.id) return false;
+  if (!sel.classes.length) return true;
+  const classes = (attribs.class ?? '').split(/\s+/);
+  return sel.classes.every((c) => classes.includes(c));
+};
 
 /**
  * True when an element and everything in it is not shown: a hidden element (above), one of this reader's left-out
  * elements, an element with the hidden attribute (except hidden="until-found", which a reader can find), a dialog that
- * is not open (both in §15.3.1 above), or an inline style of display: none.
+ * is not open (both in §15.3.1 above), an inline style that hides it, or a rule in the page's own style sheets that
+ * hides it (hidingSelectors).
  */
-function notText(name: string, attribs: Record<string, string>): boolean {
+function notText(name: string, attribs: Record<string, string>, hiders: SimpleSelector[]): boolean {
   if (NOT_SHOWN.has(name) || NOT_READ.includes(name)) return true;
   if ('hidden' in attribs && attribs.hidden.trim().toLowerCase() !== 'until-found') return true;
   if (name === 'dialog' && !('open' in attribs)) return true;
-  return typeof attribs.style === 'string' && styledNone(attribs.style);
+  if (typeof attribs.style === 'string' && hidesElement(attribs.style)) return true;
+  return hiders.some((sel) => matches(sel, name, attribs));
+}
+
+/**
+ * The text of the page's own style elements that apply on screen: not inside a template (inert) and with no media
+ * attribute, or one that includes screen or all. External style sheets are not fetched.
+ */
+function inlineStyles(html: string): string {
+  let css = '';
+  let template = 0;
+  let inStyle = false;
+  const parser = new Parser({
+    onopentag(name, attribs) {
+      if (name === 'template') template++;
+      const media = (attribs.media ?? '').trim().toLowerCase();
+      if (name === 'style' && !template && (!media || /\b(screen|all)\b/.test(media))) inStyle = true;
+    },
+    ontext(t) { if (inStyle) css += t; },
+    onclosetag(name) {
+      if (name === 'template' && template > 0) template--;
+      if (name === 'style' && inStyle) { inStyle = false; css += '\n'; }
+    },
+  });
+  parser.write(html);
+  parser.end();
+  return css;
 }
 
 /**
  * An HTML page's title and readable text, read with a real HTML tokenizer (htmlparser2), so nested elements, entities
  * (decoded once: "&amp;lt;" is the text "&lt;") and the raw text of script, style and iframe are handled as a browser
  * does. Content a browser does not show (`notText`) is left out with everything inside it, so a script-only page whose
- * only text sits in a template or a hidden element is seen as having almost no text, and is rendered (PR #71 review).
+ * only text sits in a template, a hidden element or one its own inline style sheet hides is seen as having almost no
+ * text, and is rendered (PR #71 review).
  * The title is the first title element that is not inside such content (an svg icon's title is not the page's).
  */
 export function pageText(html: string): { title: string; text: string } {
@@ -268,10 +366,11 @@ export function pageText(html: string): { title: string; text: string } {
   // implied close for void and unclosed elements).
   let hidden = 0;
   let text = '';
+  const hiders = hidingSelectors(inlineStyles(html));
   const parser = new Parser({
     onopentag(name, attribs) {
       if (hidden) { hidden++; return; }
-      if (notText(name, attribs)) {
+      if (notText(name, attribs, hiders)) {
         hidden = 1;
         if (name === 'title' && title === null) { title = ''; inTitle = true; }
         return;

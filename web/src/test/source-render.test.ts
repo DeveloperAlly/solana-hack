@@ -368,6 +368,8 @@ describe('renderer: bounded reads (PR #71 review)', () => {
 
 describe('site adapter: a shell whose only text is not shown is rendered (PR #71 review)', () => {
   const cases: [string, string][] = [
+    ['a class its own style sheet hides', `<style>body { color: black } .bootstrap { display: none }</style><div class="bootstrap"><p>${'Placeholder text the app replaces once it loads. '.repeat(3)}</p></div>`],
+    ['an id its own style sheet hides from view', `<style>#boot.splash, .other { color: red; visibility: hidden }</style><div id="boot" class="splash"><p>${'Splash text shown only until the app is ready. '.repeat(3)}</p></div>`],
     ['a template', `<template><p>${'Hidden template text for a later render. '.repeat(3)}</p></template>`],
     ['a nested template', `<template><template>x</template><p>${'Text after an inner template. '.repeat(3)}</p></template>`],
     ['an element with the hidden attribute', `<div hidden><p>${'Text kept for later in a hidden block. '.repeat(3)}</p></div>`],
@@ -531,5 +533,15 @@ describe('renderer: what comes back from the browser is capped inside it (PR #71
     let chars = 0;
     await readSite({}, 'https://a.test/', { website: 'a.test', subpages: 0, maxCharacters: 1234 }, (g, max, session, c) => { chars = c; return createRenderer(fakeBrowser().launch, g, max, session, c); });
     expect(chars).toBe(1234);
+  });
+});
+
+describe('renderer: only the redirect statuses are redirects (PR #71 review)', () => {
+  it('serves a 300 with a Location as the final response, refused as an error, never followed', async () => {
+    network({ 'https://a.test/': { status: 300, headers: { 'content-type': 'text/html', location: 'https://a.test/other' }, body: '<p>Choose one.</p>' }, 'https://a.test/other': { body: APP } });
+    const b = fakeBrowser();
+    expect(await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/'))).toBeNull();
+    expect(b.outcomes.map((o) => [o.url, o.how])).toEqual([['https://a.test/', 'abort']]);
+    expect(fetched).not.toContain('https://a.test/other');
   });
 });
