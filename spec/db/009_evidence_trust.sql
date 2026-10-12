@@ -18,7 +18,7 @@ alter table public.sources alter column kind set default 'page';
 -- Backfill, conservatively: the old "link to a page about you" input accepted any page, so an existing 'source' fact
 -- may come from a site the brand does not control. It becomes third-party and proposed, for the owner to approve
 -- (PR #63 review). Owner answers keep their standing; anything else is an assumption. On 2026-10-12 the live database
--- held no source facts, so nothing approved is demoted there.
+-- held no source facts, so nothing approved is demoted there (https://github.com/DeveloperAlly/solana-hack/issues/57#issuecomment-6122865718).
 update public.evidence set trust = case origin when 'source' then 'third_party' when 'owner_answer' then 'owner_answer' else 'assumption' end where trust is null;
 update public.evidence set review_status = case when trust = 'third_party' then 'proposed' else 'approved' end where review_status is null;
 

@@ -32,7 +32,7 @@ tags: [adr, evidence, trust, claims]
    - **Live evidence rows.** Migration 009 ([`spec/db/009_evidence_trust.sql`](../../../spec/db/009_evidence_trust.sql)) backfills `source` as `third_party` and `proposed`, `owner_answer` as `owner_answer` and `approved`, and anything else as `assumption`. A trigger applies the same mapping to rows an older Worker inserts during rollout.
    - **Live source rows.** `sources.kind` defaults to `page` (third-party). The current Worker always writes the kind it classified.
    - **Kit snapshots registered before 009.** `snapshotFact` in [`registry.ts`](../../../web/worker/sources/registry.ts) reads a legacy `source` entry as `third_party` and `proposed`, so it cannot back a post; the brand registers a new kit to use it. A legacy `owner_answer` entry stays usable.
-   - On 2026-10-12 the live database held no sources, kits or posts (checked by query before applying 009), so no existing fact or post changes standing.
+   - On 2026-10-12 the live database held no sources, evidence, kits or posts ([query and result on issue #57](https://github.com/DeveloperAlly/solana-hack/issues/57#issuecomment-6122865718)), so no existing fact or post changes standing.
 
 ## Consequences
 - A third-party fact can reach a registered kit or support a post only after the owner approves it.

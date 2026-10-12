@@ -61,7 +61,8 @@ export const USABLE_FILTER = `review_status=eq.approved&trust=in.(${USABLE_TRUST
  * and the old ingest accepted any page, so a legacy `source` fact cannot be shown to come from the brand's own site.
  * It is read exactly as migration 009 backfills live rows: source -> third_party and proposed, so it never backs a
  * post until the brand registers a new, classified kit (PR #63 review). owner_answer stays owner_answer and approved;
- * an assumption, or an unknown origin, stays out. On 2026-10-12 the live database held no kits, so no post is affected.
+ * an assumption, or an unknown origin, stays out. On 2026-10-12 the live database held no kits, so no post is affected:
+ * https://github.com/DeveloperAlly/solana-hack/issues/57#issuecomment-6122865718
  */
 export function snapshotFact<T extends { origin?: string; trust?: string | null; review_status?: string | null }>(e: T): T & { trust: string | null; review_status: string | null } {
   if (e.trust) return { ...e, trust: e.trust, review_status: e.review_status ?? null };
