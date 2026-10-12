@@ -20,8 +20,8 @@
 .links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-1); margin: 0; padding: 0; list-style: none; }
 .link { display: inline-flex; align-items: center; gap: var(--wl-space-2); min-height: var(--wl-control-target-min); padding: 0 var(--wl-space-3); border-radius: var(--wl-radius-control); color: var(--wl-text-primary); text-decoration: none; }
 .link:hover { background: var(--wl-bg-subtle); }
-.link[aria-current='page'], .tab[aria-current='page'] { font-weight: var(--wl-font-weight-semibold); text-decoration: underline; text-underline-offset: var(--wl-space-1); }
-.link:focus-visible, .tab:focus-visible, .logo:focus-visible, .back:focus-visible { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); outline-offset: var(--wl-border-width-focus); }
+.link[aria-current='page'] { font-weight: var(--wl-font-weight-semibold); text-decoration: underline; text-underline-offset: var(--wl-space-1); }
+.link:focus-visible, .logo:focus-visible, .back:focus-visible { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); outline-offset: var(--wl-border-width-focus); }
 
 .subnav { padding: 0 var(--wl-layout-page-padX); }
 .app .subnav { max-width: var(--wl-layout-width-app); margin-inline: auto; }
@@ -33,7 +33,5 @@
 .phone .pad-page { display: flex; flex-direction: column; gap: var(--wl-space-4); padding: var(--wl-space-4); }
 
 .bottom { position: sticky; bottom: 0; z-index: var(--wl-z-sticky); display: flex; flex-direction: column; background: var(--wl-bg-canvas); }
+/* The tab bar under the footer is L4 MobileTabBar (layouts/MobileTabBar.module.css). */
 .footer { display: flex; flex-direction: column; gap: var(--wl-space-2); padding: var(--wl-space-3) var(--wl-space-4); border-top: var(--wl-border-width-default) solid var(--wl-border-nav); background: var(--wl-bg-canvas); }
-.tabbar { border-top: var(--wl-border-width-default) solid var(--wl-border-nav); background: var(--wl-bg-canvas); }
-.tabs { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; margin: 0; padding: 0; list-style: none; text-align: center; font-size: var(--wl-font-size-xs); }
-.tab { display: flex; align-items: center; justify-content: center; min-height: var(--wl-control-target-min); padding: var(--wl-space-3) 0; color: var(--wl-text-primary); text-decoration: none; }

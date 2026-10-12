@@ -1,0 +1,5 @@
+.bar { border-top: var(--wl-border-width-default) solid var(--wl-border-nav); background: var(--wl-bg-canvas); }
+.tabs { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; margin: 0; padding: 0; list-style: none; text-align: center; font-size: var(--wl-font-size-xs); }
+.tab { display: flex; align-items: center; justify-content: center; min-height: var(--wl-control-target-min); padding: var(--wl-space-3) 0; color: var(--wl-text-primary); text-decoration: none; }
+.tab[aria-current='page'] { font-weight: var(--wl-font-weight-semibold); text-decoration: underline; text-underline-offset: var(--wl-space-1); }
+.tab:focus-visible { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); outline-offset: calc(-1 * var(--wl-border-width-focus)); }

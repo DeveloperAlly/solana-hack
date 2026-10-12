@@ -1,0 +1,3 @@
+/* One row that scrolls sideways when the tabs outgrow the screen; TabNav's list wraps by default. */
+.scroller { overflow-x: auto; }
+.scroller > nav > ul { flex-wrap: nowrap; white-space: nowrap; border-bottom: 0; }
