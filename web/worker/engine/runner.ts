@@ -210,7 +210,9 @@ async function attempt(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepConte
         const d = decodeError(err);
         if (d.kind === 'superseded') throw err;
         const waiting = d.kind === 'rate' ? "Waiting for the AI model's rate limit before trying again." : null;
-        await record(env, ctx.run.id, { step: traceId, attempt: sctx.attempt, type: inner.type, outcome: 'error', duration_ms: Date.now() - t0, error: d.message.slice(0, 300) }, { progress: progressAt(spec, i, 'running', waiting) }).catch(() => undefined);
+        // A call made before the failure (a refused model reply) keeps its model, tokens and cost on the record (steps.ts withTrace).
+        const made = (e as { trace?: Partial<StepTrace> } | null)?.trace ?? {};
+        await record(env, ctx.run.id, { ...made, step: traceId, attempt: sctx.attempt, type: inner.type, outcome: 'error', duration_ms: Date.now() - t0, error: d.message.slice(0, 300) }, { progress: progressAt(spec, i, 'running', waiting) }).catch(() => undefined);
         throw err;
       }
     });

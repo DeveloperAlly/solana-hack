@@ -1,5 +1,5 @@
 import { Parser } from 'htmlparser2';
-import { CookieJar } from 'tough-cookie';
+import { Cookie, CookieJar } from 'tough-cookie';
 import { HttpError } from './env';
 
 /**
@@ -78,7 +78,12 @@ export async function fetchHop(url: URL, headers: Record<string, string> = {}): 
 export interface HopSession {
   hop(url: URL, headers?: Record<string, string>): Promise<Response>;
   readonly left: number;
+  /** The cookies the session would send to this address, in the shape a browser takes them (Puppeteer CookieParam). */
+  cookies(url: URL): Promise<SessionCookie[]>;
+  /** Cookies a browser holds for this address, kept so the session's next request to it sends them. */
+  remember(url: URL, cookies: SessionCookie[]): Promise<void>;
 }
+export interface SessionCookie { name: string; value: string; domain?: string; path?: string; secure?: boolean; httpOnly?: boolean }
 
 export function hopSession(maxRequests: number): HopSession {
   const jar = new CookieJar();
@@ -86,6 +91,19 @@ export function hopSession(maxRequests: number): HopSession {
   return {
     get left() {
       return left;
+    },
+    async cookies(url) {
+      const all = await jar.getCookies(url.toString()).catch(() => [] as Cookie[]);
+      // A host-only cookie is given without a domain, so whoever takes it scopes it to the address (RFC 6265 §5.3 step 6).
+      return all.map((c) => ({ name: c.key, value: c.value, path: c.path ?? '/', secure: c.secure, httpOnly: c.httpOnly, ...(c.hostOnly || !c.domain ? {} : { domain: c.domain }) }));
+    },
+    async remember(url, cookies) {
+      for (const c of cookies) {
+        // A leading dot marks a cookie for the domain and its subdomains; anything else is kept for this host only.
+        const domain = c.domain?.startsWith('.') ? c.domain.slice(1) : undefined;
+        const cookie = new Cookie({ key: c.name, value: c.value, path: c.path || '/', secure: !!c.secure, httpOnly: !!c.httpOnly, ...(domain ? { domain, hostOnly: false } : {}) });
+        await jar.setCookie(cookie, url.toString(), { ignoreError: true }).catch(() => undefined);
+      }
     },
     async hop(url, headers = {}) {
       if (left <= 0) throw new HttpError(429, 'this read reached its request limit');

@@ -31,7 +31,9 @@ export interface EvidenceRow {
   page_url?: string | null;
   page_title?: string | null;
 }
-export interface SourceRow { id: string; url: string | null; title: string | null }
+/** A sources row; url may be empty or null for a source with no link (pasted text, an upload, a search), which is then
+ * labelled by its title or name. */
+export interface SourceRow { id: string; url: string | null; title: string | null; name?: string | null }
 export interface ConflictRow { id: string; slot: string; evidence_ids: string[]; question: string; status: string }
 /** An open conflict as the journey shows it: one question, and every side with its own quote and page. */
 export interface ConflictView { question: FactView; sides: FactView[] }
@@ -81,7 +83,7 @@ export function factView(e: EvidenceRow, sources: Map<string, SourceRow>, confli
   if (e.review_status === 'rejected') return null;
   const answer = e.trust === 'owner_answer';
   const src = e.source_id ? sources.get(e.source_id) : undefined;
-  const source = answer ? undefined : sourceLabel(e.page_url ?? src?.url, e.page_title ?? src?.title);
+  const source = answer ? undefined : sourceLabel(e.page_url ?? src?.url, e.page_title ?? src?.title ?? src?.name);
   const status: FactStatus = conflicted.has(e.id) ? 'needs-you' : answer || e.match === 'exact' ? 'found' : 'partly';
   let note: string | undefined;
   if (status === 'needs-you') note = 'Another source says something different. You choose which is right.';

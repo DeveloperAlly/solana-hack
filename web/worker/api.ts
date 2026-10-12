@@ -310,6 +310,9 @@ export async function reviewEvidence(env: Env, brand: Brand, id: string, decisio
   return { evidence: updated, stale: sections.filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };
 }
 
+/** The run starter as the engine's start checks see it (engine/guards.ts): the user, with their IP for per-IP caps. */
+const caller = (req: Request, user: { id: string; isAnonymous?: boolean }) => ({ ...user, ip: req.headers.get('cf-connecting-ip') });
+
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
 export async function publicLimit(req: Request, env: Env, scope: string) {
   if (!env.PUBLIC_LIMITER) return;
@@ -369,7 +372,7 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
   // POST /api/brands/:id/runs {kind, ...input} -> 202 {run}
   if (p[3] === 'runs' && p.length === 4 && m === 'POST') {
     const b = await body(req);
-    return json({ run: await startRun(env, ctx, user, brand, str(b.kind, 60), b) }, 202);
+    return json({ run: await startRun(env, ctx, caller(req, user), brand, str(b.kind, 60), b) }, 202);
   }
   if (p.length === 3 && m === 'PATCH') {
     const b = await body(req);
@@ -408,10 +411,10 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
   }
   if (p[3] === 'sources' && p.length === 4 && m === 'POST') {
     const b = await body(req);
-    const u = str(b.url, 500);
-    if (!u) throw new HttpError(400, 'a link is required');
-    // Runs as the ingest_url workflow (engine/seed.ts); same quote check and the same 201 body when it finishes in time.
-    const r = await ingestSource(env, ctx, user, brand, { url: u });
+    // Runs as the extract_facts workflow (engine/api.ts SOURCE_RUN_KIND): chunked extraction, the quote check and a
+    // separate support check; the same 201 body when it finishes in time, else 409 "still reading".
+    // The link is checked by the site reader (engine/readers.ts READER_INPUTS), never cut: a cut link is another page.
+    const r = await ingestSource(env, ctx, caller(req, user), brand, { url: b.url });
     return json(r.body, r.status);
   }
   if (p[3] === 'sections' && p[4] && isSection(p[4])) {

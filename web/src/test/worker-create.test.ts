@@ -227,6 +227,15 @@ describe('draft_post on the engine (T1, T1b): best of 3, every candidate and ver
     expect(db.tables.post_candidates).toHaveLength(0);
   });
 
+  it('counts against the brand\'s daily model-call budget: 6 planned calls, refused before any row when they do not fit', async () => {
+    const { plannedModelCalls } = await import('../../worker/engine/guards');
+    expect(plannedModelCalls(DRAFT_POST)).toBe(6);
+    db.tables.engine_config.push({ key: 'model_call_budget', value: { permanent: 5 } });
+    const r = await draft();
+    expect(r.status).toBe(429);
+    expect([db.tables.runs.length, db.tables.posts.length]).toEqual([0, 1]);
+  });
+
   it('refuses before writing any row on a database without migration 013, or without a registered kit', async () => {
     db.tables.workflow_defs = db.tables.workflow_defs.filter((d) => d.id !== 'draft_post');
     let r = await draft();
@@ -635,8 +644,8 @@ describe('definitions are data (spec/db/013)', () => {
     expect(sql).toContain(`reason in (${REJECT_REASONS.map((r) => `'${r}'`).join(',')})`);
   });
 
-  it('migration 015 holds the two transactional writes the Worker calls, each for the service role only', () => {
-    const tx = readFileSync(resolvePath(ROOT, 'spec/db/015_post_transactions.sql'), 'utf8');
+  it('migration 013 holds the two transactional writes the Worker calls, each for the service role only', () => {
+    const tx = readFileSync(resolvePath(ROOT, 'spec/db/013_create_intelligence.sql'), 'utf8');
     for (const fn of ['save_draft(jsonb, jsonb)', 'change_post_with_decision(uuid, int, text[], jsonb, jsonb)']) {
       expect(tx).toContain(`create or replace function public.${fn.split('(')[0]}(`);
       expect(tx).toContain(`grant execute on function public.${fn} to service_role;`);

@@ -101,6 +101,12 @@ export const CODE: Record<string, (args: Record<string, unknown>) => unknown> = 
 /** Database reads a 'read' step can name. A read changes nothing, so a retried or replayed step is harmless. */
 export const READS: Record<string, (ctx: StepContext, args: Record<string, unknown>) => Promise<unknown>> = { ...CREATE_READS };
 
+/** Attaches the trace of a call that was made to the error that refused its result (engine/runner.ts records it). */
+export function withTrace(e: unknown, trace: Partial<StepTrace>): unknown {
+  if (e && typeof e === 'object') (e as { trace?: Partial<StepTrace> }).trace = trace;
+  return e;
+}
+
 /** Database writes a 'write' step (or onFailure) can name. Each is idempotent, because a step may run more than once. */
 export const WRITES: Record<string, (ctx: StepContext, args: Record<string, unknown>) => Promise<unknown>> = {
   /**
@@ -140,7 +146,13 @@ export async function runStep(spec: Exclude<StepSpec, { type: 'map' }>, ctx: Ste
     case 'fetch': {
       if (spec.reader !== undefined) {
         const reader = asText(resolve(spec.reader, state));
-        return { output: await readSource(ctx.env, reader, resolveAll(spec.args, state), spec.maxChars, spec.maxBytes), trace: {} };
+        // args: one reference to the run's checked reader arguments (engine/readers.ts READER_INPUTS), or a map of references.
+        const args = typeof spec.args === 'string' ? resolve(spec.args, state) : resolveAll(spec.args, state);
+        if (!args || typeof args !== 'object' || Array.isArray(args)) throw new HttpError(500, 'source step args must resolve to an object');
+        const out = await readSource(ctx.env, reader, args as Record<string, unknown>, spec.maxChars, spec.maxBytes);
+        // Metering: the adapter's own estimate of what the read cost (sources/types.ts SourceMeta.cost; 0 when only free
+        // services were used), so a brand's cost is a sum over its runs' steps.
+        return { output: out, trace: { cost_usd: out.meta.cost } };
       }
       const page = await readPage(asText(resolve(spec.url, state)));
       const text = capText(page.text, spec.maxChars, spec.maxBytes);
@@ -155,23 +167,30 @@ export async function runStep(spec: Exclude<StepSpec, { type: 'map' }>, ctx: Ste
       // Token counts are recorded when OpenRouter reports usage, null otherwise; never guessed.
       const task = state.models?.[spec.prompt];
       const r = await chat(ctx.env, system, user, { ...(schema ? { schema } : {}), ...(task ? { models: task } : {}) });
-      const trace = { prompt_key: p.key, prompt_version: p.version, prompt_hash: p.hash, model: r.model || null, tokens_in: r.usage?.promptTokens ?? null, tokens_out: r.usage?.completionTokens ?? null };
-      // A configured task uses only a reply from one of its own models, so the family rule (models.ts) holds for the
-      // model that actually answered. Anything else is refused (5xx, so the step is retried) and recorded as such.
-      if (task && !task.some((m) => sameModel(m, r.model))) {
-        console.error('llm reply from an unlisted model', { task: spec.prompt, model: r.model });
-        throw new HttpError(502, `the reply came from ${r.model || 'an unnamed model'}, which is not configured for ${spec.prompt}`);
+      // Cost is OpenRouter's usage.cost in credits (US dollars; 0 for free models) when it reports one, else null
+      // (https://openrouter.ai/docs/guides/guides/usage-accounting).
+      const trace = { prompt_key: p.key, prompt_version: p.version, prompt_hash: p.hash, model: r.model || null, tokens_in: r.usage?.promptTokens ?? null, tokens_out: r.usage?.completionTokens ?? null, cost_usd: r.usage?.cost ?? null };
+      // A reply that is then refused was still made: its trace (model, tokens, cost) goes on the error record too.
+      try {
+        // A configured task uses only a reply from one of its own models, so the family rule (models.ts) holds for the
+        // model that actually answered. Anything else is refused (5xx, so the step is retried) and recorded as such.
+        if (task && !task.some((m) => sameModel(m, r.model))) {
+          console.error('llm reply from an unlisted model', { task: spec.prompt, model: r.model });
+          throw new HttpError(502, `the reply came from ${r.model || 'an unnamed model'}, which is not configured for ${spec.prompt}`);
+        }
+        if (!schema) return { output: spec.json ? parseJson<unknown>(r.text) : { text: r.text }, trace };
+        // A schema-bound reply is used only if it conforms in full; otherwise the step fails (5xx, so it is retried) and
+        // nothing from that reply is kept. The log names the schema and the path that failed, never the content.
+        const value = parseJson<unknown>(r.text);
+        const bad = schemaError(schema.schema, value) ?? schema.limits?.(value) ?? null;
+        if (bad) {
+          console.error('llm reply off schema', { schema: schema.name, at: bad.split(':')[0], model: r.model });
+          throw new HttpError(502, 'the AI model reply did not match the expected format, trying again');
+        }
+        return { output: value, trace };
+      } catch (e) {
+        throw withTrace(e, trace);
       }
-      if (!schema) return { output: spec.json ? parseJson<unknown>(r.text) : { text: r.text }, trace };
-      // A schema-bound reply is used only if it conforms in full; otherwise the step fails (5xx, so it is retried) and
-      // nothing from that reply is kept. The log names the schema and the path that failed, never the content.
-      const value = parseJson<unknown>(r.text);
-      const bad = schemaError(schema.schema, value) ?? schema.limits?.(value) ?? null;
-      if (bad) {
-        console.error('llm reply off schema', { schema: schema.name, at: bad.split(':')[0], model: r.model });
-        throw new HttpError(502, 'the AI model reply did not match the expected format, trying again');
-      }
-      return { output: value, trace };
     }
     case 'code': {
       const fn = CODE[spec.fn];

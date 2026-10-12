@@ -78,6 +78,8 @@ export function taskModelsError(models: TaskModels): string | null {
     if (!(judge in models)) continue;
     const gen = models[generator];
     if (!gen) return `${judge}: judges ${generator}, which has no models configured`;
+    const families = new Set([...gen, ...models[judge]].flatMap((m) => [...modelFamilies(m)]));
+    if (families.size < 2) return `${judge} and ${generator} need models from at least two model families; only ${[...families].join(', ') || 'none'} is configured`;
     for (const j of models[judge]) {
       const g = gen.find((x) => !differentFamily(j, x));
       if (g) return `${judge}: ${j} shares a model family with ${g}, which ${generator} uses`;

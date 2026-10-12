@@ -43,7 +43,7 @@ function fakeDb(url: string, init: RequestInit = {}) {
   const q = u.searchParams;
   const method = init.method ?? 'GET';
   const body = init.body ? JSON.parse(String(init.body)) : undefined;
-  // spec/db/015 change_post_with_decision: the post change (compare-and-swap) and its decision row together.
+  // spec/db/013 change_post_with_decision: the post change (compare-and-swap) and its decision row together.
   if (u.pathname.endsWith('/rpc/change_post_with_decision')) {
     const post = (tables.posts ?? []).find((p) => p.id === body.p_post && Number(p.rev ?? 0) === body.p_rev && body.p_statuses.includes(p.status));
     if (!post) return [];

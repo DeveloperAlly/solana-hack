@@ -4,7 +4,7 @@
 import type { Env } from '../../worker/env';
 import { sha256Hex } from '../../worker/env';
 import type { StepApi } from '../../worker/engine/runner';
-import { ALL_SEED_CONFIG, SEED_DEFS, SEED_PROMPTS } from '../../worker/engine/seed';
+import { ALL_SEED_CONFIG, RETIRED_BY, SEED_DEFS, SEED_PROMPTS } from '../../worker/engine/seed';
 
 export type Row = Record<string, unknown>;
 /** Brand ids are UUIDs (api.ts ownBrand). */
@@ -18,6 +18,8 @@ function matches(row: Row, q: URLSearchParams) {
     if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(k)) continue;
     if (v.startsWith('eq.') && String(row[k]) !== v.slice(3)) return false;
     if (v.startsWith('in.(') && !v.slice(4, -1).split(',').includes(String(row[k]))) return false;
+    // ISO timestamps compare in order as strings, as PostgREST's gte does on timestamptz for these values.
+    if (v.startsWith('gte.') && !(String(row[k] ?? '') >= v.slice(4))) return false;
   }
   return true;
 }
@@ -44,7 +46,7 @@ function recordFactConflict({ p_brand, p_slot, p_evidence, p_question }: { p_bra
   return c.id;
 }
 
-/** Same semantics as spec/db/015 save_draft: the post and its candidates, rows already present left alone. */
+/** Same semantics as spec/db/013 save_draft: the post and its candidates, rows already present left alone. */
 function saveDraft({ p_post, p_candidates }: { p_post: Row; p_candidates: Row[] }) {
   const posts = (db.tables.posts ??= []);
   const cands = (db.tables.post_candidates ??= []);
@@ -53,7 +55,7 @@ function saveDraft({ p_post, p_candidates }: { p_post: Row; p_candidates: Row[] 
   return p_post.id;
 }
 
-/** Same semantics as spec/db/015 change_post_with_decision: compare-and-swap on the post, then the decision row. */
+/** Same semantics as spec/db/013 change_post_with_decision: compare-and-swap on the post, then the decision row. */
 function changePostWithDecision({ p_post, p_rev, p_statuses, p_patch, p_decision }: { p_post: string; p_rev: number; p_statuses: string[]; p_patch: Row; p_decision: Row }) {
   const post = (db.tables.posts ??= []).find((p) => p.id === p_post && Number(p.rev ?? 0) === p_rev && p_statuses.includes(String(p.status)));
   if (!post) return [];
@@ -89,20 +91,23 @@ export function fakeDb(url: string, init: RequestInit = {}) {
   return ([] as Row[]).concat(body).flatMap((r) => {
     const prev = conflict && rows.find((x) => conflict.every((c) => x[c] === r[c]));
     if (prev) return ignore ? [] : [Object.assign(prev, r)];
-    const row = { id: uuid(), created_at: new Date().toISOString(), ...r };
+    const row: Row = { id: uuid(), created_at: new Date().toISOString(), ...r };
+    // runs.updated_at defaults to now() (spec/db/010), as record_run_step keeps it current.
+    if (path === 'runs' && !('updated_at' in row)) row.updated_at = row.created_at;
     rows.push(row);
     return row;
   });
 }
 
-/** Fresh tables holding what migration 010 seeds (from seed.ts, which a test checks against the SQL). */
+/** Fresh tables holding what migrations 010 and 011 seed (from seed.ts, which a test checks against the SQL). */
+const retired = new Set(Object.values(RETIRED_BY).flat().map((d) => `${d.id}@${d.version}`));
 export async function seedTables(extra: Record<string, Row[]> = {}) {
   nextId = 0;
   db.calls = [];
   db.tables = {
     brands: [{ id: BRAND, owner_id: 'u', name: 'JamJam', type: 'company' }],
     sources: [], evidence: [], runs: [], run_steps: [], engine_config: ALL_SEED_CONFIG.map((c) => structuredClone(c)), fact_conflicts: [],
-    workflow_defs: SEED_DEFS.map((spec) => ({ id: spec.id, version: spec.version, spec, status: 'active' })),
+    workflow_defs: SEED_DEFS.map((spec) => ({ id: spec.id, version: spec.version, spec, status: retired.has(`${spec.id}@${spec.version}`) ? 'retired' : 'active' })),
     prompt_versions: await Promise.all(SEED_PROMPTS.map(async (p) => ({ ...p, status: 'active', hash: 'sha256:' + (await sha256Hex(p.body)) }))),
     ...extra,
   };

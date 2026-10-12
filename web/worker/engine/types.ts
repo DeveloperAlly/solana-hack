@@ -11,10 +11,11 @@ interface StepBase { id: string; label: string; retries?: RetrySpec; timeout?: s
 export interface FetchStep extends StepBase { type: 'fetch'; reader?: undefined; url: string; maxChars: number; maxBytes: number; excerptChars: number }
 /**
  * Reads a source through a source adapter (issue #33) named in engine/readers.ts READERS, as a 'fetch' step: reader
- * is a name or a reference ($input.reader), args are references passed to the reader. Output: engine/readers.ts
+ * is a name or a reference ($input.reader); args is one reference to an object (the run's checked reader arguments,
+ * $input.args) or a map of references, passed to the reader. Output: engine/readers.ts
  * ReadStepOutput, its text capped at maxChars UTF-16 units and maxBytes UTF-8 bytes, as for FetchStep (issue #64).
  */
-export interface SourceStep extends StepBase { type: 'fetch'; reader: string; args: Record<string, string>; maxChars: number; maxBytes: number }
+export interface SourceStep extends StepBase { type: 'fetch'; reader: string; args: string | Record<string, string>; maxChars: number; maxBytes: number }
 /**
  * One call through the LLM gateway (llm.ts chat) with a versioned prompt (prompt_versions) as the system message.
  * schema names a reply schema in steps.ts SCHEMAS: it is sent as a strict structured output with providers required to
@@ -85,6 +86,9 @@ export interface StepTrace {
   model?: string | null;
   tokens_in?: number | null;
   tokens_out?: number | null;
+  /** What the step's external call cost in US dollars: a reader's meta.cost, or the model call's reported cost (0 for
+   * free models); null when not reported. A brand's cost is the sum over its runs' steps (spec/db/011). */
+  cost_usd?: number | null;
   duration_ms: number;
   error?: string | null;
 }

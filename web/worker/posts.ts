@@ -90,7 +90,7 @@ export async function editPost(env: Env, post: Post, body: string, user?: User) 
 
 export type Decision = { kind: 'edit' | 'approve' | 'reject'; original: string | null; final: string | null; reason?: string | null; note?: string | null };
 /**
- * A post change and its decision-history row in one transaction (spec/db/015 change_post_with_decision; PR #99 review):
+ * A post change and its decision-history row in one transaction (spec/db/013 change_post_with_decision; PR #99 review):
  * the post changes only at the revision read and in an allowed status, as changePost, and the decision is recorded with
  * it or not at all. Decision history (architecture §6.2 "Collect from day one"; §2a.2): every edit as original and
  * final, every approval with the text first drafted and the text approved (so "approved without edit" is measurable,

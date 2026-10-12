@@ -106,6 +106,7 @@ function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' |
         on: (_e, h) => { handler = h; },
         mainFrame: () => main,
         cookies: async () => [...jar].map(([name, value]) => ({ name, value })),
+        setCookie: async (...cs) => { for (const c of cs) jar.set(c.name, c.value); },
         async goto(url) {
           if (!(await navigate(url))) throw Object.assign(new Error('net::ERR_BLOCKED_BY_CLIENT'), { name: 'Error' });
           await after(async (u, type, frame) => {
@@ -383,5 +384,65 @@ describe('site adapter: no browser to be had (Browser Run limits)', () => {
     const r = await readSite({}, 'https://a.test/', { website: 'a.test' }, (g, max) => createRenderer(async () => { throw quotaError(); }, g, max));
     expect(r).toMatchObject({ ok: true, meta: { pages: 1 } });
     expect(r.meta.notes).toContain(BROWSER_UNAVAILABLE.quota);
+  });
+});
+
+describe('renderer: one session with the site read, and only successful pages (PR #71 review)', () => {
+  it('refuses an error page (not 2xx) without reading its body, on the first load and on a later navigation', async () => {
+    const big = bigHtml(4 * MAX_BYTES);
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const u = new URL(url);
+      if (u.pathname === '/robots.txt') return new Response('', { status: 404 });
+      if (u.pathname === '/limited') return new Response(big.body, { status: 429, headers: { 'content-type': 'text/html' } });
+      return new Response(APP, { headers: { 'content-type': 'text/html' } });
+    }));
+    const b = fakeBrowser(async (issue) => { await issue('https://a.test/limited', 'document'); });
+    const page = await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/'));
+    // The navigation to the error page is refused, so the page read is the one that loaded.
+    expect(page).toMatchObject({ url: 'https://a.test/' });
+    expect(b.outcomes.find((o) => o.url === 'https://a.test/limited')?.how).toBe('abort');
+    expect(big.seen.pulled).toBeLessThan(4 * 64 * 1024);
+    // A first load that fails is not read at all.
+    network({ 'https://a.test/': { status: 503, body: `<html><body><p>${'Service unavailable, please try again later. '.repeat(5)}</p></body></html>` } });
+    const b2 = fakeBrowser();
+    expect(await createRenderer(b2.launch, gate(), 9).read(new URL('https://a.test/'))).toBeNull();
+    expect(b2.outcomes[0].how).toBe('abort');
+  });
+  it('renders with the cookies the direct read collected, from the same session', async () => {
+    network((url) => (url === 'https://a.test/start'
+      ? { status: 302, headers: [['location', 'https://a.test/'], ['set-cookie', 'sid=abc; Path=/']] }
+      : url === 'https://a.test/' ? { body: APP } : undefined));
+    const b = fakeBrowser();
+    const r = await readSite({}, 'https://a.test/start', { website: 'a.test', subpages: 0 }, (g, max, session) => createRenderer(b.launch, g, max, session));
+    expect(r).toMatchObject({ ok: true, url: 'https://a.test/' });
+    // The direct read reached the shell with sid=abc; the rendered load of the same page carries it too.
+    const calls = (globalThis.fetch as unknown as { mock: { calls: [string, RequestInit?][] } }).mock.calls.filter(([u]) => u === 'https://a.test/');
+    expect(calls).toHaveLength(2);
+    expect(calls.map(([, init]) => (init?.headers as Record<string, string> | undefined)?.cookie)).toEqual(['sid=abc', 'sid=abc']);
+  });
+  it("carries cookies the page's scripts set into the next page load", async () => {
+    network({ 'https://a.test/': { body: APP }, 'https://a.test/next': { body: APP } });
+    let page: RenderPage | null = null;
+    const b = fakeBrowser(async (issue) => {
+      await page!.setCookie({ name: 'consent', value: 'yes', url: 'https://a.test/' });
+      await issue('https://a.test/next', 'document');
+    });
+    const launch = async () => {
+      const browser = await b.launch();
+      return { ...browser, newPage: async () => (page = await browser.newPage()) };
+    };
+    await createRenderer(launch, gate(), 9).read(new URL('https://a.test/'));
+    const next = (globalThis.fetch as unknown as { mock: { calls: [string, RequestInit?][] } }).mock.calls.filter(([u]) => u === 'https://a.test/next');
+    expect(next.map(([, init]) => (init?.headers as Record<string, string> | undefined)?.cookie)).toEqual(['consent=yes']);
+  });
+  it('charges every rendered page load to the site read\'s request budget', async () => {
+    network({ 'https://a.test/': { body: APP } });
+    const { hopSession } = await import('../../worker/ingest');
+    const session = hopSession(1);
+    const b = fakeBrowser();
+    // One request left: the page load uses it, so a second render cannot load anything.
+    expect(await createRenderer(b.launch, gate(), 9, session).read(new URL('https://a.test/'))).not.toBeNull();
+    expect(session.left).toBe(0);
+    expect(await createRenderer(fakeBrowser().launch, gate(), 9, session).read(new URL('https://a.test/'))).toBeNull();
   });
 });
