@@ -1,3 +1,4 @@
+import { useBrand } from '../../lib/useBrand';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { PublicShell } from '../../ui/shells/PublicShell';
@@ -82,29 +83,7 @@ export function Build() {
   const params = useParams();
   const slug = (params['*'] ?? '').split('/')[0] || '';
   const navigate = useNavigate();
-  const [state, setState] = useState<BrandState | null>(null);
-  const [noBrand, setNoBrand] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async (id?: string) => {
-    try {
-      let brandId = id ?? state?.brand.id;
-      if (!brandId) {
-        const me = await api<{ brands: Brand[] }>('/me');
-        if (!me.brands.length) return setNoBrand(true);
-        brandId = me.brands[0].id;
-      }
-      setState(await api<BrandState>(`/brands/${brandId}`));
-      setNoBrand(false);
-    } catch (e) {
-      setError(msg(e));
-    }
-  }, [state?.brand.id]);
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { state, noBrand, error, reload: load } = useBrand();
 
   const index = STEPS.findIndex((s) => s.slug === slug);
   const go = (i: number) => navigate(`/build/${STEPS[Math.max(0, Math.min(STEPS.length - 1, i))].slug}`);
