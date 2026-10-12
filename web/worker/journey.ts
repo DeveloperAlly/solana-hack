@@ -8,7 +8,7 @@ import { HttpError, type Env } from './env';
 import { SECTIONS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { usableFact } from './sources/registry';
-import { contrastingTemplates, nearestTemplates, templateById, voiceAnswerFor, VOICE_TEMPLATES, type VoiceTemplate } from './voice';
+import { contrastingTemplates, nearestTemplates, templateById, voiceAnswerFor, type VoiceTemplate } from './voice';
 
 /** Reading before sign-in (decision D1) uses Supabase anonymous users; these caps bound what one anonymous visitor uses. */
 export const ANON_MAX_BRANDS = 1;
@@ -109,8 +109,8 @@ const norm = (v: string) => v.toLowerCase().replace(/[^a-z]+/g, ' ').trim();
 
 /**
  * Reads the model's samples against the three offered templates; pure. Validated at run time (the reply can have any
- * shape): each entry is matched to an offered template by id, then label, then (only if it names no known template)
- * its position in the list; entries that name an unoffered template, match nothing, repeat a template or have no text are skipped. Returns the samples in the offered order.
+ * shape): each entry is matched to an offered template by id, then label, then (only if it names no template)
+ * its position in the list; entries that name a template not offered, repeat a template or have no text are skipped. Returns the samples in the offered order.
  */
 export function samplesFrom(raw: unknown, candidates: string[]): VoiceSample[] {
   const samples = (raw as { samples?: unknown } | null)?.samples;
@@ -123,11 +123,9 @@ export function samplesFrom(raw: unknown, candidates: string[]): VoiceSample[] {
     const body = typeof text === 'string' ? text.trim().slice(0, 800) : '';
     if (!body) return;
     const key = typeof template === 'string' ? norm(template) : '';
-    const named = offered.find((o) => norm(o.value) === key) ?? offered.find((o) => key && norm(o.label) === key);
-    // Position is a fallback only for an entry that names no known template; one naming a template that was not
-    // offered is skipped, never filed under the offered template in its slot.
-    const known = !!key && VOICE_TEMPLATES.some((o) => norm(o.value) === key || norm(o.label) === key);
-    const t = named ?? (known ? undefined : offered[i]);
+    // Position is a fallback only for an entry that names no template at all. An entry naming anything else (an
+    // unoffered or unknown template) is skipped, never filed under the offered template in its slot.
+    const t = key ? offered.find((o) => norm(o.value) === key || norm(o.label) === key) : offered[i];
     if (t && !byTemplate.has(t.value)) byTemplate.set(t.value, body);
   });
   // The picked paragraph is saved as the answer's sample, as the voice form does (normaliseVoice keeps it), so the voice

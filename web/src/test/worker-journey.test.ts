@@ -255,12 +255,14 @@ describe('voice by example (J4)', () => {
     expect(res.status).toBe(200);
     expect((res.body.samples as { template: string }[]).map((s) => s.template)).toEqual(offer);
   });
-  it('matches a sample by label or by position when the model does not echo the template id', () => {
+  it('matches a sample by id or label, and by position only when it names no template', () => {
     const offer = contrastingTemplates(3);
     const labels = offer.map((id) => templateById(id)!.label);
     const byLabel = samplesFrom({ samples: labels.map((l) => ({ template: l.toUpperCase(), text: `In ${l}.` })) }, offer);
     expect(byLabel.map((s) => s.template)).toEqual(offer);
-    const byPosition = samplesFrom({ samples: offer.map((_, i) => ({ template: `Style ${i + 1}`, text: `Paragraph ${i + 1}.` })) }, offer);
+    const byPosition = samplesFrom({ samples: offer.map((_, i) => ({ text: `Paragraph ${i + 1}.` })) }, offer);
+    // An explicit template that matches nothing offered is skipped, known or not.
+    expect(samplesFrom({ samples: [{ template: 'not_a_template', text: 'X.' }, { template: offer[1], text: 'B.' }] }, offer).map((s) => s.template)).toEqual([offer[1]]);
     expect(byPosition.map((s) => s.text)).toEqual(['Paragraph 1.', 'Paragraph 2.', 'Paragraph 3.']);
     // A known but unoffered template is skipped, not filed under the offered template in its slot.
     const other = VOICE_TEMPLATES.find((t) => !offer.includes(t.value))!.value;
