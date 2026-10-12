@@ -1,0 +1,188 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes } from 'react-router';
+import { GalleryScreen } from '../../gallery/Gallery';
+import { resetBuilderFlow } from './useBuilderFlow';
+import { builderPaths } from './paths';
+
+// Brand Builder flows (issue #50), run through the gallery routes the screens are registered on.
+vi.mock('../../lib/supabase', () => ({ supabase: null }));
+
+function at(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/screens/:artboard" element={<GalleryScreen />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+const h1 = (name: string | RegExp) => screen.findByRole('heading', { level: 1, name });
+const click = async (name: string | RegExp, role: 'button' | 'link' = 'button') => userEvent.click(await screen.findByRole(role, { name }));
+const approveAndContinue = async (subject: string) => {
+  await click(`Approve ${subject}`);
+  await click('Continue', 'link');
+};
+
+beforeEach(() => resetBuilderFlow());
+
+describe('Brand Builder: onboarding and wizard, end to end', () => {
+  it('signs in, skips the domain, runs intake 1–6 through the three gates, approves kit v1', { timeout: 30000 }, async () => {
+    at(builderPaths.signIn);
+    await userEvent.type(screen.getByLabelText('Work email'), '{Control>}a{/Control}you@jamjam.tech');
+    await click('Send code');
+    await userEvent.type(screen.getByLabelText('Enter the code we sent'), '12345678');
+    await click('Continue');
+    await h1('Prove you own your domain');
+    await click('Skip, continue unverified', 'link');
+    await h1('The basics');
+    expect(screen.getByText('Unverified')).toBeInTheDocument();
+    expect(screen.getByText('Fallback')).toBeInTheDocument();
+    await click('Continue: read my links');
+    await h1('What should we read?');
+    await click('Read my sources', 'link');
+    await h1('Reading your sources');
+    await click('Continue to the next question', 'link');
+    await h1('How it started');
+    await click('Continue', 'link');
+    await h1('What, how and why');
+    await click('Draft my purpose', 'link');
+    await h1('Approve your purpose');
+    await approveAndContinue('purpose');
+    await h1('Alternatives and your edge');
+    await userEvent.click(screen.getByRole('radio', { name: /Option B/ }));
+    await click('Continue with option B', 'link');
+    await h1('Approve your positioning');
+    expect(screen.getByText('AI draft from option B · confirm')).toBeInTheDocument();
+    await approveAndContinue('positioning');
+    await h1("Who it's for");
+    await click('Continue', 'link');
+    await h1('Pick the one that sounds like you');
+    await userEvent.click(screen.getByRole('radio', { name: /^4 of 5 \(Casual/ }));
+    await click('Continue', 'link');
+    await h1('Approve your core voice');
+    expect(screen.getByRole('table', { name: 'Voice dimensions' })).toHaveTextContent('4');
+    await approveAndContinue('voice');
+    await h1('What we found, and what we still need');
+    await click('Approve kit v1', 'link');
+    await h1('JamJam kit v1 is ready');
+  });
+
+  it('Back links walk the wizard backwards and done steps link from the stepper', async () => {
+    at(builderPaths.voice);
+    await click('Back', 'link');
+    await h1("Who it's for");
+    const progress = screen.getByRole('list', { name: /Step 5 of 6/ });
+    await userEvent.click(within(progress).getByRole('link', { name: /2 Origin/ }));
+    await h1('How it started');
+  });
+});
+
+describe('Brand Builder: screen interactions', () => {
+  it('sign-in checks the code on the client', async () => {
+    at(builderPaths.signIn);
+    await userEvent.type(screen.getByLabelText('Enter the code we sent'), '123');
+    await click('Continue');
+    expect(screen.getByRole('alert')).toHaveTextContent('6 to 10 digits');
+    await h1('Sign in with email');
+  });
+
+  it('domain: Check now shows the failure, Check again continues to intake step 1', async () => {
+    at(builderPaths.domain);
+    await click('Check now', 'link');
+    await h1('Prove you own your domain');
+    expect(screen.getByRole('alert')).toHaveTextContent("We couldn't find the record on jamjam.tech");
+    await click('Check again', 'link');
+    await h1('The basics');
+  });
+
+  it('basics: an invalid link blocks Continue with an inline error', async () => {
+    at(`${builderPaths.basics}?state=error`);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Not a web address: jamjam tech');
+    await click('Continue: read my links');
+    await h1('The basics');
+  });
+
+  it('sources: remove, add, and the empty state', async () => {
+    at(builderPaths.sources);
+    await click('Remove jamjam.tech');
+    expect(screen.queryByText('jamjam.tech')).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Add a link'), 'docs.jamjam.tech');
+    await click('Add link');
+    expect(screen.getByText('docs.jamjam.tech')).toBeInTheDocument();
+    await click('Connect X for publishing');
+    expect(screen.getByText('Connected for publishing')).toBeInTheDocument();
+  });
+
+  it('sources empty: nothing to read disables Read my sources', async () => {
+    at(`${builderPaths.sources}?state=empty`);
+    expect(await screen.findByText(/Nothing to read yet/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Read my sources' })).toBeDisabled();
+    await click('Skip, nothing to read', 'link');
+    await h1('How it started');
+  });
+
+  it('ingest error: Retry puts the source back to reading', async () => {
+    at(builderPaths.ingestError);
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't open this page");
+    await click('Retry');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('Reading…')).toBeInTheDocument();
+  });
+
+  it('gate: Request changes needs a note; coverage stays blocked until every gate is approved', async () => {
+    at(builderPaths.gatePurpose);
+    await click('Try another draft');
+    expect(screen.getByLabelText('Purpose statement')).toHaveValue('[Another purpose draft from the same answers]');
+    await click('Request changes');
+    await userEvent.type(screen.getByLabelText('What should change?'), 'Less abstract');
+    await click('Send request');
+    expect(screen.getByRole('alert')).toHaveTextContent('Changes requested');
+    await click('Save, decide later', 'link');
+    await h1('Alternatives and your edge');
+  });
+
+  it('coverage: Approve kit v1 is disabled while gates are open, with links to them', async () => {
+    at(builderPaths.coverage);
+    expect(await screen.findByRole('button', { name: 'Approve kit v1' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Approve the three gates first');
+    expect(screen.getByRole('table')).toHaveTextContent('E 0 · I 2 · M 15');
+    await click('purpose', 'link');
+    await h1('Approve your purpose');
+  });
+
+  it('registration failed: Retry goes back to the registered kit', async () => {
+    at(builderPaths.registerFailed);
+    await h1('Kit v1 is approved, but not registered yet');
+    await click('Retry registration', 'link');
+    await h1('JamJam kit v1 is ready');
+    await click(/^Download the kit/, 'link');
+    await h1('Download your kit');
+  });
+
+  it('options: Show three different options swaps the set', async () => {
+    at(builderPaths.alternatives);
+    await click('Show three different options');
+    expect(screen.getByRole('radio', { name: /Option D/ })).toBeChecked();
+    expect(screen.getByRole('link', { name: 'Continue with option D' })).toBeInTheDocument();
+  });
+
+  it('dashboard: approve then pay; the empty variant offers one action per module', async () => {
+    at(builderPaths.dashboard);
+    await h1('aDNA');
+    expect(screen.getByText('Stretch')).toBeInTheDocument();
+    const first = screen.getAllByRole('button', { name: 'Approve' })[0];
+    await userEvent.click(first);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Pay (owner only)' })[0]);
+    expect(screen.getAllByRole('status').some((s) => s.textContent === 'Paid')).toBe(true);
+  });
+
+  it('dashboard empty: modules say what will appear', async () => {
+    at(builderPaths.dashboardEmpty);
+    expect(await screen.findByRole('heading', { name: 'No campaigns yet' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Nothing to review' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy your public page link' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'New campaign' })).not.toBeInTheDocument();
+  });
+});
