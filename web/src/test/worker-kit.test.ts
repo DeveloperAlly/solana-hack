@@ -175,7 +175,7 @@ describe('renaming the brand (PR #40 review)', () => {
     tables.gates = [{ brand_id: 'b', gate: 'purpose' }];
     tables.brands = [{ ...brand }];
     const r = await patchBrand(env, brand, { name: 'JamJam Labs' });
-    expect(r.stale.sort()).toEqual(['messaging', 'purpose']);
+    expect(r.reapprove.sort()).toEqual(['messaging', 'purpose']);
     expect(tables.gates).toHaveLength(0);
     expect(tables.kit_sections.every((x) => x.status === 'drafted')).toBe(true);
     expect(r.brand.name).toBe('JamJam Labs');
@@ -187,7 +187,7 @@ describe('renaming the brand (PR #40 review)', () => {
     tables.gates = [{ brand_id: 'b', gate: 'purpose' }];
     tables.brands = [{ ...brand }];
     const r = await patchBrand(env, brand, { name: 'JamJam', goal: 'ship' });
-    expect(r.stale).toEqual([]);
+    expect(r.reapprove).toEqual([]);
     expect(tables.gates).toHaveLength(1);
     expect(tables.kit_sections[0].status).toBe('approved');
   });

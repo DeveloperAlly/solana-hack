@@ -262,22 +262,26 @@ export async function saveAnswer(env: Env, brand: Brand, step: string, data: Rec
 }
 
 /**
- * Updates the Basics on the brand row. Every drafted section names the brand (draftSection writes for brand.name), so a
- * rename unapproves every section and removes the gates before the new name is saved: a kit can then only register
- * sections a person approved under the current name. Returns those sections as stale, so Basics can say so at once.
+ * Updates the Basics on the brand row. Every section draft is written for the brand by name (draftSection's system
+ * prompt, above, interpolates brand.name), so after a rename a section's text may still use the old name. A rename
+ * therefore unapproves every section and removes the gates before the new name is saved, following the same
+ * gate-first order as a voice change (saveAnswer); registerKit refuses unapproved sections (issue #31), so a kit can
+ * only register text a person approved under the current name. Found in review of PR #40:
+ * https://github.com/DeveloperAlly/solana-hack/pull/40#discussion_r4245491421
+ * Returns those sections as `reapprove`: they need a person to approve them again, not necessarily a redraft.
  */
 export async function patchBrand(env: Env, brand: Brand, patch: Record<string, string | null>) {
-  let stale: string[] = [];
+  let reapprove: string[] = [];
   if ('name' in patch && patch.name !== brand.name) {
     const sections = await db.select<Pick<Section, 'section'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section`);
     if (sections.length) {
       await db.del(env, 'gates', db.eq('brand_id', brand.id));
       await db.update(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&${db.eq('status', 'approved')}`, { status: 'drafted' });
-      stale = sections.map((s) => s.section);
+      reapprove = sections.map((s) => s.section);
     }
   }
   const [row] = await db.update<Brand>(env, 'brands', db.eq('id', brand.id), patch);
-  return { brand: row, stale };
+  return { brand: row, reapprove };
 }
 
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
