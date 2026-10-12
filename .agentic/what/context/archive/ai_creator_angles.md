@@ -9,7 +9,7 @@ superseded_by: adr_003_superhub_business_model
 ---
 > **Status: superseded.** Replaced by [ADR-003](../../decisions/adr_003_superhub_business_model.md) (AI persona as the experimental "Create an influencer" module). Kept as history.
 
-> **Note (2026-10-12):** the product is now called JamJam. This historical record keeps its original name, Waterlily.
+> **Note (2026-10-12):** the product is now called JamJam (owner decision recorded in [STATE.md](../../../../STATE.md), Recent decisions). This historical record keeps its original name, Waterlily.
 
 # AI creator: new angles
 
