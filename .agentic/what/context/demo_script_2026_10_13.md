@@ -14,7 +14,7 @@ tags: [demo, script, colosseum]
 
 **Demo brand:** JamJam builds its own brand (compendium §4, decided). One critical path; every wait is cut, and the voice-over says so.
 
-**Voice-over:** 280 words over 3:00, about 110 words a minute, leaving room for the screen.
+**Voice-over:** 262 words over 3:00, about 110 words a minute, leaving room for the screen.
 
 ## 1. Critical path
 
@@ -75,7 +75,7 @@ Route `/build/basics, then /build/sources` · depends on P0: 009 · QUOTES · pl
 - Alert: "Read it. {n} facts saved with quotes from the page."
 - MUST: each fact shows its quote (whether this has shipped: STATE.md; if not, use the fallback)
 
-**Say:** I name the brand and give it our site. JamJam reads the page and keeps a fact only if it can quote the line it came from.
+**Say:** I give it our name and our website. It reads the site and pulls out what we actually say about ourselves, each fact with the line it came from.
 
 **Recording:** P0 build: show the stored quote under each fact. Website in Basics must be jamjam.tech or the facts are treated as third-party. FALLBACK if quotes don't ship: hold on the alert 'Read it. {n} facts saved with quotes from the page.' and say: JamJam reads the page and saves only facts it can quote from it.
 
@@ -89,7 +89,7 @@ Route `/build/origin to /build/voice` · depends on P0: 009 · placeholder: wire
 - Voice template: "Candid founder" (default)
 - Claims gate: "Strict: every claim needs evidence"
 
-**Say:** It asks short questions and shows what it already found. For voice I pick Candid founder, and I set the claims gate to strict: every claim needs evidence.
+**Say:** A few quick questions, and it already knows half the answers. I pick a voice, Candid founder, and set it to strict: no claim goes out without proof.
 
 **Recording:** Pre-answer Origin, Why/how/what, Alternatives and Audience before recording; show one question screen only.
 
@@ -104,7 +104,7 @@ Route `/build/purpose (Gate 1)` · depends on P0: AI MODEL · placeholder: wiref
 - "Approve purpose" then alert "Approved": "Recorded {date, time}."
 - Cut: Gates 2 and 3 already approved
 
-**Say:** The AI drafts our purpose, and lists the sources behind it: my answers, and facts from the site linked to their page. This is a decision gate. I approve it, and the approval is recorded. Positioning and voice work the same way.
+**Say:** Now it drafts our purpose, and shows me exactly where it got it from. Nothing is invented. I approve it, and that decision is recorded. Positioning and voice work the same way.
 
 **Recording:** Needs OPENROUTER_API_KEY live (aiConfigured unconfirmed in STATE.md). Free model can return 'busy': retry, keep the best take.
 
@@ -118,7 +118,7 @@ Route `/build/kit` · depends on DEVNET RPC · placeholder: wireframe J5-Approve
 - Alert title "Kit v1: registered", body sha256:…
 - "View the transaction on Solana Explorer" opens the devnet transaction
 
-**Say:** Three gates approved. I register kit v1. JamJam's Registrar signs it on Solana devnet. The fingerprint goes on-chain; the words stay private. Here is the transaction.
+**Say:** That's our brand, approved. One click puts it on Solana: a fingerprint anyone can check, while the words stay private. Here's the transaction.
 
 **Recording:** Explorer opens in a new tab (the app's external links always do). Cut to it, then cut back. Check the URL has cluster=devnet.
 
@@ -133,7 +133,7 @@ Route `/create` · depends on P0: BLOCK TEST · placeholder: wireframe Draft-Rev
 - Add "Used by 10,000 brands.", "Save edits", "Approve": "Blocked by your claims gate"
 - Remove it, "Save edits", "Approve", "Copy text", "Register post", then "Registered"
 
-**Say:** Now a post. I ask for a LinkedIn launch post. It drafts in the approved voice and passes the slop check before I see it. Beautify formats it for LinkedIn. Now I add a claim we can't back: used by ten thousand brands. I save and approve. Blocked by my claims gate. I take it out, save, approve, and register it.
+**Say:** Now a post. I ask for a LinkedIn launch post, and it writes it in our voice, with the AI clichés already stripped out. Beautify makes it read well on LinkedIn. Now watch: I add a claim we can't back up, used by ten thousand brands. JamJam blocks it. I take it out, approve, register, and it's on Solana.
 
 **Recording:** Rehearse the block off camera first: the claims gate is an LLM call, so confirm it blocks that sentence under Strict. Keep the approved text unchanged for Verify.
 
@@ -147,7 +147,7 @@ Route `/verify (public)` · depends on DEVNET RPC · placeholder: wireframe Veri
 - "Checked on Solana just now: the attestation exists, JamJam signed it, and it carries this fingerprint."
 - Change one word, "Check": "Not an official post"
 
-**Say:** Anyone can check it. I paste the post into the public Verify page. Registered by JamJam, checked on Solana just now. Change one word, and it's not an official post.
+**Say:** Now anyone can check it. Paste the post into Verify: it's ours, confirmed on Solana. Change one word, and it's flagged as not official. That's how a fan spots a fake.
 
 **Recording:** The result also says the brand name is self-declared (domain proof is next). Don't cover it; the VO stays true.
 
@@ -160,7 +160,7 @@ Route `/ledger (public)` · depends on AFTER BEATS 06-07 · placeholder: wirefra
 - "Brand kits (n)" includes "JamJam · kit v1 · {date}" with hash and Explorer link
 - "Posts (n)" includes "JamJam · post on kit v1 · {date}" (rehearsal rows from the rehearsal brand may also show)
 
-**Say:** The public ledger lists the latest registered kits and posts, each with its transaction.
+**Say:** And here's the public record of everything we've approved.
 
 **Recording:** Record after the post is registered. Counts include the rehearsal brand; point at JamJam's rows.
 
@@ -172,7 +172,7 @@ Route `/grow (coming soon), then /` · depends on NO DEPENDENCY · placeholder: 
 - Grow: "Coming soon", "Run campaigns with ambassadors who write in your voice…"
 - Edited end card (not app copy): JamJam, "Every post provably yours." jamjam.tech
 
-**Say:** Distribution, ambassadors and analytics are next. JamJam: your brand team, in one app. Every post provably yours.
+**Say:** Next, publishing everywhere and ambassadors. JamJam: your brand team, in one app. Every post provably yours.
 
 **Recording:** End on the landing page or a still end card.
 
@@ -202,18 +202,18 @@ Route `/grow (coming soon), then /` · depends on NO DEPENDENCY · placeholder: 
 
 **0:12** I sign in with email. No password, no wallet.
 
-**0:18** I name the brand and give it our site. JamJam reads the page and keeps a fact only if it can quote the line it came from.
+**0:18** I give it our name and our website. It reads the site and pulls out what we actually say about ourselves, each fact with the line it came from.
 
-**0:38** It asks short questions and shows what it already found. For voice I pick Candid founder, and I set the claims gate to strict: every claim needs evidence.
+**0:38** A few quick questions, and it already knows half the answers. I pick a voice, Candid founder, and set it to strict: no claim goes out without proof.
 
-**0:55** The AI drafts our purpose, and lists the sources behind it: my answers, and facts from the site linked to their page. This is a decision gate. I approve it, and the approval is recorded. Positioning and voice work the same way.
+**0:55** Now it drafts our purpose, and shows me exactly where it got it from. Nothing is invented. I approve it, and that decision is recorded. Positioning and voice work the same way.
 
-**1:20** Three gates approved. I register kit v1. JamJam's Registrar signs it on Solana devnet. The fingerprint goes on-chain; the words stay private. Here is the transaction.
+**1:20** That's our brand, approved. One click puts it on Solana: a fingerprint anyone can check, while the words stay private. Here's the transaction.
 
-**1:40** Now a post. I ask for a LinkedIn launch post. It drafts in the approved voice and passes the slop check before I see it. Beautify formats it for LinkedIn. Now I add a claim we can't back: used by ten thousand brands. I save and approve. Blocked by my claims gate. I take it out, save, approve, and register it.
+**1:40** Now a post. I ask for a LinkedIn launch post, and it writes it in our voice, with the AI clichés already stripped out. Beautify makes it read well on LinkedIn. Now watch: I add a claim we can't back up, used by ten thousand brands. JamJam blocks it. I take it out, approve, register, and it's on Solana.
 
-**2:20** Anyone can check it. I paste the post into the public Verify page. Registered by JamJam, checked on Solana just now. Change one word, and it's not an official post.
+**2:20** Now anyone can check it. Paste the post into Verify: it's ours, confirmed on Solana. Change one word, and it's flagged as not official. That's how a fan spots a fake.
 
-**2:40** The public ledger lists the latest registered kits and posts, each with its transaction.
+**2:40** And here's the public record of everything we've approved.
 
-**2:50** Distribution, ambassadors and analytics are next. JamJam: your brand team, in one app. Every post provably yours.
+**2:50** Next, publishing everywhere and ambassadors. JamJam: your brand team, in one app. Every post provably yours.
