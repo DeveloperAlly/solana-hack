@@ -47,25 +47,26 @@ grant execute on function public.reserve_search_source(uuid, text) to service_ro
 
 -- Competitor candidates are replaced as one set (Codex review on PR #100): each run's candidates take the place of the
 -- brand's previous ones in one transaction, so GET /competitors always lists the latest set, never an accumulation and
--- never a half-written one. Only the brand's latest find_competitors run writes: runs are ordered by (created_at, id),
--- a total order, so equal timestamps cannot both count as latest. The brand's run bookkeeping is serialised by one
--- transaction-scoped advisory lock per brand, the key spec/db/011 admit_run takes ('admit_run:' || brand): a save waits
--- for an admission in progress and the reverse, so the latest-run check and the write see the same runs, and two
--- overlapping saves cannot interleave. Each call takes that one lock and no other, so the two functions cannot
--- deadlock. Rows are keyed by brand and address (web/worker/intake.ts), so a retried save writes the same set.
--- Returns false when this run is not the latest (nothing written).
+-- never a half-written one. A run writes unless a newer find_competitors run of the brand is live (running, paused or
+-- done): a newer run that is only reserved, or that failed or was superseded, never blocks it, so an abandoned or
+-- failed newer start cannot cost an older run its result. Runs are ordered by (created_at, id), a total order, so
+-- equal timestamps never both count as newest. The brand's run bookkeeping is serialised by one transaction-scoped
+-- advisory lock per brand, the key spec/db/011 admit_run takes ('admit_run:' || brand): a save waits for an admission
+-- in progress and the reverse, and two overlapping saves cannot interleave. Each call takes that one lock and no
+-- other, so the two functions cannot deadlock. Rows are keyed by brand and address (web/worker/intake.ts), so a
+-- retried save writes the same set. Returns false when a newer live run exists (nothing written).
 create or replace function public.replace_competitor_candidates(p_brand uuid, p_run uuid, p_rows jsonb)
 returns boolean language plpgsql security invoker set search_path = public as $fn$
 declare
-  v_latest uuid;
+  v_created timestamptz;
 begin
   perform pg_advisory_xact_lock(hashtextextended('admit_run:' || p_brand::text, 0));
-  if not exists (select 1 from public.runs where id = p_run and brand_id = p_brand and kind = 'find_competitors') then
+  select created_at into v_created from public.runs where id = p_run and brand_id = p_brand and kind = 'find_competitors';
+  if v_created is null then
     raise exception 'run % is not a find_competitors run of brand %', p_run, p_brand;
   end if;
-  select id into v_latest from public.runs where brand_id = p_brand and kind = 'find_competitors'
-  order by created_at desc, id desc limit 1;
-  if v_latest <> p_run then
+  if exists (select 1 from public.runs r where r.brand_id = p_brand and r.kind = 'find_competitors'
+             and r.status in ('running','paused','done') and (r.created_at, r.id) > (v_created, p_run)) then
     return false;
   end if;
   delete from public.sources

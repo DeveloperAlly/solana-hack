@@ -572,16 +572,30 @@ describe('competitor candidates (#35): three, with sources, for the positioning 
 
   it('a superseded run\'s late save writes nothing, so an older set never comes back', async () => {
     const { saveCompetitorCandidates } = await import('../../worker/intake');
-    db.tables.runs.push({ id: 'r-old', brand_id: BRAND, kind: 'find_competitors', created_at: '2026-10-13T00:00:00.000Z' }, { id: 'r-new', brand_id: BRAND, kind: 'find_competitors', created_at: '2026-10-13T00:01:00.000Z' });
+    db.tables.runs.push({ id: 'r-old', brand_id: BRAND, kind: 'find_competitors', status: 'running', created_at: '2026-10-13T00:00:00.000Z' }, { id: 'r-new', brand_id: BRAND, kind: 'find_competitors', status: 'running', created_at: '2026-10-13T00:01:00.000Z' });
     db.tables.sources.push({ id: 'keep', brand_id: BRAND, kind: 'competitor_page', url: 'https://new.example/', title: 'New' });
     const read = { kind: 'competitor_page', trust: 'third_party', title: 't', text: 'Old.', truncated: false, pages: [{ url: 'https://old.example/', title: 'Old', start: 0, end: 4 }], meta: { pages: 1, cost: 0.005, ms: 1, notes: [] } };
     const out = await saveCompetitorCandidates(envWith, { id: 'r-old', brand_id: BRAND }, read);
     expect(out.current).toBe(false);
     expect(db.tables.sources.filter((s) => s.kind === 'competitor_page').map((s) => s.title)).toEqual(['New']);
     // Equal timestamps: (created_at, id) is a total order, so only one of the two runs is the latest.
-    db.tables.runs.push({ id: 'r-twin-a', brand_id: BRAND, kind: 'find_competitors', created_at: '2026-10-13T00:02:00.000Z' }, { id: 'r-twin-b', brand_id: BRAND, kind: 'find_competitors', created_at: '2026-10-13T00:02:00.000Z' });
+    db.tables.runs.push({ id: 'r-twin-a', brand_id: BRAND, kind: 'find_competitors', status: 'running', created_at: '2026-10-13T00:02:00.000Z' }, { id: 'r-twin-b', brand_id: BRAND, kind: 'find_competitors', status: 'running', created_at: '2026-10-13T00:02:00.000Z' });
     expect((await saveCompetitorCandidates(envWith, { id: 'r-twin-a', brand_id: BRAND }, read)).current).toBe(false);
     expect((await saveCompetitorCandidates(envWith, { id: 'r-twin-b', brand_id: BRAND }, read)).current).toBe(true);
+  });
+
+  it('Codex review on PR #100: a newer run that is only reserved, failed or was superseded never costs an older run its save', async () => {
+    const { saveCompetitorCandidates } = await import('../../worker/intake');
+    const read = { kind: 'competitor_page', trust: 'third_party', title: 't', text: 'Old.', truncated: false, pages: [{ url: 'https://old.example/', title: 'Old', start: 0, end: 4 }], meta: { pages: 1, cost: 0.005, ms: 1, notes: [] } };
+    db.tables.runs.push({ id: 'r-older', brand_id: BRAND, kind: 'find_competitors', status: 'superseded', created_at: '2026-10-13T00:00:00.000Z' });
+    for (const status of ['reserved', 'failed', 'superseded']) {
+      db.tables.runs = db.tables.runs.filter((r) => r.id !== 'r-newer');
+      db.tables.runs.push({ id: 'r-newer', brand_id: BRAND, kind: 'find_competitors', status, created_at: '2026-10-13T00:01:00.000Z' });
+      expect({ status, current: (await saveCompetitorCandidates(envWith, { id: 'r-older', brand_id: BRAND }, read)).current }).toEqual({ status, current: true });
+    }
+    db.tables.runs.find((r) => r.id === 'r-newer')!.status = 'running';
+    expect((await saveCompetitorCandidates(envWith, { id: 'r-older', brand_id: BRAND }, read)).current).toBe(false);
+    expect(db.tables.sources.filter((x) => x.kind === 'competitor_page').map((x) => x.title)).toEqual(['Old']);
   });
 
   it('Codex review on PR #100: a findSimilar reply without costDollars records the cost as unknown, never the /search price', async () => {
