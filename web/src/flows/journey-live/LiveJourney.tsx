@@ -320,7 +320,10 @@ export function LiveJourneyScreen({ target }: { target: JourneyTarget }) {
     const read = readView(s);
     // Empty only when nothing is still being read: no run followed, and no source reading or queued.
     const stillReading = live.reading || !read.sources.length || read.sources.some(x => x.status === 'reading' || x.status === 'queued');
-    return <J1Read data={read} state={read.facts.length ? 'success' : live.error ? 'error' : stillReading ? 'loading' : 'empty'} />;
+    // A source that fails shows as Blocked in the list, with paste and upload (ReadBlockedSource); the whole-screen error
+    // is only for when no source could be started, so one failed link never reads as "We couldn't read <your site>".
+    const failedToStart = !!live.error && !read.sources.length;
+    return <J1Read data={read} state={read.facts.length ? 'success' : failedToStart ? 'error' : stillReading ? 'loading' : 'empty'} />;
   }
   if (target === 'save') return <J2Save data={{ ...saveView(s), signedInEmail: !session?.user.is_anonymous ? session?.user.email : undefined }} />;
   if (target === 'confirm') return <J3Confirm data={confirmView(s)} />;

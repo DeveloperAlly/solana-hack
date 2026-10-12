@@ -16,7 +16,8 @@ export type JsonSchema =
  * A named schema, as response_format.json_schema takes it, plus optional limits checked after the schema (counts the
  * schema does not send). A reply over a limit is refused as a whole, like a reply that breaks the schema.
  */
-export interface NamedSchema { name: string; schema: JsonSchema; limits?: (value: unknown) => string | null }
+/** limits: checks past the shape; `context.user` is the request the reply answers (the engine passes it). */
+export interface NamedSchema { name: string; schema: JsonSchema; limits?: (value: unknown, context?: { user: string }) => string | null }
 
 /** The first way `value` breaks `schema`, as "path: problem", or null when it conforms. Never includes the value. */
 export function schemaError(schema: JsonSchema, value: unknown, path = '$'): string | null {

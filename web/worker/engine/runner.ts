@@ -14,6 +14,8 @@ import type { Progress, RetrySpec, RunRow, StepProgress, StepSpec, StepTrace, Wo
 export interface StepApi {
   do<T>(name: string, config: StepConfig, callback: (ctx: { attempt: number }) => Promise<T>): Promise<T>;
   sleepUntil(name: string, timestamp: number): Promise<void>;
+  /** Workflows only: waits for an event sent to this instance (fan-out children report through it). */
+  waitForEvent?<T>(name: string, options: { type: string; timeout?: string }): Promise<{ payload: T }>;
 }
 export interface StepConfig {
   retries: { limit: number; delay: (i: { ctx: { attempt: number }; error: Error }) => number };
@@ -22,7 +24,26 @@ export interface StepConfig {
 export interface RunnerDeps {
   /** Builds an error that stops retries: Workflows' NonRetryableError, or a stand-in carrying the same name. */
   nonRetryable(message: string): Error;
+  /**
+   * Workflows only: runs each item of a map step in its own child instance (issue #114). On Workers Free an instance
+   * may make 50 external subrequests (https://developers.cloudflare.com/workflows/reference/limits/), and every model
+   * call and database write is one, so a 7-part page ran out mid-run (live 2026-10-13: "Too many subrequests",
+   * adna.network). A child spends about 6 of its own; creating children and sending their events are calls to
+   * Cloudflare services, which count against the separate 1,000 limit.
+   */
+  fanout?: Fanout;
 }
+export interface Fanout {
+  spawn(children: { id: string; params: RunParams }[]): Promise<void>;
+  report(parentId: string, type: string, payload: ChildReport): Promise<void>;
+}
+/** What a Workflows instance is started with: a run, or one item of a run's map step. */
+export interface RunParams { runId: string; child?: ChildSpec }
+export interface ChildSpec { parent: string; event: string; at: number; name: string; trace: string; last: boolean; item: unknown; steps: Record<string, unknown> }
+export type ChildReport = { ok: true; output: unknown } | { ok: false; error: string };
+/** Children of one map step running at once: OpenRouter free models allow 20 requests a minute
+ * (https://openrouter.ai/docs/api-reference/limits), so a wave of 6 leaves room for retries. */
+export const FANOUT_WAVE = 6;
 
 /** A run pauses at most this many times for the model's daily limit before it fails. */
 export const MAX_PAUSES = 2;
@@ -215,10 +236,9 @@ async function stage(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepContext
   }
 }
 
-async function attempt(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepContext, spec: WorkflowSpec, i: number, s: StepSpec, name: string) {
-  const config = configFor(s.retries ?? spec.retries, s.timeout);
-  const one = (stepName: string, traceId: string, inner: Exclude<StepSpec, { type: 'map' }>, last: boolean, item?: unknown) =>
-    step.do(stepName, config, async (sctx) => {
+/** One step (or one map item) as one durable step: meter, run, record, all retried together. */
+function itemStep(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepContext, spec: WorkflowSpec, i: number, config: StepConfig, stepName: string, traceId: string, inner: Exclude<StepSpec, { type: 'map' }>, last: boolean, item?: unknown) {
+    return step.do(stepName, config, async (sctx) => {
       const t0 = Date.now();
       try {
         // The meter is the authority for the budget: every attempt at a metered step consumes its calls first
@@ -247,8 +267,77 @@ async function attempt(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepConte
         throw err;
       }
     });
+}
+
+/** The `$steps.<id>...` values a step spec reads, copied so a child instance resolves them without the whole state. */
+export function referencedSteps(inner: unknown, state: RunState): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const visit = (v: unknown) => {
+    if (typeof v === 'string') { const m = /^\$steps\.([\w-]+)/.exec(v); if (m && m[1] in state.steps) out[m[1]] = state.steps[m[1]]; }
+    else if (Array.isArray(v)) v.forEach(visit);
+    else if (v && typeof v === 'object') Object.values(v).forEach(visit);
+  };
+  visit(inner);
+  return out;
+}
+
+/** Workflows event types: letters, digits, '-' and '_' only, kept short (instance ids are at most 100 characters). */
+const eventType = (name: string) => name.replace(/[^\w-]/g, '_').slice(0, 60);
+
+/** Runs a map step's items as child instances in waves, and collects each child's report in order. */
+async function fanOut(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepContext, spec: WorkflowSpec, i: number, s: Extract<StepSpec, { type: 'map' }>, name: string, items: unknown[]) {
+  const fanout = deps.fanout!;
+  const steps = referencedSteps(s.step, ctx.state);
+  const out: unknown[] = [];
+  for (let w = 0; w < items.length; w += FANOUT_WAVE) {
+    const wave = items.slice(w, w + FANOUT_WAVE).map((item, k) => {
+      const j = w + k;
+      const event = eventType(`${name}-${j}`);
+      const child: ChildSpec = { parent: ctx.run.id, event, at: i, name: `${name}[${j}]`, trace: `${s.id}[${j}]`, last: false, item, steps };
+      return { j, event, id: `${ctx.run.id}.${event}`.slice(0, 100), params: { runId: ctx.run.id, child } as RunParams };
+    });
+    await step.do(`${name}:spawn:${w}`, BOOKKEEPING, async () => { await fanout.spawn(wave.map(({ id, params }) => ({ id, params }))); return null; });
+    // Every wait in the wave is registered at once (the Workers API page: "wait for multiple events at once"), so a
+    // child that finishes first is never reporting to a parent still waiting on an earlier child.
+    const reports = await Promise.all(wave.map((c) => step.waitForEvent!<ChildReport>(`${name}[${c.j}]:report`, { type: c.event, timeout: '30 minutes' })));
+    for (const { payload } of reports) {
+      if (!payload.ok) throw new Error(payload.error);
+      out.push(payload.output);
+    }
+  }
+  await step.do(`${name}:done`, BOOKKEEPING, async () => { await record(env, ctx.run.id, null, { progress: progressAt(spec, i + 1) }); return null; });
+  return out;
+}
+
+/**
+ * A child instance: one item of its parent's map step, with its own subrequest budget. It loads the same pinned
+ * definition, prompts and models, runs the item exactly as the parent would (metered, recorded, retried), and reports
+ * the output or the encoded error to the parent. It never writes the run's status: the parent owns that.
+ */
+export async function runChild(env: Env, runId: string, child: ChildSpec, step: StepApi, deps: RunnerDeps) {
+  let report: ChildReport;
+  try {
+    const { run, spec, prompts, models } = await load(env, runId, step, deps);
+    const s = spec.steps[child.at];
+    if (!s || s.type !== 'map') throw deps.nonRetryable(encodeError(500, 'fail', 'child step is not a map step'));
+    const ctx: StepContext = { env, run, state: { input: run.input ?? {}, steps: child.steps, prompts, models } };
+    const output = await itemStep(env, step, deps, ctx, spec, child.at, configFor(s.retries ?? spec.retries, s.timeout), child.name, child.trace, s.step, child.last, child.item);
+    report = { ok: true, output: output ?? null };
+  } catch (e) {
+    const d = decodeError(e);
+    report = { ok: false, error: encodeError(d.code, d.kind, d.message) };
+  }
+  await step.do('report', BOOKKEEPING, async () => { await deps.fanout!.report(child.parent, child.event, report); return null; });
+}
+
+async function attempt(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepContext, spec: WorkflowSpec, i: number, s: StepSpec, name: string) {
+  const config = configFor(s.retries ?? spec.retries, s.timeout);
+  const one = (stepName: string, traceId: string, inner: Exclude<StepSpec, { type: 'map' }>, last: boolean, item?: unknown) =>
+    itemStep(env, step, deps, ctx, spec, i, config, stepName, traceId, inner, last, item);
   if (s.type !== 'map') return one(name, s.id, s, true);
+
   const items = (resolve(s.over, ctx.state) as unknown[] | undefined ?? []).slice(0, s.max);
+  if (deps.fanout && step.waitForEvent && items.length) return fanOut(env, step, deps, ctx, spec, i, s, name, items);
   const out: unknown[] = [];
   if (s.parallel) {
     // Progress moves past the map only once every item is done, so no item marks it finished while others still run.

@@ -266,6 +266,13 @@ describe('models per task: pinned free models, and a judge never from the extrac
 });
 
 describe('LLM gateway: strict schema with providers required to honour it', () => {
+  it('refuses an empty extraction for a part with readable text, so the step retries (issue #114)', () => {
+    const page = 'I turn frontier AI research into product that ships. '.repeat(10);
+    expect(EXTRACTED_FACTS.limits!({ facts: [] }, { user: `Part 1 of 1:\n\n${page}` })).toMatch(/empty for a part with readable text/);
+    // A near-empty part may genuinely state nothing.
+    expect(EXTRACTED_FACTS.limits!({ facts: [] }, { user: 'Part 2 of 2:\n\nMenu Home About' })).toBeNull();
+    expect(EXTRACTED_FACTS.limits!({ facts: [{}] }, { user: `Part 1 of 1:\n\n${page}` })).toBeNull();
+  });
   it('sends response_format json_schema strict and provider.require_parameters only when a schema is given', () => {
     const body = chatBody('openrouter/free', 's', 'u', { schema: EXTRACTED_FACTS });
     expect(body).toEqual({
@@ -1352,5 +1359,55 @@ describe('consumers: the onboarding journey shape (PR #75 JourneyFact, served by
     db.tables.runs.push({ id: 'run-x', brand_id: BRAND, kind: 'extract_facts', workflow_version: 1, status: 'running' });
     await saveExtractedFacts(env, { id: 'run-x', brand_id: BRAND }, { sourceId: 'src-x', read: { ...read, text, pages: [] }, facts: [], dropped: {} });
     expect(db.tables.sources.find((x) => x.id === 'src-x')).toMatchObject({ text_excerpt: 'a'.repeat(1999), source_text: text });
+  });
+});
+
+// Issue #114: on Workers Free a Workflows instance may make 50 external subrequests. A multi-part page ran out
+// mid-run on the live site ("Too many subrequests", adna.network). Each map item now runs in its own child instance.
+describe('fan-out: each map item in its own Workflows instance (Workers Free subrequest limit)', () => {
+  it('a multi-part read finishes, every instance stays under 50 external calls, and the facts match the single-instance run', async () => {
+    const runner = await import('../../worker/engine/runner');
+    // Baseline: the same read in one instance (the old path), for the facts to compare against.
+    const base = await extract('https://jamjam.tech/');
+    expect(base.status).toBe('done');
+    const baseClaims = evidence().map((e) => e.claim).sort();
+    expect(Number(base.output.chunks ?? 0) || 2).toBeGreaterThan(1);
+    await seedTables();
+    db.tables.brands[0].website = 'https://jamjam.tech';
+
+    // External calls per instance: every fetch the Worker makes, attributed to the instance running at the time.
+    const perInstance = new Map<string, number>();
+    let current = 'parent';
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => { perInstance.set(current, (perInstance.get(current) ?? 0) + 1); return (realFetch as typeof fetch)(url, init); }));
+    const events = new Map<string, unknown>();
+    const waiting = new Map<string, (v: unknown) => void>();
+    const parentStep = fakeStep();
+    parentStep.api.waitForEvent = async <T,>(_name: string, o: { type: string }) => {
+      if (events.has(o.type)) return { payload: events.get(o.type) as T };
+      return new Promise<{ payload: T }>((resolve) => waiting.set(o.type, (v) => resolve({ payload: v as T })));
+    };
+    const deps: import('../../worker/engine/runner').RunnerDeps = {
+      ...localDeps,
+      fanout: {
+        async spawn(children) {
+          for (const c of children) {
+            const was = current; current = c.id;
+            try { await runner.runChild(envFan, c.params.runId, c.params.child!, fakeStep().api, deps); } finally { current = was; }
+          }
+        },
+        async report(_parent, type, payload) { const w = waiting.get(type); if (w) w(payload); else events.set(type, payload); },
+      },
+    };
+    const envFan = { ...env, RUN_WORKFLOW: { async create(o: { id?: string }) { await runner.runWorkflow(envFan, o.id!, parentStep.api, deps); return { id: o.id! }; }, async get() { return { status: async () => ({ status: 'complete' }) }; } } };
+    const req = new Request(`https://jamjam.tech/api/brands/${BRAND}/runs`, { method: 'POST', headers: { authorization: 'Bearer t', 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'extract_facts', url: 'https://jamjam.tech/' }) });
+    const res = (await handleApi(req, envFan as never, new URL(req.url), { waitUntil: () => undefined }))!;
+    expect(res.status).toBe(202);
+    const run = db.tables.runs.at(-1) as Row & { status: string; output: Record<string, unknown> };
+    expect(run.status).toBe('done');
+    expect(evidence().map((e) => e.claim).sort()).toEqual(baseClaims);
+    const children = [...perInstance.keys()].filter((k) => k !== 'parent');
+    expect(children.length).toBeGreaterThan(1);
+    for (const [, n] of perInstance) expect(n).toBeLessThan(50);
   });
 });

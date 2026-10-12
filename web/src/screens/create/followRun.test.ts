@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { followRun, POLL_MAX_MS, POLL_START_MS, runMessage, type RunView } from './followRun';
+import { followRun, POLL_ACTIVE_MAX_MS, POLL_MAX_MS, POLL_START_MS, runMessage, type RunView } from './followRun';
 
 // PR #99 review: no fixed deadline. A run paused for the model's daily allowance, or simply long, is followed to its end.
 afterEach(() => vi.useRealTimers());
@@ -27,8 +27,19 @@ describe('following a draft run', () => {
     await expect(p).resolves.toMatchObject({ status: 'done' });
     expect(d.seen).toHaveLength(401);
     expect(d.waits[0]).toBe(POLL_START_MS);
-    expect(Math.max(...d.waits)).toBe(POLL_MAX_MS);
+    // A working run is checked at least every few seconds, so its result shows soon after it finishes (issue #114).
+    expect(Math.max(...d.waits)).toBe(POLL_ACTIVE_MAX_MS);
     expect(d.waits.reduce((a, b) => a + b, 0)).toBeGreaterThan(5 * 60 * 1000);
+  });
+
+  it('backs off to the long wait only while paused, and returns to short waits when the run resumes', async () => {
+    vi.useFakeTimers();
+    const d = deps([...Array.from({ length: 12 }, () => run('paused')), run('running'), run('running'), run('done')]);
+    const p = followRun('r', d);
+    await vi.advanceTimersByTimeAsync(30 * 60 * 1000);
+    await expect(p).resolves.toMatchObject({ status: 'done' });
+    expect(Math.max(...d.waits.slice(0, 12))).toBe(POLL_MAX_MS);
+    expect(d.waits.slice(12)).toEqual([POLL_ACTIVE_MAX_MS, POLL_ACTIVE_MAX_MS]);
   });
 
   it('follows a run paused for the model allowance through to its end, reporting the pause', async () => {

@@ -29,8 +29,21 @@ export const EXTRACTED_FACTS: NamedSchema = {
       },
     },
   },
-  limits: (v) => ((v as { facts: unknown[] }).facts.length > MAX_FACTS_PER_CHUNK ? `$.facts: more than ${MAX_FACTS_PER_CHUNK} facts` : null),
+  limits: (v, context) => {
+    const n = (v as { facts: unknown[] }).facts.length;
+    if (n > MAX_FACTS_PER_CHUNK) return `$.facts: more than ${MAX_FACTS_PER_CHUNK} facts`;
+    // An empty list for a part with real text is treated as a bad reply, so the step is retried (engine retries, limit 2)
+    // instead of saving "done, 0 facts". Live evidence (issue #114, 2026-10-13): the same 1028-token page and prompt gave
+    // 9 facts on one call and an empty 187-token reply on the next; 2 of 13 prompt-v2 calls were empty.
+    if (n === 0 && context && partText(context.user).length >= MIN_TEXT_FOR_FACTS) return '$.facts: empty for a part with readable text';
+    return null;
+  },
 };
+
+/** Characters of page text below which an empty extraction is accepted as genuine (a near-empty part). */
+export const MIN_TEXT_FOR_FACTS = 400;
+/** The page text of an extraction request: the user message after its "Part n of m:" header (engine/seed.ts extract_part). */
+const partText = (user: string) => user.replace(/^Part \d+ of \d+:\s*/, '').trim();
 
 /** One support-check call's reply: a verdict per fact id it was given. */
 export const SUPPORT_VERDICTS: NamedSchema = {

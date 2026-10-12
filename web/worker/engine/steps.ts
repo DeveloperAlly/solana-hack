@@ -184,7 +184,7 @@ export async function runStep(spec: Exclude<StepSpec, { type: 'map' }>, ctx: Ste
         // A schema-bound reply is used only if it conforms in full; otherwise the step fails (5xx, so it is retried) and
         // nothing from that reply is kept. The log names the schema and the path that failed, never the content.
         const value = parseJson<unknown>(r.text);
-        const bad = schemaError(schema.schema, value) ?? schema.limits?.(value) ?? null;
+        const bad = schemaError(schema.schema, value) ?? schema.limits?.(value, { user }) ?? null;
         if (bad) {
           console.error('llm reply off schema', { schema: schema.name, at: bad.split(':')[0], model: r.model });
           throw new HttpError(502, 'the AI model reply did not match the expected format, trying again');

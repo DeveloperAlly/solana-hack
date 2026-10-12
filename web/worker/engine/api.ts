@@ -160,7 +160,31 @@ export async function getRun(env: Env, user: UserRef, id: string) {
   const [own] = await db.select<{ id: string }>(env, 'brands', `${db.eq('id', run.brand_id)}&${db.eq('owner_id', user.id)}&select=id`);
   if (!own) throw new HttpError(404, 'run not found');
   const steps = await db.select(env, 'run_steps', `${db.eq('run_id', id)}&select=${STEP_FIELDS}&order=created_at.asc`);
-  return { run, steps };
+  return { run: await reconcileRun(env, run, steps.length), steps };
+}
+
+/** A run with no step recorded for this long has not started; it is failed so no screen waits on it forever. */
+export const NEVER_STARTED_MS = 120_000;
+
+/**
+ * A run the database still calls running or paused, checked against what actually happened (issue #114): if its
+ * Workflows instance has errored or been terminated (live, 2026-10-13: "Too many subrequests" killed adna.network reads
+ * and the run's own fail step), or it never recorded a step within NEVER_STARTED_MS, the row is marked failed with a
+ * plain reason. The update is conditional on the row still being running or paused, so a run that finished meanwhile
+ * is left alone. Returns the row as it now stands.
+ */
+export async function reconcileRun(env: Env, run: RunRow, stepCount: number, now = Date.now()): Promise<RunRow> {
+  if (run.status !== 'running' && run.status !== 'paused') return run;
+  let reason: string | null = null;
+  if (run.executor === 'workflows' && env.RUN_WORKFLOW) {
+    const status = await env.RUN_WORKFLOW.get(run.id).then((i) => i.status()).then((x) => x.status as string).catch(() => null);
+    if (status === 'errored' || status === 'terminated') reason = 'The read stopped before it finished. Try the source again.';
+  }
+  const age = now - Date.parse(run.updated_at || run.created_at);
+  if (!reason && stepCount === 0 && run.status === 'running' && age > NEVER_STARTED_MS) reason = 'The read never started. Try the source again.';
+  if (!reason) return run;
+  const [row] = await db.update<RunRow>(env, 'runs', `${db.eq('id', run.id)}&status=in.(running,paused)`, { status: 'failed', error: reason, error_code: 502, updated_at: new Date(now).toISOString() });
+  return row ?? { ...run, status: 'failed', error: reason, error_code: 502 };
 }
 
 /** The message while a source is still being read (the 202 answer's `message`). */

@@ -44,6 +44,18 @@ describe('Live Journey endpoint integration', () => {
     expect(screen.queryByText('Facts appear here as each page is read, each with the line it came from.')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Start with a few questions' })).toBeInTheDocument();
   });
+  it('a failed extra source shows as blocked, not as "we could not read" the brand site', async () => {
+    state.journey!.read.sources = [{ id: 'home', label: 'brand.example', status: 'read', facts: 0 }, { id: 'gh', label: 'github.com/x/private', status: 'blocked', reason: 'HTTP 404' }];
+    mock.api.mockImplementation(async (path: string) => {
+      if (path === '/brands/brand') return structuredClone(state);
+      if (path.includes('/runs?')) return { runs: [{ id: 'failed-run' }] };
+      if (path === '/runs/failed-run') return { run: { status: 'failed', error: 'We could not read github.com (HTTP 404).', resume_at: null } };
+      throw new Error(`Unexpected API ${path}`);
+    });
+    render(<MemoryRouter initialEntries={['/journey/read']}><LiveJourneyProvider><Routes><Route path="/journey/read" element={<LiveJourneyScreen target="read" />} /></Routes></LiveJourneyProvider></MemoryRouter>);
+    await screen.findByRole('heading', { name: /We found nothing we could quote on/ });
+    expect(screen.queryByRole('heading', { name: /We couldn't read/ })).not.toBeInTheDocument();
+  });
   it('keeps showing reading while a source is still being read', async () => {
     state.journey!.read.sources = [{ id: 'src', label: 'brand.example', status: 'reading' }];
     render(<MemoryRouter initialEntries={['/journey/read']}><LiveJourneyProvider><Routes><Route path="/journey/read" element={<LiveJourneyScreen target="read" />} /></Routes></LiveJourneyProvider></MemoryRouter>);

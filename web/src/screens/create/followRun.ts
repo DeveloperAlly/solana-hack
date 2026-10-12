@@ -4,8 +4,13 @@
 
 export interface RunView { status: string; error: string | null; resume_at: string | null; progress?: { message?: string | null } | null }
 
-/** First wait between polls, the most it backs off to, and the factor between waits. */
+/**
+ * First wait between polls, the factor between waits, and the most it backs off to: POLL_ACTIVE_MAX_MS while the run is
+ * working, so a finished read or draft appears within a few seconds (a 30 s cap left a finished read showing "Reading…"
+ * for up to 30 s on the live site, issue #114), and POLL_MAX_MS only while it is paused for the model's allowance.
+ */
 export const POLL_START_MS = 1500;
+export const POLL_ACTIVE_MAX_MS = 4000;
 export const POLL_MAX_MS = 30_000;
 export const POLL_FACTOR = 1.5;
 
@@ -22,13 +27,15 @@ export interface FollowDeps {
 
 /** Polls until the run reaches a terminal state (returned), or the screen goes (null). */
 export async function followRun(runId: string, deps: FollowDeps): Promise<RunView | null> {
-  for (let wait = POLL_START_MS; ; wait = Math.min(wait * POLL_FACTOR, POLL_MAX_MS)) {
+  for (let wait = POLL_START_MS; ; ) {
     if (deps.cancelled()) return null;
     const run = await deps.get(runId);
     if (deps.cancelled()) return null;
     deps.onUpdate(run);
     if (TERMINAL.has(run.status)) return run;
+    wait = Math.min(wait, run.status === 'paused' ? POLL_MAX_MS : POLL_ACTIVE_MAX_MS);
     await deps.sleep(wait);
+    wait = wait * POLL_FACTOR;
   }
 }
 
