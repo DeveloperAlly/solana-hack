@@ -1,5 +1,5 @@
 /**
- * Waterlily: shared clients (BOILERPLATE, proposed 2026-10-06). Not runnable code.
+ * JamJam: shared clients (BOILERPLATE, proposed 2026-10-06). Not runnable code.
  *
  * Every external call below uses ONLY names verified on primary docs on 2026-10-06
  * (links in backend_map.md §9). Anything not verified is marked `TO VERIFY`.
@@ -80,7 +80,7 @@ export async function llm(env: Env, call: LlmCall): Promise<{ text: string; json
   // 2. if provider === "openrouter":
   //    fetch("https://openrouter.ai/api/v1/chat/completions", { method:"POST",
   //      headers:{ Authorization:`Bearer ${env.OPENROUTER_API_KEY}`, "Content-Type":"application/json",
-  //                "HTTP-Referer": env.APP_URL, "X-OpenRouter-Title": "Waterlily" },
+  //                "HTTP-Referer": env.APP_URL, "X-OpenRouter-Title": "JamJam" },
   //      body: JSON.stringify({ models:[settings.model, env.LLM_FALLBACK_MODEL], messages: call.messages,
   //        temperature: 0.3, max_tokens: 2000,
   //        response_format: call.jsonSchema && { type:"json_schema", json_schema:{ name: call.promptId, strict:true, schema: call.jsonSchema } },
@@ -126,7 +126,7 @@ export async function fetchPages(env: Env, urls: string[]) {
 
 // ===================================================================== DNS (domain verification)
 /**
- * Onboard-2 "Check now": look up a TXT record at _waterlily.<domain> containing brands.domain_txt_token.
+ * Onboard-2 "Check now": look up a TXT record at _jamjam.<domain> containing brands.domain_txt_token.
  * TO VERIFY in P0: use DNS-over-HTTPS (JSON) from a Worker, e.g. Cloudflare's resolver. The endpoint and
  * the `accept: application/dns-json` format were not checked in this pass.
  */

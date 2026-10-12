@@ -1,5 +1,5 @@
 /**
- * Waterlily: Grow API (BOILERPLATE, proposed 2026-10-06). Not runnable.
+ * JamJam: Grow API (BOILERPLATE, proposed 2026-10-06). Not runnable.
  * Screens: Amb-1…5d, M-1…M-5 (ambassador), Dashboard / Dashboard-Empty (brand view of ambassadors),
  * Engage-Queue (reply queue, hackathon per the backlog), Leads (experimental), Influencer-Setup / Queue (experimental).
  * Roadmap one-liners at the end. Format: METHOD PATH · Screens · Auth · In → Out · Reads/Writes · External · Jobs · Errors.

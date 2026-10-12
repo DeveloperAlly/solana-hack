@@ -2,13 +2,13 @@
 type: research
 status: active
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [research, lead-finder, reuse, compliance]
 ---
 > **Status: active.** Research input (2026-10-06) for Find your customer (experimental).
 
-# GamersLab lead finder: review and reuse for Waterlily
+# GamersLab lead finder: review and reuse for JamJam
 
 *Review 2026-10-06 of the founder's public repo `DeveloperAlly/leadgen-gamerslab`.*
 
@@ -40,7 +40,7 @@ tags: [research, lead-finder, reuse, compliance]
 - Accurate description: "company data and public web sources, plus contact harvesting from company sites and WHOIS."
 - **Compliance:** the Australian Spam Act 2003 prohibits using address-harvesting software and harvested lists to send commercial messages. GDPR and the Australian Privacy Principles require a lawful basis, notice, retention limits and suppression lists, none of which are implemented.
 
-## Reuse plan for Waterlily
+## Reuse plan for JamJam
 - **Lift:**
   - UI components (LeadRow, ProspectCard, ScoreBadge, ConfidenceChip, GateBanner, theming)
   - Prospect tracking and Dashboard layouts

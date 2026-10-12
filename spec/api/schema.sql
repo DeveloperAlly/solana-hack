@@ -1,4 +1,4 @@
--- Waterlily: Supabase Postgres schema (BOILERPLATE, proposed 2026-10-06)
+-- JamJam: Supabase Postgres schema (BOILERPLATE, proposed 2026-10-06)
 -- Status: proposed. It extends the data model in brand_builder_architecture.md §3.
 -- Tables marked [§3] already exist in the architecture. Tables marked [NEW] close
 -- gaps found in the 2026-10-06 UI review (ui gaps g1–g15).

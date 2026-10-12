@@ -21,7 +21,7 @@ export function AppShell({ brandName, children, preview = false }: { brandName?:
       <header className={styles.header}>
         <div className={styles.bar}>
           <RouterLink to="/home" className={styles.logo}>
-            Waterlily{brandName && <span className={styles.brand}>{brandName}</span>}
+            JamJam{brandName && <span className={styles.brand}>{brandName}</span>}
           </RouterLink>
           <nav aria-label={preview ? `Hub preview${brandName ? `, ${brandName}` : ''}` : 'Hub'}>
             <ul className={styles.links}>

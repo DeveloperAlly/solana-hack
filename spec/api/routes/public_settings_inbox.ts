@@ -1,5 +1,5 @@
 /**
- * Waterlily: public, settings and inbox API (BOILERPLATE, proposed 2026-10-06). Not runnable.
+ * JamJam: public, settings and inbox API (BOILERPLATE, proposed 2026-10-06). Not runnable.
  * Screens: Main, Verify-1/2/3, Ledger (public); Settings (MISSING: publishing connections, AI model + bring-your-own key,
  * plan / seats / billing); Inbox-All, Inbox-NeedsReply, Inbox-Connect (COMING SOON).
  */

@@ -2,7 +2,7 @@
 type: review
 status: active
 created: 2026-10-06
-updated: 2026-10-07
+updated: 2026-10-12
 last_edited_by: agent
 tags: [review, vc, judging, colosseum, deck]
 ---
@@ -14,13 +14,13 @@ tags: [review, vc, judging, colosseum, deck]
 
 ## Owner responses (2026-10-06)
 - **End to end:** the owner disagrees that the product lacks a wedge. No one runs the whole loop ([research 04](./research/04_brand_hub_landscape.md) agrees). The deck now makes end to end the differentiator and leads the sale with crypto and developer brands.
-- **Scope, ICP, traction:** recommendations 1 and 4 in the summary (cut to one loop; outside design partners) were not adopted. Waterlily is for the owner's own use first ([STATE.md](../../../STATE.md)).
+- **Scope, ICP, traction:** recommendations 1 and 4 in the summary (cut to one loop; outside design partners) were not adopted. JamJam is for the owner's own use first ([STATE.md](../../../STATE.md)).
 - **Registry:** Solana Attestation Service, with memo as the fallback, was adopted ([STATE.md](../../../STATE.md)).
 
 ## Summary (as written)
 The part nobody owns is "prove": a brand-issued, public record of what is official, tied to paying people for verified work. That is also the part a Solana judge scores highest. Recommendations:
 1. Cut the build to one loop: kit v1, approved post, onchain attestation, public verify page, one USDC payout for verified off-X work. *(Not adopted.)*
-2. Build the registry on the Solana Attestation Service (SAS), with Waterlily as credential issuer. *(Adopted, memo fallback.)*
+2. Build the registry on the Solana Attestation Service (SAS), with JamJam as credential issuer. *(Adopted, memo fallback.)*
 3. Fix screens that contradict the strategy: paid X posts, licensing-era Ledger and Verify copy, "Ally Haire" still listed as a demo brand.
 4. Get outside traction: design partners outside the owner's network. *(Not adopted.)*
 5. Rewrite the deck around impersonation and verified paid community work. *(Done: [pitch deck v2](./pitch_deck_2026_10_06.md).)*
@@ -51,7 +51,7 @@ The part nobody owns is "prove": a brand-issued, public record of what is offici
 | 5 | Direction changed three times in about three days (ADR-000 to ADR-003) | Frame it as research-led: licensing was dropped because desk research found no evidence that outsiders pay a brand per piece ([ADR-001](../decisions/adr_001_brand_voice_licensing.md), [ADR-002](../decisions/adr_002_purpose_build_run_prove.md)); demand was never tested with customers |
 | 6 | Platform dependency: X bars paying for X actions and charges $0.20 per API link post; LinkedIn closes member-post reads; personal WhatsApp and LinkedIn inbox access risks bans ([research 03](./research/03_platform_performance.md), [research 04](./research/04_brand_hub_landscape.md)) | Pay only for off-X work; keep inbox and engagement out of the pitch |
 | 7 | Brand-risk features (Flirty template, AI influencer, lead finder) distract | Keep them labelled experimental, out of the deck and demo |
-| 8 | Moat unstated | Network effect: once wallets, explorers and extensions read Waterlily's attestations, the registry is where "official" is checked |
+| 8 | Moat unstated | Network effect: once wallets, explorers and extensions read JamJam's attestations, the registry is where "official" is checked |
 | 9 | Colosseum backs full-time teams ([Colosseum](https://blog.colosseum.com/how-to-win-a-colosseum-hackathon/)) | Name who builds full-time |
 
 ## 2. Judge view
@@ -66,7 +66,7 @@ Colosseum publishes 7 criteria but no weightings; overall prizes are judged in o
 | Potential market size | 3 | 3–4 | Name the spend pool, not tools markets |
 | Founder communication | 2 | 4 | One problem, one loop, one Solana reason |
 | Viability | 2 | 3 | Needs a price and a named buyer |
-| Traction | 1 | 2–3 | Own-use numbers from Waterlily and aDNA |
+| Traction | 1 | 2–3 | Own-use numbers from JamJam and aDNA |
 
 **What Solana wants.**
 - **SAS:** live on mainnet since May 2025; named use cases are KYC, sybil resistance, accreditation and reputation, not brand provenance ([Solana](https://solana.com/news/solana-attestation-service)). A brand registry on SAS is a new use of a Foundation-backed primitive.
@@ -81,7 +81,7 @@ Colosseum publishes 7 criteria but no weightings; overall prizes are judged in o
 | Amb-4 Publish, Ledger | Ambassadors paid for X posts; conflicts with X's developer policy and the compendium's off-X rule | Remove X as a paid route |
 | Ledger, Verify-1, Onboard-5 | Licensing-era copy (license fees, 90/10 split, consent, "voice pack") | Ledger lists registrations and payouts; Verify shows brand, kit version, approver, attestation |
 | Landing | Solana only in a footer box | Show the verify badge above the fold |
-| Ledger switcher, landing | Founder's personal brand listed as a demo brand; Waterlily missing | Waterlily, aDNA, film.fun, GamersLab ([compendium §4](./compendium_2026_10_06.md)) |
+| Ledger switcher, landing | Founder's personal brand listed as a demo brand; JamJam missing | JamJam, aDNA, film.fun, GamersLab ([compendium §4](./compendium_2026_10_06.md)) |
 | Hub-Home, Ledger | Some sample numbers unlabelled | Label sample data or use devnet transactions |
 | Verify | Exact fingerprint only | Add "is this account or wallet official?" lookups |
 | Influencer-Setup | Flirty voice on an AI persona | Keep out of the demo (Colosseum's SFW rule for this event is unverified) |

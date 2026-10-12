@@ -6,7 +6,7 @@ import { api, ApiError } from '../../lib/api';
 interface Match { domainVerified?: boolean; registeredAt?: string | null; brand?: string | null; kitVersion?: number | null; approvedAt?: string | null; publishedUrl?: string | null; explorer?: string | null }
 interface Result extends Match { official: boolean; checked?: boolean; partial?: boolean; hash: string; matches?: Match[]; note?: string; truncated?: boolean }
 
-/** Verify-1 (S6): paste a post, see whether it is an official, registered post of a Waterlily brand. */
+/** Verify-1 (S6): paste a post, see whether it is an official, registered post of a JamJam brand. */
 export function Verify() {
   const [text, setText] = useState('');
   const [result, setResult] = useState<Result | null>(null);
@@ -42,9 +42,9 @@ export function Verify() {
             </Stack>
           </form>
           {result?.official && (
-            <Alert tone="success" title={`Registered by ${result.brand ?? 'a Waterlily brand'}`}>
+            <Alert tone="success" title={`Registered by ${result.brand ?? 'a JamJam brand'}`}>
               Approved {result.approvedAt ? new Date(result.approvedAt).toLocaleString() : ''}, written to kit v{result.kitVersion}.{' '}
-              Checked on Solana just now: the attestation exists, Waterlily signed it, and it carries this fingerprint.{' '}
+              Checked on Solana just now: the attestation exists, JamJam signed it, and it carries this fingerprint.{' '}
               {result.domainVerified ? '' : 'The brand name is self-declared: this brand has not proven it controls its domain yet.'}
               {result.partial ? ' Some other registrations of this text could not be checked on Solana just now, so the list below may be incomplete.' : ''}
             </Alert>

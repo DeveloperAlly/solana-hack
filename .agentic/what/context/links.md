@@ -2,13 +2,13 @@
 type: links
 status: active
 created: 2026-10-06
-updated: 2026-10-07
+updated: 2026-10-12
 last_edited_by: agent
 tags: [links, wireframes, deck, prd]
 ---
 > **Status: active.** Working links. The wireframe canvas's "Superhub (v2)" page reflects ADR-003; its v1 pages and the v1 deck predate ADR-002 and ADR-003. Pitch deck v2 follows them.
 
-# Waterlily: working links
+# JamJam: working links
 
 | What | Link | Notes |
 |---|---|---|

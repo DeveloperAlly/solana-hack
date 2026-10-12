@@ -14,6 +14,8 @@ import {
 } from '@solana/attestation';
 
 // Created by the spike under this Registrar; see backend map G-SAS.
+// Keeps the product's former name (Waterlily) on purpose: the credential account address is derived from this
+// name, so renaming it would point at an account that does not exist. The schema name WL-KIT is fixed for the same reason.
 export const CREDENTIAL_NAME = 'WATERLILY';
 export const KIT_SCHEMA = { name: 'WL-KIT', version: 1 } as const;
 export const explorerTx = (sig: string) => `https://explorer.solana.com/tx/${sig}?cluster=devnet`;

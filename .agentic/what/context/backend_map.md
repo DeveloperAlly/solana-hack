@@ -2,7 +2,7 @@
 type: architecture
 status: proposed
 created: 2026-10-06
-updated: 2026-10-08
+updated: 2026-10-12
 last_edited_by: agent
 tags: [architecture, backend, api, gaps]
 ---
@@ -11,7 +11,7 @@ tags: [architecture, backend, api, gaps]
 # Backend map
 
 ## 1. Decisions taken in this pass
-- **Purpose of the build (owner, 2026-10-06):** the founder wants to use Waterlily herself. Winning the hackathon is a bonus, not the goal. So the full phased plan in issue #4 stays: there is no cut to a single demo loop, the ICP stays broad (any brand), and there's no outside-traction workstream. The demo runs on devnet only.
+- **Purpose of the build (owner, 2026-10-06):** the founder wants to use JamJam herself. Winning the hackathon is a bonus, not the goal. So the full phased plan in issue #4 stays: there is no cut to a single demo loop, the ICP stays broad (any brand), and there's no outside-traction workstream. The demo runs on devnet only.
 - **Registry (owner, 2026-10-06):** registrations use the **Solana Attestation Service (SAS)**, with the memo program as the fallback if the devnet spike that opens UI slice S0 fails (§7 G-SAS).
 - **Search:** Exa is the default search provider, behind a swappable adapter (owner, 2026-10-06). It does competitor research at Gate 2, reads owned URLs during ingest, reads a URL pasted into Verify, and supplies lead signals.
 - **Format:** a markdown map plus TypeScript stubs. No separate PRD; this feeds the P0 PRD rewrite and the P1 component map (owner, 2026-10-06).

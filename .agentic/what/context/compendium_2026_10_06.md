@@ -2,20 +2,20 @@
 type: compendium
 status: active
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [compendium, decisions, product-map, business-model]
 supersedes: [archive/prd_story_studio, archive/roadmap_story_studio, archive/influencer_scope, archive/ai_creator_angles]
 ---
 > **Status: active.** Decision compendium for 2026-10-06 (v2: adds the dogfooding demo, the brand maturity split and polish actions). Ratified as [ADR-002](../decisions/adr_002_purpose_build_run_prove.md) and [ADR-003](../decisions/adr_003_superhub_business_model.md); the source for the PRD rewrite.
 
-# Compendium 2026-10-06: Waterlily becomes a brand superhub
+# Compendium 2026-10-06: JamJam becomes a brand superhub
 
 > **Supersedes:** the licensing-centred PRD v2.1 (issue #2), the story PRD ([archive/prd_story_studio.md](./archive/prd_story_studio.md)) and its [roadmap](./archive/roadmap_story_studio.md), [influencer scope](./archive/influencer_scope.md) and [AI creator angles](./archive/ai_creator_angles.md) as product direction (they stay as history).
 > **Sources:** the founder's design-chat thread (2026-10-05/06), founder answers in chat, [ADR-002](../decisions/adr_002_purpose_build_run_prove.md), research [01–09](./research/README.md), and the [Brand Builder architecture](./brand_builder_architecture.md).
 
 ## 1. Purpose (decided)
-**Waterlily: build your brand, run it, prove it.** A brand superhub. It is both the product vision and the hackathon build, scoped by the tags in §5.
+**JamJam: build your brand, run it, prove it.** A brand superhub. It is both the product vision and the hackathon build, scoped by the tags in §5.
 
 ## 2. Business model (decided)
 - **The brand pays** a subscription for the hub.
@@ -34,21 +34,21 @@ supersedes: [archive/prd_story_studio, archive/roadmap_story_studio, archive/inf
 6. **Demo content is SFW.** Colosseum rules §12. "Flirty" exists as a template only.
 
 ## 4. Demo brands and demo story (decided)
-- **Headline: Waterlily builds its own brand from scratch, live.**
-  - Run Waterlily through the minimum viable intake.
+- **Headline: JamJam builds its own brand from scratch, live.**
+  - Run JamJam through the minimum viable intake.
   - Get kit v1 through the three gates.
   - Create voices.
   - Score and polish a launch post, then approve it.
   - Register it as official, then verify it.
-  - Run one paid quest (a tutorial about Waterlily).
-  - Waterlily's own launch metrics become traction.
+  - Run one paid quest (a tutorial about JamJam).
+  - JamJam's own launch metrics become traction.
 - **Second zero-presence case: aDNA.** It has a strong written brand but no social presence. It shows the builder confirming rather than asking, and taking a brand onto social for the first time.
 - **Semi-established case studies: film.fun and GamersLab.**
   - These are the ingest-led path.
   - film.fun has a live product, site and five networks.
   - **GamersLab is confirmed as [gamerslab.gg](https://www.gamerslab.gg/)** ([09](./research/09_demo_brands.md)). It is the brand the founder's lead finder was built for, so it can show both the Brand Builder (from its existing product brief) and **Find your customer**.
 - **The founder's personal brand** stays as a user of the product, not a demo case.
-- **Timing:** Waterlily's own kit v1 is due by Oct 9, leaving time to post, register and run a quest before the deadline.
+- **Timing:** JamJam's own kit v1 is due by Oct 9, leaving time to post, register and run a quest before the deadline.
 
 ## 5. Product map (decided structure; tags drive the build)
 Navigation: **Brand / Create / Grow / Inbox / Analytics / Ledger-Verify**.

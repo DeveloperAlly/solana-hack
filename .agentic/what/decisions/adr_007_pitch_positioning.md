@@ -2,7 +2,7 @@
 type: adr
 status: accepted
 created: 2026-10-07
-updated: 2026-10-07
+updated: 2026-10-12
 last_edited_by: agent
 tags: [adr, pitch, positioning, go-to-market]
 ---
@@ -17,13 +17,13 @@ tags: [adr, pitch, positioning, go-to-market]
 - The build itself is for the owner's own use first, with the full phased plan ([STATE.md](../../../STATE.md)).
 
 ## Decision
-1. **Differentiator:** the pitch presents Waterlily as the only product that runs the whole loop: build the brand, run it, prove what's official on Solana, and pay for verified work.
+1. **Differentiator:** the pitch presents JamJam as the only product that runs the whole loop: build the brand, run it, prove what's official on Solana, and pay for verified work.
 2. **First buyer in the pitch:** crypto and developer brands.
 3. **Scope:** this is positioning only. Build scope, ICP for the product and the traction plan are unchanged.
 
 ## Consequences
 - [Pitch deck v2](../context/pitch_deck_2026_10_06.md) opens on impersonation and paid community work, and its competition slide compares tools across Build, Run, Prove and Pay.
-- The deck's traction slide uses the owner's own-use numbers (Waterlily and aDNA), not outside design partners.
+- The deck's traction slide uses the owner's own-use numbers (JamJam and aDNA), not outside design partners.
 - Features outside the loop (unified inbox, lead finder, AI influencer, analytics) stay in the product and out of the pitch.
 
 ## Ratification

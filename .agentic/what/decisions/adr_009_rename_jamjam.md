@@ -22,7 +22,7 @@ tags: [adr, naming, brand]
 
 ## Consequences
 - [Pitch deck v2](../context/pitch_deck_2026_10_06.md) and its editable copy are renamed and restyled.
-- Other docs, the README and the app's visible copy still say Waterlily in places; renaming them is follow-up work.
+- Docs and the README were renamed in [PR #20](https://github.com/DeveloperAlly/solana-hack/pull/20). On-chain and infrastructure names keep the old name on purpose (the SAS credential `WATERLILY`, the `WL-*` schemas, the Cloudflare Worker `waterlily`); see [STATE.md](../../../STATE.md).
 
 ## Ratification
 Ratified by Ally Haire in chat, 2026-10-12 ("I'm renaming this project to JamJam -> its hosted on jamjam.tech").

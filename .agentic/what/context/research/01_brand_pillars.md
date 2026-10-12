@@ -2,7 +2,7 @@
 type: research
 status: active
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [research, brand-strategy, onboarding]
 ---
@@ -10,7 +10,7 @@ tags: [research, brand-strategy, onboarding]
 
 # Brand-building pillars and onboarding workflow
 
-*Research basis for Waterlily onboarding. Compiled 2026-10-06. Sources marked [verified] were fetched and checked. Sources marked [secondary] are summaries of a book or model that could not be read in the original. Statistics are left out on purpose, because none of the primary sources gives one that matters here.*
+*Research basis for JamJam onboarding. Compiled 2026-10-06. Sources marked [verified] were fetched and checked. Sources marked [secondary] are summaries of a book or model that could not be read in the original. Statistics are left out on purpose, because none of the primary sources gives one that matters here.*
 
 ## 1. Company brand-strategy frameworks and their components
 

@@ -2,11 +2,11 @@
 type: mission
 status: proposed
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [mission, ui, build, components, design-tokens, proof-driven-delivery]
 ---
-> **Status: proposed.** Plan to build the Waterlily UI in React, slice by slice along the critical path, each slice proven on the deployed site. Live progress goes in [STATE.md](../../../STATE.md), not here.
+> **Status: proposed.** Plan to build the JamJam UI in React, slice by slice along the critical path, each slice proven on the deployed site. Live progress goes in [STATE.md](../../../STATE.md), not here.
 
 # Mission: UI build
 
@@ -14,7 +14,7 @@ tags: [mission, ui, build, components, design-tokens, proof-driven-delivery]
 **Approach:** [ADR-005](../../what/decisions/adr_005_ui_component_system.md) (proposed).
 **Component list:** [component inventory](../../what/context/component_inventory.md) (proposed); §8 maps every screen to its components and its slice.
 **Reference design:** the wireframe canvas ([links](../../what/context/links.md)). The canvas is the spec; a slice is built only from screens that are drawn and signed off.
-**Deadline:** Oct 12, 11:59pm PT ([mission](./mission_hackathon_submission.md)). Waterlily's own kit v1 is due by Oct 9 ([STATE](../../../STATE.md)).
+**Deadline:** Oct 12, 11:59pm PT ([mission](./mission_hackathon_submission.md)). JamJam's own kit v1 is due by Oct 9 ([STATE](../../../STATE.md)).
 
 ## 1. How the work runs
 The method is proof-driven delivery: done means every requirement has a proof on the deployed site, not that code exists.
@@ -48,7 +48,7 @@ Numbered, verbatim, with sources. The owner confirms this list is complete befor
 |---|---|---|
 | R10 | "Keep the existing look: ink-only greyscale, system-ui, the shared classes (.nav .box .btn .btn2 .chip .in .tbl), 44px touch targets, and real buttons, links and labels." | Canvas brief, Rules |
 | R11 | "Keep the top nav: Home / Inbox / Brand / Create / Grow / Analytics / Ledger, plus the brand switcher." | Canvas brief, Rules |
-| R12 | "The brand switcher lists: Waterlily, aDNA, film.fun, GamersLab." | Canvas brief, Rules |
+| R12 | "The brand switcher lists: [JamJam], aDNA, film.fun, GamersLab." | Canvas brief, Rules |
 | R13 | "Don't invent stats or claims. Put sample figures in [brackets] or mark them with a "Sample data" chip." | Canvas brief, Rules |
 | R14 | "Brand Builder intake, about 15 minutes of owner time, with a progress indicator and skip / save and resume on every step" (6 steps, 3 gates, as listed in the brief) | Canvas brief, Add |
 | R15 | "every hub screen needs empty, loading, success and error states" | Canvas brief, Add |
@@ -59,7 +59,7 @@ Numbered, verbatim, with sources. The owner confirms this list is complete befor
 | # | Requirement | Source |
 |---|---|---|
 | R18 | "A new brand can go from intake to an approved kit v1 with a hash registered on Solana devnet, in **15 minutes of owner time or less**" | [Issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4), definition of done |
-| R19 | "Waterlily's own kit v1 is built with the product, and one launch post goes through polish, approval, registration and verify." | Issue #4, definition of done |
+| R19 | "[JamJam]'s own kit v1 is built with the product, and one launch post goes through polish, approval, registration and verify." | Issue #4, definition of done |
 | R20 | "A semi-established brand (film.fun) gets no question that its ingested sources already answer." | Issue #4, P2 acceptance |
 | R21 | "Every polish action is reversible." | Issue #4, P4 acceptance |
 | R22 | "Tokens are never exposed to the browser beyond the OAuth flow." | Issue #4, P5 acceptance |
@@ -69,7 +69,7 @@ Numbered, verbatim, with sources. The owner confirms this list is complete befor
 **Non-functional (from the repo):**
 | # | Requirement | Source |
 |---|---|---|
-| R25 | Deadline Oct 12, 11:59pm PT; Waterlily kit v1 by Oct 9 | [STATE](../../../STATE.md) |
+| R25 | Deadline Oct 12, 11:59pm PT; JamJam kit v1 by Oct 9 | [STATE](../../../STATE.md) |
 | R26 | Sign in: "Email and a 6-digit code (Supabase OTP)." The embedded wallet is not available: "Phantom Connect isn't accepting new apps"; registrations are signed by the server Registrar and a wallet is linked only for payouts ([ADR-006](../../what/decisions/adr_006_wallet_identity_split.md)) | [Architecture §12.1](../../what/context/brand_builder_architecture.md#121-user-flow), step 0; [backend map §7](../../what/context/backend_map.md#7-architecture-gaps-and-decisions-needed) |
 | R27 | "Only hashes and ids go onchain. Content stays offchain." Registration on Solana devnet | [Architecture §7](../../what/context/brand_builder_architecture.md#7-proof-layer-what-gets-registered-when), §12.1 step 7 |
 | R28 | "Public-repo firewall. Never reference private repositories, private vaults, local paths, personal data or secrets." | [AGENTS.md](../../../AGENTS.md) rule 5 |
@@ -85,7 +85,7 @@ Numbered, verbatim, with sources. The owner confirms this list is complete befor
 | Q3 | App framework | **Resolved 2026-10-06:** "Vite is fine" (owner chat). Vite + React SPA on Cloudflare, no vinext spike; recorded in [ADR-005](../../what/decisions/adr_005_ui_component_system.md) | Done |
 | Q4 | Bring-your-own keys: browser only, or encrypted on the server? | Open decision in issue #4 P4 | S8 |
 | Q5 | Where do live checks run, and who adds the credentials? | The agent workspace cannot reach Cloudflare, Supabase or Solana devnet ([raw output in issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6012997589)). Proposal: deploy and run Playwright checks from GitHub Actions; the owner adds the deploy and database secrets to the repo's Actions secrets. Which accounts and secrets exist is tracked in [STATE.md](../../../STATE.md) | S0 |
-| Q6 | One walkthrough brand or two? | The canvas intake uses Waterlily and the hub screens use aDNA | S1 |
+| Q6 | One walkthrough brand or two? | The canvas intake uses JamJam and the hub screens use aDNA | S1 |
 | Q7 | Can a slice pass on mock data while its issue #4 service is not live? | Slices S2–S7 depend on P4–P6 services, starting with P4 ingest in S2. Proposal: such a slice is marked **PASS (mock)** and re-proven on live data before its batch is signed off | S2 |
 | Q8 | Where does the evidence file live? | The method asks for a dated evidence file in the repo; no evidence folder exists yet. Proposal: `.agentic/how/evidence/`, created in S0 | S0 |
 
@@ -107,10 +107,10 @@ Each slice is deployed, then its done-when check runs on the deployed URL. The c
 | **S1 Land and sign in** | Main; Onboard-1-SignIn; Onboard-2-Domain; Onboard-2b-DomainFailed | "Build my brand" reaches intake step 1; skipping the domain shows the Unverified flag; a wrong code shows its error | S0 |
 | **S2 Basics and ingest** | BB-1-Basics; Onboard-3-Sources; Onboard-3b-Profiling; Ingest-Error | Basics survive a reload; one real URL is read with progress per source; a failing URL shows Retry and Skip | S1; issue #4 P4 ingest (else PASS (mock), Q7) |
 | **S3 Interview, gates, coverage** | BB-2 to BB-6; BB-Gate1/2/3; Coverage-Map | Every step can be skipped and resumed; each gate records who, when and why; the coverage map shows E / I / M per section, with sources; a film.fun run (its public site ingested) gets no interview question for a section its sources marked Evidenced (R20) | S2; issue #4 P4 drafters; Q1 |
-| **S4 Kit v1** | Onboard-6-Published; Kit-RegisterFailed; Brand-Build; Kit-Export | **Waterlily's kit v1 is approved, its hash is registered on devnet, the explorer link resolves, and the aDNA zip downloads; owner time from intake step 1 to registration is measured end to end (active time on screen, excluding waits for ingest and drafting) and is 15 minutes or less** (R18); the decoded devnet transaction contains only the hash, version and ids, and no kit text (R27) | S3; issue #4 P6 registrar |
-| **S5 Create** | Voice-Templates; Voice-Editor; Draft-Review; Content-Dashboard / Empty | Waterlily's launch post, drafted from the Waterlily kit v1 registered in S4, is written in a voice, passes the slop check, shows voice-fit and platform scores, and every polish action undoes (R21, R19); a Playwright check shows the draft text is not rendered on Draft-Review, Content-Dashboard or any other route until the slop check has completed, and a failing check keeps it hidden (R9, cross-cutting) | Batch A signed off; canvas batch 2; issue #4 P3, P4 |
-| **S6 Prove** | Settings: publishing; Verify-1/2/3; Ledger; Claims / Empty; official registry | Waterlily's approved launch post from S5 is published or pasted back by URL and its hash registered against the S4 kit version; Verify says official for it and flags an edited copy (R19, R23); the ledger groups registrations by type; the decoded content-registration transaction contains only the hash, kit version and ids, and no post text; one approved claim is registered from Claims, a pending and an expired claim cannot be registered (no usable action, API refused, no chain request), and its decoded transaction likewise holds only hashes and ids, with no claim or evidence text (R27). **Approval proof (R8):** a draft that has not been approved cannot be published: the publish and send actions are absent or disabled for it in the UI, and a direct API call to publish it is refused with no connector request made. **Security proof (R22):** on the deployed site, after connecting each configured provider in turn (X and LinkedIn), a Playwright check finds no OAuth access or refresh token in localStorage, sessionStorage, the full Playwright cookie jar (HttpOnly cookies included), the shipped bundle or any API response the browser receives; a request with a revoked connection is refused | S5; canvas batches 3–4; issue #4 P5, P6 |
-| **S7 Grow** | Campaign v2 steps; Dashboard (Ambassadors) / Empty; Amb-*; M-*; Engage-Queue; Hub-Home | A campaign is created through all six Campaign v2 steps, saved after each step, and launched; one ambassador post on it, generated on Amb-3-Generate, is not rendered until its slop check has completed (and stays hidden if the check fails, R9), then is approved on the Dashboard before any post-on-behalf publish (an unapproved ambassador post cannot reach the connector: R8, cross-cutting), then is verified and paid in USDC on devnet, with an explorer link; the reply queue approves one reply, and an unapproved reply has no usable send action in the UI and a direct API call to send it is refused with no connector request made (R8). **If Q2 includes a paid quest:** the Quests screen (D53, paid variant) moves into S7 and one quest (a tutorial about Waterlily) is approved and paid in USDC on devnet; otherwise Quests stays a COMING SOON screen in S8 | Batch B signed off; Campaign v2 steps 2, 4, 5 and 6 drawn and signed off in canvas batch 5; Q2; issue #4 P6 payout |
+| **S4 Kit v1** | Onboard-6-Published; Kit-RegisterFailed; Brand-Build; Kit-Export | **JamJam's kit v1 is approved, its hash is registered on devnet, the explorer link resolves, and the aDNA zip downloads; owner time from intake step 1 to registration is measured end to end (active time on screen, excluding waits for ingest and drafting) and is 15 minutes or less** (R18); the decoded devnet transaction contains only the hash, version and ids, and no kit text (R27) | S3; issue #4 P6 registrar |
+| **S5 Create** | Voice-Templates; Voice-Editor; Draft-Review; Content-Dashboard / Empty | JamJam's launch post, drafted from the JamJam kit v1 registered in S4, is written in a voice, passes the slop check, shows voice-fit and platform scores, and every polish action undoes (R21, R19); a Playwright check shows the draft text is not rendered on Draft-Review, Content-Dashboard or any other route until the slop check has completed, and a failing check keeps it hidden (R9, cross-cutting) | Batch A signed off; canvas batch 2; issue #4 P3, P4 |
+| **S6 Prove** | Settings: publishing; Verify-1/2/3; Ledger; Claims / Empty; official registry | JamJam's approved launch post from S5 is published or pasted back by URL and its hash registered against the S4 kit version; Verify says official for it and flags an edited copy (R19, R23); the ledger groups registrations by type; the decoded content-registration transaction contains only the hash, kit version and ids, and no post text; one approved claim is registered from Claims, a pending and an expired claim cannot be registered (no usable action, API refused, no chain request), and its decoded transaction likewise holds only hashes and ids, with no claim or evidence text (R27). **Approval proof (R8):** a draft that has not been approved cannot be published: the publish and send actions are absent or disabled for it in the UI, and a direct API call to publish it is refused with no connector request made. **Security proof (R22):** on the deployed site, after connecting each configured provider in turn (X and LinkedIn), a Playwright check finds no OAuth access or refresh token in localStorage, sessionStorage, the full Playwright cookie jar (HttpOnly cookies included), the shipped bundle or any API response the browser receives; a request with a revoked connection is refused | S5; canvas batches 3–4; issue #4 P5, P6 |
+| **S7 Grow** | Campaign v2 steps; Dashboard (Ambassadors) / Empty; Amb-*; M-*; Engage-Queue; Hub-Home | A campaign is created through all six Campaign v2 steps, saved after each step, and launched; one ambassador post on it, generated on Amb-3-Generate, is not rendered until its slop check has completed (and stays hidden if the check fails, R9), then is approved on the Dashboard before any post-on-behalf publish (an unapproved ambassador post cannot reach the connector: R8, cross-cutting), then is verified and paid in USDC on devnet, with an explorer link; the reply queue approves one reply, and an unapproved reply has no usable send action in the UI and a direct API call to send it is refused with no connector request made (R8). **If Q2 includes a paid quest:** the Quests screen (D53, paid variant) moves into S7 and one quest (a tutorial about JamJam) is approved and paid in USDC on devnet; otherwise Quests stays a COMING SOON screen in S8 | Batch B signed off; Campaign v2 steps 2, 4, 5 and 6 drawn and signed off in canvas batch 5; Q2; issue #4 P6 payout |
 | **S8 Everything else** | Inbox-*; Engage-Rules; Partners; Leads; Influencer-*; Analytics / Empty; Quests; Settings: AI model, plan and seats; every remaining state | Every canvas page renders with its tag and four states (R15); no active screen mentions licensing (R16); a recorded SFW review of every demo fixture and every post, reply and quest text generated during the batch proofs, each run through the content-policy check (D3) with zero failures, is posted to issue #4 (R29); every figure that comes from fixtures renders in [brackets] or next to a "Sample data" chip, checked by a Playwright scan of every route that flags any fixture value shown bare (R13); a theme change is one file edit (R4) | Canvas batch 5; Q4 |
 
 **Cross-cutting proofs.** These apply to every path of the given kind, not only the example named in a slice row. Each slice that adds such a path adds that path to the check, and the slice does not pass until it does.
@@ -153,7 +153,7 @@ web/
 | Metric | Target | How measured |
 |---|---|---|
 | Critical path | R17 walkthrough passes on the deployed site | Actions Playwright run, end of batch B |
-| Kit v1 | Waterlily kit v1 registered on devnet by Oct 9 | Explorer link in issue #4 |
+| Kit v1 | JamJam kit v1 registered on devnet by Oct 9 | Explorer link in issue #4 |
 | Change a colour | 1 edit in one token file | Workbench theme editor, S0 and S8 |
 | Raw style values outside `tokens/` | 0 | CI check |
 | Stylesheets in `screens/` | 0 | CI check |

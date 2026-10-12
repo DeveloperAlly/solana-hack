@@ -2,11 +2,13 @@
 type: analysis
 status: historical
 created: 2026-10-05
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [swot, risks, licensing-era]
 ---
 > **Status: historical.** Analysis of the licensing-era concept (PRD v2.1); still informs risks
+
+> **Note (2026-10-12):** the product is now called JamJam (owner decision recorded in [STATE.md](../../../STATE.md), Recent decisions). This historical record keeps its original name, Waterlily.
 
 # Waterlily for Brands: SWOT
 

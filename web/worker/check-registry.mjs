@@ -62,6 +62,7 @@ try {
   }, 'getTransaction');
   if (tx.meta?.err) fail('transaction error ' + JSON.stringify(tx.meta.err));
   log(`PASS: RPC getTransaction ${r.signature}: slot ${tx.slot}, err = null`);
+  // 'WATERLILY' is the on-chain credential name (the product's former name), fixed on purpose: see CREDENTIAL_NAME in registry.ts.
   const [credential] = await findCredentialPda({ authority: address(expected), name: 'WATERLILY' });
   const [schema] = await findSchemaPda({ credential, name: 'WL-KIT', version: 1 });
   const a = await retry(async () => {
