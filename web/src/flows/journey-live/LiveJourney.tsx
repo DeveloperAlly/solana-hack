@@ -65,7 +65,7 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string>();
   const [progress, setProgress] = useState<string>();
   // Read runs being followed now: the Read screen shows "reading" only while one is, so a finished read with no facts
-  // shows its real result (issue #114, T1.09) instead of an endless spinner.
+  // shows its real result (issue 114, T1.15) instead of an endless spinner.
   const [readActivity, setReadActivity] = useState<{ brandId: string; runs: Set<string>; discovering: boolean } | null>(null);
   const followingReads = useRef(new Map<string, { promise: Promise<void>; signal: AbortSignal }>());
   const ctrl = useRef(new AbortController());
