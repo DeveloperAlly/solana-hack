@@ -215,6 +215,40 @@ describe('declared PDF page count', () => {
     );
     expect(await pdfPageCount(decoy)).toBe(1);
   });
+  it('reads only a dictionary\'s own keys: never from arrays, nested dictionaries, strings or comments (PR #71 review)', async () => {
+    const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+    const pdf = (cat: string, pages: string) => enc(`%PDF-1.4\n1 0 obj\n${cat}\nendobj\n2 0 obj\n${pages}\nendobj\n9 0 obj\n<< /Type /Pages /Kids [] /Count 5 >>\nendobj\ntrailer\n<< /Size 10 /Root 1 0 R >>\n%%EOF\n`);
+    const tree = '<< /Type /Pages /Kids [] /Count 1 >>';
+    // A key-like name inside an array, before the real key.
+    expect(await pdfPageCount(pdf('<< /Type /Catalog /Note [/Pages 9 0 R] /Pages 2 0 R >>', tree))).toBe(1);
+    // Inside a dictionary inside an array, and inside a nested dictionary.
+    expect(await pdfPageCount(pdf('<< /Type /Catalog /K [<< /Pages 9 0 R >>] /X << /Y << /Pages 9 0 R >> >> /Pages 2 0 R >>', tree))).toBe(1);
+    // In a string with escaped parentheses and a ">>", and in a comment.
+    expect(await pdfPageCount(pdf('<< /Type /Catalog /T (a \\) >> /Pages 9 0 R) % /Pages 9 0 R >>\n /Pages 2 0 R >>', tree))).toBe(1);
+    // /Type and /Count in arrays are not the node's own.
+    expect(await pdfPageCount(pdf('<< /Alt [/Type /Pages] /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Limits [/Count 7] /Kids [] /Count 1 >>'))).toBe(1);
+    // Names written with #xx escapes are the same names (ISO 32000-1 §7.3.5).
+    expect(await pdfPageCount(pdf('<< /Ty#70e /Catalog /Pa#67es 2 0 R >>', '<< /Type /Pag#65s /Count 3 >>'))).toBe(3);
+    // A catalog whose only /Pages is inside an array has no page tree to follow.
+    expect(await pdfPageCount(pdf('<< /Type /Catalog /Note [/Pages 2 0 R] >>', tree))).toBeNull();
+  });
+  it('parses PDF objects as ISO 32000-1 §7.3 defines them', async () => {
+    const { parseObject } = await import('../../worker/sources/pdfpages');
+    const v = parseObject('<< /A 1 0 R /B [1 2 3 0 R -4.5 .5 7 1 R] /C <414243> /D (x (y) \\)) /E true % c\n /F << /G /H#20I >> >>', 0);
+    expect(v?.value.kind).toBe('dict');
+    if (v?.value.kind !== 'dict') throw new Error('expected a dictionary');
+    const e = v.value.entries;
+    expect(e.get('A')).toEqual({ kind: 'ref', num: 1, gen: 0 });
+    expect(e.get('B')).toEqual({ kind: 'array', items: [{ kind: 'number', value: 1 }, { kind: 'number', value: 2 }, { kind: 'ref', num: 3, gen: 0 }, { kind: 'number', value: -4.5 }, { kind: 'number', value: 0.5 }, { kind: 'ref', num: 7, gen: 1 }] });
+    expect(e.get('C')).toEqual({ kind: 'string' });
+    expect(e.get('D')).toEqual({ kind: 'string' });
+    expect(e.get('E')).toEqual({ kind: 'keyword', word: 'true' });
+    expect(e.get('F')).toEqual({ kind: 'dict', entries: new Map([['G', { kind: 'name', name: 'H I' }]]) });
+    // Malformed or too deep: no object, rather than a guess.
+    expect(parseObject('<< /A >>', 0)).toBeNull();
+    expect(parseObject('<< 1 2 >>', 0)).toBeNull();
+    expect(parseObject('['.repeat(200) + ']'.repeat(200), 0)).toBeNull();
+  });
   it('inflates object streams only within a fixed budget', async () => {
     const { pdfPageCount, MAX_INFLATE } = await import('../../worker/sources/pdfpages');
     // A small stream that inflates to far more than the budget, claiming its objects start past the budget.
