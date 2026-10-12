@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BRAND, db, env, fakeDb, fakeStep, seedTables, type Row } from './engine-harness';
+import { BRAND, db, env, fakeDbResponse, fakeStep, seedTables, type Row } from './engine-harness';
 import { ABOUT, HOME, NEWS, PAGES, PROPOSALS, ROBOTS, SITE, SUPPORT, TRUE_CLAIMS } from './prefill-fixtures';
 import type { ConfirmData, GapsVoiceData, ReadData } from '../../worker/prefill/contract';
 
@@ -38,10 +38,8 @@ beforeEach(async () => {
   db.tables.brands[0].name = 'Tidewater';
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'u', email: 'o@example.com' }));
-    if (url.startsWith('https://db.test')) {
-      // The harness raises PostgREST's error for a refused RPC; PostgREST answers it as an HTTP error status.
-      try { return new Response(JSON.stringify(fakeDb(url, init))); } catch (e) { return new Response(JSON.stringify({ code: (e as Error).message }), { status: 400 }); }
-    }
+    // A refused database function answers with PostgREST's error body and status (engine-harness.ts fakeDbResponse).
+    if (url.startsWith('https://db.test')) return fakeDbResponse(url, init);
     if (url.endsWith('/robots.txt')) {
       const body = ROBOTS[new URL(url).origin];
       return body ? new Response(body, { headers: { 'content-type': 'text/plain' } }) : new Response('', { status: 404 });
@@ -254,6 +252,8 @@ describe('the owner decides each fact (FactRecord) through the review path', () 
     expect(() => parseRecord({ decision: 'edited', edit: 'x'.repeat(501) })).toThrow(/under 500/);
     expect(() => parseRecord({ decision: 'maybe' })).toThrow(/accepted, edited or rejected/);
     expect(() => parseRecord({ review_status: 'approved' })).toThrow();
+    expect(parseRecord({ decision: 'edited', edit: 'Founded in 2018.', value: ' 2018 ' })).toEqual({ decision: 'edited', edit: 'Founded in 2018.', value: '2018' });
+    expect(() => parseRecord({ decision: 'edited', edit: 'x', value: 'y'.repeat(121) })).toThrow(/under 120/);
   });
   it('accepted: approved through reviewEvidence', async () => {
     const e = byClaim('Tidewater helps small coffee roasters sell direct to cafes.');
@@ -301,16 +301,6 @@ describe('conflicts (B3a) reach the owner with both quotes, and the owner resolv
     const q = coverageMap(await state()).questions.find((x) => x.kind === 'conflict')!;
     expect(q.sides!.map((s) => s.value).sort()).toEqual(['2019', '2020']);
   });
-  it('resolve keeps the chosen side, rejects the other and closes the conflict; refused when done, unknown or not on it', async () => {
-    const out = await resolveConflict(envWith, user, brand, cid(), site2019().id);
-    expect(out).toMatchObject({ kept: [site2019().id], rejected: [news2020().id] });
-    expect(site2019().review_status).toBe('approved');
-    expect(news2020().review_status).toBe('rejected');
-    expect(db.tables.fact_conflicts[0]).toMatchObject({ status: 'resolved', resolved_by: 'u' });
-    await expect(resolveConflict(envWith, user, brand, cid(), site2019().id)).rejects.toMatchObject({ status: 409 });
-    await expect(resolveConflict(envWith, user, brand, '00000000-0000-4000-8000-999999999999', null)).rejects.toMatchObject({ status: 404 });
-    expect(confirmData(await state()).conflicts).toEqual([]);
-  });
   it('the owner resolves it through POST /api/brands/:id/conflicts/:cid/resolve', async () => {
     expect((await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, {})).status).toBe(400);
     expect((await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { keep: 'not-an-id' })).status).toBe(400);
@@ -320,11 +310,36 @@ describe('conflicts (B3a) reach the owner with both quotes, and the owner resolv
     const r = await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { keep: news2020().id });
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ conflict: cid(), kept: [news2020().id], rejected: [site2019().id], stale: ['origin'] });
-    expect((await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { keep: null })).status).toBe(409);
+    expect([news2020().review_status, site2019().review_status]).toEqual(['approved', 'rejected']);
+    expect(db.tables.fact_conflicts[0]).toMatchObject({ status: 'resolved', resolved_by: 'u' });
+    expect(confirmData(await state()).conflicts).toEqual([]);
+  });
+  it('the owner\'s own answer through the route: every side rejected and the answer saved, in one call', async () => {
+    expect((await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { answer: { claim: 'Founded in 2018.', value: '' } })).status).toBe(400);
+    const r = await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { answer: { claim: 'Tidewater was founded in 2018.', value: '2018' } });
+    expect(r.status).toBe(200);
+    expect([site2019().review_status, news2020().review_status]).toEqual(['rejected', 'rejected']);
+    expect(evidence().find((e) => e.id === r.body.answer)).toMatchObject({ claim: 'Tidewater was founded in 2018.', trust: 'owner_answer', review_status: 'approved', slot: 'founded', slot_value: '2018' });
+  });
+  it('two tabs resolving at once: the second gets the database\'s 409, and nothing changes (PR #101 review)', async () => {
+    await resolveConflict(envWith, user, brand, cid(), { keep: site2019().id });
+    const before = JSON.stringify(evidence());
+    const r = await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { keep: news2020().id });
+    expect(r.status).toBe(409);
+    expect(JSON.stringify(evidence())).toBe(before);
+    await expect(resolveConflict(envWith, user, brand, '00000000-0000-4000-8000-999999999999', { keep: null })).rejects.toMatchObject({ status: 404 });
+  });
+  it('a kept fact deleted in another tab is refused with 409, never turned into rejecting every side (PR #101 review)', async () => {
+    const gone = news2020().id;
+    // The row disappears while its id is still listed on the conflict (as a delete racing the owner's pick would leave it).
+    db.tables.evidence = db.tables.evidence.filter((e) => e.id !== gone);
+    await expect(resolveConflict(envWith, user, brand, cid(), { keep: gone })).rejects.toMatchObject({ status: 409 });
+    expect(site2019().review_status).toBe('proposed');
+    expect(db.tables.fact_conflicts[0].status).toBe('open');
   });
   it('keep must be a fact on the conflict; keep null rejects every side', async () => {
-    await expect(resolveConflict(envWith, user, brand, cid(), byClaim('Tidewater says "Fresh roast, fair price."').id)).rejects.toMatchObject({ status: 400 });
-    await resolveConflict(envWith, user, brand, cid(), null);
+    await expect(resolveConflict(envWith, user, brand, cid(), { keep: byClaim('Tidewater says "Fresh roast, fair price."').id })).rejects.toMatchObject({ status: 400 });
+    await resolveConflict(envWith, user, brand, cid(), { keep: null });
     expect([site2019().review_status, news2020().review_status]).toEqual(['rejected', 'rejected']);
   });
   it('accepting a disputed card resolves the conflict for its side', async () => {
@@ -332,18 +347,26 @@ describe('conflicts (B3a) reach the owner with both quotes, and the owner resolv
     expect([news2020().review_status, site2019().review_status]).toEqual(['approved', 'rejected']);
     expect(db.tables.fact_conflicts[0].status).toBe('resolved');
   });
-  it('editing a disputed card rejects every side and keeps the owner\'s wording', async () => {
-    await decideFact(envWith, user, brand, site2019().id, { decision: 'edited', edit: 'Tidewater was founded in 2018.' }, ops);
+  it('editing a disputed card is one call: every side rejected and the wording saved with its value, linked to the fact (PR #101 review)', async () => {
+    await expect(decideFact(envWith, user, brand, site2019().id, { decision: 'edited', edit: 'Tidewater was founded in 2018.' }, ops)).rejects.toMatchObject({ status: 400 });
+    // Refused by the database (a value over its limit reaches it only through this stub, so the check is its own):
+    // nothing changes, and the conflict is still there to answer.
+    await expect(decideFact(envWith, user, brand, site2019().id, { decision: 'edited', edit: 'Tidewater was founded in 2018.', value: 'x'.repeat(121) }, ops)).rejects.toMatchObject({ status: 400 });
+    expect([site2019().review_status, news2020().review_status, db.tables.fact_conflicts[0].status]).toEqual(['proposed', 'proposed', 'open']);
+    const out = await decideFact(envWith, user, brand, site2019().id, { decision: 'edited', edit: 'Tidewater was founded in 2018.', value: '2018' }, ops) as unknown as { evidence: { id: string }; replaced: string };
+    expect(out.replaced).toBe(site2019().id);
     expect([news2020().review_status, site2019().review_status]).toEqual(['rejected', 'rejected']);
-    expect(byClaim('Tidewater was founded in 2018.')).toMatchObject({ trust: 'owner_answer', review_status: 'approved' });
+    expect(evidence().find((e) => e.id === out.evidence.id)).toMatchObject({ trust: 'owner_answer', review_status: 'approved', slot_value: '2018', edited_from: site2019().id });
     expect(db.tables.fact_conflicts[0].status).toBe('resolved');
   });
-  it('rejecting one side leaves the conflict open with the other; rejecting the last side closes it', async () => {
-    await decideFact(envWith, user, brand, news2020().id, { decision: 'rejected' }, ops);
-    expect(db.tables.fact_conflicts[0].status).toBe('open');
-    expect(confirmData(await state()).conflicts[0].sides.map((s) => s.quote)).toEqual([ABOUT[3]]);
-    await decideFact(envWith, user, brand, site2019().id, { decision: 'rejected' }, ops);
-    expect(db.tables.fact_conflicts[0].status).toBe('resolved');
+  it('rejecting the sole fact on one side dissolves the conflict: no conflict question remains (PR #101 review)', async () => {
+    await call('PATCH', `/brands/${BRAND}/evidence/${news2020().id}`, { review_status: 'rejected' });
+    expect(db.tables.fact_conflicts[0].status).toBe('dissolved');
+    const s = await state();
+    expect(coverageMap(s).questions.some((q) => q.kind === 'conflict')).toBe(false);
+    expect(confirmData(s).conflicts).toEqual([]);
+    // The surviving fact is an ordinary fact again, back to the review it started with.
+    expect(site2019().review_status).toBe('approved');
   });
 });
 

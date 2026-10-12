@@ -388,25 +388,31 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
     const b = await body(req);
     return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20)));
   }
-  // POST /api/brands/:id/conflicts/:cid/resolve {keep: factId | null} -> {conflict, kept, rejected, stale}
-  // The owner settles a disagreement between sources (backlog B3a, issue #34): every fact giving the kept fact's value
-  // is approved and the rest rejected, atomically, by spec/db/011 resolve_fact_conflict; keep null rejects every side.
+  // POST /api/brands/:id/conflicts/:cid/resolve {keep: factId | null} or {answer: {claim, value}}
+  //   -> {conflict, kept, rejected, answer, stale}
+  // The owner settles a disagreement between sources (backlog B3a, issue #34): keep the side of one fact, reject every
+  // side, or give their own answer. One transaction (spec/db/011 resolve_fact_conflict, through prefill/decide.ts).
   if (p[3] === 'conflicts' && p.length === 6 && p[5] === 'resolve' && m === 'POST') {
     if (!/^[0-9a-f-]{36}$/i.test(p[4])) throw new HttpError(404, 'conflict not found');
     const b = await body(req);
-    if (!('keep' in b) || (b.keep !== null && (typeof b.keep !== 'string' || !/^[0-9a-f-]{36}$/i.test(b.keep)))) throw new HttpError(400, 'keep must be the id of a fact on the side you choose, or null to reject every side');
-    return json(await resolveConflict(env, user, brand, p[4], b.keep as string | null));
+    if (b.answer && typeof b.answer === 'object' && !('keep' in b)) {
+      const a = b.answer as Record<string, unknown>;
+      const claim = str(a.claim, 501);
+      const value = str(a.value, 121);
+      if (!claim || claim.length > 500 || !value || value.length > 120) throw new HttpError(400, 'your answer needs its wording (up to 500 characters) and its value (up to 120)');
+      return json(await resolveConflict(env, user, brand, p[4], { answer: { claim, value } }));
+    }
+    if (!('keep' in b) || (b.keep !== null && (typeof b.keep !== 'string' || !/^[0-9a-f-]{36}$/i.test(b.keep)))) throw new HttpError(400, 'keep must be the id of a fact on the side you choose, or null to reject every side; or give your own answer');
+    return json(await resolveConflict(env, user, brand, p[4], { keep: b.keep as string | null }));
   }
   if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
     // Removing a source removes the facts read from it. Sections that cited them then need redrafting before the next
     // registration (registerKit refuses stale citations); kits already registered keep their own evidence snapshot.
     const id = p[4];
     if (!/^[0-9a-f-]{36}$/i.test(id)) throw new HttpError(404, 'not found');
-    const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
-    const [src] = await db.select<{ id: string }>(env, 'sources', `${f}&select=id`);
-    if (!src) throw new HttpError(404, 'not found');
-    await db.del(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('source_id', id)}`);
-    await db.del(env, 'sources', f);
+    // One transaction (spec/db/011 delete_source): the facts and the source go together, and every conflict those facts
+    // were on is re-derived (a conflict left with one value closes and its other facts return to their own review).
+    await db.rpc(env, 'delete_source', { p_brand: brand.id, p_source: id });
     return json({ removed: id });
   }
   if (p[3] === 'sources' && p.length === 4 && m === 'POST') {

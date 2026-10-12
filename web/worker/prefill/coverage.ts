@@ -7,6 +7,7 @@
 // and independent sources (extract/facts.ts confidenceOf, issue #64); nothing here asks a model or rates a fact itself.
 // Architecture: https://github.com/DeveloperAlly/solana-hack/blob/main/.agentic/what/context/brand_builder_architecture.md
 import { SECTIONS, type SectionId } from '../kit';
+import { normText } from '../extract/facts';
 import { usableFact } from '../sources/registry';
 import type { EvidenceStatus, JourneyCoverage } from './contract';
 import { FIELDS, readers, type FieldSpec, type StepId } from './fields';
@@ -25,6 +26,8 @@ export interface CoverageFact {
   confidence?: string | null;
   slot?: string | null;
   slot_value?: string | null;
+  /** The comparable form of slot_value the database tells values apart by (spec/db/011). */
+  slot_key?: string | null;
 }
 /** An answers row (spec/db/001): one per interview step. */
 export interface CoverageAnswer { step: string; data: Record<string, string>; skipped: boolean }
@@ -280,11 +283,12 @@ export function coverageMap(input: CoverageInput): CoverageMap {
     const secs = [...new Set(facts.map((x) => x.section).filter((s): s is SectionId => s in SECTIONS))];
     const value = secs.reduce((n, s) => n + gateWeight(s), 0) || 1;
     const sides = new Map<string, { value: string; ids: string[] }>();
-    for (const x of facts) {
-      const v = (x.slot_value ?? '').trim();
-      const side = sides.get(v.toLowerCase()) ?? { value: v, ids: [] };
+    // Sides as the database tells values apart (slot_key, spec/db/011), with the same normaliser for older rows.
+    for (const x of facts.filter((y) => y.review_status !== 'rejected')) {
+      const k = x.slot_key || normText(x.slot_value ?? '');
+      const side = sides.get(k) ?? { value: (x.slot_value ?? '').trim(), ids: [] };
       side.ids.push(x.id);
-      sides.set(v.toLowerCase(), side);
+      sides.set(k, side);
     }
     questions.push({ id: `conflict:${c.id}`, kind: 'conflict', question: c.question, sections: secs, optional: false, minutes: CONFLICT_MINUTES, score: rankScore('conflict', value, CONFLICT_MINUTES), factIds: facts.map((x) => x.id), conflictId: c.id, sides: [...sides.values()] });
   }
