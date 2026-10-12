@@ -115,6 +115,8 @@ export const STATUS: Record<FailureCode, number> = {
   // Every reading path already failed inside the adapter; its reason tells the person to paste the text instead.
   unreadable: 422,
   not_configured: 503,
+  // A transient failure of a paid service (sources/search.ts exaPost): 5xx, so the runner retries it with backoff.
+  unavailable: 503,
 };
 
 export interface ReadStepOutput {

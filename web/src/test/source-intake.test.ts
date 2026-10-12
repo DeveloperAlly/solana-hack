@@ -423,13 +423,63 @@ describe('Exa search (#35): web research on the brand, third-party, never pre-ap
     expect(exaCalls.filter((c) => c.url === EXA_SEARCH)).toHaveLength(7);
   });
 
-  it('an Exa failure is a typed read failure with a way forward; a reply without cost records the list price with a note', async () => {
-    exaReply = () => new Response('{"error":"x"}', { status: 429 });
-    expect(await readSearch(envWith, { brandName: 'JamJam' })).toMatchObject({ ok: false, code: 'unreadable', reason: expect.stringMatching(/Exa answered HTTP 429/) });
+  it('Codex review on PR #100: each Exa failure is classified where it happens: transient ones retryable (503), the rest not (422)', async () => {
+    const cases: [string, () => Response | Promise<Response>, string][] = [
+      ['no answer', () => { throw new TypeError('network'); }, 'unavailable'],
+      ['429 without Retry-After', () => new Response('{"error":"rate"}', { status: 429 }), 'unavailable'],
+      ['500', () => new Response('{}', { status: 500 }), 'unavailable'],
+      ['503 overloaded', () => new Response('{"tag":"SERVICE_OVERLOADED"}', { status: 503 }), 'unavailable'],
+      ['400', () => new Response('{}', { status: 400 }), 'unreadable'],
+      ['401', () => new Response('{}', { status: 401 }), 'unreadable'],
+      ['oversized', () => new Response('x'.repeat(2_000_000)), 'unreadable'],
+      ['not JSON', () => new Response('<html>'), 'unreadable'],
+    ];
+    for (const [name, reply, code] of cases) {
+      exaReply = reply as () => Response;
+      const r = await readSearch(envWith, { brandName: 'JamJam' });
+      expect({ name, code: r.ok ? 'ok' : r.code }).toEqual({ name, code });
+      const c = await readCompetitors(envWith, { brandName: 'JamJam', website: 'https://jamjam.tech' });
+      expect({ name, code: c.ok ? 'ok' : c.code }).toEqual({ name, code });
+    }
+    const { STATUS } = await import('../../worker/engine/readers');
+    expect([STATUS.unavailable, STATUS.unreadable]).toEqual([503, 422]);
+  });
+
+  it('a 429 with a short Retry-After is waited out and retried once in the step; a long one is left to the runner', async () => {
+    let n = 0;
+    exaReply = () => (++n === 1 ? new Response('{}', { status: 429, headers: { 'retry-after': '0' } }) : exaOk([exaResult('https://a.example/', PROSE)]));
+    expect(await readSearch(envWith, { brandName: 'JamJam' })).toMatchObject({ ok: true });
+    expect(n).toBe(2);
+    n = 0;
+    exaReply = () => { n++; return new Response('{}', { status: 429, headers: { 'retry-after': '3600' } }); };
+    expect(await readSearch(envWith, { brandName: 'JamJam' })).toMatchObject({ ok: false, code: 'unavailable' });
+    expect(n).toBe(1);
+    const { retryAfterMs } = await import('../../worker/sources/search');
+    expect(retryAfterMs('7')).toBe(7000);
+    expect(retryAfterMs('Wed, 21 Oct 2015 07:28:10 GMT', Date.parse('Wed, 21 Oct 2015 07:28:00 GMT'))).toBe(10_000);
+    expect(retryAfterMs('soon')).toBeNull();
+  });
+
+  it('a /search reply without cost records the published list price, with a note', async () => {
     exaReply = () => new Response(JSON.stringify({ results: [exaResult('https://a.example/', PROSE)] }));
     const r = await readSearch(envWith, { brandName: 'JamJam' });
     expect(r).toMatchObject({ ok: true, meta: { cost: 0.007 } });
     expect(r.meta.notes.join(' ')).toMatch(/list price/);
+  });
+
+  it('through a run: a retryable Exa failure (503) is retried with backoff, a 4xx (422) is not', async () => {
+    exaReply = () => new Response('{}', { status: 503 });
+    const a = await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' });
+    expect(run((a.body.run as Row).id)).toMatchObject({ status: 'failed', error_code: 503 });
+    const retried = exaCalls.length;
+    expect(retried).toBe(1 + EXTRACT_FACTS.retries.limit);
+    expect(step.delays.filter((d) => d.step === 'read').length).toBe(EXTRACT_FACTS.retries.limit);
+    exaCalls = [];
+    db.tables.sources = db.tables.sources.filter((x) => x.kind !== 'search_result');
+    exaReply = () => new Response('{}', { status: 400 });
+    const b = await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' });
+    expect(run((b.body.run as Row).id)).toMatchObject({ status: 'failed', error_code: 422 });
+    expect(exaCalls).toHaveLength(1);
   });
 
   it('end to end: a search run stores one search_result source; every fact from it waits for the owner and links to its page', async () => {

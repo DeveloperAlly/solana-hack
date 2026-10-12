@@ -50,7 +50,8 @@ export type FailureCode =
   | 'unsupported_type' // a file type the converter does not accept
   | 'too_large' // over the upload limit
   | 'empty' // read, but nothing to use
-  | 'not_configured'; // the service this adapter needs is not set up
+  | 'not_configured' // the service this adapter needs is not set up
+  | 'unavailable'; // the service failed in a way that may pass (timeout, rate limit, 5xx): worth a retry
 
 export interface SourceFail {
   ok: false;

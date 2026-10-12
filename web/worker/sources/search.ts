@@ -67,26 +67,67 @@ export function parseExaReply(data: unknown): ExaReply | null {
   return data as unknown as ExaReply;
 }
 
-/** One Exa call, its reply streamed and refused past the cap; a failure is a reason for the person, never thrown. */
-async function exaPost(endpoint: string, key: string, body: Record<string, unknown>, cap: number): Promise<ExaReply | { error: string }> {
+/** Why an Exa call failed, classified where it happened: `retry` when the same call may pass later. */
+export interface ExaFailure { error: string; retry: boolean }
+
+/** The longest Retry-After waited out inside the step; a longer one is left to the runner's own backoff. */
+export const EXA_RETRY_AFTER_MAX_MS = 10_000;
+
+/**
+ * Retry-After as milliseconds: delay-seconds or an HTTP-date (RFC 9110 §10.2.3,
+ * https://www.rfc-editor.org/rfc/rfc9110#section-10.2.3); null when absent or unreadable.
+ */
+export function retryAfterMs(value: string | null, now = Date.now()): number | null {
+  if (!value) return null;
+  const v = value.trim();
+  if (/^\d+$/.test(v)) return Number(v) * 1000;
+  const at = Date.parse(v);
+  return Number.isNaN(at) ? null : Math.max(0, at - now);
+}
+
+/**
+ * One Exa call, its reply streamed and refused past the cap. A failure is returned, never thrown, and classified as
+ * Exa's error-code reference says to treat it (https://exa.ai/docs/admin/error-codes, Codex review on PR #100):
+ * - retryable: no answer or a broken connection, 429 (rate or concurrency limit), and any 5xx (500 internal, 503
+ *   SERVICE_OVERLOADED: "retry with exponential backoff"). A 429 is retried once here after its Retry-After ("wait
+ *   for Retry-After seconds when present") when that is at most EXA_RETRY_AFTER_MAX_MS; otherwise the runner retries.
+ * - not retryable: any other 4xx (a bad request or key will fail again), a reply over the cap, and a 2xx reply that is
+ *   not JSON or not in the documented shape (parseExaReply).
+ */
+async function exaPost(endpoint: string, key: string, body: Record<string, unknown>, cap: number, waited = false): Promise<ExaReply | ExaFailure> {
   let res: Response;
   try {
     res = await fetch(endpoint, { method: 'POST', headers: { 'x-api-key': key, 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(30_000) });
   } catch {
-    return { error: 'Exa did not answer in time' };
+    return { error: 'Exa did not answer in time', retry: true };
   }
   // Logging policy: the status only; Exa's message could echo the request.
   if (!res.ok) {
     await res.body?.cancel().catch(() => undefined);
-    return { error: `Exa answered HTTP ${res.status}` };
+    if (res.status === 429 && !waited) {
+      const wait = retryAfterMs(res.headers.get('retry-after'));
+      if (wait !== null && wait <= EXA_RETRY_AFTER_MAX_MS) {
+        await new Promise((r) => setTimeout(r, wait));
+        return exaPost(endpoint, key, body, cap, true);
+      }
+    }
+    return { error: `Exa answered HTTP ${res.status}`, retry: res.status === 429 || res.status >= 500 };
   }
+  let bytes: Uint8Array;
   try {
-    const { bytes, truncated } = await readCapped(res, cap);
-    if (truncated) return { error: 'Exa sent a reply larger than the request allows' };
-    return parseExaReply(JSON.parse(new TextDecoder().decode(bytes))) ?? { error: 'Exa sent a reply in an unexpected shape' };
+    const read = await readCapped(res, cap);
+    if (read.truncated) return { error: 'Exa sent a reply larger than the request allows', retry: false };
+    bytes = read.bytes;
   } catch {
-    return { error: 'Exa sent an unreadable reply' };
+    return { error: 'the connection to Exa broke while its reply was read', retry: true };
   }
+  let data: unknown;
+  try {
+    data = JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return { error: 'Exa sent a reply that is not JSON', retry: false };
+  }
+  return parseExaReply(data) ?? { error: 'Exa sent a reply in an unexpected shape', retry: false };
 }
 
 /**
@@ -171,7 +212,7 @@ export async function readSearch(env: SourceEnv, input: SearchInput): Promise<So
   const { trust } = factTrust('search_result');
   const name = (input.brandName ?? '').trim().slice(0, 120);
   const website = input.website?.trim() || null;
-  const fail = (code: 'invalid_input' | 'not_configured' | 'unreadable' | 'empty', reason: string, cost: number | null = 0) =>
+  const fail = (code: 'invalid_input' | 'not_configured' | 'unreadable' | 'unavailable' | 'empty', reason: string, cost: number | null = 0) =>
     ({ ok: false as const, kind: 'search_result' as const, code, reason, meta: c.meta(0, cost, 'exa') });
   if (!name) return fail('invalid_input', 'The brand needs a name before we can search the web for it.');
   if (!env.EXA_API_KEY) return fail('not_configured', 'Web search is not set up yet; add links about the brand instead.');
@@ -183,7 +224,7 @@ export async function readSearch(env: SourceEnv, input: SearchInput): Promise<So
     ...(scope ? { excludeDomains: [scope] } : {}),
     contents: { text: { maxCharacters: SEARCH_DEFAULTS.maxCharacters }, maxAgeHours: EXA_CACHE_ONLY },
   }, exaSearchCap(SEARCH_DEFAULTS.results, SEARCH_DEFAULTS.maxCharacters));
-  if ('error' in reply) return fail('unreadable', `${reply.error}; try again later, or add links about the brand instead.`);
+  if ('error' in reply) return fail(reply.retry ? 'unavailable' : 'unreadable', `${reply.error}; try again later, or add links about the brand instead.`);
   const { cost, note } = exaCost(reply, EXA_SEARCH_PRICE);
   if (note) c.notes.push(note);
   const pages = resultPages(reply, website, { max: SEARCH_DEFAULTS.results });
@@ -200,7 +241,7 @@ export async function readCompetitors(env: SourceEnv, input: SearchInput): Promi
   const c = clock();
   const { trust } = factTrust('competitor_page');
   const website = input.website?.trim() || null;
-  const fail = (code: 'invalid_input' | 'not_configured' | 'unreadable' | 'empty', reason: string, cost: number | null = 0) =>
+  const fail = (code: 'invalid_input' | 'not_configured' | 'unreadable' | 'unavailable' | 'empty', reason: string, cost: number | null = 0) =>
     ({ ok: false as const, kind: 'competitor_page' as const, code, reason, meta: c.meta(0, cost, 'exa') });
   const site = siteOf(website);
   if (!site) return fail('invalid_input', 'Add the brand\'s website first; competitors are found from it.');
@@ -211,7 +252,7 @@ export async function readCompetitors(env: SourceEnv, input: SearchInput): Promi
     url: site.toString(), numResults: COMPETITOR_RESULTS, excludeDomains: [scope],
     contents: { text: { maxCharacters: COMPETITOR_CHARS }, maxAgeHours: EXA_CACHE_ONLY },
   }, exaSearchCap(COMPETITOR_RESULTS, COMPETITOR_CHARS));
-  if ('error' in reply) return fail('unreadable', `${reply.error}; try again later, or name your alternatives yourself.`);
+  if ('error' in reply) return fail(reply.retry ? 'unavailable' : 'unreadable', `${reply.error}; try again later, or name your alternatives yourself.`);
   const { cost, note } = exaCost(reply, null);
   if (note) c.notes.push(note);
   const pages = resultPages(reply, website, { perHost: true, max: COMPETITOR_CANDIDATES });
