@@ -197,9 +197,9 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 Moved here from the 2026-10-12 delivery plan so the repo holds it. Component IDs are the [backlog](../../how/backlog/backlog.md) IDs; measures run in the evaluation harness ([architecture §13](./brand_builder_architecture.md#13-evaluation-harness-proposed-2026-10-12)). Sources: [architecture §13.5](./brand_builder_architecture.md#135-sources-for-61-62-71-and-13).
 
 ### 10.1 Decisions awaiting the owner
-1. **Models for brand data.** Free models are fine for development and CI, but only one free text model offers zero data retention, so brand content runs on the owner workstation or on paid models with zero retention: Claude Haiku 5.5 ($0.10 / $0.50 per million tokens) for extraction, judging and polish, and Sonnet 5.5 ($2 / $10) for drafting in the brand's voice. At 30 posts a brand a month that is about $7 a month at 10 brands and $73 at 100, paid by each brand once it brings its own key (S2). Alternative: everything on Haiku (about $0.75 at 10 brands).
-2. **Workstation as a provider (X3).** Issue JamJam a service identity on the workstation gateway and wire its writing route to the orchestrator (tracked in the workstation's own private repo).
-3. **Runtime claims checker (C1, G2).** The Worker cannot host the small checker models, so the default is an LLM judge from a different model family, calibrated on fixtures. Alternatives: run the checker on the workstation, or on a small CPU host whose cost is not verified.
+1. **Models for brand data.** Free models are fine for development and CI, but only one free text model offers zero data retention, so brand content runs on a self-hosted provider or on paid models with zero retention: Claude Haiku 5.5 ($0.10 / $0.50 per million tokens) for extraction, judging and polish, and Sonnet 5.5 ($2 / $10) for drafting in the brand's voice. At 30 posts a brand a month that is about $7 a month at 10 brands and $73 at 100, paid by each brand once it brings its own key (S2). Alternative: everything on Haiku (about $0.75 at 10 brands).
+2. **Self-hosted provider (X3).** Allow an optional self-hosted, OpenAI-compatible endpoint as a provider, with JamJam using its own service identity there. How that host is set up is out of scope for this repo.
+3. **Runtime claims checker (C1, G2).** The Worker cannot host the small checker models, so the default is an LLM judge from a different model family, calibrated on fixtures. Alternatives: run the checker on a self-hosted provider, or on a small CPU host whose cost is not verified.
 4. **Owner labelling time (X12).** About 2 hours for gold facts, 100 to 200 judge labels per dimension, and a 40-pair blind voice test. Without these the judge cannot be trusted and the voice claim cannot be made.
 5. **Repo stays public** (CI scoring is free on a public repo; a private repo gets a minutes quota).
 6. **LinkedIn Company Page access.** Apply for the vetted Community Management API if Company Page publishing is wanted; it needs a legal entity and a screencast.
@@ -207,14 +207,14 @@ Moved here from the 2026-10-12 delivery plan so the repo holds it. Component IDs
 ### 10.2 Gateway and workflow
 | Component | On main today | Best-output option (alternatives considered) | Measured by |
 |---|---|---|---|
-| **Model gateway and pool** (X1, X2, X3; #39) | One gateway, `openrouter/auto` (`llm.ts`) | A task-to-model map (extract, draft, judge, polish) chosen by harness score, with providers tried in order: the brand's own key, then the owner workstation (for your own brands), then JamJam's OpenRouter account using OpenRouter's built-in fallback list, which moves on after any error and bills the model that answered. This replaces most of the hand-built pool in #39. Routers are harness candidates, not infrastructure (see Reuse, providers and packaging) | Forced 429 answered by the next model; a model swap ships only after the harness passes |
+| **Model gateway and pool** (X1, X2, X3; #39) | One gateway, `openrouter/auto` (`llm.ts`) | A task-to-model map (extract, draft, judge, polish) chosen by harness score, with providers tried in order: the brand's own key, then a self-hosted provider, then JamJam's OpenRouter account using OpenRouter's built-in fallback list, which moves on after any error and bills the model that answered. This replaces most of the hand-built pool in #39. Routers are harness candidates, not infrastructure (see Reuse, providers and packaging) | Forced 429 answered by the next model; a model swap ships only after the harness passes |
 | **Workflow engine** (X4; #32) | Request-scoped calls | Durable runs with step retries and saved progress | A run survives a forced step failure; progress survives reload |
 
 ### 10.3 Reuse, providers and packaging
 
 Build only what nothing else does well; reuse or plug in everything else.
 
-**The owner workstation is a model provider.** The workstation already runs an authenticated gateway with an OpenAI-compatible `/v1/chat/completions` route, separate service identities behind private HTTPS, a 14B writing model on one 16 GB GPU, a prompt library, and an owner-scored writing benchmark. JamJam calls it like any other provider: no per-call cost, and brand data stays on your machine; OpenRouter takes over when the box is busy or offline. It also changes the ladder: the shared anti-slop writer and per-brand adapters can be trained on your box (QLoRA on a 7–14B model should fit a 16 GB A4000; to be measured), so those rungs need no paid GPU time. The benchmark is reused for JamJam's blind voice tests rather than building a second one. Limits: one request at a time today; JamJam needs its own service identity; the writing route must be wired to the orchestrator first (its README says it is fail-closed until then).
+**A self-hosted GPU host can be a model provider.** Any OpenAI-compatible endpoint behind its own authentication plugs in like any other provider: no per-call cost, brand data stays on that host, and OpenRouter takes over when it is busy or offline. Adapter training (QLoRA on a 7 to 14B model should fit a 16 GB GPU; to be measured) can run there, so the later voice rungs need no paid GPU time. Blind voice tests reuse an owner-scored benchmark rather than a second one.
 
 
 **Routers are candidates, not infrastructure.** JamJam's tasks are fixed and every output passes gates, so the router is the task-to-model map chosen by harness scores. Off-the-shelf routers are scored in the harness like any model:
@@ -222,14 +222,14 @@ Build only what nothing else does well; reuse or plug in everything else.
 | Router | What it does | Fit |
 |---|---|---|
 | Jev Router on OpenRouter (`typesafe/jev-router`) | Picks a model and reasoning effort per request from task difficulty and a cost tier; candidate models can be restricted | Harness candidate per task. Its page doesn't state structured-output or zero-retention support, so it stays off brand data until confirmed |
-| NVIDIA LLM Router v2 | Classifies intent with a small model and returns the recommended model name only; intent mode needs a 16 GB GPU | Rejected: experimental, deprecated in favour of NeMo Switchyard, and would occupy a whole A4000 |
+| NVIDIA LLM Router v2 | Classifies intent with a small model and returns the recommended model name only; intent mode needs a 16 GB GPU | Rejected: experimental, deprecated in favour of NeMo Switchyard, and would occupy a whole 16 GB GPU |
 | OpenRouter fallback list (`models`) | Tries models in order on any error, including rate limits; bills the model that answered | Adopted for failover |
 
-**Packaged as reusable modules.** Today the logic sits inside the Worker files (`llm.ts`, `ingest.ts`, `kit.ts`, `posts.ts`). Each component becomes a package in the repo with a typed contract and no Cloudflare or Supabase code inside; the Worker only wires them together. That keeps them testable in the harness and reusable in other products (the slop scorer and voice evaluation also serve the owner's own writing on the workstation).
+**Packaged as reusable modules.** Today the logic sits inside the Worker files (`llm.ts`, `ingest.ts`, `kit.ts`, `posts.ts`). Each component becomes a package in the repo with a typed contract and no Cloudflare or Supabase code inside; the Worker only wires them together. That keeps them testable in the harness and reusable in other products (the slop scorer and voice evaluation are reusable outside JamJam).
 
 | Module | Contract | Reuses |
 |---|---|---|
-| Provider client | chat(task, messages, schema) → result, model used, cost | OpenRouter fallbacks; OpenAI-compatible endpoints (the workstation gateway, the brand's key, Workers AI) |
+| Provider client | chat(task, messages, schema) → result, model used, cost | OpenRouter fallbacks; OpenAI-compatible endpoints (a self-hosted endpoint, the brand's key, Workers AI) |
 | Normaliser `norm_v1` | text → normalised text, hash | Unicode NFKC |
 | Evidence extraction | sources → facts with exact quotes and offsets | LangExtract's alignment method |
 | Slop scorer | text, brand baseline → score, flagged spans | EQ-Bench slop-score (MIT) |
@@ -243,7 +243,7 @@ Build only what nothing else does well; reuse or plug in everything else.
 ### 10.4 Settings › AI: key storage (S2, S3; answers mission Q4)
 | Area | Tasks | Done when |
 |---|---|---|
-| Settings › AI | Connect with OpenRouter (OAuth, one button; paste a key as fallback); model sources in order: the brand's own key, JamJam's default, any OpenAI-compatible endpoint (how the owner workstation plugs in); keys encrypted at rest with AES-GCM under a per-brand key derived from a versioned master secret held only in the Worker, never returned to the browser (last four characters and a Test button shown); calls and estimated spend this month (D54) | A new brand connects its own key in under a minute; a stored key can't be read back through any API; the test button reports a bad key |
+| Settings › AI | Connect with OpenRouter (OAuth, one button; paste a key as fallback); model sources in order: the brand's own key, JamJam's default, any OpenAI-compatible endpoint (how a self-hosted provider plugs in); keys encrypted at rest with AES-GCM under a per-brand key derived from a versioned master secret held only in the Worker, never returned to the browser (last four characters and a Test button shown); calls and estimated spend this month (D54) | A new brand connects its own key in under a minute; a stored key can't be read back through any API; the test button reports a bad key |
 
 ### 10.5 Publishing order (P2, P3, P3a)
 Official APIs in order of cost and access: Bluesky (free, open), LinkedIn as a member (self-serve), X (pay per use; links kept out of post bodies, where the price jumps), Threads (app review), LinkedIn Company Pages (vetted access, legal entity). Each goes live with its own success-rate check, and the published text must hash to the approved hash 100% of the time.

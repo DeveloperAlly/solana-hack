@@ -10,9 +10,9 @@ tags: [research, media]
 
 # Research 11 detail: Media generation, on-brand control, evaluation and provenance (researched 2026-10-12)
 
-Research question B: how JamJam should generate each media type, keep it on-brand, evaluate it and register it, cheaply, on Cloudflare Workers + Supabase + OpenRouter plus the owner workstation (2x RTX A4000 16 GB, no NVLink, 124 GB RAM).
+Research question B: how JamJam should generate each media type, keep it on-brand, evaluate it and register it, cheaply, on Cloudflare Workers + Supabase + OpenRouter plus an optional self-hosted GPU provider (16 GB class).
 
-Method: workstation facts come from the owner's private setup notes (section 1). External facts come from primary sources (vendor docs, pricing pages, model cards, licence files, repos), each cited inline. Prices are list prices seen on 2026-10-12, in USD. **UNVERIFIED** marks anything not confirmed from a primary source in this session, plus all of my own estimates. Licence notes are an engineering screen, not legal advice.
+Method: section 1 states the assumptions about the optional self-hosted GPU provider. External facts come from primary sources (vendor docs, pricing pages, model cards, licence files, repos), each cited inline. Prices are list prices seen on 2026-10-12, in USD. **UNVERIFIED** marks anything not confirmed from a primary source in this session, plus all of my own estimates. Licence notes are an engineering screen, not legal advice.
 
 ---
 
@@ -23,33 +23,33 @@ Method: workstation facts come from the owner's private setup notes (section 1).
 | Quote cards, carousels, code cards, OG images | Satori + resvg-wasm inside the Worker (`cf-workers-og`); Browser Run screenshots only for layouts Satori cannot do | About $0 (Worker CPU-ms; estimate under $0.0001) | Low (MPL-2.0 Satori, MIT wrapper) | `brand-render` |
 | PDF document posts (LinkedIn) | Same templates rendered page by page, then assembled into a PDF; Browser Run `/pdf` as a fallback | About $0 to $0.001 | Low | `brand-render` (pdf target) |
 | Diagrams | Graphviz (`@hpcc-js/wasm`), D2 (`@terrastruct/d2` wasm), Mermaid through a browserless renderer; themed from brand tokens | About $0 | Low (D2 is MPL-2.0) | `brand-render` (diagram target) |
-| Animated text and motion video | Remotion (free licence while JamJam has 3 people or fewer) on the workstation Tools runner; ffmpeg for simple cuts and burns | About $0 locally; Remotion Automators plan is $0.01 per render with a $100/mo minimum once the free licence no longer applies | Medium (Remotion company licence later) | `motion-render` |
-| Generative images | FLUX.2 [klein] 4B on the workstation (already live, Apache-2.0) with brand reference images; Workers AI `flux-2-klein-4b` as the hosted fallback | Local: well under $0.001 in power (estimate). Workers AI: about $0.0012 per 1 MP output | Low for klein 4B; **avoid klein 9B / FLUX.2 [dev] weights locally** (non-commercial) | `media-gen` (image) |
-| Short generative video | Hosted first: Veo 3.1 Lite ($0.05/s at 720p), Kling 3.0 ($0.084/s), Runway Gen-4 Turbo ($0.05/s), Luma Ray3.2 540p ($0.15 per 5 s). Local Wan only after the workstation thermal certification passes | $0.15 to $0.70 per 5 to 8 s clip hosted | Medium (provider terms) | `media-gen` (video) |
+| Animated text and motion video | Remotion (free licence while JamJam has 3 people or fewer) on a self-hosted container runner; ffmpeg for simple cuts and burns | About $0 locally; Remotion Automators plan is $0.01 per render with a $100/mo minimum once the free licence no longer applies | Medium (Remotion company licence later) | `motion-render` |
+| Generative images | FLUX.2 [klein] 4B on the self-hosted provider (Apache-2.0) with brand reference images; Workers AI `flux-2-klein-4b` as the hosted fallback | Local: well under $0.001 in power (estimate). Workers AI: about $0.0012 per 1 MP output | Low for klein 4B; **avoid klein 9B / FLUX.2 [dev] weights locally** (non-commercial) | `media-gen` (image) |
+| Short generative video | Hosted first: Veo 3.1 Lite ($0.05/s at 720p), Kling 3.0 ($0.084/s), Runway Gen-4 Turbo ($0.05/s), Luma Ray3.2 540p ($0.15 per 5 s). Local video not assumed | $0.15 to $0.70 per 5 to 8 s clip hosted | Medium (provider terms) | `media-gen` (video) |
 | Avatar / talking head | Only of a consenting, verified person. Hosted HeyGen API (from $0.0167/s) or local MuseTalk (MIT) / LatentSync (Apache-2.0) | $1 to $4 per minute hosted; about $0 local | High (likeness, consent, EU AI Act deepfake labelling) | `media-gen` (avatar) + `consent-registry` |
 | Clip-from-long-video | Transcript-first: faster-whisper/WhisperX, then an LLM picks segments, then scene snap with PySceneDetect, then ffmpeg cut and caption | About $0 local; Workers AI Whisper $0.0005 per audio minute | Low | `transcribe` + `clipper` |
 | Voice-over / TTS | Kokoro-82M (Apache-2.0) locally for stock voices; ElevenLabs only for a verified voice clone of the brand's own spokesperson | Local about $0; Workers AI MeloTTS $0.0002/min; ElevenLabs Flash $0.04 to $0.05 per 1K characters | Low for Kokoro; XTTS-v2 and F5-TTS weights are non-commercial, so do not use them | `voice` + `consent-registry` |
 | Two-voice podcast | Script with JamJam's own LLM + claims gate, then two-voice TTS (Kokoro voices or ElevenLabs), Podcastfy-style pipeline | About $0 to $0.50 per 10 minutes | Low | `podcast` (composes `voice`) |
-| Transcription for repurposing | Workers AI `whisper-large-v3-turbo` ($0.0005/min) or the workstation's existing `mp3-transcript` tool (faster-whisper) | $0.03 per hour of audio hosted | Low | `transcribe` |
+| Transcription for repurposing | Workers AI `whisper-large-v3-turbo` ($0.0005/min) or faster-whisper on the self-hosted runner | $0.03 per hour of audio hosted | Low | `transcribe` |
 | Evaluation (all) | Deterministic first (palette ΔE, OCR exact match, logo detection, contrast), then embedding similarity (SigLIP 2), then a calibrated vision-LLM judge, then the human approval gate | Mostly $0; LLM judge a few tenths of a cent | Low | `media-eval` |
 | Provenance (all) | C2PA manifest signed at approval (c2pa-rs / c2patool) + SHA-256 of the signed bytes + perceptual hash, registered as a SAS attestation | About $0 per asset; a trusted C2PA certificate costs money (price UNVERIFIED) | Low | `media-provenance` |
 
 Three design rules fall out of the evidence:
 
 1. **Never let a generative model draw brand text, logos or exact colours.** Generate the picture, then composite text, logo and palette through the deterministic template renderer. That makes the most failure-prone checks (exact text, logo fidelity, brand colours) correct by construction, and the claims gate sees the exact text that ships.
-2. **Hosted for video, local for images and audio.** The workstation already serves FLUX.2 klein 4B through an authenticated, durable gateway, but its video path is blocked on thermal certification, and 16 GB is the floor for current video models.
+2. **Hosted for video, local for images and audio.** A self-hosted 16 GB GPU can serve FLUX.2 klein 4B, but local video is not assumed, and 16 GB is the floor for current video models.
 3. **Register the final signed bytes, plus a perceptual hash.** Most social platforms strip C2PA on upload (LinkedIn is the exception that displays it), so the Verify page must match stripped copies by perceptual similarity as well as exact hash.
 
 ---
 
-## 1. Workstation facts that constrain the design
+## 1. Self-hosted provider assumptions
 
-Source: the owner's workstation setup notes (private, not linked under the public-repo rule), checked 2026-09-26 to 2026-09-29.
+JamJam can use an optional self-hosted GPU provider: any host with a 16 GB class GPU behind its own authenticated, OpenAI-compatible or job API. This report assumes only that:
 
-- **Image generation is live.** FLUX.2 klein 4B (distilled, Apache-2.0 components only) runs on one 16 GB GPU behind an authenticated gateway with durable jobs. One authenticated 1024x1024 generation took about 11 s end to end, including submit, polling and download. The setup avoided `flux2-dev` assets because their licence is non-commercial.
-- **Video is installed but blocked.** A local image-to-video test produced a short 848x480 clip in 75 s but ran the GPU close to its thermal guard, so local video waits for a reduced-power certification. The runtime tested has non-commercial licence metadata, so it is not suitable for brand output.
-- **A tools runner exists**: a container runner that already ships audio download and transcription (faster-whisper) jobs. It is the natural home for ffmpeg, Remotion, c2patool and the clipper, which are CPU or containerised jobs that do not need the GPU.
-- **New local models wait for the workstation's platform acceptance checks**, so every local recommendation below that needs a new model is "after the platform gate", not "now".
+- It can serve FLUX.2 klein 4B (Apache-2.0 components only) for images; `flux2-dev` assets are avoided because their licence is non-commercial.
+- Local video is not assumed: 16 GB is the floor for current video models and sustained video runs are power and thermal heavy, so brand video is hosted.
+- CPU or container jobs (ffmpeg, Remotion, c2patool, a clipper, transcription with faster-whisper) can run in a container runner on that host or in Cloudflare Containers.
+- A new local model is used only after it passes the evaluation harness.
 
 ---
 
@@ -83,7 +83,7 @@ Source: the owner's workstation setup notes (private, not linked under the publi
 - Remotion is free for individuals and companies of up to 3 people, commercial use included. Larger companies pay $25 per seat per month ("Creators") or $0.01 per render with a $100/mo minimum ("Automators", for apps and pipelines) ([remotion.pro/license](https://www.remotion.pro/license), [license FAQ](https://www.remotion.dev/docs/license-pricing-compliance/faq)).
 - Revideo is MIT, a fork of Motion Canvas with headless `renderVideo()` that needs Node and a headless browser ([repo](https://github.com/midrender/revideo/)). Its team now works mainly on Midrender, and recent engine changes have not been upstreamed ([midrender.com/revideo](https://midrender.com/revideo)), which is a maintenance risk.
 - Motion Canvas is MIT ([repo](https://github.com/motion-canvas/motion-canvas/)) but is meant as a standalone editor, not a library ([Revideo docs](https://docs.re.video/)).
-- None of these run inside a Worker, because they need Chromium plus ffmpeg. They run on the workstation's Tools runner, or in Cloudflare Containers (Paid plan; 375 vCPU-minutes a month included, then $0.000020 per vCPU-second, per the [Workers pricing page](https://developers.cloudflare.com/workers/platform/pricing/)). A minimal ffmpeg-in-Containers proof exists ([acoyfellow/ffmpeg-container](https://github.com/acoyfellow/ffmpeg-container)).
+- None of these run inside a Worker, because they need Chromium plus ffmpeg. They run on a self-hosted container runner, or in Cloudflare Containers (Paid plan; 375 vCPU-minutes a month included, then $0.000020 per vCPU-second, per the [Workers pricing page](https://developers.cloudflare.com/workers/platform/pricing/)). A minimal ffmpeg-in-Containers proof exists ([acoyfellow/ffmpeg-container](https://github.com/acoyfellow/ffmpeg-container)).
 - Cloudflare Media Transformations can trim, resize, extract frames and extract audio from MP4s under 100 MB and 10 minutes, through a Worker binding ([bindings](https://developers.cloudflare.com/stream/transform-videos/bindings/), [limits](https://developers.cloudflare.com/stream/transform-videos/index.md)). Pricing is UNVERIFIED.
 
 ### 2.2 Recommendation
@@ -116,7 +116,7 @@ Source: the owner's workstation setup notes (private, not linked under the publi
 ### 3.2 Brand style control
 
 - **Multi-reference editing is native in FLUX.2.** Klein accepts up to 4 reference images, and pro/flex/max accept up to 8 ([BFL overview](https://docs.bfl.ai/flux_2/flux2_overview)). Brand reference images (product shots, mood board, past approved assets) therefore go straight into the request. With FLUX.2 there is no need to bolt on IP-Adapter, which belonged to the FLUX.1 era.
-- **LoRA.** BFL's own training guide puts klein 4B Base LoRA training at 12 GB VRAM and 32 GB RAM (9B needs 22 GB) through AI-Toolkit, at 1 to 3 hours on consumer GPUs ([BFL klein training](https://docs.bfl.ai/flux_2/flux2_klein_training)). An A4000 16 GB fits the 4B Base path. **UNVERIFIED** on this host: a third-party guide says no published AI-Toolkit FLUX.2 config exists yet ([localaimaster](https://localaimaster.com/blog/ai-toolkit-lora-training-guide)). Train on Base and run inference on the distilled model; whether a Base LoRA transfers to distilled klein is **UNVERIFIED**.
+- **LoRA.** BFL's own training guide puts klein 4B Base LoRA training at 12 GB VRAM and 32 GB RAM (9B needs 22 GB) through AI-Toolkit, at 1 to 3 hours on consumer GPUs ([BFL klein training](https://docs.bfl.ai/flux_2/flux2_klein_training)). A 16 GB card fits the 4B Base path. **UNVERIFIED** on this host: a third-party guide says no published AI-Toolkit FLUX.2 config exists yet ([localaimaster](https://localaimaster.com/blog/ai-toolkit-lora-training-guide)). Train on Base and run inference on the distilled model; whether a Base LoRA transfers to distilled klein is **UNVERIFIED**.
 - **Order of preference:** references only, then a brand LoRA when an established brand has 20 or more consistent approved images (threshold is a judgement), then a style prompt from the kit's visual vocabulary.
 - **Seed reproducibility.** On FLUX.2 Klein through OpenRouter, the same seed reproduced the image byte for byte; Gemini and OpenAI have no seed parameter ([OpenRouter comparison](https://openrouter.ai/blog/insights/image-generation-models-compared/)). Store the seed in the asset record so regeneration is auditable.
 
@@ -139,11 +139,11 @@ Source: the owner's workstation setup notes (private, not linked under the publi
 
 - `media-gen` image adapter with a typed request: `{brandId, kitVersion, prompt, negativePrompt?, refs: AssetRef[≤4], size, seed?, tier: "draft"|"final"}`. The response carries `{bytes, mime, seed, model, modelRevision, provider, costUsd, latencyMs}`.
 - Routing:
-  - Draft: workstation klein 4B when the gateway reports `callable: true`, otherwise Workers AI klein 4B.
+  - Draft: self-hosted klein 4B when that provider is available, otherwise Workers AI klein 4B.
   - Final with a quality bump: BFL or fal FLUX.2 pro.
   - Typography inside the image: avoid; composite through `brand-render`.
   - Vector logo or icon exploration: Recraft vector (SVG) through OpenRouter. Use it only for exploration, never as the brand's logo of record.
-- The workstation call goes through its authenticated gateway with a JamJam service identity, never to the model runtime directly.
+- Calls to the self-hosted provider go through its authenticated API with a JamJam service identity, never to the model runtime directly.
 
 ---
 
@@ -163,11 +163,11 @@ Source: the owner's workstation setup notes (private, not linked under the publi
 
 ### 4.2 Open models on 16 GB
 
-- **Wan2.2 TI2V-5B (Apache-2.0).** The official CLI path needs at least 24 GB, even with offload ([model card](https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B)). ComfyUI's native offloading fits it on 8 GB ([ComfyUI docs](https://docs.comfy.org/tutorials/video/wan/wan2_2)). Wan's own figure is under 9 minutes for 5 s of 720p on one consumer GPU without optimisation. With 124 GB of RAM for offload, the A4000 is feasible but slow (estimate: several minutes per 5 s clip; **UNVERIFIED** on this host).
-- **Wan I2V 14B family.** This is what the workstation tested: 848x480, 41 frames in 75 s at 14.7 GB peak, but at the 92 to 93 C thermal limit (local evidence). The tested checkpoints are community merges, and Remix's licence is "other", so a commercial path should use official Wan-AI checkpoints.
+- **Wan2.2 TI2V-5B (Apache-2.0).** The official CLI path needs at least 24 GB, even with offload ([model card](https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B)). ComfyUI's native offloading fits it on 8 GB ([ComfyUI docs](https://docs.comfy.org/tutorials/video/wan/wan2_2)). Wan's own figure is under 9 minutes for 5 s of 720p on one consumer GPU without optimisation. With ample system RAM for offload, a 16 GB card is feasible but slow (estimate: several minutes per 5 s clip; **UNVERIFIED** on this host).
+- **Wan I2V 14B family.** On a 16 GB card these run near the thermal limit in practice (UNVERIFIED for any specific host). Common checkpoints are community merges, and Remix's licence is "other", so a commercial path should use official Wan-AI checkpoints.
 - **LTX-2.x (22B, synchronised audio and video).** Free for commercial use below $10M annual company revenue; above that a paid licence is required ([LICENSE](https://github.com/Lightricks/LTX-2/blob/main/LICENSE.md), [ltx.io licence page](https://website.ltx.io/model/license)). Lightricks puts 16 GB as the floor for *preview* iteration only (FP8, distilled, 33 to 49 frames), with production two-stage runs at 24 to 32 GB ([LTX hardware guide](https://ltx.io/blog/hardware-for-ai-video-models)). The licence is fine for JamJam today; the hardware is not.
 - **HunyuanVideo-1.5.** Its licence excludes the EU, UK and South Korea, and its outputs may not be used or displayed there ([LICENSE](https://github.com/Tencent-Hunyuan/HunyuanVideo-1.5/blob/main/LICENSE)). JamJam brands may sell into those regions, so **do not use it for brand output.**
-- **Verdict:** local video stays an experiment until the workstation certifies a reduced-power profile, and even then only Wan2.2 (official, Apache-2.0) qualifies. All brand video for the demo is hosted. Default to Veo 3.1 Lite or Luma 540p for 5 to 8 s social b-roll ($0.15 to $0.40 a clip), and Kling 3.0 or Runway Gen-4.5 for a hero shot.
+- **Verdict:** local video stays an experiment until a self-hosted host proves a sustainable profile, and even then only Wan2.2 (official, Apache-2.0) qualifies. All brand video for the demo is hosted. Default to Veo 3.1 Lite or Luma 540p for 5 to 8 s social b-roll ($0.15 to $0.40 a clip), and Kling 3.0 or Runway Gen-4.5 for a hero shot.
 
 ### 4.3 Avatars and talking heads
 
@@ -175,7 +175,7 @@ Source: the owner's workstation setup notes (private, not linked under the publi
 - **Synthesia.** API usage draws on plan credits; interactive avatars cost $0.10 to $0.20/min ([pricing](https://www.synthesia.io/pricing)). Its policy requires informed consent, including a biometric consent step, before creating an avatar of someone, and gives the person the right to revoke ([avatar policy](https://help.synthesia.io/en/articles/15453102-avatar-policy-foundation)). Its customer terms make the customer responsible for collecting free, informed consent from the person depicted ([terms](https://www.synthesia.io/legal/customer-terms-of-service)).
 - **Open source.**
   - MuseTalk: MIT code, and weights usable for any purpose including commercial; about 8 GB VRAM, real-time at 256x256 face crops ([repo](https://github.com/TMElyralab/MuseTalk/), [secondary comparison](https://news.creeta.com/en/open-source-lip-sync-models-2026/)). Its *test data* is non-commercial, and its dependency models (whisper, dwpose, S3FD) keep their own licences.
-  - LatentSync: Apache-2.0 ([repo](https://github.com/bytedance/latentsync)). Version 1.6 needs about 18 GB (secondary source), so use 1.5 on the A4000.
+  - LatentSync: Apache-2.0 ([repo](https://github.com/bytedance/latentsync)). Version 1.6 needs about 18 GB (secondary source), so use 1.5 on a 16 GB card.
 - **Consent rules for JamJam:**
   1. An avatar or voice clone may only be made of a person who verifies themselves inside JamJam. The ElevenLabs model is that a Professional Voice Clone is only of your own voice, verified by reading a voice CAPTCHA; someone else's consent is not enough ([ElevenLabs help](https://help.elevenlabs.io/hc/en-us/articles/36842751624209-Can-I-create-a-Professional-Voice-Clone-of-someone-else-s-voice), [PVC API](https://elevenlabs.io/docs/eleven-api/guides/how-to/voices/professional-voice-cloning.md)).
   2. Store a consent record (who, scope, expiry, revocation) and register its hash on Solana like other JamJam records.
@@ -193,7 +193,7 @@ Source: the owner's workstation setup notes (private, not linked under the publi
 - Building blocks:
   - WhisperX: BSD-2, word-level alignment, needs under 8 GB for large-v2, diarisation through pyannote community-1 (CC-BY-4.0) ([repo](https://github.com/m-bain/whisperx)).
   - faster-whisper: MIT; large-v3 fp16 batched about 6 GB VRAM, int8 about 3 to 4.5 GB ([repo](https://github.com/SYSTRAN/faster-whisper)).
-- **JamJam version.** Reuse the workstation's `mp3-transcript` tool as the transcription step (upgrade it to WhisperX on GPU after the platform gate). Segment selection uses JamJam's own LLM gateway with the brand kit and claims gate in the prompt. Every chosen clip's transcript goes through the claims gate before render. Render with ffmpeg in the Tools runner, or with Cloudflare Media Transformations for simple trims of MP4s under 100 MB.
+- **JamJam version.** Use faster-whisper as the transcription step (WhisperX on GPU once it passes the harness). Segment selection uses JamJam's own LLM gateway with the brand kit and claims gate in the prompt. Every chosen clip's transcript goes through the claims gate before render. Render with ffmpeg in the Tools runner, or with Cloudflare Media Transformations for simple trims of MP4s under 100 MB.
 
 ---
 
@@ -287,8 +287,8 @@ Principle: cheap deterministic checks gate first, learned scores rank, and a hum
 ### 6.5 Where evaluation runs
 
 - **In the Worker:** palette ΔE (pure JS colour maths on a downsampled PNG decode; **UNVERIFIED** CPU budget, so use a Queue consumer or Workflow step with the 30 s+ budget), contrast, and manifest checks.
-- **On the workstation, as a Tools-runner container on CPU or the GPU gateway after the gate:** PaddleOCR, SigLIP 2, OWLv2, the aesthetic predictor, WhisperX, UTMOS/DNSMOS and VMAF.
-- **Hosted fallback:** a vision LLM through OpenRouter for OCR plus artefact judging when the workstation is offline. That costs a fraction of a cent per image; **UNVERIFIED** exact cost, and it depends on the model.
+- **On the self-hosted provider, as a container on CPU or GPU once it passes the harness:** PaddleOCR, SigLIP 2, OWLv2, the aesthetic predictor, WhisperX, UTMOS/DNSMOS and VMAF.
+- **Hosted fallback:** a vision LLM through OpenRouter for OCR plus artefact judging when the self-hosted provider is offline. That costs a fraction of a cent per image; **UNVERIFIED** exact cost, and it depends on the model.
 
 ---
 
@@ -353,7 +353,7 @@ type RenderRequest = { brandId: string; kitVersion: number; templateId: string; 
   target: "png"|"svg"|"pdf"; size: {w:number;h:number}; slots: Record<string,string|AssetRef> };
 type RenderManifest = { textDrawn: string[]; fonts: string[]; colours: string[]; logoBox?: [number,number,number,number]; templateHash: string };
 
-// media-gen (provider-neutral; backends: workstation gateway, Workers AI, OpenRouter Image API, BFL, fal, Veo, Kling, Runway, Luma, HeyGen)
+// media-gen (provider-neutral; backends: self-hosted provider, Workers AI, OpenRouter Image API, BFL, fal, Veo, Kling, Runway, Luma, HeyGen)
 type GenRequest = { kind: "image"|"video"|"avatar"|"tts"; brandId: string; kitVersion: number; prompt: string;
   refs?: AssetRef[]; params: Record<string,unknown>; tier: "draft"|"final"; consentRef?: string };
 type GenResult = { asset: AssetRef; cost: Cost; provenance: ModelProvenance; upstreamC2pa?: boolean };
@@ -369,8 +369,8 @@ type ProvenanceRecord = { assetId: string; sha256: string; phash?: string; manif
 | Module | Runs on | Reuses | New |
 |---|---|---|---|
 | `brand-render` | Worker (Paid) | Design tokens (ADR-005), kit visual fields | Templates, font loader, render manifest |
-| `motion-render` | Workstation Tools runner (Remotion / ffmpeg) | Workstation tools runner, `brand-render` tokens | Compositions |
-| `media-gen` | Worker orchestrates; backends local or hosted | Workstation gateway `/v1/jobs`, `web/worker/llm.ts` gateway pattern, OpenRouter key | Provider adapters, router by tier and availability |
+| `motion-render` | Self-hosted container runner or Cloudflare Containers (Remotion / ffmpeg) | Container runner, `brand-render` tokens | Compositions |
+| `media-gen` | Worker orchestrates; backends local or hosted | Self-hosted provider API, `web/worker/llm.ts` gateway pattern, OpenRouter key | Provider adapters, router by tier and availability |
 | `transcribe` | Workers AI or the Tools runner | Existing `mp3-transcript` tool | WhisperX upgrade (after gate) |
 | `clipper` | Tools runner | `transcribe`, LLM gateway, claims gate | Segment ranker, ffmpeg recipes |
 | `voice` / `podcast` | Tools runner (Kokoro) or hosted (ElevenLabs, Workers AI) | LLM gateway, claims gate | Pronunciation dictionary, two-voice assembler |
@@ -389,7 +389,7 @@ Jobs go through Cloudflare Workflows or Queues (backlog X4, issue #32), because 
 | Quote card / carousel slide / OG image | ~$0 | ~$0 (Worker CPU) |
 | 10-page LinkedIn PDF | ~$0 | ~$0 to $0.002 (Browser Run if used) |
 | Generated 1 MP image | power only, well under $0.001 (estimate) | $0.0012 (Workers AI klein 4B) |
-| 8 s social video clip | not available (thermal gate) | $0.40 (Veo 3.1 Lite 720p) or $0.30 to $0.45 (Luma 540p, 5 to 10 s) |
+| 8 s social video clip | not assumed (local video) | $0.40 (Veo 3.1 Lite 720p) or $0.30 to $0.45 (Luma 540p, 5 to 10 s) |
 | 60 s avatar video | ~$0 (MuseTalk, after gate) | $1.00 (HeyGen Avatar III) |
 | 10-minute two-voice podcast (~10K characters) | ~$0 (Kokoro) | $0.002 (Workers AI MeloTTS) to $0.40 to $0.50 (ElevenLabs Flash) |
 | Transcribe 60 minutes | ~$0 (faster-whisper) | $0.03 (Workers AI Whisper turbo) |
@@ -402,8 +402,8 @@ Jobs go through Cloudflare Workflows or Queues (backlog X4, issue #32), because 
 1. Worker CPU time and memory for Satori + resvg at 1080x1350, and for PDF assembly. Measure before choosing Free vs. Paid (expect Paid).
 2. Whether D2.js and the Mermaid wasm renderers run inside workerd (web workers, wasm instantiation).
 3. Pika API pricing; Seedance per-token rate on BytePlus; Cartesia list prices; ElevenLabs' exact current per-1K rate (two pages disagree).
-4. BFL self-hosted licence prices for klein 9B / dev; whether a klein 4B Base LoRA transfers to the distilled klein checkpoint; LoRA training time on an A4000.
-5. Wan2.2 TI2V-5B time per clip on an A4000 with offload, and whether the reduced-power profile can sustain it.
+4. BFL self-hosted licence prices for klein 9B / dev; whether a klein 4B Base LoRA transfers to the distilled klein checkpoint; LoRA training time on a 16 GB card.
+5. Wan2.2 TI2V-5B time per clip on a 16 GB card with offload, and whether a sustainable power profile exists.
 6. DOVER licence; VMAF 90 and -16 LUFS as targets; all starting thresholds in section 6 until calibrated per brand.
 7. C2PA certificate cost and conformance effort; c2pa-rs wasm signing inside Workers limits; platform C2PA behaviour (secondary sources, and it changes often).
 8. JamJam's AI Act role (provider vs. deployer) for avatars, voice clones and generated media; get a legal read.

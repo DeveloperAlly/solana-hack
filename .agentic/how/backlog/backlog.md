@@ -6,7 +6,7 @@ updated: 2026-10-12
 last_edited_by: agent
 tags: [backlog, product-map, component-inventory]
 ---
-> **Status: active. This file is the one list of every JamJam component.** It replaces the 21-row product map that stood here (every one of those rows is kept below, with its old tag). It gathers, in one place, components that were decided in separate docs and issues: [compendium §5](../../what/context/compendium_2026_10_06.md#5-product-map-decided-structure-tags-drive-the-build), [ADR-003](../../what/decisions/adr_003_superhub_business_model.md), the [Brand Builder architecture](../../what/context/brand_builder_architecture.md), the [backend map](../../what/context/backend_map.md) and [`spec/api/`](../../../spec/api/README.md), PRD [#2](https://github.com/DeveloperAlly/solana-hack/issues/2), master list [#38](https://github.com/DeveloperAlly/solana-hack/issues/38) and its slices (#31 to #39), [research 10](../../what/context/research/10_competitor_onboarding_pricing.md) N1 to N14, the code on main (9da167b), and the owner's prior content-platform design ("prior platform design" below: private notes, not linked under the public-repo rule in AGENTS.md). Rows tagged **accepted 2026-10-12** were new in this pass and were accepted by the owner that day. Nothing here changes a decision; where two sources disagree, both are named.
+> **Status: active. This file is the one list of every JamJam component.** It replaces the 21-row product map that stood here (every one of those rows is kept below, with its old tag). It gathers, in one place, components that were decided in separate docs and issues: [compendium §5](../../what/context/compendium_2026_10_06.md#5-product-map-decided-structure-tags-drive-the-build), [ADR-003](../../what/decisions/adr_003_superhub_business_model.md), the [Brand Builder architecture](../../what/context/brand_builder_architecture.md), the [backend map](../../what/context/backend_map.md) and [`spec/api/`](../../../spec/api/README.md), PRD [#2](https://github.com/DeveloperAlly/solana-hack/issues/2), master list [#38](https://github.com/DeveloperAlly/solana-hack/issues/38) and its slices (#31 to #39), [research 10](../../what/context/research/10_competitor_onboarding_pricing.md) N1 to N14, the code on main (9da167b), and the owner's prior content-platform design ("prior platform design" below: private notes, not linked under the public-repo rule in AGENTS.md). Rows tagged **accepted 2026-10-12** were new in this pass and were accepted by the owner that day ([ADR-010](../../what/decisions/adr_010_component_list_and_plan_tiers.md)). Nothing here changes a decision; where two sources disagree, both are named.
 
 # Backlog: every component
 
@@ -23,7 +23,7 @@ tags: [backlog, product-map, component-inventory]
 
 **Sources added 2026-10-12:** media evidence is [research 11](../../what/context/research/11_media_formats.md) (formats, competitor media, platform AI rules) and [research 11 detail](../../what/context/research/11_media_detail/generation_stack.md) (generation stack, licences, evaluation, provenance). Component design, the voice ladder and the evaluation harness are in [architecture §6.1, §6.2, §7.1 and §13](../../what/context/brand_builder_architecture.md); providers, models, packaging and settings are in [backend map §10](../../what/context/backend_map.md). Those moved from the Claude doc "JamJam delivery plan", which now points here. "Owner, session" means said in a working session, with no public record.
 
-**Plan** (accepted by the owner 2026-10-12, prices still blank; for launch as a paid product; research 10 §3 has the competitor prices, e.g. Pressmaster Starter $29/user/mo): **Free** (build the kit, Verify), **Solo** (one brand, Run and Prove), **Team** (seats, approvals by role, ambassadors), **Add-on** (paid by use: video, avatars, paid X posting).
+**Plan** ([ADR-010](../../what/decisions/adr_010_component_list_and_plan_tiers.md), prices still blank; for launch as a paid product; research 10 §3 has the competitor prices, e.g. Pressmaster Starter $29/user/mo): **Free** (build the kit, Verify), **Solo** (one brand, Run and Prove), **Team** (seats, approvals by role, ambassadors), **Add-on** (paid by use: video, avatars, paid X posting).
 
 ## 1. The bar a paying user has to clear (accepted 2026-10-12)
 
@@ -76,7 +76,7 @@ A user who hits friction in onboarding leaves; a user whose first posts are not 
 | B9 | Three decision gates (purpose, positioning, voice) | The owner decides the brand; AI proposes | built | hackathon | Free | | | architecture §2 step 7; owner rule: brand authorship is the owner's |
 | B10 | Kit v1, canonical hash, versioning | A fixed brand record | built (`canonical()`, kits table); rename marks sections stale in open PR #41 | hackathon | Free | | | #31, #40, #41 |
 | B11 | Per-field "polish with AI" | Fix one field without redoing the step | spec | | Solo | Prompt library (P3) | Prompts tested on fixtures first | #37 |
-| B12 | Voice input for the interview (speech to text) | Talks instead of types; competitors interview by voice | spec | coming soon | Solo | Workers AI Whisper ($0.0005/min, research 11 detail); workstation `mp3-transcript` | | G-VOICE-INPUT; research 10 (Pressmaster, Supergrow voice interviews) |
+| B12 | Voice input for the interview (speech to text) | Talks instead of types; competitors interview by voice | spec | coming soon | Solo | Workers AI Whisper ($0.0005/min, research 11 detail); faster-whisper on a self-hosted runner | | G-VOICE-INPUT; research 10 (Pressmaster, Supergrow voice interviews) |
 | B13 | Connected history import: X archive, LinkedIn export, parsed in the browser | Voice learned from real posts; personal data never leaves the browser | spec | coming soon | Solo | | | #37, architecture §12.1 step 2 |
 | B14 | PPTX parsing | Decks count as sources | spec | | Solo | | | #37 |
 | B15 | Domain verification by DNS TXT | Unverified brands are flagged | spec | | Free | `lookupTxt` stub | | architecture §12.1 step 2, `WL-KIT.domain_verified` |
@@ -107,7 +107,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 | V1b | Template mixing per post (e.g. 70/30) | Blends two voices | spec | accepted 2026-10-12 | Solo | | | research 06 gaps |
 | V3 | Content-policy check on every approval (sexual content and minors blocked for all; explicit language blocked for Flirty) | Safe output by default | built as an LLM check (`posts.ts` CATEGORIES, `policyCheck`); a dedicated classifier is still open | | Solo | | | G-SAFETY |
 | V4 | Voice pack (ladder rung 1) from the brand's own authored samples, each with a source path | Voice comes from real writing, not a template guess | spec | accepted 2026-10-12 | Solo | Import (B13) supplies samples; quote check (B3) proves each one | Every sample resolves verbatim to its source; owner confirms before drafts use it | prior platform design|
-| V5 | Voice fine-tune (LoRA) as an opt-in upgrade, only if the eval shows it beats the voice pack | Higher voice fidelity for brands with a large corpus | spec | accepted 2026-10-12 | Add-on | Owner workstation training; open trainers, no custom trainer | Blind test beats V4 on the same fixtures | architecture §6.2 |
+| V5 | Voice fine-tune (LoRA) as an opt-in upgrade, only if the eval shows it beats the voice pack | Higher voice fidelity for brands with a large corpus | spec | accepted 2026-10-12 | Add-on | Self-hosted or hosted training; open trainers, no custom trainer | Blind test beats V4 on the same fixtures | architecture §6.2 |
 | C1 | Claims with evidence, owner and expiry | Nothing unprovable gets posted | partial: claims strictness levels and per-post policy check built (`policyCheck`); claim table, owner and expiry not built | hackathon (thin) | Solo | | U7 | compendium §5, `posts.ts` |
 | C2 | Strict claims level with its own prompt | Strict means strict | spec | | Solo | | | #37 |
 | C3 | Auto-inserted, locked disclosure on sponsored posts | Compliance without remembering | spec | roadmap | Team | | | PRD #2 |
@@ -134,10 +134,10 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 | T10 | Weekly 10-minute "jam" that produces a set number of approved posts | A habit, not a chore | spec | accepted 2026-10-12 | Solo | | | research 10 N2 |
 | M1 | Template renderer: carousels (PDF for LinkedIn, image sets elsewhere), image cards (stat, quote, code, screenshot, diagram), OG images | The best-performing format (LinkedIn documents ~21.8% median engagement, research 11), on brand by construction | spec | accepted 2026-10-12 | Solo | Satori and resvg (`cf-workers-og`) in the Worker; Browser Run fallback; the owner's existing 1080x1350 portrait renderer and social tiles as a starting template | Text, contrast (4.5:1) and colour (ΔE00) checks pass by construction | research 11 and its detail; prior platform design |
 | M2 | Diagrams | Explainers developer audiences trust | spec | accepted 2026-10-12 | Solo | Mermaid, D2, Graphviz renderers (in-Worker support UNVERIFIED) | | research 11 detail |
-| M3 | Short 9:16 video from slides or a real recording, captions burned in | Reach format, without filming | spec | accepted 2026-10-12 | Solo | Remotion on the workstation Tools runner (free at 3 people or fewer); ffmpeg | | research 11 and its detail |
-| M4 | Clips cut from long recordings | Talks and demos reused | spec | accepted 2026-10-12 | Add-on | Workstation tools runner; Whisper | | research 11 |
-| M5 | Generated images composited into templates (model never draws text, logo or colours) | Visuals without stock photos | spec | accepted 2026-10-12 | Solo | FLUX.2 klein 4B on the workstation (Apache-2.0); Workers AI klein 4B hosted fallback (~$0.0012 per image). Not klein 9B or dev (non-commercial) | Similarity to brand references, aesthetic score, logo detection pass | research 11 detail |
-| M6 | Generated video | Motion for launches | spec | accepted 2026-10-12 | Add-on | Hosted: Veo 3.1 Lite, Kling, Runway (per-second pricing, research 11 detail); local video blocked until the workstation thermal certification passes | | research 11 detail |
+| M3 | Short 9:16 video from slides or a real recording, captions burned in | Reach format, without filming | spec | accepted 2026-10-12 | Solo | Remotion on a self-hosted container runner or Cloudflare Containers (free at 3 people or fewer); ffmpeg | | research 11 and its detail |
+| M4 | Clips cut from long recordings | Talks and demos reused | spec | accepted 2026-10-12 | Add-on | Self-hosted container runner; Whisper | | research 11 |
+| M5 | Generated images composited into templates (model never draws text, logo or colours) | Visuals without stock photos | spec | accepted 2026-10-12 | Solo | FLUX.2 klein 4B on a self-hosted provider (Apache-2.0); Workers AI klein 4B hosted fallback (~$0.0012 per image). Not klein 9B or dev (non-commercial) | Similarity to brand references, aesthetic score, logo detection pass | research 11 detail |
+| M6 | Generated video | Motion for launches | spec | accepted 2026-10-12 | Add-on | Hosted: Veo 3.1 Lite, Kling, Runway (per-second pricing, research 11 detail); local video not assumed | | research 11 detail |
 | M7 | Audio: stock voice, two-voice podcast from a checked script | Podcast without a studio | spec | accepted 2026-10-12 | Add-on | Kokoro-82M (Apache-2.0); Podcastfy approach; not XTTS-v2 or F5 (non-commercial) | Whisper round trip WER and speech-quality scores pass | research 11 detail |
 | M8 | Avatars and voice clones of a person who verified themselves, with consent record and label | Founder video without filming | spec | experimental | Add-on | MuseTalk, LatentSync local; HeyGen hosted | Consent stored; label shown | compendium "Create an influencer"; research 11 detail; EU AI Act Art. 50 from 2 Aug 2026 |
 | M9 | Claims gate and approval on every slide, chart and number | No competitor checks facts inside media (research 11) | spec | accepted 2026-10-12 | Solo | Same gates as text (G1 to G3) | | research 11 |
@@ -161,7 +161,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 
 | ID | Component | What the user gets | Status | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
-| R1 | Engagement assist: reply queue in the brand voice, one-click approval | Replies without writing them | spec | hackathon | Solo | an existing reply-detection automation (private) | | compendium §5 |
+| R1 | Engagement assist: reply queue in the brand voice, one-click approval | Replies without writing them | spec | hackathon | Solo | reply detection by polling (pattern proven in an existing automation) | | compendium §5 |
 | R2 | Who to engage, suggested lists, scheduled posting, opt-in auto-replies | | spec | roadmap | Solo | | | compendium §5 |
 | R3 | Ambassadors: curated, verified posts, one USDC payout from a capped budget | Pays advocates with a public record | spec (cut by ADR-008, proposed) | hackathon (one payout) | Team | Lilypad quest data model | | ADR-003, research 05 |
 | R3a | Ambassador portal: browse open campaigns, notify me, join with a signMessage wallet link, draft with self-checks, submit (LinkedIn or URL, no X), payout status, earnings, payout wallet | Ambassadors can do the work without the brand chasing them | spec | coming soon | Team (free seat) | `grow.ts` stubs | | backend map §4 Grow; component inventory Amb-1 to Amb-5, M-1 to M-5 |
@@ -184,7 +184,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 | N1 | Analytics per platform and per voice | Knows what works | spec | roadmap | Solo | X own-post metrics first | | compendium §5 |
 | N2 | Metric rules: rates over impressions, never raw counts; snapshots appended, never overwritten; drafts and deleted posts kept; first 90 days shown as calibration | Numbers that do not mislead | spec | accepted 2026-10-12 | Solo | | Every displayed metric has unit, denominator and confounders | prior platform design|
 | N3 | Outcome log and attribution: front-door UTM link per channel, "how did you find us", 20-second manual log, UNATTRIBUTABLE as a normal value | Measures leads and deals, not likes | spec | accepted 2026-10-12 | Solo | | A test click and a test inbound both land | prior platform design|
-| N3a | Inbound qualified against the ICP: response time, outcome through to close; no third-party personal data stored | Knows which inbound is worth it and whether it closed | spec | accepted 2026-10-12 | Solo | | | prior platform design; #27 §3.1 |
+| N3a | Inbound qualified against the ICP: response time, outcome through to close; no third-party personal data stored | Knows which inbound is worth it and whether it closed | spec | accepted 2026-10-12 | Solo | | | prior platform design |
 | N4 | "What is where" view of the brand's own material (sources, verified vs unverified, what is missing) | One screen instead of a list | spec | accepted 2026-10-12 | Solo | Coverage map (B4) data | | prior platform design|
 
 ## 10. Ledger, Verify and the registry
@@ -201,7 +201,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 | L6 | Verify badge on every piece | Readers see it is official | spec | | Solo | | | PRD #2 |
 | L7 | Registry of identity, accounts, claims, personas | Official accounts in one place | spec | hackathon | Solo | `WL-*` schemas | | compendium §5 |
 | L8 | Retracted state (SAS revocation); per-item version history page | Withdrawn posts show as withdrawn | spec | accepted 2026-10-12 | Free | | | research 10 N4, N5 |
-| L9 | Media provenance: C2PA manifest at approval, perceptual hash, `WL-ASSET` schema | Images and video verify even after platforms re-encode them | spec | accepted 2026-10-12 | Solo | `c2patool` on the workstation; trust-list certificate price UNVERIFIED | Verify finds a re-encoded image | research 11 detail |
+| L9 | Media provenance: C2PA manifest at approval, perceptual hash, `WL-ASSET` schema | Images and video verify even after platforms re-encode them | spec | accepted 2026-10-12 | Solo | `c2patool` in a container runner; trust-list certificate price UNVERIFIED | Verify finds a re-encoded image | research 11 detail |
 | L10 | C2PA text label; allowlist export for takedown vendors | Works with standard tools | spec | roadmap | Team | `c2pa-text` libraries | | research 10 N6, N7 |
 | L11 | Compliance record (who approved what, when, disclosures) | Evidence for regulators; EU AI Act human-review exemption | spec | | Team | Approval records already stored | | PRD #2; research 11 |
 | L12 | Agents paying per call (x402) | | spec | roadmap | | | | PRD #2 |
@@ -225,7 +225,7 @@ Every module has one interface, its own tests, and no JamJam-specific names insi
 |---|---|---|---|---|---|
 | X1 | LLM gateway | One call path for every prompt; logs model and tokens, never content | partial (`llm.ts`, `openrouter/auto`) | OpenRouter | `llm.ts`, `clients.ts` |
 | X2 | Model pool with ranking and failover | Free models scored per task on fixtures; `models` array failover; no code change to add or retire | spec | OpenRouter `/models` and `models` fallback; Jev router as an option (restrictable; data handling UNVERIFIED); NVIDIA router not used (experimental, deprecated) | #39; backend map §10 |
-| X3 | Workstation provider | The owner's GPU workstation as one more OpenAI-compatible provider behind X1 | spec | The workstation's existing gateway (fails closed until its orchestrator is wired) | backend map §10 |
+| X3 | Self-hosted provider | Any self-hosted, OpenAI-compatible GPU endpoint as one more provider behind X1 | spec | OpenAI-compatible API, no custom protocol | backend map §10 |
 | X4 | Workflow engine with run tracking and resumable progress | Long jobs survive reloads and failures | spec | Cloudflare Workflows | #32 |
 | X5 | Prompt library, versioned in a table | Prompts change without a deploy; each run records its prompt version | spec | | #32 |
 | X6 | Source adapters (URL, paste, PDF, DOCX, PPTX, X, LinkedIn) | One file plus a test per source type | partial (URL) | Exa, Workers AI `toMarkdown` | #33 |
@@ -246,9 +246,17 @@ Every module has one interface, its own tests, and no JamJam-specific names insi
 From the prior platform design and ADR-003; each becomes a check, not a sentence.
 - Nothing is published without a person approving it (R8; ADR-003 principle 1).
 - A fact from a source is kept only when its quote is on that source (#31).
-- Every record starts unverified; only the owner promotes it. No agent sets verified on its own output (prior platform design; private material is never gathered (prior platform design; compendium §5, ADR-002), so X is never a paid submission route.
+- Every record starts unverified; only the owner promotes it. No agent sets verified on its own output (prior platform design).
+- What may be used is derived from two fields, who wrote it and how confidential it is; private material is never gathered (prior platform design).
+- Sample data is always labelled as sample (mission R13).
+- Ambassadors are never paid for posts on X (X bans reward-for-posting apps; compendium §5, ADR-002), so X is never a paid submission route.
 - Real people named in an audience are kept private and never put in prompts (backend map §3).
-- A gate is trusted only after it has been seen refusing a real bad case; a check over an empty set is reported as empty, not passing (prior platform design; ADR-002).
+- A gate is trusted only after it has been seen refusing a real bad case; a check over an empty set is reported as empty, not passing (prior platform design).
+
+## 14. Parked or superseded
+
+- Licensing flows (Flow 1 in PRD #2): parked (wireframes decision, STATE).
+- Rewards for X activity: out (X's Jan 2026 ban; ADR-002).
 - A "trained twin" that publishes without review (Pressmaster's direction): out (ADR-003 principle 1).
 
 ## 15. Build order
@@ -270,7 +278,7 @@ Goal: a brand goes from its URL and documents to an approved, attested kit in un
 | Data | Evidence store: sources, chunks, facts with quotes, field status, answers, kit versions with fact ids per sentence | Every kit sentence resolves to a fact or an answer |
 | Evals | F1 to F3 built and in CI | Gates run on every prompt PR |
 | Infra | Versioned prompts in Postgres keyed by hash; traces to a free observability tier; shared normaliser `norm_v1` | Each kit links to the exact prompts that drafted it |
-| Settings › AI | Connect with OpenRouter (OAuth, one button; paste a key as fallback); model sources in order: the brand's own key, JamJam's default, any OpenAI-compatible endpoint (how the owner workstation plugs in); keys encrypted at rest with AES-GCM under a per-brand key derived from a versioned master secret held only in the Worker, never returned to the browser (last four characters and a Test button shown); calls and estimated spend this month (D54) | A new brand connects its own key in under a minute; a stored key can't be read back through any API; the test button reports a bad key |
+| Settings › AI | Connect with OpenRouter (OAuth, one button; paste a key as fallback); model sources in order: the brand's own key, JamJam's default, any OpenAI-compatible endpoint (how a self-hosted provider plugs in); keys encrypted at rest with AES-GCM under a per-brand key derived from a versioned master secret held only in the Worker, never returned to the browser (last four characters and a Test button shown); calls and estimated spend this month (D54) | A new brand connects its own key in under a minute; a stored key can't be read back through any API; the test button reports a bad key |
 
 ### Phase 2: Content creation nailed
 

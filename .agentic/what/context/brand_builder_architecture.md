@@ -206,7 +206,7 @@ Above the template rung, the next step is retrieval plus a learned spec, not a f
 - training-consent flags per brand;
 - 20–30 held-out approved posts per brand as its test set.
 
-**Who pays for model calls:** during the proof of concept JamJam's own OpenRouter account and the owner workstation carry the calls. Free models allow 50 requests a day, or 1,000 after buying $10 of credits once, and best-of-3 plus a judge is about 5 calls a post, so the $10 is needed even then ([limits](https://openrouter.ai/docs/api_reference/limits)). After the proof of concept each brand brings its own OpenRouter key through a one-button Connect flow in Settings › AI (OpenRouter's [OAuth PKCE flow](https://openrouter.ai/docs/guides/overview/auth/oauth) returns the user's key to JamJam with no copy-paste), so each brand's usage and credits are its own.
+**Who pays for model calls:** during the proof of concept JamJam's own OpenRouter account and an optional self-hosted provider carry the calls. Free models allow 50 requests a day, or 1,000 after buying $10 of credits once, and best-of-3 plus a judge is about 5 calls a post, so the $10 is needed even then ([limits](https://openrouter.ai/docs/api_reference/limits)). After the proof of concept each brand brings its own OpenRouter key through a one-button Connect flow in Settings › AI (OpenRouter's [OAuth PKCE flow](https://openrouter.ai/docs/guides/overview/auth/oauth) returns the user's key to JamJam with no copy-paste), so each brand's usage and credits are its own.
 
 ## 7. Proof layer (what gets registered, when)
 | Event | Registered | Why |
