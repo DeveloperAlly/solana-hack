@@ -6,10 +6,11 @@
  *
  * | Field                    | Source                                                                    | Empty when                       |
  * |--------------------------|---------------------------------------------------------------------------|----------------------------------|
- * | context, title, outcome  | submissions row (campaign, format, payout) and its status                 | never                            |
- * | steps[] (label, note)    | submissions published_at, verified_at, approved_at; payouts paid_at        | later steps: "to do", no note    |
- * | message                  | copy for the verifying step (canvas note n-a5a)                           | other outcomes                   |
- * | paid (amount, receipt,   | payouts amount, tx signature → receipt link (bracketed until wired);      | outcome is not paid              |
+ * | campaign, piece, route,  | the flow's choices (session.ts): campaign joined, piece written, route     | defaults: the board's fixture    |
+ * |   submittedUrl           | used and link sent; later from the submissions row                        |                                  |
+ * | outcome, times           | submissions status, published_at, verified_at, approved_at; payouts paid_at | later steps: "to do", no time  |
+ * | title, context, steps    | built from the fields above (copy.ts), never a fixed string               | never                            |
+ * | paid (receiptLink,       | payouts tx signature → receipt link (bracketed until wired);              | outcome is not paid              |
  * |   postLink, balance,     | submissions platform_url; GET /api/me/earnings balance; pieces left in     |                                  |
  * |   progress, nextLabel)   | the campaign (memberships)                                                |                                  |
  * | failure (reasons,        | verify_submission result: text difference, author mismatch; slot hold     | outcome is not failed            |
@@ -33,6 +34,7 @@ import { PageTitle } from './parts/PageTitle';
 import { PaidView } from './parts/PaidView';
 import { VerifyingView } from './parts/VerifyingView';
 import type { StatusViewProps } from './parts/statusView';
+import { receiptRows, statusContext, statusSteps, statusTitle } from './copy';
 import { useAmbassadorFlow } from './useAmbassadorFlow';
 import type { Device, PostOutcome, PostStatusData } from './types';
 
@@ -49,14 +51,17 @@ const views: Record<PostOutcome, (p: StatusViewProps) => ReturnType<typeof PaidV
   budget: BudgetView,
 };
 
-export function AmbStatus({ data, device }: AmbStatusProps) {
+export function AmbStatus({ data: fixture, device }: AmbStatusProps) {
   const flow = useAmbassadorFlow(device);
+  const { campaign = fixture.campaign, piece = fixture.piece, route = fixture.route, submittedUrl = fixture.submittedUrl } = flow.session;
+  const data: PostStatusData = { ...fixture, campaign, piece, route, submittedUrl };
   const receipt = useDisclosure();
   const mobile = device === 'mobile';
   const View = views[data.outcome];
   // Mobile puts the receipt on the Paid step (canvas M-5); desktop has it in the payment table (Amb-5b).
-  const steps = data.steps.map((s, i) =>
-    mobile && data.paid && i === data.steps.length - 1
+  const built = statusSteps(data);
+  const steps = built.map((s, i) =>
+    mobile && data.paid && i === built.length - 1
       ? { ...s, action: <Button variant="secondary" onClick={receipt.show} aria-haspopup="dialog">Receipt</Button> }
       : s,
   );
@@ -64,13 +69,13 @@ export function AmbStatus({ data, device }: AmbStatusProps) {
   return (
     <AmbShell {...flow.shell} account={data.account} active={data.outcome === 'paid' ? 'posts' : undefined} tabs>
       <Stack gap={6}>
-        <PageTitle title={data.title} context={data.context} />
+        <PageTitle title={statusTitle(data)} context={statusContext(data)} />
         <AmbStatusTimeline steps={steps} orientation={mobile ? 'vertical' : 'horizontal'} />
         <View data={data} flow={flow} onReceipt={receipt.show} />
       </Stack>
       {data.paid && (
         <AmbSheet open={receipt.open} onClose={receipt.hide} title="Receipt">
-          <KeyValueList label="Receipt" items={data.paid.receipt} />
+          <KeyValueList label="Receipt" items={receiptRows(data)} />
         </AmbSheet>
       )}
     </AmbShell>

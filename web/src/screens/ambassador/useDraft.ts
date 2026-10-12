@@ -1,51 +1,41 @@
-import { useMemo, useState } from 'react';
-import type { DraftCheck, GenerateData } from './types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { applyFix, isOpen, publishGate, scoreFor } from './draftRules';
+import { pieceLabel } from './copy';
+import { ambSession } from './session';
+import type { GenerateData } from './types';
 
-/** True while the check still applies to the text: the phrase is present, or no disclosure form is. */
-export function isOpen(check: DraftCheck, text: string): boolean {
-  const lower = text.toLowerCase();
-  if (check.rule.kind === 'missing') return !check.rule.anyOf.some((s) => lower.includes(s.toLowerCase()));
-  return lower.includes(check.rule.phrase.toLowerCase());
-}
-
-/** Applies a check's one-click fix to the text. */
-export function applyFix(check: DraftCheck, text: string): string {
-  const { rule } = check;
-  if (rule.kind === 'missing') return `${text.trimEnd()}\n\n${rule.append}`;
-  if (rule.fix.kind === 'replace') return text.replace(new RegExp(rule.phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), rule.fix.with);
-  return text
-    .split('\n\n')
-    .filter((p) => !p.toLowerCase().includes(rule.phrase.toLowerCase()))
-    .join('\n\n');
-}
-
-/**
- * Local on-brand score: the canvas gives the score as generated (74%) and with every flag fixed (91%, Amb-4), so each
- * open flag takes an equal share of the difference. INTEGRATION: GET /api/drafts/:id/checks returns the real score.
- */
-export function scoreFor(openCount: number, data: Pick<GenerateData, 'score' | 'scoreWhenClean' | 'checks'>): number {
-  const total = data.checks.length || 1;
-  return Math.round(data.scoreWhenClean - (openCount * (data.scoreWhenClean - data.score)) / total);
-}
+export { applyFix, isOpen, scoreFor };
 
 /**
  * Draft editing state for Generate (canvas note n-a3): the text, angle and format; open flags and the score update as
- * you type; one-click fixes; Regenerate keeps the angle; Undo and History keep earlier versions. Publish unlocks at
- * the threshold with no blocking flag (banned claim, missing disclosure).
+ * you type; one-click fixes; Regenerate keeps the angle; Undo and History keep earlier versions. `gate` (draftRules.ts
+ * publishGate) is the only thing that decides whether the draft can be published.
  */
-export function useDraft(data: GenerateData) {
-  const [text, setText] = useState(data.draft);
+export function useDraft(data: GenerateData, { generating = false }: { generating?: boolean } = {}) {
+  // Start from what this tab already chose (a draft edited earlier, the piece picked); the fixture is only the default.
+  const [text, setText] = useState(() => ambSession.get().draft ?? data.draft);
   const [angle, setAngle] = useState(data.angle);
-  const [format, setFormat] = useState(data.format);
-  const [history, setHistory] = useState<string[]>([]);
+  const [format, setFormat] = useState(() => ambSession.get().piece?.id ?? data.format);
+  const campaign = ambSession.get().campaign ?? data.campaign;
+  const piece = data.formats.find((f) => f.id === format) ?? data.formats[0];
+  // Earlier versions, newest first. Ids come from a counter that only goes up, so they never repeat after an undo.
+  const [history, setHistory] = useState<{ id: number; text: string }[]>([]);
+  const nextId = useRef(1);
   const [note, setNote] = useState(data.generatedNote);
 
   const open = useMemo(() => data.checks.filter((c) => isOpen(c, text)), [data.checks, text]);
   const score = scoreFor(open.length, data);
-  const canPublish = score >= data.threshold && !open.some((c) => c.rule.blocks);
+  const gate = publishGate({ text, open, checks: data.checks, score, threshold: data.threshold, charLimit: data.charLimit, generating, pieceDone: Boolean(piece.done) });
+  const disclosed = !open.some((c) => c.rule.kind === 'missing');
+
+  // Hand the piece, the draft and its review to Publish and Status (session.ts), on every change.
+  useEffect(() => {
+    ambSession.update({ piece, draft: text, review: { score, openFlags: open.length, disclosed } });
+  }, [piece, text, score, open.length, disclosed]);
 
   function snapshot(next: string, why: string) {
-    setHistory((h) => [text, ...h]);
+    const id = nextId.current++;
+    setHistory((h) => [{ id, text }, ...h]);
     setText(next);
     setNote(why);
   }
@@ -57,12 +47,14 @@ export function useDraft(data: GenerateData) {
     setAngle,
     format,
     setFormat,
-    formatLabel: data.formats.find((f) => f.id === format)?.label ?? data.formatLabel,
+    campaign,
+    piece,
+    formatLabel: pieceLabel(piece),
     note,
     open,
     highlights: open.flatMap((c) => (c.phrase ? [c.phrase] : [])),
     score,
-    canPublish,
+    gate,
     history,
     fix: (id: string) => {
       const check = data.checks.find((c) => c.id === id);
@@ -72,11 +64,14 @@ export function useDraft(data: GenerateData) {
     regenerate: () => snapshot(data.draft, 'Regenerated from your angle · the previous version is in History'),
     undo: () => {
       if (history.length === 0) return;
-      setText(history[0]);
+      setText(history[0].text);
       setHistory((h) => h.slice(1));
       setNote('Undone · edits saved');
     },
-    restore: (index: number) => snapshot(history[index], 'Restored from History · edits saved'),
+    restore: (id: number) => {
+      const version = history.find((h) => h.id === id);
+      if (version) snapshot(version.text, 'Restored from History · edits saved');
+    },
   };
 }
 

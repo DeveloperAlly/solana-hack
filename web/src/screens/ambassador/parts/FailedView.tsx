@@ -16,6 +16,7 @@ export function FailedView({ data, flow }: StatusViewProps) {
           <Stack gap={3}>
             <span><Badge tone="solid">{failure.chip}</Badge></span>
             <Stack as="ul" gap={1}>{failure.reasons.map((r) => <li key={r}><Text>{r}</Text></li>)}</Stack>
+            {data.submittedUrl && <Text variant="small">Link checked: {data.submittedUrl}</Text>}
             <Text variant="small" tone="secondary">{failure.held}</Text>
           </Stack>
         }

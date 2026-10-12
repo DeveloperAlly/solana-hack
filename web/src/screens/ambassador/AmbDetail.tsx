@@ -29,7 +29,7 @@ import { JoinPanel } from './parts/JoinPanel';
 import { PageTitle } from './parts/PageTitle';
 import { useAmbassadorFlow } from './useAmbassadorFlow';
 import { useJoin } from './useJoin';
-import type { CampaignDetailData, Device, PayoutFormat } from './types';
+import type { CampaignDetailData, Device, PieceFormat } from './types';
 
 export interface AmbDetailProps {
   data: CampaignDetailData;
@@ -38,7 +38,7 @@ export interface AmbDetailProps {
 }
 
 const formatColumns = [
-  { key: 'format', header: 'Format', rowHeader: true },
+  { key: 'name', header: 'Format', rowHeader: true },
   { key: 'where', header: 'Where' },
   { key: 'payout', header: 'Payout', align: 'end' as const },
 ];
@@ -47,14 +47,20 @@ export function AmbDetail({ data, device }: AmbDetailProps) {
   const flow = useAmbassadorFlow(device);
   const desktop = device === 'desktop';
   const { campaign } = data;
-  const join = useJoin({ startOpen: desktop, onJoined: () => flow.go('generate') });
+  const join = useJoin({
+    startOpen: desktop,
+    onJoined: () => {
+      flow.remember({ campaign: { title: campaign.title, brand: campaign.brand } });
+      flow.go('generate');
+    },
+  });
   const joinPanel = <JoinPanel join={join} emailPlaceholder={data.joinEmail} />;
 
   const main = (
     <Stack gap={5}>
       <InfoCard title="Brief"><AmbCollapsibleText text={data.brief} collapsible={!desktop} /></InfoCard>
       <InfoCard title="What you can make">
-        <DataTable<PayoutFormat> caption="Formats and payouts" hideCaption columns={formatColumns} rows={data.formats} rowKey={(r) => r.id} />
+        <DataTable<PieceFormat> caption="Formats and payouts" hideCaption columns={formatColumns} rows={data.formats} rowKey={(r) => r.id} />
         <Text variant="small" tone="secondary">{data.formatsNote}</Text>
       </InfoCard>
       <InfoCard title="Rules">

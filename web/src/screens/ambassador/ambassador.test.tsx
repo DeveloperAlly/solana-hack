@@ -1,11 +1,13 @@
 // Ambassador page (issue #53): both flows click through campaigns → detail → generate → publish → status on the gallery
 // routes, and each screen's main interactions work on fixtures with no network call.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { GalleryScreen } from '../../gallery/Gallery';
 import { applyFix, isOpen, scoreFor } from './useDraft';
+import { hasToken, publishGate, removeFlagged } from './draftRules';
+import { ambSession } from './session';
 import { generateData } from './fixtures';
 import { validateCode, validateLinkedInPostUrl, validatePageUrl, X_NOT_PAID } from './validators';
 import { renderHook, act } from '@testing-library/react';
@@ -21,6 +23,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchSpy);
 });
 afterEach(() => {
+  ambSession.reset();
   expect(fetchSpy).toHaveBeenCalledTimes(0);
   vi.unstubAllGlobals();
 });
@@ -96,15 +99,15 @@ describe('Amb-1 campaigns', () => {
     at('/screens/Amb-1-Campaigns');
     const list = await screen.findByRole('list', { name: 'Campaigns' });
     const titles = () => within(list).getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
-    expect(titles()).toEqual(['[film.fun campaign name]', 'aDNA launch week', '[Ally Haire campaign name]']);
+    expect(titles()).toEqual(['[film.fun campaign name]', 'aDNA launch week', '[GamersLab campaign name]']);
     await u.selectOptions(screen.getByLabelText('Sort'), 'payout');
     expect(titles()[0]).toBe('aDNA launch week');
     await u.click(screen.getByRole('button', { name: 'Blog' }));
     expect(screen.getByRole('button', { name: 'Blog' })).toHaveAttribute('aria-pressed', 'true');
     expect(titles()).toHaveLength(3);
-    const notify = screen.getByRole('button', { name: 'Notify me about Ally Haire' });
+    const notify = screen.getByRole('button', { name: 'Notify me about GamersLab' });
     await u.click(notify);
-    expect(screen.getByRole('button', { name: "We'll email you about Ally Haire" })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: "We'll email you about GamersLab" })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /View \[film.fun campaign name\]/ })).toBeDisabled();
   });
 
@@ -185,7 +188,7 @@ describe('Amb-4 publish', () => {
 });
 
 describe('Amb-5 status', () => {
-  it('paid: receipt sheet, public check, write another, withdraw explained', async () => {
+  it('paid: receipt sheet, public check, write another; paid to your own wallet, no withdraw', async () => {
     const u = user();
     at('/screens/Amb-5b-Paid');
     await h1('Paid 10 USDC');
@@ -194,8 +197,8 @@ describe('Amb-5 status', () => {
     const sheet = screen.getByRole('dialog', { name: 'Receipt' });
     expect(within(sheet).getByText('[onchain receipt link]')).toBeInTheDocument();
     await u.keyboard('{Escape}');
-    await u.click(screen.getByRole('button', { name: 'Withdraw' }));
-    expect(screen.getByRole('status')).toHaveTextContent('Payouts go straight to your own wallet');
+    expect(screen.getByText('10 USDC to your wallet')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /withdraw/i })).not.toBeInTheDocument();
     await u.click(screen.getByRole('link', { name: 'Write another piece' }));
     await h1('Write your piece');
   });
@@ -236,7 +239,7 @@ describe('mobile flow (390 px artboards)', () => {
     await u.click(screen.getByRole('button', { name: 'Join and start writing' }));
     await joinWithCode(u);
     await h1('Write your piece');
-    expect(screen.getByRole('button', { name: 'Publish (after fixes)' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled();
     await u.click(screen.getByRole('button', { name: '3 flags' }));
     const sheet = screen.getByRole('dialog', { name: 'Flags' });
     await u.click(within(sheet).getByRole('button', { name: /^Remove/ }));
@@ -336,5 +339,153 @@ describe('no dead or dishonest controls (review rules, issue #45)', () => {
         unmount();
       }
     }
+  });
+});
+
+describe('draft rules and the one publish gate (Codex review on PR #78)', () => {
+  const [banned, , disclosure] = generateData.checks;
+  const gateFor = (text: string, generating = false) => {
+    const open = generateData.checks.filter((c) => isOpen(c, text));
+    return publishGate({ text, open, checks: generateData.checks, score: scoreFor(open.length, generateData), threshold: generateData.threshold, charLimit: generateData.charLimit, generating, pieceDone: false });
+  };
+
+  it('a disclosure counts only as a whole token: #adventure is not #ad', () => {
+    expect(isOpen(disclosure, 'Great week #adventure')).toBe(true);
+    expect(isOpen(disclosure, 'Great week x#ad')).toBe(true);
+    expect(isOpen(disclosure, 'Great week #ad')).toBe(false);
+    expect(isOpen(disclosure, 'Great week #AD.')).toBe(false);
+    expect(isOpen(disclosure, 'Great week. Sponsored by aDNA')).toBe(false);
+    // The brand's rule allows exactly "Sponsored by aDNA" or #ad (canvas Amb-2 rules), so #sponsored alone does not disclose.
+    expect(isOpen(disclosure, 'Great week #sponsored')).toBe(true);
+    expect(hasToken('#ad', '#ad')).toBe(true);
+  });
+
+  it('Remove line removes only the flagged sentence, in single-newline drafts too', () => {
+    expect(removeFlagged("First line.\nIt will 10x your team's output.\nLast line.", "10x your team's output")).toBe('First line.\nLast line.');
+    expect(removeFlagged("Great tool. It will 10x your team's output. Try it.", "10x your team's output")).toBe('Great tool. Try it.');
+    expect(removeFlagged("A.\n\nIt will 10x your team's output.\n\nB.", "10x your team's output")).toBe('A.\n\nB.');
+    expect(removeFlagged("It will 10x your team's output.\n\nB.", "10x your team's output")).toBe('B.');
+    expect(applyFix(banned, 'Keep me.\nIt will 10x your team\'s output.')).toBe('Keep me.');
+  });
+
+  it('the gate checks every condition, in order, and says why', () => {
+    const clean = applyFix(disclosure, applyFix(banned, generateData.draft.replace('memory dump', 'project context')));
+    expect(gateFor(clean)).toEqual({ ok: true, reason: null });
+    expect(gateFor(clean, true).reason).toBe('Wait for the draft to finish generating.');
+    expect(gateFor('#ad').reason).toBe('Write your post first.');
+    expect(gateFor(`${clean} ${'x'.repeat(3000)}`).reason).toMatch(/^Over the 3000-character limit by \d+\.$/);
+    expect(gateFor(generateData.draft).reason).toBe('Fix first: banned claim, missing disclosure.');
+    expect(gateFor(applyFix(banned, generateData.draft)).reason).toBe('Fix first: missing disclosure.');
+  });
+
+  it('an over-limit draft locks desktop Continue, with the reason as its description', async () => {
+    at('/screens/Amb-3-Generate');
+    await h1('Write your piece');
+    const box = screen.getByRole('textbox', { name: 'Draft' });
+    const clean = applyFix(disclosure, applyFix(banned, generateData.draft));
+    fireEvent.change(box, { target: { value: clean } });
+    const cont = screen.getByRole('button', { name: 'Continue to publish' });
+    expect(cont).toBeEnabled();
+    fireEvent.change(box, { target: { value: `${clean} ${'x'.repeat(3000)}` } });
+    expect(cont).toBeDisabled();
+    expect(cont).toHaveAccessibleDescription(/Over the 3000-character limit/);
+  });
+
+  it('an over-limit draft locks mobile Publish the same way', async () => {
+    at('/screens/M-3-Generate');
+    await h1('Write your piece');
+    const publish = screen.getByRole('button', { name: 'Publish' });
+    expect(publish).toHaveAccessibleDescription('Fix first: banned claim, missing disclosure.');
+    const clean = applyFix(disclosure, applyFix(banned, generateData.draft));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Draft' }), { target: { value: clean } });
+    expect(publish).toBeEnabled();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Draft' }), { target: { value: `${clean} ${'x'.repeat(3000)}` } });
+    expect(publish).toBeDisabled();
+    expect(publish).toHaveAccessibleDescription(/Over the 3000-character limit/);
+  });
+});
+
+describe('payout copy matches the product (backend map row "Amb-5a, 5b, 5c, 5d, M-5"; ADR-006)', () => {
+  it('no screen claims a JamJam account, a withdraw, or that the chain proves approval', () => {
+    for (const s of allScreens.filter((x) => x.page === 'ambassador')) {
+      for (const state of s.states) {
+        const { container, unmount } = render(<MemoryRouter>{s.render(state)}</MemoryRouter>);
+        const text = container.textContent ?? '';
+        expect(text).not.toMatch(/JamJam account|withdraw/i);
+        expect(text).not.toMatch(/check it's brand-approved/i);
+        unmount();
+      }
+    }
+  });
+  it('detail and publish say where the money goes and what the fingerprint proves', async () => {
+    at('/screens/Amb-2-Detail');
+    expect(await screen.findByText('USDC goes to your own wallet once aDNA approves your verified post.')).toBeInTheDocument();
+  });
+  it('publish explains the fingerprint honestly', async () => {
+    at('/screens/Amb-4-Publish');
+    expect(await screen.findByText(/anyone can check the published text matches the approved draft/)).toBeInTheDocument();
+  });
+});
+
+describe('choices flow to every later screen (session.ts), desktop and mobile', () => {
+  it('desktop: the piece, the edited draft, the route and the link reach Publish and Status', async () => {
+    const u = user();
+    at('/screens/Amb-3-Generate');
+    await h1('Write your piece');
+    await u.selectOptions(screen.getByLabelText('Format'), 'tutorial');
+    const box = screen.getByRole('textbox', { name: 'Draft' });
+    const mine = 'My own tutorial opening line.\n\nWhy agents need shared project context.\n\n#ad';
+    fireEvent.change(box, { target: { value: mine } });
+    await u.click(screen.getByRole('button', { name: 'Continue to publish' }));
+    await h1('Publish your Tutorial');
+    expect(screen.getByText(`Your post (${mine.length} characters)`)).toBeInTheDocument();
+    expect(screen.getByText(/^My own tutorial opening line\./)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Post now' })).not.toBeInTheDocument();
+    await u.type(screen.getByLabelText('Page URL'), 'https://mai.dev/agents-context');
+    await u.click(screen.getByRole('button', { name: 'Submit' }));
+    await h1('Checking your post');
+    expect(screen.getByText('aDNA launch week · Tutorial · 50 USDC')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Post status' })).toHaveTextContent('URL pasted');
+    await u.click(screen.getByRole('link', { name: 'Approved and paid' }));
+    await h1('Paid 50 USDC');
+    expect(screen.getByText('50 USDC to your wallet')).toBeInTheDocument();
+  });
+
+  it('a draft edited on desktop opens on mobile, and a pasted link reaches the failed check', async () => {
+    const u = user();
+    ambSession.update({ draft: 'Edited elsewhere.\n\nSponsored by aDNA' });
+    at('/screens/M-3-Generate');
+    await h1('Write your piece');
+    expect(screen.getByRole('textbox', { name: 'Draft' })).toHaveValue('Edited elsewhere.\n\nSponsored by aDNA');
+    await u.click(screen.getByRole('button', { name: 'Publish' }));
+    await h1('Publish your LinkedIn post');
+    await u.type(screen.getByLabelText('LinkedIn post URL'), 'https://www.linkedin.com/posts/mai_agents-1');
+    await u.click(screen.getByRole('button', { name: 'Submit URL' }));
+    await h1('Checking your post');
+    expect(ambSession.get().route).toBe('paste-url');
+    render(<MemoryRouter initialEntries={['/screens/Amb-5c-VerifyFailed']}><Routes><Route path="/screens/:artboard" element={<GalleryScreen />} /></Routes></MemoryRouter>);
+    expect(await screen.findByText('Link checked: https://www.linkedin.com/posts/mai_agents-1')).toBeInTheDocument();
+  });
+
+  it('a piece already written cannot be published again', async () => {
+    const u = user();
+    at('/screens/Amb-3-Generate');
+    await h1('Write your piece');
+    await u.selectOptions(screen.getByLabelText('Format'), 'blog');
+    expect(screen.getByRole('button', { name: 'Continue to publish' })).toHaveAccessibleDescription('You already wrote this piece for this campaign. Pick another format.');
+  });
+
+  it('history entries keep unique ids after undo and new fixes', async () => {
+    const u = user();
+    at('/screens/Amb-3-Generate');
+    await h1('Write your piece');
+    await u.click(screen.getByRole('button', { name: /^Replace/ }));
+    await u.click(screen.getByRole('button', { name: 'Undo' }));
+    await u.click(screen.getByRole('button', { name: /^Replace/ }));
+    await u.click(screen.getByRole('button', { name: /^Add at end/ }));
+    await u.click(screen.getByRole('button', { name: /^History/ }));
+    expect(within(screen.getByRole('list', { name: 'Earlier versions' })).getAllByRole('listitem')).toHaveLength(2);
+    await u.click(screen.getByRole('button', { name: 'Restore version 2' }));
+    expect((screen.getByRole('textbox', { name: 'Draft' }) as HTMLTextAreaElement).value).toContain('memory dump');
   });
 });

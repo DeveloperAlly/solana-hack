@@ -3,10 +3,21 @@
 // canvas brackets stays bracketed: those values are not sourced yet (canvas legend n-legend). Shapes: ./types.ts.
 // Backend map rows (.agentic/what/context/backend_map.md §4): "Amb-1, Amb-1b, M-1", "Amb-2, M-2", "Amb-3, M-3", "Amb-4, M-4"
 // and "Amb-5a, 5b, 5c, 5d, M-5".
-import type { Account, CampaignDetailData, CampaignsData, CampaignSummary, GenerateData, PostStatusData, PublishData } from './types';
+import type { Account, CampaignDetailData, CampaignRef, CampaignsData, CampaignSummary, GenerateData, PieceFormat, PostStatusData, PublishData } from './types';
 
 /** Board Amb-1-Campaigns nav chip "Mai T. · 15 USDC". */
 export const mai: Account = { name: 'Mai T.', balance: '15 USDC' };
+
+/** Board Amb-2-Detail "What you can make" (Blog post 5, LinkedIn post 10, Tutorial 50 USDC); Amb-3 marks the blog post done. */
+export const adnaFormats: PieceFormat[] = [
+  { id: 'blog', name: 'Blog post', where: 'Your blog', channel: 'blog', payout: '5 USDC', done: true },
+  { id: 'linkedin', name: 'LinkedIn post', where: 'LinkedIn', channel: 'linkedin', payout: '10 USDC' },
+  { id: 'tutorial', name: 'Tutorial', where: 'Your blog', channel: 'blog', payout: '50 USDC' },
+];
+const [, linkedinPost, tutorial] = adnaFormats;
+
+/** The campaign every later board is about (boards Amb-2 to Amb-5d). */
+const adnaRef: CampaignRef = { title: 'aDNA launch week', brand: 'aDNA' };
 
 /** Board Amb-1-Campaigns, first card. Payouts from board Amb-2-Detail "What you can make". */
 const adnaLaunch: CampaignSummary = {
@@ -27,7 +38,7 @@ const adnaLaunch: CampaignSummary = {
   hasDetail: true,
 };
 
-/** Board Amb-1-Campaigns: the film.fun and Ally Haire cards are bracketed on the canvas. */
+/** Board Amb-1-Campaigns: the film.fun card is bracketed on the canvas. The third card's sample brand is replaced with a listed demo brand (GamersLab) with bracketed details. */
 const campaigns: CampaignSummary[] = [
   adnaLaunch,
   {
@@ -46,9 +57,9 @@ const campaigns: CampaignSummary[] = [
   },
   {
     id: 'ally-haire',
-    brand: 'Ally Haire',
-    brandLine: 'Ally Haire · founder, engineer, writer',
-    title: '[Ally Haire campaign name]',
+    brand: 'GamersLab',
+    brandLine: 'GamersLab · [one-line description]',
+    title: '[GamersLab campaign name]',
     channels: ['linkedin', 'blog'],
     payoutRange: '[payout] USDC',
     daysLeft: null,
@@ -58,7 +69,7 @@ const campaigns: CampaignSummary[] = [
   },
 ];
 
-export const campaignsData: CampaignsData = { account: mai, campaigns, notifyBrands: ['aDNA', 'film.fun', 'GamersLab', 'Ally Haire'] };
+export const campaignsData: CampaignsData = { account: mai, campaigns, notifyBrands: ['JamJam', 'aDNA', 'film.fun', 'GamersLab'] };
 
 /** Board Amb-1b-CampaignsEmpty: nothing open; notify-me per brand; earnings stay visible (canvas note n-a1b). */
 export const campaignsEmpty: CampaignsData = { ...campaignsData, campaigns: [] };
@@ -71,11 +82,7 @@ export const campaignDetail: CampaignDetailData = {
   reviewNote: 'Brand reviews each post',
   brief:
     'Explain why agents need shared project context. Start from a real moment when an agent lost context on your project, then show how a shared, versioned context file fixes it. Link to adna.network.',
-  formats: [
-    { id: 'blog', format: 'Blog post', where: 'Your blog', payout: '5 USDC' },
-    { id: 'linkedin', format: 'LinkedIn post', where: 'LinkedIn', payout: '10 USDC' },
-    { id: 'tutorial', format: 'Tutorial', where: 'Your blog', payout: '50 USDC' },
-  ],
+  formats: adnaFormats,
   formatsNote: 'Up to 3 pieces, one per channel.',
   rules: [
     'Disclose the sponsorship: "Sponsored by aDNA" or #ad',
@@ -85,22 +92,18 @@ export const campaignDetail: CampaignDetailData = {
   ],
   // "305 of 500 USDC left"; the bar draws 27% spent and 12% committed.
   budget: { spent: 135, committed: 60, cap: 500, unit: 'USDC' },
-  howPaid: 'USDC lands in your JamJam account as soon as aDNA approves your verified post. Withdraw any time.',
+  // Canvas text corrected to the backend map row "Amb-5a, 5b, 5c, 5d, M-5" and ADR-006: payouts go to the ambassador's own wallet.
+  howPaid: 'USDC goes to your own wallet once aDNA approves your verified post.',
   joinEmail: 'mai@[email]',
 };
 
 /** Board Amb-3-Generate (desktop) and M-3-Generate (mobile). Score 74% as generated, 91% with flags fixed (board Amb-4-Publish). */
 export const generateData: GenerateData = {
   account: mai,
-  campaignTitle: 'aDNA launch week',
+  campaign: adnaRef,
   pieceLabel: "Piece 2 of 3 · written in aDNA's kit v1 voice",
-  formatLabel: 'LinkedIn post · 10 USDC',
-  formats: [
-    { id: 'linkedin', label: 'LinkedIn post · 10 USDC' },
-    { id: 'blog', label: 'Blog post · 5 USDC (done)' },
-    { id: 'tutorial', label: 'Tutorial · 50 USDC' },
-  ],
-  format: 'linkedin',
+  formats: adnaFormats,
+  format: linkedinPost.id,
   angle: 'I lost a day when my agent forgot our API conventions after a restart.',
   draft: [
     'My coding agent lost a full day of work last week. Not the code. The context.',
@@ -147,15 +150,22 @@ export const generateData: GenerateData = {
 /** Board Amb-4-Publish (desktop) and M-4-Publish (mobile). No X route (ADR-002; canvas note n-a4). */
 export const publishData: PublishData = {
   account: mai,
-  formatLabel: 'LinkedIn post',
-  chips: ['On-brand 91% ✓', 'No flags', 'Disclosure added'],
-  mobileChips: ['On-brand 91% ✓', 'No flags'],
-  postPreview: 'My coding agent lost a full day of work last week. Not the code. The context. …  Sponsored by aDNA',
-  postLength: 212,
+  piece: linkedinPost,
+  // Canvas Amb-4 preview: the Amb-3 draft with its flags fixed (banned line removed, "project context", disclosure added).
+  draft: [
+    'My coding agent lost a full day of work last week. Not the code. The context.',
+    "After a restart it had forgotten our API conventions, which tests were flaky, and why we'd ruled out two libraries. I explained it all again.",
+    "That's the gap aDNA fills: an open standard for project context that any agent can read, version and audit. One shared file. No lock-in.",
+    'Stop pasting a project context into every new session. Give your agents the context your team already has.',
+    'adna.network',
+    'Sponsored by aDNA',
+  ].join('\n\n'),
+  review: { score: 91, openFlags: 0, disclosed: true },
   connectedAs: 'Mai T.',
   routes: [
     {
       id: 'on-behalf',
+      channel: 'linkedin',
       title: 'Post to LinkedIn for me',
       badge: 'Fastest · for this post',
       description: 'We publish from your LinkedIn account, so the post is verified the moment it goes live.',
@@ -164,6 +174,7 @@ export const publishData: PublishData = {
     },
     {
       id: 'paste-url',
+      channel: 'linkedin',
       title: 'Posted it yourself?',
       description: 'Paste the LinkedIn post URL. We read it back and match the author and the text.',
       field: { label: 'LinkedIn post URL', placeholder: 'https://www.linkedin.com/posts/…' },
@@ -171,6 +182,7 @@ export const publishData: PublishData = {
     },
     {
       id: 'blog-url',
+      channel: 'blog',
       title: 'Submit blog URL',
       description: 'For tutorials. Publish on your blog, then send the link. We check the page matches your draft.',
       field: { label: 'Page URL', placeholder: 'https://yourblog.com/…' },
@@ -179,44 +191,24 @@ export const publishData: PublishData = {
   ],
   notes: [
     "X posts aren't paid: X bans paying people for posts (ADR-002).",
-    "A fingerprint of this text is recorded with your payment, so anyone can check it's brand-approved.",
+    'A fingerprint of this text is recorded with your payment, so anyone can check the published text matches the approved draft.',
   ],
 };
 
+/** Shared by the status boards: who, what and how it was published (boards Amb-5a to Amb-5c). */
+const statusBase = { account: mai, campaign: adnaRef, piece: linkedinPost, route: 'on-behalf' as const };
+
 /** Board Amb-5a-Verifying (loading). */
-export const statusVerifying: PostStatusData = {
-  account: mai,
-  context: 'aDNA launch week · LinkedIn post · 10 USDC',
-  title: 'Checking your post',
-  outcome: 'verifying',
-  steps: [
-    { label: 'Published', state: 'done', note: '16:21 · [View on LinkedIn]' },
-    { label: 'Verifying…', state: 'current', note: 'Usually under a minute' },
-    { label: 'Approved', state: 'todo', note: 'aDNA reviews within 48 h' },
-    { label: 'Paid', state: 'todo', note: '10 USDC' },
-  ],
-  message: "We're confirming the post is live on your account and matches your draft. You can close this page; we'll email you at each step.",
-};
+export const statusVerifying: PostStatusData = { ...statusBase, outcome: 'verifying', times: { published: '16:21' } };
 
 /** Board Amb-5b-Paid (success); board M-5-Status draws the same post. Balance after payout: 25 USDC. */
 export const statusPaid: PostStatusData = {
+  ...statusBase,
   account: { ...mai, balance: '25 USDC' },
-  context: 'aDNA launch week · LinkedIn post',
-  title: 'Paid 10 USDC',
   outcome: 'paid',
-  steps: [
-    { label: 'Published', state: 'done', note: '16:21' },
-    { label: 'Verified', state: 'done', note: '16:22 · posted from your account' },
-    { label: 'Approved', state: 'done', note: '17:05 · by aDNA' },
-    { label: 'Paid', state: 'done', note: '17:05' },
-  ],
+  times: { published: '16:21', verified: '16:22', approved: '17:05', paid: '17:05' },
   paid: {
-    amount: '10 USDC to your JamJam account',
-    receipt: [
-      { label: 'Amount', value: '10 USDC' },
-      { label: 'Time', value: '17:05' },
-      { label: 'Receipt', value: '[onchain receipt link]' },
-    ],
+    receiptLink: '[onchain receipt link]',
     postLink: '[LinkedIn post link]',
     balance: '25 USDC',
     progress: '2 of 3 pieces done. Tutorial (50 USDC) still open.',
@@ -224,18 +216,12 @@ export const statusPaid: PostStatusData = {
   },
 };
 
-/** Board Amb-5c-VerifyFailed (error). */
+/** Board Amb-5c-VerifyFailed (error): a pasted LinkedIn URL that did not match. */
 export const statusFailed: PostStatusData = {
-  account: mai,
-  context: 'aDNA launch week · LinkedIn post · 10 USDC',
-  title: "We couldn't verify your post",
+  ...statusBase,
+  route: 'paste-url',
   outcome: 'failed',
-  steps: [
-    { label: 'Submitted', state: 'done', note: '16:40 · URL pasted' },
-    { label: 'Not verified', state: 'failed', note: '16:41' },
-    { label: 'Approved', state: 'todo' },
-    { label: 'Paid', state: 'todo' },
-  ],
+  times: { published: '16:40', failed: '16:41' },
   failure: {
     chip: 'Check failed',
     title: "The post at that link doesn't match your draft",
@@ -252,24 +238,18 @@ export const statusFailed: PostStatusData = {
   },
 };
 
-/** Board Amb-5d-BudgetReached (error). */
+/** Board Amb-5d-BudgetReached (error): a tutorial on the blog, verified, unpaid. */
 export const statusBudget: PostStatusData = {
-  account: mai,
-  context: 'aDNA launch week · Tutorial · 50 USDC',
-  title: 'This campaign ran out of budget',
+  ...statusBase,
+  piece: tutorial,
+  route: 'blog-url',
   outcome: 'budget',
-  steps: [
-    { label: 'Published', state: 'done', note: '11 Oct, 09:12' },
-    { label: 'Verified', state: 'done', note: 'Page matches draft 96%' },
-    { label: 'Not paid', state: 'failed', note: 'Budget reached' },
-    { label: 'Paid', state: 'todo' },
-  ],
+  times: { published: '11 Oct, 09:12' },
+  verifiedNote: 'Page matches draft 96%',
   budget: {
     chip: 'Budget reached',
-    title: "aDNA's 500 USDC cap was used up before your tutorial was approved",
     budget: { spent: 500, cap: 500, unit: 'USDC' },
     caption: '500 of 500 USDC paid out',
-    body: 'Your tutorial is still verified and shows as brand-approved on the public check. It just can\'t be paid from this campaign.',
     optInLabel: 'Pay me if aDNA adds budget',
     optedInLabel: "You'll be paid if aDNA adds budget",
   },

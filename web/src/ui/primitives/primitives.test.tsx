@@ -3,8 +3,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { renderWithRouter } from '../../test/render';
-import { Box, Button, Container, Heading, Link, SelectField, Stack, Text } from '.';
-import { expectNoAxeViolations } from '../../test/axe';
+import { Box, Button, Container, Heading, Link, Stack, Text } from '.';
 
 describe('P1 Box', () => {
   it.each(['none', 'canvas', 'surface', 'subtle', 'inverse'] as const)('renders background %s', (bg) => {
@@ -102,18 +101,5 @@ describe('P8 Button', () => {
     );
     await userEvent.click(screen.getByRole('link', { name: 'Build my brand' }));
     expect(screen.getByText('Sign in page')).toBeInTheDocument();
-  });
-});
-
-describe('C1 SelectField', () => {
-  it('renders a labelled select from options and changes value, with no axe violations', async () => {
-    let picked = '';
-    const { container } = renderWithRouter(
-      <SelectField label="Approval" hint="Who signs off" options={[{ value: 'you', label: 'You approve every piece' }, { value: 'lead', label: 'A lead approves' }]} defaultValue="you" onChange={(e: { target: { value: string } }) => { picked = e.target.value; }} />,
-    );
-    const select = screen.getByRole('combobox', { name: 'Approval' });
-    await userEvent.selectOptions(select, 'lead');
-    expect(picked).toBe('lead');
-    await expectNoAxeViolations(container);
   });
 });

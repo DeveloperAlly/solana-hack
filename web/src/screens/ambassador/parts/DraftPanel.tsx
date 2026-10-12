@@ -28,10 +28,10 @@ export function DraftPanel({ draft, charLimit, generating }: DraftPanelProps) {
           {draft.history.length === 0 && <Text variant="small" tone="secondary">No earlier versions yet. Fixes and regenerations are kept here.</Text>}
           <Stack as="ol" gap={2} aria-label="Earlier versions">
             {draft.history.map((h, i) => (
-              <li key={`${i}-${h.length}`}>
+              <li key={h.id}>
                 <Stack direction="row" gap={3} align="center" justify="between" wrap>
-                  <Text variant="small" truncate>{h.split('\n')[0]}</Text>
-                  <Button variant="secondary" onClick={() => draft.restore(i)}>Restore{' '}<span className="wl-visually-hidden">version {i + 1}</span></Button>
+                  <Text variant="small" truncate>{h.text.split('\n')[0]}</Text>
+                  <Button variant="secondary" onClick={() => draft.restore(h.id)}>Restore{' '}<span className="wl-visually-hidden">version {i + 1}</span></Button>
                 </Stack>
               </li>
             ))}

@@ -1,4 +1,4 @@
-import { Button } from '../../../ui/primitives';
+import type { ReactNode } from 'react';
 import { AmbOnBrandMeter } from '../../../ui/domain/AmbOnBrandMeter';
 import { AmbChecksList } from '../../../ui/domain/AmbChecksList';
 import type { DraftState } from '../useDraft';
@@ -8,16 +8,17 @@ export interface ChecksPanelProps {
   draft: DraftState;
   threshold: number;
   generating: boolean;
-  onPublish: () => void;
+  /** The draft's actions, below the flags (DraftActions). */
+  actions: ReactNode;
 }
 
-/** Generate, right rail (canvas Amb-3): on-brand meter, open flags with one-click fixes, and Continue (unlocks per note n-a3). */
-export function ChecksPanel({ draft, threshold, generating, onPublish }: ChecksPanelProps) {
+/** Generate, right rail (canvas Amb-3): on-brand meter, open flags with one-click fixes, then the actions slot. */
+export function ChecksPanel({ draft, threshold, generating, actions }: ChecksPanelProps) {
   return (
     <InfoCard title="On-brand">
       <AmbOnBrandMeter score={draft.score} threshold={threshold} hint={`Publishing unlocks at ${threshold}% with no banned claims and the disclosure added.`} />
       <AmbChecksList checks={draft.open} onFix={draft.fix} disabled={generating} />
-      <Button onClick={onPublish} disabled={generating || !draft.canPublish}>Continue to publish</Button>
+      {actions}
     </InfoCard>
   );
 }

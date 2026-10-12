@@ -20,10 +20,10 @@ export const sampleCampaign: AmbCampaignFields = {
   budgetReached: false,
 };
 
-/** Board Amb-1-Campaigns, third card (bracketed on the canvas). */
+/** Board Amb-1-Campaigns, third card: a closed campaign, with a listed demo brand (GamersLab) and bracketed details. */
 export const sampleClosedCampaign: AmbCampaignFields = {
-  brandLine: 'Ally Haire · founder, engineer, writer',
-  title: '[Ally Haire campaign name]',
+  brandLine: 'GamersLab · [one-line description]',
+  title: '[GamersLab campaign name]',
   channelsLabel: 'LinkedIn · Blog',
   payout: '[payout] USDC',
   budgetReached: true,

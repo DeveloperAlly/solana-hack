@@ -15,7 +15,8 @@
  * States: success (the list), empty (Amb-1b: notify-me per brand; earnings stay visible, note n-a1b).
  * Interactions: channel filter, sort (ending soonest, highest payout), View → detail, Notify me toggles.
  */
-import { SelectField, Stack, Text } from '../../ui/primitives';
+import { Stack, Text } from '../../ui/primitives';
+import { AmbSelect } from '../../ui/domain/AmbSelect';
 import { EmptyState } from '../../ui/composites/EmptyState';
 import { ToggleGroup } from '../../ui/composites/ToggleGroup';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
@@ -41,7 +42,7 @@ export function AmbCampaigns({ data, device, state = 'success' }: AmbCampaignsPr
   const list = useCampaignList(data.campaigns);
   const desktop = device === 'desktop';
   const empty = state === 'empty' || data.campaigns.length === 0;
-  const sort = <SelectField label="Sort" options={campaignSorts} value={list.sort} onChange={(e) => list.setSort(e.target.value)} />;
+  const sort = <AmbSelect layout="inline" label="Sort" options={campaignSorts} value={list.sort} onChange={list.setSort} />;
 
   return (
     <AmbShell {...flow.shell} account={data.account} active="campaigns" tabs>

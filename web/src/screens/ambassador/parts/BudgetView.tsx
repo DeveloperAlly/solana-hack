@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Badge, Button, Stack, Text } from '../../../ui/primitives';
 import { StatePanel } from '../../../ui/composites/StatePanel';
 import { AmbBudgetBar } from '../../../ui/domain/AmbBudgetBar';
+import { budgetBody, budgetTitle } from '../copy';
 import type { StatusViewProps } from './statusView';
 
 /**
@@ -15,12 +16,12 @@ export function BudgetView({ data, flow }: StatusViewProps) {
   return (
     <StatePanel
       kind="error"
-      title={budget.title}
+      title={budgetTitle(data, `${budget.budget.cap} ${budget.budget.unit}`)}
       body={
         <Stack gap={3}>
           <span><Badge tone="solid">{budget.chip}</Badge></span>
           <AmbBudgetBar budget={budget.budget} caption={budget.caption} />
-          <Text>{budget.body}</Text>
+          <Text>{budgetBody(data)}</Text>
         </Stack>
       }
       actions={

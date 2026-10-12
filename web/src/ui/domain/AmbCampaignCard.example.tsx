@@ -10,9 +10,9 @@ function Demo() {
   return (
     <Stack gap={4}>
       <AmbCampaignCard {...sampleCampaign} action={<Button href="/system#campaign">View</Button>} />
-      <AmbCampaignCard {...sampleClosedCampaign} action={<AmbNotifyButton brand="Ally Haire" on={on} onToggle={() => setOn((v) => !v)} />} />
+      <AmbCampaignCard {...sampleClosedCampaign} action={<AmbNotifyButton brand="GamersLab" on={on} onToggle={() => setOn((v) => !v)} />} />
       <AmbCampaignCard {...sampleCampaign} brandLine="aDNA" channelsLabel="LinkedIn, Blog" layout="stack" href="/system#campaign" />
-      <AmbCampaignCard {...sampleClosedCampaign} brandLine="Ally Haire" layout="stack" />
+      <AmbCampaignCard {...sampleClosedCampaign} brandLine="GamersLab" layout="stack" />
     </Stack>
   );
 }

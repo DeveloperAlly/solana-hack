@@ -6,7 +6,6 @@ export { Heading } from './Heading';
 export { Link } from './Link';
 export { Button } from './Button';
 export { Field } from './Field';
-export { SelectField } from './SelectField';
 export { Alert } from './Alert';
 export { Choice } from './Choice';
 export { Grid } from './Grid';

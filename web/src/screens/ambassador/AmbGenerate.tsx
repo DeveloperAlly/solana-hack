@@ -5,8 +5,9 @@
  *
  * | Field                         | Source                                                                 | Empty when                  |
  * |-------------------------------|------------------------------------------------------------------------|-----------------------------|
- * | campaignTitle, pieceLabel     | campaigns row; memberships pieces done; kit version (kits)             | never                       |
- * | formats[], format             | campaign payout formats (no X: ADR-002); done formats marked            | never                       |
+ * | campaign, pieceLabel          | the campaign joined on Detail (session.ts; memberships); kit version   | default: aDNA launch week   |
+ * | formats[], format             | campaign payout formats (no X: ADR-002); done ones marked; the chosen  | never                       |
+ * |                               | piece, the draft and its review go on to Publish and Status (session)  |                             |
  * | angle                         | the ambassador's own text, sent with POST …/drafts                     | blank until typed           |
  * | draft, generatedNote          | POST /api/campaigns/:id/drafts → drafts.body, created_at               | loading: generating (~10 s) |
  * | score, checks[]               | GET /api/drafts/:id/checks (voice fit, claims, vocabulary, disclosure) | no flags: "No flags."       |
@@ -17,7 +18,7 @@
  * the disclosure present; Regenerate keeps the angle; Undo and History (note n-a3). Mobile: meter pinned at the top, flags in a
  * bottom sheet (note n-m3).
  */
-import { Button, Field, Stack } from '../../ui/primitives';
+import { Button, Stack } from '../../ui/primitives';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { AmbShell } from '../../ui/domain/AmbShell';
 import { HubColumns } from '../../ui/domain/HubColumns';
@@ -29,6 +30,8 @@ import { ChecksPanel } from './parts/ChecksPanel';
 import { DraftPanel } from './parts/DraftPanel';
 import { GenerateControls } from './parts/GenerateControls';
 import { PageTitle } from './parts/PageTitle';
+import { AngleField } from './parts/AngleField';
+import { DraftActions } from './parts/DraftActions';
 import { useAmbassadorFlow } from './useAmbassadorFlow';
 import { useDraft } from './useDraft';
 import type { Device, GenerateData } from './types';
@@ -41,19 +44,22 @@ export interface AmbGenerateProps {
 
 export function AmbGenerate({ data, device, state = 'success' }: AmbGenerateProps) {
   const flow = useAmbassadorFlow(device);
-  const draft = useDraft(data);
-  const flags = useDisclosure();
   const generating = state === 'loading';
+  const draft = useDraft(data, { generating });
+  const flags = useDisclosure();
   const editor = <DraftPanel draft={draft} charLimit={data.charLimit} generating={generating} />;
+  const actions = (layout: 'stack' | 'row', publishLabel: string) => (
+    <DraftActions draft={draft} generating={generating} publishLabel={publishLabel} onPublish={() => flow.go('publish')} layout={layout} />
+  );
 
   if (device === 'desktop') {
     return (
       <AmbShell {...flow.shell} account={data.account}>
         <Stack gap={5}>
-          <PageTitle title="Write your piece" context={`${draft.formatLabel} · ${data.pieceLabel}`} back={{ href: flow.back('generate'), label: data.campaignTitle }} />
+          <PageTitle title="Write your piece" context={`${draft.formatLabel} · ${data.pieceLabel}`} back={{ href: flow.back('generate'), label: draft.campaign.title }} />
           <HubColumns
-            start={<GenerateControls draft={draft} formats={data.formats} generating={generating} />}
-            end={<ChecksPanel draft={draft} threshold={data.threshold} generating={generating} onPublish={() => flow.go('publish')} />}
+            start={<GenerateControls draft={draft} formats={data.formats} />}
+            end={<ChecksPanel draft={draft} threshold={data.threshold} generating={generating} actions={actions('stack', 'Continue to publish')} />}
           >
             {editor}
           </HubColumns>
@@ -70,15 +76,10 @@ export function AmbGenerate({ data, device, state = 'success' }: AmbGenerateProp
       back={{ href: flow.back('generate'), label: 'Back to the campaign' }}
       title={draft.formatLabel}
       pinned={<AmbOnBrandMeter layout="bar" score={draft.score} threshold={data.threshold} action={<Button variant="secondary" onClick={flags.show} aria-haspopup="dialog">{flagCount}</Button>} />}
-      footer={
-        <Stack direction="row" gap={2}>
-          <Button variant="secondary" onClick={draft.regenerate} disabled={generating}>Regenerate</Button>
-          <Button onClick={() => flow.go('publish')} disabled={generating || !draft.canPublish} fullWidth>{draft.canPublish ? 'Publish' : 'Publish (after fixes)'}</Button>
-        </Stack>
-      }
+      footer={actions('row', 'Publish')}
     >
       <PageTitle title="Write your piece" context={data.pieceLabel} />
-      <Field label="Your angle" value={draft.angle} onChange={(e) => draft.setAngle(e.target.value)} />
+      <AngleField draft={draft} multiline={false} />
       {editor}
       <AmbSheet open={flags.open} onClose={flags.hide} title="Flags">
         <AmbChecksList compact checks={draft.open} onFix={draft.fix} disabled={generating} />

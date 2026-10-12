@@ -1,0 +1,17 @@
+.field { display: flex; gap: var(--wl-space-2); }
+.stacked { flex-direction: column; }
+.inline { flex-direction: row; align-items: center; font-size: var(--wl-font-size-sm); }
+.label { font-family: var(--wl-font-body); font-weight: var(--wl-font-weight-semibold); color: var(--wl-text-primary); }
+.inline .label { font-weight: var(--wl-font-weight-regular); }
+.control {
+  min-height: var(--wl-control-height-md);
+  padding: var(--wl-space-2) var(--wl-space-3);
+  border: var(--wl-border-width-default) solid var(--wl-border-input);
+  border-radius: var(--wl-radius-control);
+  background: var(--wl-bg-canvas);
+  color: var(--wl-text-primary);
+  font-family: var(--wl-font-body);
+  font-size: var(--wl-font-size-md);
+}
+.stacked .control { width: 100%; }
+.control:focus-visible { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); outline-offset: var(--wl-border-width-focus); }

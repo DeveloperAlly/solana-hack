@@ -52,11 +52,23 @@ export interface CampaignsData {
   notifyBrands: string[];
 }
 
-export interface PayoutFormat {
+/** One piece a campaign pays for (canvas Amb-2 "What you can make"). The chosen one flows from Generate to Status. */
+export interface PieceFormat {
   id: string;
-  format: string;
+  /** "LinkedIn post", "Blog post", "Tutorial". */
+  name: string;
   where: string;
+  channel: Channel;
+  /** "10 USDC". */
   payout: string;
+  /** Already written for this campaign (canvas Amb-3: "Blog post · 5 USDC (done)"). */
+  done?: boolean;
+}
+
+/** The campaign a piece is written for, carried from Detail into Generate, Publish and Status. */
+export interface CampaignRef {
+  title: string;
+  brand: string;
 }
 
 export interface CampaignDetailData {
@@ -65,7 +77,7 @@ export interface CampaignDetailData {
   brandVerified: string;
   reviewNote: string;
   brief: string;
-  formats: PayoutFormat[];
+  formats: PieceFormat[];
   formatsNote: string;
   rules: string[];
   budget: AmbBudget;
@@ -75,10 +87,10 @@ export interface CampaignDetailData {
 
 export interface GenerateData {
   account: Account | null;
-  campaignTitle: string;
+  campaign: CampaignRef;
   pieceLabel: string;
-  formatLabel: string;
-  formats: { id: string; label: string }[];
+  formats: PieceFormat[];
+  /** Default format id. */
   format: string;
   angle: string;
   draft: string;
@@ -105,9 +117,18 @@ export interface DraftCheck extends AmbCheck {
 
 export type PublishRouteId = 'on-behalf' | 'paste-url' | 'blog-url';
 
+/** The draft's check results as it left Generate: what Publish shows in its chips. */
+export interface DraftReview {
+  score: number;
+  openFlags: number;
+  disclosed: boolean;
+}
+
 /** One publish route (canvas note n-a4: one route per piece). URL routes carry their field. */
 export interface PublishRoute {
   id: PublishRouteId;
+  /** Routes offered for a piece on this channel (one route per piece, canvas note n-a4). */
+  channel: Channel;
   title: string;
   badge?: string;
   description: string;
@@ -119,13 +140,10 @@ export interface PublishRoute {
 
 export interface PublishData {
   account: Account | null;
-  /** "LinkedIn post", for "Publish your LinkedIn post". */
-  formatLabel: string;
-  chips: string[];
-  /** Mobile shows only the first two chips (canvas M-4). */
-  mobileChips: string[];
-  postPreview: string;
-  postLength: number;
+  /** Defaults until Generate hands over the real piece, draft and review (canvas Amb-4: LinkedIn post, 91%, no flags). */
+  piece: PieceFormat;
+  draft: string;
+  review: DraftReview;
   connectedAs: string;
   routes: PublishRoute[];
   notes: string[];
@@ -155,17 +173,18 @@ export interface Recovery {
 
 export interface PostStatusData {
   account: Account | null;
-  /** "aDNA launch week · LinkedIn post · 10 USDC". */
-  context: string;
-  title: string;
+  /** Defaults until the flow hands over the real campaign, piece, route and link (canvas Amb-5*). */
+  campaign: CampaignRef;
+  piece: PieceFormat;
+  route: PublishRouteId;
+  submittedUrl?: string;
   outcome: PostOutcome;
-  steps: AmbTimelineStep[];
-  /** Verifying: what happens now. */
-  message?: string;
+  /** Step times ("16:21") and the verified note, from the submission row. */
+  times: { published?: string; verified?: string; approved?: string; paid?: string; failed?: string };
+  verifiedNote?: string;
   paid?: {
-    amount: string;
-    /** Receipt sheet rows: amount, time and receipt link (canvas note n-a5b). */
-    receipt: TextRow[];
+    /** Receipt link, bracketed until wired (canvas note n-a5b). */
+    receiptLink: string;
     postLink: string;
     balance: string;
     progress: string;
@@ -173,5 +192,5 @@ export interface PostStatusData {
     nextLabel: { desktop: string; mobile: string };
   };
   failure?: { chip: string; title: string; reasons: string[]; held: string; recoveries: Recovery[] };
-  budget?: { chip: string; title: string; budget: AmbBudget; caption: string; body: string; optInLabel: string; optedInLabel: string };
+  budget?: { chip: string; budget: AmbBudget; caption: string; optInLabel: string; optedInLabel: string };
 }

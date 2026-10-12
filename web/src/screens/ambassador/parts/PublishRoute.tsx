@@ -9,7 +9,10 @@ export interface PublishRouteProps {
   mobile: boolean;
   connectedAs: string;
   settingsHref: string;
-  onSubmit: () => void;
+  /** The recommended route for this piece, drawn selected (canvas Amb-4: "Fastest · for this post"). */
+  selected: boolean;
+  /** Called with the submitted link, or with nothing when JamJam posts it. */
+  onSubmit: (url?: string) => void;
 }
 
 const validators: Partial<Record<PublishRouteId, (v: string) => string | null>> = {
@@ -21,10 +24,10 @@ const validators: Partial<Record<PublishRouteId, (v: string) => string | null>> 
  * One publish route (canvas Amb-4 / M-4; note n-a4): post on your behalf, or paste a URL that is validated before it is
  * sent. INTEGRATION: POST /api/submissions (LinkedIn or pasted URL; no X), then verify_submission.
  */
-export function PublishRoute({ route, mobile, connectedAs, settingsHref, onSubmit }: PublishRouteProps) {
+export function PublishRoute({ route, mobile, connectedAs, settingsHref, selected, onSubmit }: PublishRouteProps) {
   const validate = validators[route.id];
   return (
-    <AmbPublishRouteCard title={route.title} badge={mobile ? undefined : route.badge} description={mobile ? route.mobileDescription ?? route.description : route.description} selected={route.id === 'on-behalf'}>
+    <AmbPublishRouteCard title={route.title} badge={mobile || !selected ? undefined : route.badge} description={mobile ? route.mobileDescription ?? route.description : route.description} selected={selected}>
       {route.field && validate ? (
         <AmbInlineForm label={route.field.label} type="url" placeholder={route.field.placeholder} submitLabel={route.submitLabel} variant="secondary" validate={validate} onSubmit={onSubmit} />
       ) : (
@@ -34,7 +37,7 @@ export function PublishRoute({ route, mobile, connectedAs, settingsHref, onSubmi
               LinkedIn: <strong>Connected as {connectedAs}</strong> <Link href={settingsHref}>Change</Link>
             </Text>
           )}
-          <Button onClick={onSubmit}>{route.submitLabel}</Button>
+          <Button onClick={() => onSubmit()}>{route.submitLabel}</Button>
         </>
       )}
     </AmbPublishRouteCard>
