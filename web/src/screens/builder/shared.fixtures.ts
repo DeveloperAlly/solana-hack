@@ -4,4 +4,4 @@
 import type { BuilderBrand } from './types';
 
 /** JamJam is the walkthrough brand, unverified until its domain is checked. The approver stays bracketed. */
-export const jamjamBrand: BuilderBrand = { name: 'JamJam', verified: false, approver: '[owner email]' };
+export const jamjamBrand: BuilderBrand = { id: 'jamjam', name: 'JamJam', verified: false, approver: '[owner email]' };

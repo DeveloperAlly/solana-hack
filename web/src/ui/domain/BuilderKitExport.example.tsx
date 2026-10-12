@@ -10,7 +10,7 @@ const files = (v: string): KitFile[] => [
   { path: 'what/brand/13-visual-kit.md', content: '', group: 'missing' },
   { path: 'what/context/sources/jamjam-tech.md', content: '# jamjam.tech\n\nRead [date].\n', group: 'sources' },
 ];
-const version = (v: string, label: string, hash: string): KitVersion => ({ label, hash, fileName: `jamjam-kit-${v}.zip`, root: `jamjam-kit-${v}`, files: files(v) });
+const version = (v: string, label: string, hash: string): KitVersion => ({ id: v, label, hash, fileName: `jamjam-kit-${v}.zip`, root: `jamjam-kit-${v}`, files: files(v) });
 
 export const exampleVersions: KitVersion[] = [version('v[n]', 'v[n] (current) · [date]', '[sha256 of v[n]]'), version('v1', 'v1 · [date]', '[sha256 of kit v1]')];
 

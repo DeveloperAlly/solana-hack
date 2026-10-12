@@ -20,6 +20,8 @@ export interface KitIncludeOption {
 
 /** One approved kit version: what the picker shows and what downloading it produces. */
 export interface KitVersion {
+  /** Version id, e.g. "v1". */
+  id: string;
   /** Picker label, e.g. "v1 · [date]". */
   label: string;
   /** Hash of this version (matches its onchain registration). */
@@ -37,6 +39,8 @@ export interface BuilderKitExportProps {
   versions: KitVersion[];
   includes: KitIncludeOption[];
   status?: KitExportStatus;
+  /** Version to open on (its id); the current version when absent or unknown. */
+  initialVersionId?: string;
 }
 
 /**
@@ -45,9 +49,9 @@ export interface BuilderKitExportProps {
  * with Try again). Canvas board Kit-Export
  * (note n-kex: one zip of Markdown; no import back yet).
  */
-export function BuilderKitExport({ versions, includes, status = 'ready' }: BuilderKitExportProps) {
+export function BuilderKitExport({ versions, includes, status = 'ready', initialVersionId }: BuilderKitExportProps) {
   const treeId = useId();
-  const [label, setLabel] = useState(versions[0]?.label ?? '');
+  const [label, setLabel] = useState((versions.find((v) => v.id === initialVersionId) ?? versions[0])?.label ?? '');
   const version = versions.find((v) => v.label === label) ?? versions[0];
   const [current, setCurrent] = useState<KitExportStatus>(status);
   const [checked, setChecked] = useState(() => Object.fromEntries(includes.map((i) => [i.id, i.checked])));

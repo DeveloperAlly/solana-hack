@@ -92,6 +92,8 @@ export interface FlowState {
   sources?: string[];
   /** The brand chosen in the hub brand switcher. */
   hubBrand?: string;
+  /** The kit version Kit-Export opens on (set when coming from the kit just published). */
+  exportVersion?: string;
   gates: Record<GateId, GateDecision>;
   positioningOption: string;
   voice: VoicePick;
@@ -145,6 +147,7 @@ export function useBuilderFlow(key: FlowKey) {
     ...flow,
     /** The brand as entered in this flow, over the fixture brand: name and verified status (Unverified flag). */
     brandFor: (fixture: BuilderBrand): BuilderBrand => ({
+      id: fixture.id,
       name: flow.brand.brandName ?? fixture.name,
       verified: flow.brand.verified ?? fixture.verified,
       approver: flow.email ?? fixture.approver,
@@ -153,6 +156,8 @@ export function useBuilderFlow(key: FlowKey) {
     signIn: (email: string) => set({ email }),
     enterLinks: (links: string) => set({ links }),
     chooseSources: (sources: string[]) => set({ sources }),
+    /** Open Kit-Export on this brand and version (the kit just published). */
+    openExport: (brandId: string, version: string) => set({ hubBrand: brandId, exportVersion: version }),
     /** Gates not yet approved. The Coverage-Map alert and the kit approval block both read this, never a second check. */
     openGates: openGates(flow.gates),
     decide: (gate: GateId, decision: GateDecision) => set({ gates: { ...flow.gates, [gate]: decision } }),
@@ -167,5 +172,11 @@ export type BuilderFlow = ReturnType<typeof useBuilderFlow>;
 /** The hub brand switcher's selection (Kit-Export, Dashboard): [current brand id, choose]. Falls back to the screen's default. */
 export function useHubBrand(defaultId: string): [string, (id: string) => void] {
   const flow = useSyncExternalStore(subscribe, () => state);
-  return [flow.hubBrand ?? defaultId, (hubBrand: string) => set({ hubBrand })];
+  // Choosing another brand drops a version picked for the previous one.
+  return [flow.hubBrand ?? defaultId, (hubBrand: string) => set({ hubBrand, exportVersion: undefined })];
+}
+
+/** The kit version Kit-Export should open on, if one was chosen upstream. */
+export function useExportVersion(): string | undefined {
+  return useSyncExternalStore(subscribe, () => state).exportVersion;
 }

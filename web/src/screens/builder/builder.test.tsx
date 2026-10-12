@@ -164,6 +164,10 @@ describe('Brand Builder: screen interactions', () => {
     await click(/^Download the kit/, 'link');
     await h1('Download your kit');
     expect(screen.getByRole('link', { name: 'Brand kit' })).toHaveAttribute('aria-current', 'page');
+    // It opens on the kit just published: JamJam, v1.
+    expect(screen.getByRole('button', { name: 'JamJam, switch brand' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Version' })).toHaveValue('v1 · [date]');
+    expect(screen.getByText('[sha256 of JamJam kit v1]')).toBeInTheDocument();
   });
 
   it('kit: a known signature opens the registration transaction on Solana Explorer in a new tab', () => {
@@ -315,7 +319,9 @@ describe('Brand Builder: screen interactions', () => {
     await userEvent.click(screen.getByRole('button', { name: 'aDNA, switch brand' }));
     await userEvent.click(screen.getByRole('menuitemradio', { name: /film\.fun/ }));
     expect(await screen.findByText('[sha256 of film.fun kit v[n]]')).toBeInTheDocument();
-    expect(screen.getByText(/^filmfun-kit-v\[n\]\//)).toBeInTheDocument();
+    const tree = screen.getByText(/^filmfun-kit-v\[n\]\//);
+    expect(tree).toHaveTextContent('film-fun.md');
+    expect(tree).not.toHaveTextContent('jamjam-tech.md');
   });
 
   it('dashboard empty: modules say what will appear', async () => {

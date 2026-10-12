@@ -18,6 +18,8 @@ export type GateId = 'purpose' | 'positioning' | 'voice';
 
 /** The brand being built and who is signed in (brands, profiles). */
 export interface BuilderBrand {
+  /** Demo brand id (ui/domain/demoBrands.ts), so hub screens can open on this brand. */
+  id: string;
   name: string;
   /** brands.domain_verified; false shows the Unverified flag (note n-ob2.2). */
   verified: boolean;

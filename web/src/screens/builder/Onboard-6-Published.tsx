@@ -38,7 +38,7 @@ const nextSteps: { board: BoardKey; title: string; body: string }[] = [
 export function Onboard6Published({ data }: { data: PublishedData }) {
   const to = useBoardHref();
   const registered = data.status === 'registered';
-  const { brandFor } = useBuilderFlow(registered ? 'published' : 'registerFailed');
+  const { brandFor, openExport } = useBuilderFlow(registered ? 'published' : 'registerFailed');
   const brand = brandFor(data.brand);
   const record = [
     { label: 'Version', value: data.version },
@@ -70,7 +70,7 @@ export function Onboard6Published({ data }: { data: PublishedData }) {
           <Heading level={2} size="xl">Next</Heading>
           <Grid min="sm" gap={4}>
             {nextSteps.map((s) => (
-              <Card key={s.board} href={to(s.board)}><strong>{s.title}</strong><Text as="span" variant="small" tone="secondary">{s.body}</Text></Card>
+              <Card key={s.board} href={to(s.board)} onClick={s.board === 'kitExport' ? () => openExport(data.brand.id, data.version) : undefined}><strong>{s.title}</strong><Text as="span" variant="small" tone="secondary">{s.body}</Text></Card>
             ))}
           </Grid>
           <Text variant="small" tone="secondary">Prototype states: <Link href={to('registerFailed')}>registration fails</Link></Text>

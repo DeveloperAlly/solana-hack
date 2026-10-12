@@ -1,12 +1,11 @@
 // Sample data for Kit-Export, one kit per demo brand. Source: canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, board
 // Kit-Export (note n-kex: folders what/brand, what/decisions, what/context/sources, how/templates; version picker, include
-// options, hash); the 17 sections and which are "not asked" come from board Coverage-Map (note n-cov); sources from board
-// Onboard-3-Sources; gates from boards BB-Gate1/2/3. Issue #50; backend map §4, row "Kit-Export". Every section text, date
+// options, hash); the 17 sections and which are "not asked" come from board Coverage-Map (note n-cov); each brand's own
+// sources (hubBrands.fixtures.ts); gates from boards BB-Gate1/2/3. Issue #50; backend map §4, row "Kit-Export". Every section text, date
 // and hash is a bracketed placeholder: no kit content is drawn on the canvas.
 import type { KitFile } from '../../lib/kitZip';
 import type { KitExportData, KitVersion } from './types';
 import { coverageData } from './Coverage-Map.fixtures';
-import { sourcesData } from './Onboard-3-Sources.fixtures';
 import { perBrand, type HubBrand } from './hubBrands.fixtures';
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -19,9 +18,9 @@ function kitFilesFor(brand: HubBrand, version: string, hash: string): KitFile[] 
     const missing = r.cells[0].action.startsWith('Not asked');
     return missing ? { path, content: '', group: 'missing' } : { path, content: `# ${r.section}\n\n[${brand.name} ${r.section.toLowerCase()} text, kit ${version}]\n` };
   });
-  const sources = sourcesData.links.map((s): KitFile => ({
-    path: `what/context/sources/${slug(s.name) || 'source'}.md`,
-    content: `# ${s.name}\n\nRead [date]. Facts kept only where the quote appears on the page.\n`,
+  const sources = brand.sources.map((name): KitFile => ({
+    path: `what/context/sources/${slug(name) || 'source'}.md`,
+    content: `# ${name}\n\nRead [date]. Facts kept only where the quote appears on the page.\n`,
     group: 'sources',
   }));
   const decisions = gates.map((g, i): KitFile => ({
@@ -41,7 +40,7 @@ function kitFilesFor(brand: HubBrand, version: string, hash: string): KitFile[] 
 function kitVersion(brand: HubBrand, version: string, label: string): KitVersion {
   const hash = `[sha256 of ${brand.name} kit ${version}]`;
   const root = `${brand.slug}-kit-${version}`;
-  return { label, hash, fileName: `${root}.zip`, root, files: kitFilesFor(brand, version, hash) };
+  return { id: version, label, hash, fileName: `${root}.zip`, root, files: kitFilesFor(brand, version, hash) };
 }
 
 export const kitExportData: KitExportData = {
