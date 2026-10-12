@@ -79,6 +79,13 @@ describe('site adapter: Exa first', () => {
     expect(r).toMatchObject({ ok: true, kind: 'site', url: 'https://jamjam.tech/' });
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/about']);
   });
+  it('resolves relative links against the page\'s <base href> (PR #71 review)', async () => {
+    const home = `<html><head><base href="/docs/"><title>JamJam</title></head><body><p>${LONG}</p><a href="about">About</a></body></html>`;
+    const calls = stub({ page: (u) => (u === 'https://jamjam.tech/' ? new Response(home, { headers: { 'content-type': 'text/html' } }) : html('About', LONG)) });
+    const r = await readSite({}, 'https://jamjam.tech/', { website: 'jamjam.tech' });
+    expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/docs/about']);
+    expect(calls.map((c) => c.url)).not.toContain('https://jamjam.tech/about');
+  });
   it('ignores link-shaped text in scripts, styles and comments (PR #71 review)', async () => {
     const home = `<html><title>JamJam</title><body><p>${LONG}</p><script>const t = '<a href="/script-route">x</a>';</script><!-- <a href="/commented">old</a> --><a href="/about">About</a></body></html>`;
     const calls = stub({ page: (u) => (u === 'https://jamjam.tech/' ? new Response(home, { headers: { 'content-type': 'text/html' } }) : html('About', LONG)) });

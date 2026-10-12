@@ -104,13 +104,27 @@ export async function readPage(raw: string, gate?: FetchGate): Promise<{ url: st
   // Only real anchors count: comments and the contents of script, style, template and similar inert elements are
   // removed first, so a link-shaped string in code or a comment is never followed (PR #71 review).
   const markup = body.replace(/<!--[\s\S]*?-->/g, ' ').replace(/<(script|style|noscript|template|svg|textarea)\b[\s\S]*?<\/\1\s*>/gi, ' ');
+  // Relative links resolve against the document's base: the first <base href>, itself resolved against the landed
+  // address, when it is http(s); otherwise the landed address (HTML standard, document base URL; PR #71 review).
+  const attr = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i;
+  let base: URL = landed;
+  const baseTag = /<base\s[^>]*>/i.exec(markup);
+  const baseHref = baseTag ? attr.exec(baseTag[0]) : null;
+  if (baseHref) {
+    try {
+      const b = new URL(decode((baseHref[1] ?? baseHref[2] ?? baseHref[3] ?? '').trim()), landed);
+      if (b.protocol === 'https:' || b.protocol === 'http:') base = b;
+    } catch {
+      // an unusable base is ignored
+    }
+  }
   // href in all three HTML forms: double-quoted, single-quoted and unquoted (PR #71 review).
   for (const m of markup.matchAll(/<a\s[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi)) {
     if (links.length >= 200) break;
     const raw = (m[1] ?? m[2] ?? m[3] ?? '').trim();
     if (!raw || raw.startsWith('#')) continue;
     try {
-      const u = new URL(decode(raw), landed);
+      const u = new URL(decode(raw), base);
       u.hash = '';
       if ((u.protocol === 'https:' || u.protocol === 'http:') && !links.includes(u.toString())) links.push(u.toString());
     } catch {
