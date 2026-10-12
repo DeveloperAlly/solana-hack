@@ -6,7 +6,7 @@ export interface JourneyBrandState {
   evidence: { id: string; section: string; claim: string; quote: string | null; source_id: string | null; review_status?: string; owner_decision?: string; edited_from?: string }[];
   sources: { id: string; url: string | null; title: string | null; status: string; error?: string | null }[];
   answers: { step: string; data: Record<string, string>; skipped?: boolean }[];
-  sections: { section: string; body: string; status: string; evidence_ids?: string[] }[];
+  sections: { section: string; body: string; status: string; citations?: string[] }[];
   gates: { gate: string; approved_by: string; approved_at: string; note?: string }[];
   kits: { id: string; version: number; status: string; hash: string; signature?: string; error?: string; created_at?: string }[];
   coverage: { sections: { section: string; title: string; status: 'found' | 'partly' | 'needs-you' }[]; ratio: number };
