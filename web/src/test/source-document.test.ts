@@ -43,10 +43,16 @@ describe('document adapter', () => {
     expect(stamped).toMatchObject({ ok: false, code: 'needs_ocr' });
   });
   it('returns needs_ocr when only a running header or footer comes through on every page', async () => {
-    const pages = Array.from({ length: 10 }, (_, i) => `### Page ${i + 1}\nPage ${i + 1} of 10 Confidential`).join('\n');
+    const pages = Array.from({ length: 10 }, (_, i) => `### Page ${i + 1}\nCONFIDENTIAL\nPage ${i + 1} of 10`).join('\n');
     const data = `# s.pdf\n## Metadata\n- Producer=Scanner\n\n## Contents\n${pages}`;
     const r = await readDocument({ AI: ai({ name: 's.pdf', format: 'markdown', data }) }, { name: 's.pdf', bytes });
     expect(r).toMatchObject({ ok: false, code: 'needs_ocr' });
+  });
+  it('keeps one numeric row per page, which differ only in their figures (PR #71 review)', async () => {
+    const data = '# r.pdf\n## Metadata\n- Producer=Xero\n\n## Contents\n### Page 1\n2026-10-01 | $1,000\n### Page 2\n2026-10-08 | $2,500\n';
+    const r = await readDocument({ AI: ai({ name: 'r.pdf', format: 'markdown', data }) }, { name: 'r.pdf', bytes });
+    expect(r).toMatchObject({ ok: true, meta: { pages: 2 } });
+    expect(r.ok && r.text).toContain('$2,500');
   });
   it('reads DOCX and XLSX with their MIME types', async () => {
     for (const [name, mime] of [['brief.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], ['plan.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']]) {
@@ -78,18 +84,18 @@ describe('document adapter', () => {
     expect(await readDocument({ AI: ai({ name: 'a.pdf', format: 'error', error: 'bad file' }) }, { name: 'a.pdf', bytes })).toMatchObject({ ok: false, code: 'unreadable' });
   });
   it('reads output with no metadata or page headings as one page', () => {
-    expect(readableText(prose, 'a.docx')).toEqual({ body: prose, pages: 1, wrapped: false });
+    expect(readableText(prose, 'a.docx')).toMatchObject({ body: prose, pages: 1, wrapped: false });
   });
   it('strips Cloudflare\'s documented PDF wrapper (changelog 2025-03-20 example) and counts its pages', () => {
     const data = '# somatosensory.pdf\n## Metadata\n- PDFFormatVersion=1.4\n- Producer=Prince 20150210 (www.princexml.com)\n- Title=Anatomy of the Somatosensory System\n\n## Contents\n### Page 1\nThis is a sample document.\n### Page 2\nMore.';
-    expect(readableText(data, 'somatosensory.pdf')).toEqual({ body: 'This is a sample document.\nMore.', pages: 2, wrapped: true });
+    expect(readableText(data, 'somatosensory.pdf')).toMatchObject({ body: 'This is a sample document.\nMore.', pages: 2, wrapped: true });
   });
   it('keeps a document\'s own Contents and Page headings (PR #67 review)', () => {
     const docx = `# Brand brief\nIntro: ${prose}\n## Contents\n- Purpose\n## Page 2 notes`;
-    expect(readableText(docx, 'brief.docx')).toEqual({ body: docx, pages: 1, wrapped: false });
+    expect(readableText(docx, 'brief.docx')).toMatchObject({ body: docx, pages: 1, wrapped: false });
     // Inside the wrapper, only the converter's own in-order page headings are removed.
     const pdf = `# a.pdf\n## Metadata\n- Title=x\n\n## Contents\n### Page 1\nIntro\n## Contents\n### Page 7\nkept\n### Page 2\nend`;
-    expect(readableText(pdf, 'a.pdf')).toEqual({ body: 'Intro\n## Contents\n### Page 7\nkept\nend', pages: 2, wrapped: true });
+    expect(readableText(pdf, 'a.pdf')).toMatchObject({ body: 'Intro\n## Contents\n### Page 7\nkept\nend', pages: 2, wrapped: true });
   });
   it('a DOCX whose text has a Contents heading keeps everything before it', async () => {
     const data = `# Brand brief\n${prose}\n## Contents\n- Purpose`;

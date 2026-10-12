@@ -293,6 +293,11 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     stub({ robots: () => new Response(`User-agent: *\n${filler}Disallow: /late\n`) });
     expect(await readSite({}, 'https://x.test/late')).toMatchObject({ ok: false, code: 'robots_disallowed' });
   });
+  it('ranks rules by path octets, not counting * or $ (RFC 9309 §2.2.2; PR #71 review)', () => {
+    const rules = parseRobots('User-agent: *\nAllow: /foo*$\nDisallow: /foob\n');
+    expect(allowedBy(rules, '/foob')).toBe(false);
+    expect(allowedBy(parseRobots('User-agent: *\nDisallow: /a*\nAllow: /a\n'), '/a')).toBe(true);
+  });
   it('applies our own group over *, the longest match, allow on a tie, * and $', () => {
     const rules = parseRobots('User-agent: *\nDisallow: /\n\nUser-agent: JamJamBot\nDisallow: /admin\nAllow: /admin/public$\nDisallow: /*.pdf$\n');
     expect(allowedBy(rules, '/')).toBe(true);

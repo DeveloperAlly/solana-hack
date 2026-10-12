@@ -74,10 +74,13 @@ function ruleMatches(rulePath: string, path: string) {
 /** True when the rules allow this path (path plus query, as in the URL). */
 export function allowedBy(rules: Rule[], pathAndQuery: string): boolean {
   const path = normalisePath(pathAndQuery);
+  // RFC 9309 §2.2.2: the most specific match wins, the one with the most octets; the pattern operators "*" and a
+  // closing "$" are not octets of the path, so they do not count (PR #71 review). On a tie, allow wins.
+  const octets = (p: string) => p.replace(/\*/g, '').replace(/\$$/, '').length;
   let best: Rule | null = null;
   for (const r of rules) {
     if (!ruleMatches(r.path, path)) continue;
-    if (!best || r.path.length > best.path.length || (r.path.length === best.path.length && r.allow)) best = r;
+    if (!best || octets(r.path) > octets(best.path) || (octets(r.path) === octets(best.path) && r.allow)) best = r;
   }
   return best ? best.allow : true;
 }

@@ -24,22 +24,26 @@ export const DOC_MAX_BYTES = 15 * 1024 * 1024;
 export const MIN_LETTERS_PER_PAGE = 40;
 export const MIN_LETTERS = 200;
 
-/** A bare page number such as "3", "- 3 -" or "3/10", which a scanner can stamp on a page with no text layer. */
-const bareNumber = (line: string) => /^[\s\p{P}]*\d{1,4}(?:\s*[/|]\s*\d{1,4})?[\s\p{P}]*$/u.test(line);
+/**
+ * A page label a scanner can stamp on a page with no text layer: "3", "- 3 -", "3/10", "Page 3", "Page 3 of 10".
+ * It is matched by its shape, so a row of real figures (a date, an amount) is never taken for one (PR #71 review).
+ */
+const PAGE_LABEL = /^[\s\p{P}]*(?:page|pg\.?|p\.)?\s*\d{1,4}(?:\s*(?:of|\/|\|)\s*\d{1,4})?[\s\p{P}]*$/iu;
 
 /**
  * Letters and digits in the lines that are the document's own text, so a text PDF of only numbers and symbols (an
- * invoice table, a price sheet) counts as text (PR #71 review). Not counted: a bare page number, and, in a PDF of two
- * or more pages, a line that appears on every page (digits ignored, so "Page 3 of 10" matches "Page 4 of 10"), which
- * is a running header or footer a scanner can stamp on pages with no text layer.
+ * invoice table, a price sheet) counts as text (PR #71 review). Not counted: a page label (PAGE_LABEL), and, in a PDF
+ * of two or more pages, a line found word for word on every page, which is a running header or footer a scanner can
+ * stamp on pages with no text layer. Lines are compared exactly, page by page, so rows that differ only in their
+ * figures (one invoice row per page) stay content (PR #71 review).
  */
-export function contentChars(body: string, pages: number): number {
-  const key = (line: string) => line.trim().replace(/\d+/g, '#').toLowerCase();
-  const lines = body.split('\n').filter((l) => l.trim() && !bareNumber(l));
-  if (pages < 2) return contentCount(lines.join('\n'));
-  const seen = new Map<string, number>();
-  for (const l of lines) seen.set(key(l), (seen.get(key(l)) ?? 0) + 1);
-  return contentCount(lines.filter((l) => (seen.get(key(l)) ?? 0) < pages).join('\n'));
+export function contentChars(pageTexts: string[]): number {
+  const own = (page: string) => page.split('\n').map((l) => l.trim()).filter((l) => l && !PAGE_LABEL.test(l));
+  const pages = pageTexts.map(own);
+  if (pages.length < 2) return contentCount(pages.flat().join('\n'));
+  const sets = pages.map((p) => new Set(p));
+  const onEvery = (l: string) => sets.every((set) => set.has(l));
+  return contentCount(pages.flat().filter((l) => !onEvery(l)).join('\n'));
 }
 
 export interface DocumentInput { name: string; bytes: ArrayBuffer | Uint8Array; maxBytes?: number }
@@ -56,20 +60,27 @@ const ext = (name: string) => name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ??
  * (PR #67 review), and output without the wrapper (DOCX, XLSX, or a changed layout) is kept whole as one page.
  * Metadata letters (title, producer) must not make a scan look like it has text, which is why the wrapper is removed.
  */
-export function readableText(markdown: string, name: string): { body: string; pages: number; wrapped: boolean } {
+export function readableText(markdown: string, name: string): { body: string; pages: number; wrapped: boolean; pageTexts: string[] } {
   const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
-  const whole = { body: markdown.trim(), pages: 1, wrapped: false };
+  const whole = { body: markdown.trim(), pages: 1, wrapped: false, pageTexts: [markdown.trim()] };
   if (lines[0]?.trim() !== `# ${name}` || lines[1]?.trim() !== '## Metadata') return whole;
   let i = 2;
   for (; i < lines.length && lines[i].trim() !== '## Contents'; i++) if (lines[i].trim() && !lines[i].startsWith('- ')) return whole;
   if (i >= lines.length) return whole;
   let pages = 0;
   const body: string[] = [];
+  // Text per page, so a running header can be told from content page by page; text before "### Page 1" joins page 1.
+  const perPage: string[][] = [[]];
   for (const line of lines.slice(i + 1)) {
-    if (line.trim() === `### Page ${pages + 1}`) { pages++; continue; }
+    if (line.trim() === `### Page ${pages + 1}`) {
+      pages++;
+      if (pages > 1) perPage.push([]);
+      continue;
+    }
     body.push(line);
+    perPage[perPage.length - 1].push(line);
   }
-  return { body: body.join('\n').trim(), pages: pages || 1, wrapped: true };
+  return { body: body.join('\n').trim(), pages: pages || 1, wrapped: true, pageTexts: perPage.map((p) => p.join('\n').trim()) };
 }
 
 export async function readDocument(env: SourceEnv, input: DocumentInput): Promise<SourceResult> {
@@ -104,11 +115,11 @@ export async function readDocument(env: SourceEnv, input: DocumentInput): Promis
   }
   if (!out || out.format === 'error' || typeof out.data !== 'string') return fail('unreadable', `We could not read this ${type.label}; export it again, or paste the key points.`);
   // The converter echoes the input name (ConversionResult.name, binding docs above).
-  const { body, pages } = readableText(out.data, out.name || name);
+  const { body, pages, pageTexts } = readableText(out.data, out.name || name);
   const letters = letterCount(body);
   if (extension === 'pdf') {
     // needs_ocr only when no text of the document's own came through; sparse text is kept (PR #71 review).
-    if (contentChars(body, pages) === 0) {
+    if (contentChars(pageTexts) === 0) {
       return fail('needs_ocr', 'This file has no readable text (it looks like a scan). Export it with text, or paste the key points.', pages);
     }
     if (letters < MIN_LETTERS || letters / pages < MIN_LETTERS_PER_PAGE) {
