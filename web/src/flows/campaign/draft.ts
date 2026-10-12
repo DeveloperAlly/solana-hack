@@ -5,7 +5,8 @@ import { useSyncExternalStore } from 'react';
 import { stepIndex, type CampaignStepId } from './steps';
 
 export interface CampaignDraft {
-  goal: { purpose: string; name: string; dates: string; platforms: string[]; poster: string };
+  /** `customPurpose` describes a Custom purpose (Superhub step 1, issue #52). */
+  goal: { purpose: string; customPurpose?: string; name: string; dates: string; platforms: string[]; poster: string };
   /** Audience segment ids from the kit. */
   audience: string[];
   success: { mainMetric: string; supporting: string[]; targets: Record<string, string> };
