@@ -410,6 +410,18 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     expect(r.pages!.map((p) => p.text.length)).toEqual([300, 300]);
     expect(r.meta.notes).toContain('2 page(s) cut to 300 characters');
   });
+  it('looks past a run of disallowed links to an allowed key page (PR #71 review)', async () => {
+    const blocked = Array.from({ length: 14 }, (_, i) => `<a href="/about-private-${i}">About ${i}</a>`).join('');
+    const home = `<html><title>A</title><body><nav>${blocked}<a href="/team">Team</a></nav></body></html>`;
+    stub({
+      robots: () => new Response('User-agent: *\nDisallow: /about-private\n'),
+      page: (u) => (u === 'https://a.test/' ? new Response(home, { headers: { 'content-type': 'text/html' } }) : u === 'https://a.test/team' ? html('Team', LONG) : new Response('', { status: 404 })),
+    });
+    const r = await readSite({}, 'https://a.test/', { website: 'a.test' });
+    expect(r).toMatchObject({ ok: true, meta: { pages: 1 } });
+    if (!r.ok || r.kind === 'document') throw new Error('expected a site read');
+    expect(r.pages!.map((p) => p.url)).toEqual(['https://a.test/team']);
+  });
   it('applies our own group over *, the longest match, allow on a tie, * and $', () => {
     const rules = parseRobots('User-agent: *\nDisallow: /\n\nUser-agent: JamJamBot\nDisallow: /admin\nAllow: /admin/public$\nDisallow: /*.pdf$\n');
     expect(allowedBy(rules, '/')).toBe(true);

@@ -50,10 +50,12 @@ const EXA_CACHE_ONLY = -1;
 // Fewer characters than this counts as almost no text, the same bound as the plain reader (ingest.ts readPage).
 const MIN_TEXT = 40;
 const EXA_CONTENTS = 'https://api.exa.ai/contents';
-// Links asked for on the home page, and at most this many candidates checked against robots.txt (each new origin costs
-// one robots.txt fetch, so this bounds the subrequests).
+// Links asked for on the home page.
 const EXA_LINKS = 100;
-const MAX_CANDIDATES = 12;
+// Requests at most spent choosing subpages: a robots.txt fetch for a new origin, or a request to a candidate robots.txt
+// allows. A candidate robots.txt refuses, on an origin already checked, costs no request and does not count, so a run
+// of disallowed links cannot hide an allowed page behind them (PR #71 review).
+const MAX_ATTEMPTS = 12;
 // Exa pricing: contents cost $1 per 1,000 pages per content type (https://exa.ai/pricing). Used only when the response
 // carries no costDollars.
 const EXA_PER_PAGE = 0.001;
@@ -258,15 +260,30 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
         const i = opts.subpageTarget.findIndex((t) => u.pathname.toLowerCase().includes(t.toLowerCase()));
         return i === -1 ? opts.subpageTarget.length : i;
       };
-      return candidates.map((u, i) => ({ u, i, r: rank(u) })).sort((a, b) => a.r - b.r || a.i - b.i).slice(0, MAX_CANDIDATES).map((x) => x.u);
+      return candidates.map((u, i) => ({ u, i, r: rank(u) })).sort((a, b) => a.r - b.r || a.i - b.i).map((x) => x.u);
     };
+    // Candidates in rank order that robots.txt allows, within MAX_ATTEMPTS requests; refused ones are counted.
+    async function* allowedCandidates(links: URL[], refused: { n: number }) {
+      let spent = 0;
+      for (const u of candidatesOf(links)) {
+        if (!robotsByOrigin.has(u.origin)) {
+          if (spent >= MAX_ATTEMPTS) return;
+          spent++;
+        }
+        if (!(await allowedHere(u))) { refused.n++; continue; }
+        if (spent >= MAX_ATTEMPTS) return;
+        spent++;
+        yield u;
+      }
+    }
     // For Exa: the candidates whose every redirect hop robots.txt allows, at their final addresses, checked before any of
     // them is requested (PR #71 review).
     const pick = async (links: URL[]) => {
       const out: URL[] = [];
       const chosen = new Set<string>([url.toString(), home.toString()]);
+      const refused = { n: 0 };
       let blocked = 0;
-      for (const u of candidatesOf(links)) {
+      for await (const u of allowedCandidates(links, refused)) {
         if (out.length >= opts.subpages) break;
         const target = await gated(u);
         // A link that redirects off the site, or to a page already chosen, is not read.
@@ -275,6 +292,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
         chosen.add(target.toString());
         out.push(target);
       }
+      blocked += refused.n;
       if (blocked) c.notes.push(`${blocked} linked page(s) not read: robots.txt disallows them, or they could not be followed`);
       return out;
     };
@@ -299,7 +317,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     // Subpages read by our own reader, from the home page's links, up to the subpage count.
     const readOwnSubpages = async (links: string[], have: Set<string>): Promise<SourcePage[]> => {
       const out: SourcePage[] = [];
-      for (const u of candidatesOf(links.map(absoluteUrl).filter((x): x is URL => !!x))) {
+      for await (const u of allowedCandidates(links.map(absoluteUrl).filter((x): x is URL => !!x), { n: 0 })) {
         if (out.length >= opts.subpages) break;
         const p = await readOwn(u);
         if (!p || have.has(p.url) || !sameSite(new URL(p.url))) continue;

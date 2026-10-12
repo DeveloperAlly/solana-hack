@@ -67,15 +67,33 @@ export function dictAt(text: string, at: number): { dict: string; end: number } 
   return null;
 }
 
-/** A dictionary's top-level entries only: nested dictionaries are removed, so a nested key is not read. */
+/**
+ * A dictionary's top-level entries only, with nested dictionaries removed and every string and comment blanked, so a
+ * key is read only where it really is a key: `/Note (/Pages 9 0 R)` holds no /Pages entry (ISO 32000-1 §7.3.4 strings,
+ * §7.2.3 comments; PR #71 review).
+ */
 function topLevel(dict: string): string {
   let out = '';
   let depth = 0;
-  for (let i = 0; i < dict.length; i++) {
-    const two = dict.slice(i, i + 2);
-    if (two === '<<') { depth++; i++; if (depth === 1) out += '<<'; continue; }
-    if (two === '>>') { if (depth === 1) out += '>>'; depth--; i++; continue; }
-    if (depth === 1) out += dict[i];
+  let i = 0;
+  while (i < dict.length) {
+    const ch = dict[i];
+    if (ch === '(') {
+      let nest = 1;
+      i++;
+      while (i < dict.length && nest > 0) {
+        if (dict[i] === '\\') i += 2;
+        else { if (dict[i] === '(') nest++; else if (dict[i] === ')') nest--; i++; }
+      }
+      if (depth === 1) out += '()';
+      continue;
+    }
+    if (ch === '%') { while (i < dict.length && dict[i] !== '\n' && dict[i] !== '\r') i++; if (depth === 1) out += ' '; continue; }
+    if (ch === '<' && dict[i + 1] === '<') { depth++; i += 2; if (depth === 1) out += '<<'; continue; }
+    if (ch === '<') { const close = dict.indexOf('>', i); i = close < 0 ? dict.length : close + 1; if (depth === 1) out += '<>'; continue; }
+    if (ch === '>' && dict[i + 1] === '>') { if (depth === 1) out += '>>'; depth--; i += 2; continue; }
+    if (depth === 1) out += ch;
+    i++;
   }
   return out;
 }

@@ -161,7 +161,12 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
         return void (await refuse());
       }
       const body = (await res.text()).slice(0, MAX_BYTES);
-      return void (req.isInterceptResolutionHandled() || (await req.respond({ status: res.status, contentType, headers: { 'content-security-policy': RENDER_CSP }, body })));
+      // The site's own policy stays enforced alongside ours, so nothing its publisher blocks runs here either: a header
+      // value is a comma-separated list of policies, and each one applies (CSP3 §2.2 "serialized CSP list", §2.2.2,
+      // https://www.w3.org/TR/CSP3/#csp-header) (PR #71 review).
+      const own = res.headers.get('content-security-policy');
+      const csp = own && own.trim() ? `${own}, ${RENDER_CSP}` : RENDER_CSP;
+      return void (req.isInterceptResolutionHandled() || (await req.respond({ status: res.status, contentType, headers: { 'content-security-policy': csp }, body })));
     }
     if (!origins.has(u.origin)) {
       if (origins.size >= MAX_ORIGINS) return void (await refuse());

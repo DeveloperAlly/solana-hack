@@ -153,6 +153,12 @@ describe('renderer: robots.txt before every request the browser makes', () => {
     expect(fetched.filter((u) => !u.endsWith('/robots.txt'))).toEqual(['https://a.test/']);
     await r.close();
   });
+  it("keeps the site's own Content-Security-Policy enforced alongside the renderer's (PR #71 review)", async () => {
+    network({ 'https://a.test/': { body: APP, headers: { 'content-type': 'text/html', 'content-security-policy': "script-src 'self'" } } });
+    const b = fakeBrowser();
+    await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/'));
+    expect(b.outcomes[0].headers!['content-security-policy']).toBe(`script-src 'self', ${RENDER_CSP}`);
+  });
   it('refuses a client-side navigation to a disallowed address without fetching it (meta refresh, script)', async () => {
     network({ 'https://a.test/': { body: APP } });
     const b = fakeBrowser(async (issue) => { await issue('https://a.test/private/next', 'document'); });

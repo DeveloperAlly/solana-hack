@@ -175,6 +175,9 @@ describe('declared PDF page count', () => {
     expect(await pdfPageCount(await compressedPdf(3))).toBe(3);
     // A count inside a nested dictionary is not the node's own.
     expect(await pdfPageCount(plainPdf(1, ' /X << /Count 7 >>'))).toBe(1);
+    // Keys inside strings and comments are not keys: the catalog's real /Pages is 2 0 R, not the 9 0 R in its note.
+    const noted = enc(`%PDF-1.4\n1 0 obj\n<< /Note (/Pages 9 0 R) /Hex <2F50> % /Pages 9 0 R\n /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 1 >>\nendobj\n9 0 obj\n<< /Type /Pages /Kids [] /Count 5 >>\nendobj\ntrailer\n<< /Size 10 /Root 1 0 R >>\n%%EOF\n`);
+    expect(await pdfPageCount(noted)).toBe(1);
     expect(await pdfPageCount(new Uint8Array([37, 80, 68, 70]))).toBeNull();
   });
   it('reads the newest page tree after an incremental update, not a stale or unreferenced larger one', async () => {
