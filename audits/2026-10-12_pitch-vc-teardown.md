@@ -33,7 +33,7 @@ Brands sign in with email, so a business that never touches crypto still ends up
 
 **Answer.**
 - **Before recording:** JamJam, aDNA, film.fun and GamersLab each build their kit on jamjam.tech ([compendium §4](../.agentic/what/context/compendium_2026_10_06.md#4-demo-brands-and-demo-story-decided)). That gives real kits and real records for the demo video.
-- **The pitch's ask** (slide 11) is founders who want their brand run for them. A slide claiming traction we don't have would cost more credibility than it buys.
+- **The pitch's ask** (slide 12) is founders who want their brand run for them. A slide claiming traction we don't have would cost more credibility than it buys.
 
 ## 3. No single customer
 
@@ -41,20 +41,20 @@ Brands sign in with email, so a business that never touches crypto still ends up
 
 **Answer.** These are one buyer and one beachhead:
 - **The buyer is the founder or small team that needs a brand team** (slides 1 to 3).
-- **The first market is crypto and developer teams** (slide 7, [ADR-007](../.agentic/what/decisions/adr_007_pitch_positioning.md)). Impersonation scams in crypto grew 1,400% year on year ([Chainalysis](https://www.chainalysis.com/blog/crypto-scams-2026/)), they already run community programs, and none of their community tools does brand or content ([research 04](../.agentic/what/context/research/04_brand_hub_landscape.md) §5c).
+- **The first market is crypto and developer teams** (slide 8, [ADR-007](../.agentic/what/decisions/adr_007_pitch_positioning.md)). Impersonation scams in crypto grew 1,400% year on year ([Chainalysis](https://www.chainalysis.com/blog/crypto-scams-2026/)), they already run community programs, and none of their community tools does brand or content ([research 04](../.agentic/what/context/research/04_brand_hub_landscape.md) §5c).
 - **After that:** every small brand.
 
 ## 4. The value is one-off, the price is monthly
 
 **Finding.** "A brand kit gets built once. What brings them back each month is content, which is the crowded part."
 
-**Answer.** The kit is the free hook (slide 9); the subscription pays for the brand team's ongoing work:
+**Answer.** The kit is the free hook (slide 10); the subscription pays for the brand team's ongoing work:
 - content approved without editing, including posts, carousels and video;
 - direct publishing to X, LinkedIn, Bluesky and Threads, and copy-and-paste-back for any other network (backlog rows P1 to P3a);
 - the inbox and analytics;
 - community payouts.
 
-That is backlog phases 2 to 4 (slide 10). Competitors meter by seats or credits; JamJam includes approvals on every plan, where rivals sell them as an upgrade ([research 10](../.agentic/what/context/research/10_competitor_onboarding_pricing.md), summary item 5).
+That is backlog phases 2 to 4 (slide 11). Competitors meter by seats or credits; JamJam includes approvals on every plan, where rivals sell them as an upgrade ([research 10](../.agentic/what/context/research/10_competitor_onboarding_pricing.md), summary item 5).
 
 ## 5. The problem slide criticises tools, not a customer's pain
 
@@ -68,7 +68,7 @@ That is backlog phases 2 to 4 (slide 10). Competitors meter by seats or credits;
 
 **Finding.** "A VC hears 'maybe nobody wants all four.'"
 
-**Answer.** Slide 8 now reads "Four tools that don't talk. Or one."
+**Answer.** Slide 9 now reads "Four tools that don't talk. Or one."
 - **What we have:** solo founders already pay for three or four point tools at $10–65 each ([research 04](../.agentic/what/context/research/04_brand_hub_landscape.md) §5b, §6).
 - **Why joining them matters:** you can only pay for work you can prove, and only prove what was approved against the kit.
 
@@ -105,7 +105,7 @@ That is backlog phases 2 to 4 (slide 10). Competitors meter by seats or credits;
 
 **Finding.** "Solo founder. They'll ask whether you're on this full-time."
 
-**Answer.** Slide 11 covers the founder's record:
+**Answer.** Slide 12 covers the founder's record:
 - founded Lilypad Network;
 - built the original Waterlily.ai;
 - built developer communities at IBM and the Filecoin Foundation.
