@@ -7,10 +7,13 @@ import { migrate, migrationFiles, planMigrations, projectRef } from '../../scrip
 // The migration runner (scripts/migrate.mjs): applies spec/db files the live project has not recorded, in order.
 const REF = 'abcdefghijklmnopqrst';
 const URL_OK = `https://${REF}.supabase.co`;
-// The names migrations 001-008 carry on the live project (Supabase list_migrations, 2026-10-13).
+// The names migrations 001-008 carry on the live project (Supabase list_migrations, 2026-10-12 14:30 UTC:
+// https://github.com/DeveloperAlly/solana-hack/pull/87#issuecomment-6126230111).
 const LIVE = ['spine_001', 'posts_002', 'posts_registering_003', 'posts_rev_004', 'posts_registration_times_005', 'posts_last_valid_block_height_006', 'kits_registered_at_007', 'sources_source_text_008'].map((name, i) => ({ version: `2026100800000${i}`, name }));
 
-// spec/db as it stands with 009 and 010: numbered 001 to 010 without gaps.
+// Test data, not the repository's current state: spec/db on main ends at 009_evidence_trust.sql, and
+// 010_workflow_engine.sql is the file PR #70 adds (https://github.com/DeveloperAlly/solana-hack/pull/70), listed so the
+// plan covers two pending files in order. The real directory is checked by the repo test at the end of this file.
 const SPEC = ['001_spine.sql', '002_posts.sql', '003_posts_registering.sql', '004_posts_rev.sql', '005_posts_registration_times.sql', '006_posts_last_valid_block_height.sql', '007_kits_registered_at.sql', '008_sources_source_text.sql', '009_evidence_trust.sql', '010_workflow_engine.sql'];
 
 describe('migration runner', () => {
