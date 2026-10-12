@@ -187,7 +187,7 @@ I founded Lilypad and built the original Waterlily, AI art that paid its artists
 **A4 Ambassador Seats.** Answers 'what are ambassadors for'.
 - Ambassadors are seats on the brand's account, writing from its kit
 - Off-brand claims and missing disclosures are caught before approval
-- Approved ambassador posts verify as the brand's, which is the point: verified content is the reason for ambassador seats; payment comes second
+- Once approved and paid, an ambassador post is registered and verifies as the brand's; verified content is the reason for ambassador seats
 
 **A5 Post Verification.** Answers 'how does a fan tell real from fake'.
 - Paste a post or a link
