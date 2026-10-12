@@ -60,6 +60,7 @@ const runClaims = (phrases: string[], text: string) => phrases.filter((p) => tex
  * approval stale, and the original's own approval too; editing a version makes only that one stale.
  */
 export function useAdapt(data: AdaptData): AdaptFlow {
+  const brandId = activeBrand.use();
   const [session, setSession] = growthSession.use();
   const edits = session.adapt[data.post.id] ?? empty;
   const patch = (p: Partial<AdaptEdits>) => setSession({ adapt: { ...session.adapt, [data.post.id]: { ...edits, ...p } } });
@@ -115,7 +116,7 @@ export function useAdapt(data: AdaptData): AdaptFlow {
     }, CLAIMS_RECHECK_MS);
     return () => clearTimeout(t);
     // pendingKey stands for `pending` (texts per platform), so the timer restarts only when they change.
-  }, [pendingKey, data.post.id, data.versions]);
+  }, [pendingKey, data.post.id, data.versions, brandId]);
   const stamp = (fp: string): Approval => ({ by: data.approver, at: nowIso(), fingerprint: fp });
 
   return {

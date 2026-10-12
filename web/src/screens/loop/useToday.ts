@@ -51,7 +51,7 @@ function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | '
   if (item.kind === 'draft') {
     const view = {
       valid: { outcome: primaryActions.draft?.done },
-      stale: { status: 'Your approval went stale: the Brain changed since. Approve it again.' },
+      stale: { status: 'Your approval went stale: the draft, checks or Brain changed since. Approve it again.' },
     };
     const a = loop.approvalOf(item.id, { text: item.text, checks: item.checks });
     return a ? view[a] : {};
