@@ -2,7 +2,7 @@
 type: mission
 status: active
 created: 2026-10-06
-updated: 2026-10-12
+updated: 2026-10-13
 last_edited_by: agent
 tags: [mission, hackathon, colosseum]
 ---
@@ -25,7 +25,7 @@ Read this plan first at every work cycle and handoff. [Master #38](https://githu
 
 ## Timeboxes and reporting
 
-Each work block has a maximum of 20 minutes. Every agent and the orchestrator reports at 10-minute intervals: concrete outcome/artifact, acceptance evidence, blocker, and next action. At the 20-minute limit, stop exploration and return a reviewable result or explicit failed check with fallback for reassignment or scope reduction. No open-ended investigation or repeated review loop.
+Each work block has a maximum of 20 minutes. Every agent and the orchestrator reports at 10-minute intervals: concrete outcome/artifact, acceptance evidence, blocker, and next action. Each report explicitly checks canonical scope, reuse of existing work, shared component/theme compliance, independent review findings and reproducible proof. Fix only what blocks the accepted outcome; no code exploration without a named acceptance gate. At the 20-minute limit, stop exploration and return a reviewable result or explicit failed check with fallback for reassignment or scope reduction. No open-ended investigation or repeated review loop.
 
 ## Proof and delegation contract
 
