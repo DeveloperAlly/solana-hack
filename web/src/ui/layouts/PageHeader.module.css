@@ -1,0 +1,8 @@
+.header { display: flex; flex-direction: column; gap: var(--wl-space-2); color: var(--wl-text-primary); }
+.back { align-self: flex-start; display: inline-flex; align-items: center; min-height: var(--wl-control-target-min); color: var(--wl-text-link); font-size: var(--wl-font-size-sm); }
+.back:focus-visible { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); outline-offset: var(--wl-border-width-focus); }
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--wl-space-3); }
+.titleRow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-3); min-width: 0; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-3); }
+.intro { margin: 0; color: var(--wl-text-secondary); }
+.meta { margin: 0; font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }

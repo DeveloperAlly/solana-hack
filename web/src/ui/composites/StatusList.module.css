@@ -1,0 +1,1 @@
+.plain { display: flex; flex-direction: column; gap: var(--wl-space-3); color: var(--wl-text-primary); }

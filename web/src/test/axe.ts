@@ -20,8 +20,22 @@ function runAxe(container: Element, options: axe.RunOptions): Promise<axe.AxeRes
  *   (every gallery screen in every theme, colour contrast on).
  * iframes are not entered: jsdom cannot message frames (the /system PublicShell preview); the browser check covers them.
  */
-export async function expectNoAxeViolations(container: Element) {
-  const r = await runAxe(container, { iframes: false, rules: { 'color-contrast': { enabled: false } } });
+// Rules that judge the page as a whole rather than one component: landmarks, headings, ids. A page made of
+// components that are each checked with every rule elsewhere (the /system workbench: gallery.test.tsx runs every
+// example through the full rule set) needs only these at page level, so the jsdom run stays fast as the workbench grows.
+// The real-browser run (scripts/check-gallery.mjs) still checks /system with every rule.
+const pageLevelRules = [
+  'landmark-banner-is-top-level', 'landmark-complementary-is-top-level', 'landmark-contentinfo-is-top-level',
+  'landmark-main-is-top-level', 'landmark-no-duplicate-banner', 'landmark-no-duplicate-contentinfo',
+  'landmark-no-duplicate-main', 'landmark-one-main', 'landmark-unique', 'heading-order', 'page-has-heading-one',
+  'duplicate-id', 'duplicate-id-aria', 'bypass', 'region',
+];
+
+export async function expectNoAxeViolations(container: Element, { scope = 'all' }: { scope?: 'all' | 'page' } = {}) {
+  const options: axe.RunOptions = scope === 'page'
+    ? { iframes: false, runOnly: { type: 'rule', values: pageLevelRules } }
+    : { iframes: false, rules: { 'color-contrast': { enabled: false } } };
+  const r = await runAxe(container, options);
   if (r.violations.length) console.error(JSON.stringify(r.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.html) })), null, 2));
   expect(r.violations).toHaveLength(0);
 }

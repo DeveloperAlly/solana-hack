@@ -1,0 +1,2 @@
+.root { display: flex; flex-direction: column; gap: var(--wl-space-2); }
+.warn { margin: 0; font-size: var(--wl-font-size-sm); font-weight: var(--wl-font-weight-semibold); color: var(--wl-status-warning-fg); }

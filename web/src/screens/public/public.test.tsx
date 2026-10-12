@@ -12,7 +12,9 @@ describe('public pages', () => {
       const { container } = renderWithRouter(<App />, path);
       expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
       // jsdom cannot message iframes; the deployed Playwright axe run covers the /system preview frame (see the helper).
-      await expectNoAxeViolations(container);
+      // /system is every workbench example on one page: gallery.test.tsx runs each example through every rule, so here
+      // only the page-level rules run (landmarks, headings, ids), and the test no longer slows as the workbench grows.
+      await expectNoAxeViolations(container, path === '/system' ? { scope: 'page' } : undefined);
     });
   }
 });
