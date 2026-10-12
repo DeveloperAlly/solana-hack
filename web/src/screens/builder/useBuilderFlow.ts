@@ -94,7 +94,8 @@ export interface FlowState {
   hubBrand?: string;
   /** The kit version Kit-Export opens on (set when coming from the kit just published). */
   exportVersion?: string;
-  gates: Record<GateId, GateDecision>;
+  /** Gate decisions as recorded; an approval keeps a fingerprint of the inputs it approved (see gateInputs). */
+  gates: Record<GateId, StoredDecision>;
   positioningOption: string;
   voice: VoicePick;
   dials: DialValues;
@@ -126,7 +127,39 @@ export function resetBuilderFlow() {
   listeners.forEach((l) => l());
 }
 
-/** The gates that still block kit v1 (note n-g1.3: kit v1 needs all three approved). */
+/** A gate decision as stored: an approval also keeps the fingerprint of the flow inputs it approved. */
+export type StoredDecision = GateDecision & { inputs?: string };
+
+/**
+ * The flow inputs each gate's draft is built from, as a fingerprint. Purpose: its answers are not held in the flow, so
+ * only the brand name; Positioning: the BB-4 option and the brand name; Voice: the BB-6 picks and dials.
+ */
+export function gateInputs(s: Pick<FlowState, 'brand' | 'positioningOption' | 'voice' | 'dials'>, gate: GateId): string {
+  const fingerprints: Record<GateId, unknown> = {
+    purpose: [s.brand.brandName ?? ''],
+    positioning: [s.positioningOption, s.brand.brandName ?? ''],
+    voice: [s.voice.round1, s.voice.round2, s.dials.formality, s.dials.energy, s.dials.humour],
+  };
+  return JSON.stringify(fingerprints[gate]);
+}
+
+/** Records a decision; an approval is bound to the inputs it approved. */
+export function recordDecision(s: FlowState, gate: GateId, decision: GateDecision): Record<GateId, StoredDecision> {
+  const stored: StoredDecision = decision.status === 'approved' ? { ...decision, inputs: gateInputs(s, gate) } : decision;
+  return { ...s.gates, [gate]: stored };
+}
+
+/** Decisions as they stand now: an approval whose inputs changed since is stale (D17's stale state) and must be re-approved. */
+export function effectiveGates(s: FlowState): Record<GateId, GateDecision> {
+  const out = {} as Record<GateId, GateDecision>;
+  for (const g of Object.keys(s.gates) as GateId[]) {
+    const { inputs, ...d } = s.gates[g];
+    out[g] = d.status === 'approved' && inputs !== undefined && inputs !== gateInputs(s, g) ? { ...d, status: 'stale' } : d;
+  }
+  return out;
+}
+
+/** The gates that still block kit v1 (note n-g1.3: kit v1 needs all three approved); stale approvals count as open. */
 export function openGates(gates: Record<GateId, GateDecision>): GateId[] {
   return (Object.keys(gates) as GateId[]).filter((g) => gates[g].status !== 'approved');
 }
@@ -145,6 +178,8 @@ export function useBuilderFlow(key: FlowKey) {
     next: href(c.next),
     skip: href(c.skip),
     ...flow,
+    /** Decisions with staleness applied (what every screen shows). */
+    gates: effectiveGates(flow),
     /** The brand as entered in this flow, over the fixture brand: name and verified status (Unverified flag). */
     brandFor: (fixture: BuilderBrand): BuilderBrand => ({
       id: fixture.id,
@@ -159,8 +194,8 @@ export function useBuilderFlow(key: FlowKey) {
     /** Open Kit-Export on this brand and version (the kit just published). */
     openExport: (brandId: string, version: string) => set({ hubBrand: brandId, exportVersion: version }),
     /** Gates not yet approved. The Coverage-Map alert and the kit approval block both read this, never a second check. */
-    openGates: openGates(flow.gates),
-    decide: (gate: GateId, decision: GateDecision) => set({ gates: { ...flow.gates, [gate]: decision } }),
+    openGates: openGates(effectiveGates(flow)),
+    decide: (gate: GateId, decision: GateDecision) => set({ gates: recordDecision(flow, gate, decision) }),
     choosePositioning: (option: string) => set({ positioningOption: option }),
     pickVoice: (voice: VoicePick) => set({ voice }),
     setDials: (dials: DialValues) => set({ dials }),

@@ -22,9 +22,9 @@ import { Button, Grid, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { EmptyState } from '../../ui/composites/EmptyState';
 import { StatTile } from '../../ui/composites/StatTile';
-import { BuilderApprovalItem } from '../../ui/domain/BuilderApprovalItem';
 import { BuilderHubPage } from './BuilderHubPage';
 import { BuilderSection } from './BuilderSection';
+import { DashboardApproval } from './DashboardApproval';
 import { DashboardCampaigns } from './DashboardCampaigns';
 import { DashboardPayouts } from './DashboardPayouts';
 import { growSubnav, useBoardHref } from './paths';
@@ -52,7 +52,7 @@ export function Dashboard({ data: screen }: { data: DashboardScreenData }) {
         <Card as="div">
           <BuilderSection title="Pending approvals">
             <Stack as="ul" gap={0}>
-              {data.pending.map((p) => <BuilderApprovalItem key={`${brandId}:${p.id}`} item={{ ...p, link: { label: p.link.label, href: to(p.link.board) } }} />)}
+              {data.pending.map((p) => <DashboardApproval key={`${brandId}:${p.id}`} item={{ ...p, link: { label: p.link.label, href: to(p.link.board) } }} />)}
             </Stack>
           </BuilderSection>
         </Card>

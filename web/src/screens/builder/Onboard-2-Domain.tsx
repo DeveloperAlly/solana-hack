@@ -18,7 +18,7 @@
  */
 import { Badge, Button, Field, Grid, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { BuilderDnsRecord, dnsCheckCopy, type DnsCheckStatus } from '../../ui/domain/BuilderDnsRecord';
 import { BuilderStep } from './BuilderStep';
 import { BuilderStepFooter } from './BuilderStepFooter';
@@ -36,6 +36,7 @@ export function Onboard2Domain({ data }: { data: DomainData }) {
   const mailto = `mailto:?subject=${encodeURIComponent(copy.subject)}&body=${encodeURIComponent(copy.body)}`;
   // One status drives the record card, its actions and whether Continue is open: a verified domain in the flow wins.
   const status: DnsCheckStatus = brand.verified ? 'verified' : data.check;
+  const noDomainId = useId();
   const actions: Record<DnsCheckStatus, ReactNode> = {
     waiting: <Button href={next ?? ''} onClick={() => enterBrand({ brandName: name, domain })}>Check now</Button>,
     'not-found': <><Button href={next ?? ''} onClick={() => enterBrand({ verified: true })}>Check again</Button><Button href={mailto} variant="secondary">Email these steps to my developer</Button></>,
@@ -62,7 +63,15 @@ export function Onboard2Domain({ data }: { data: DomainData }) {
         </Grid>
       )}
       {/* INTEGRATION: POST /api/brands/:id/domain/check (backend map §4); the Registrar writes an identity attestation on success. */}
-      <BuilderDnsRecord record={data.record} domain={domain} status={status} causes={data.causes} actions={actions[status]} />
+      {domain.trim() ? (
+        <BuilderDnsRecord record={data.record} domain={domain} status={status} causes={data.causes} actions={actions[status]} />
+      ) : (
+        // No domain, no record to add: Check now waits for one (Codex review on PR #73).
+        <Card variant="subtle" as="div">
+          <Text id={noDomainId}>Enter your domain to get the record to add.</Text>
+          <Button disabled aria-describedby={noDomainId}>Check now</Button>
+        </Card>
+      )}
       {waiting ? (
         <Card variant="subtle" as="div">
           <Text><strong>If you skip:</strong> your brand shows an <Badge>Unverified</Badge> flag. You can still build, approve and register your kit and posts. Until the domain is verified, Verify shows your brand name as self-declared, and ambassador payouts stay off.</Text>

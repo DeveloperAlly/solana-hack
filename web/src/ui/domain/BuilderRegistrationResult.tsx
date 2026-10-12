@@ -2,7 +2,7 @@ import { Button } from '../primitives/Button';
 import { Text } from '../primitives/Text';
 import { Card } from '../composites/Card';
 import { KeyValueList, type KeyValueItem } from '../composites/KeyValueList';
-import { BuilderCopyButton } from './BuilderCopyButton';
+import { CopyButton } from '../composites/CopyButton';
 import styles from './BuilderRegistrationResult.module.css';
 
 export type RegistrationStatus = 'registered' | 'failed';
@@ -37,7 +37,7 @@ export function BuilderRegistrationResult({ status, items, reason, errorDetails 
           <div className={styles.actions}>
             {/* INTEGRATION: POST /api/registrations/:id/retry (backend map §4, row "Onboard-6-Published, Kit-RegisterFailed"). */}
             {retryHref && <Button href={retryHref}>Retry registration</Button>}
-            <BuilderCopyButton value={errorDetails} label="Copy error details" />
+            <CopyButton value={errorDetails} label="Copy error details" />
           </div>
         </Card>
       )}

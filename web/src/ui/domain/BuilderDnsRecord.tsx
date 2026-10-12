@@ -4,7 +4,7 @@ import { Heading } from '../primitives/Heading';
 import { Text } from '../primitives/Text';
 import { Card } from '../composites/Card';
 import { DataTable } from '../composites/DataTable';
-import { BuilderCopyButton } from './BuilderCopyButton';
+import { CopyButton } from '../composites/CopyButton';
 import styles from './BuilderDnsRecord.module.css';
 
 export interface DnsRecord {
@@ -67,7 +67,7 @@ export function BuilderDnsRecord({ record, domain, status, causes = [], actions 
           ]}
           rows={[record]}
           rowKey={(r) => r.value}
-          actions={(r) => <BuilderCopyButton value={r.value} label="Copy value" />}
+          actions={(r) => <CopyButton value={r.value} label="Copy value" />}
         />
       </Card>
       <Card variant="subtle" as="div">

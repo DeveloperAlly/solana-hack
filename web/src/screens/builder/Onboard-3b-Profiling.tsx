@@ -16,9 +16,11 @@
 import { useState } from 'react';
 import { Button, Link, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
-import { BuilderFilePicker } from '../../ui/domain/BuilderFilePicker';
-import { BuilderProgressBar } from '../../ui/domain/BuilderProgressBar';
-import { BuilderSourceList, type SourceRow } from '../../ui/domain/BuilderSourceList';
+import { FilePicker } from '../../ui/composites/FilePicker';
+import { ProgressBar } from '../../ui/composites/ProgressBar';
+import { StatusList } from '../../ui/composites/StatusList';
+import { toStatusRows } from './sourceRows';
+import type { SourceRow } from './types';
 import { BuilderStep } from './BuilderStep';
 import { useBoardHref } from './paths';
 import { useBuilderFlow } from './useBuilderFlow';
@@ -36,20 +38,20 @@ export function Onboard3bProfiling({ data }: { data: ProfilingData }) {
   const [rows, setRows] = useState([...named, ...data.stages]);
   const update = (id: string, patch: Partial<SourceRow>) => setRows((all) => all.map((r) => (r.id === id ? { ...r, ...patch, error: undefined } : r)));
   // INTEGRATION: POST /api/sources/:id/retry (backend map §4, row "Onboard-3b-Profiling, Ingest-Error").
-  const retry = (r: SourceRow) => update(r.id, { status: 'Reading…', tone: 'active' });
+  const retry = (id: string) => update(id, { status: 'Reading…', tone: 'active' });
   const failed = rows.find((r) => r.tone === 'failed');
   return (
     <BuilderStep flow={flowKey} brand={data.brand} tag="FALLBACK" title="Reading your sources" intro="You can carry on with the next question while this runs.">
       <Card as="div">
-        {!failedAtStart && <BuilderProgressBar label="Reading progress" segments={[{ value: data.progress, label: 'Read' }]} />}
-        <BuilderSourceList
+        {!failedAtStart && <ProgressBar label="Reading progress" segments={[{ value: data.progress, label: 'Read' }]} />}
+        <StatusList
           label="Sources being read"
-          rows={rows}
-          actions={(r) => r.tone === 'failed' && <><Button onClick={() => retry(r)}>Retry</Button><Button href={next ?? ''} variant="secondary">Skip</Button></>}
+          rows={toStatusRows(rows)}
+          actions={(r) => r.tone === 'failed' && <><Button onClick={() => retry(r.id)}>Retry</Button><Button href={next ?? ''} variant="secondary">Skip</Button></>}
         />
         {failedAtStart && <Text variant="small" tone="secondary">Skipping only means we&apos;ll ask you about what that source would have covered. You can also upload the page as a PDF instead.</Text>}
         <Stack direction="row" gap={3} align="center" wrap>
-          {failed && <BuilderFilePicker label="Upload it as a file" accept=".pdf,.md,.docx" onFiles={([name]) => update(failed.id, { name, status: 'Supplied by you', tone: 'done' })} />}
+          {failed && <FilePicker label="Upload it as a file" accept=".pdf,.md,.docx" onFiles={([file]) => update(failed.id, { name: file.name, status: 'Supplied by you', tone: 'done' })} />}
           <Button href={next ?? ''}>{failedAtStart ? 'Continue without it' : 'Continue to the next question'}</Button>
         </Stack>
       </Card>

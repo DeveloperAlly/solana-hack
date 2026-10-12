@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { useScreenHref } from '../../gallery/screenPath';
+import type { ArtboardName } from '../../config/artboards';
 
 export const boards = {
   // This page's artboards.
@@ -33,7 +34,8 @@ export const boards = {
   brandBuild: 'Brand-Build',
   draftReview: 'Draft-Review',
   verifyMatch: 'Verify-1-Match',
-  campaignBuilder: 'Campaign-Builder',
+  // The canvas Dashboard links to Campaign-Builder, which Campaign v2 replaced (Campaign-v2-1-Goal is its first step).
+  campaignBuilder: 'Campaign-v2-1-Goal',
   ledger: 'Ledger',
   voices: 'Voice-Templates',
   claims: 'Claims',
@@ -41,7 +43,7 @@ export const boards = {
   partners: 'Partners',
   leads: 'Leads',
   influencer: 'Influencer-Setup',
-} as const;
+} as const satisfies Record<string, ArtboardName>;
 
 export type BoardKey = keyof typeof boards;
 

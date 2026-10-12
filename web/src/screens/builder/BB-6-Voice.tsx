@@ -14,8 +14,8 @@
  */
 import { Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
-import { BuilderChoiceCards } from '../../ui/domain/BuilderChoiceCards';
-import { BuilderScale } from '../../ui/domain/BuilderScale';
+import { ChoiceCards } from '../../ui/composites/ChoiceCards';
+import { Scale } from '../../ui/composites/Scale';
 import { BuilderSection } from './BuilderSection';
 import { BuilderStep } from './BuilderStep';
 import { BuilderStepFooter } from './BuilderStepFooter';
@@ -35,12 +35,12 @@ export function BB6Voice({ data }: { data: VoiceData }) {
       estimate="About 3 minutes · then Gate 3: Voice"
       footer={<BuilderStepFooter back={back} skip={skip} skipLabel="Skip, use the template as is" next={{ label: 'Continue', href: next }} />}
     >
-      <BuilderChoiceCards legend="Round 1 of 2" options={data.round1} value={voice.round1} onChange={(r1) => pickVoice({ round1: r1, round2: data.round2[r1]?.[0]?.value ?? '' })} />
-      <BuilderChoiceCards legend="Round 2 of 2 (closer to your first pick)" options={round2} value={voice.round2} onChange={(r2) => pickVoice({ ...voice, round2: r2 })} />
+      <ChoiceCards legend="Round 1 of 2" options={data.round1} value={voice.round1} onChange={(r1) => pickVoice({ round1: r1, round2: data.round2[r1]?.[0]?.value ?? '' })} />
+      <ChoiceCards legend="Round 2 of 2 (closer to your first pick)" options={round2} value={voice.round2} onChange={(r2) => pickVoice({ ...voice, round2: r2 })} />
       <Card as="div">
         <BuilderSection title="Fine-tune three dials">
           {data.dials.map((d) => (
-            <BuilderScale key={d.key} legend={d.legend} low={d.low} high={d.high} value={dials[d.key]} onChange={(v) => setDials({ ...dials, [d.key]: v })} />
+            <Scale key={d.key} legend={d.legend} startLabel={d.low} endLabel={d.high} value={dials[d.key]} onChange={(v) => setDials({ ...dials, [d.key]: v })} />
           ))}
           <Text variant="small" tone="secondary">
             The other five dimensions and the claims gate start from the template your picks matched ({data.templates[voice.round1]}). Change them later in Voices.

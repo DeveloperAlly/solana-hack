@@ -15,9 +15,12 @@
 import { useState } from 'react';
 import { Button, Heading, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
-import { BuilderFilePicker } from '../../ui/domain/BuilderFilePicker';
-import { BuilderLinkAdder } from '../../ui/domain/BuilderLinkAdder';
-import { BuilderSourceList, type SourceRow } from '../../ui/domain/BuilderSourceList';
+import { FilePicker } from '../../ui/composites/FilePicker';
+import { InlineForm } from '../../ui/composites/InlineForm';
+import { StatusList } from '../../ui/composites/StatusList';
+import { isLink } from '../../lib/validation';
+import { toStatusRows } from './sourceRows';
+import type { SourceRow } from './types';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { uniqueId } from '../../lib/id';
 import { BuilderStep } from './BuilderStep';
@@ -54,20 +57,28 @@ export function Onboard3Sources({ data, state = 'success' }: { data: SourcesData
     >
       <Card as="section" header={<Heading level={2} size="lg">Links</Heading>}>
         {links.length ? (
-          <BuilderSourceList label="Links to read" rows={links} actions={(r) => <Button variant="secondary" onClick={() => remove(r.id)} aria-label={`Remove ${r.name}`}>Remove</Button>} />
+          <StatusList label="Links to read" rows={toStatusRows(links)} actions={(r) => <Button variant="secondary" onClick={() => remove(r.id)} aria-label={`Remove ${r.label}`}>Remove</Button>} />
         ) : (
           <Text tone="secondary">Nothing to read yet. Add a link or a file, or skip and we&apos;ll ask you instead.</Text>
         )}
-        <BuilderLinkAdder onAdd={(url) => setLinks((l) => [...l, row(url, 'Added here')])} />
+        <InlineForm
+          label="New link"
+          layout="row"
+          resetOnSubmit
+          submitVariant="secondary"
+          submitLabel="Add link"
+          fields={[{ name: 'url', label: 'Add a link', placeholder: 'Paste a URL', inputMode: 'url', validate: (v) => (isLink(v) ? null : 'Enter a web address like jamjam.tech or https://example.com/page.') }]}
+          onSubmit={({ url }) => setLinks((l) => [...l, row(url, 'Added here')])}
+        />
       </Card>
       <Card as="section" variant="subtle" header={<Heading level={2} size="lg">Upload files</Heading>}>
-        <BuilderFilePicker label="Browse files" accept=".pdf,.md,.docx" multiple hint="Brand guides, decks, product briefs, case studies. PDF, Markdown, DOCX. Marked as supplied by you." onFiles={(names) => setLinks((l) => [...l, ...names.map((n) => row(n, 'Supplied by you'))])} />
+        <FilePicker label="Browse files" accept=".pdf,.md,.docx" multiple hint="Brand guides, decks, product briefs, case studies. PDF, Markdown, DOCX. Marked as supplied by you." onFiles={(files) => setLinks((l) => [...l, ...files.map((f) => row(f.name, 'Supplied by you'))])} />
       </Card>
       <Card as="section" header={<Heading level={2} size="lg">Connected accounts</Heading>}>
-        <BuilderSourceList
+        <StatusList
           label="Connected accounts"
-          rows={accounts}
-          actions={(a) => <Button variant="secondary" disabled={connected.includes(a.id)} onClick={() => setConnected((c) => [...c, a.id])} aria-label={`Connect for publishing: ${a.name}`}>Connect for publishing</Button>}
+          rows={toStatusRows(accounts)}
+          actions={(a) => <Button variant="secondary" disabled={connected.includes(a.id)} onClick={() => setConnected((c) => [...c, a.id])} aria-label={`Connect for publishing: ${a.label}`}>Connect for publishing</Button>}
         />
       </Card>
     </BuilderStep>

@@ -17,8 +17,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Field, Grid } from '../../ui/primitives';
-import { BuilderChoiceCards } from '../../ui/domain/BuilderChoiceCards';
-import { BuilderSelect } from '../../ui/domain/BuilderSelect';
+import { ChoiceCards } from '../../ui/composites/ChoiceCards';
+import { Select } from '../../ui/primitives/Select';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { invalidLinks } from '../../lib/validation';
 import { BuilderStep } from './BuilderStep';
@@ -61,7 +61,7 @@ export function BB1Basics({ data, state = 'success' }: { data: BasicsData; state
         <Field label="Name" value={brandFor(data.brand).name} onChange={(e: { target: { value: string } }) => enterBrand({ brandName: e.target.value })} />
         <Field label="One-line description" defaultValue={data.description} />
       </Grid>
-      <BuilderChoiceCards legend="Type" options={data.typeOptions} value={type} onChange={setType} />
+      <ChoiceCards legend="Type" options={data.typeOptions} value={type} onChange={setType} />
       <Field
         label="Links (site, docs, socials, press)"
         multiline
@@ -73,7 +73,7 @@ export function BB1Basics({ data, state = 'success' }: { data: BasicsData; state
       />
       <Grid min="sm" gap={4}>
         <Field label="Goal for the next 12 months" defaultValue={data.goal} />
-        <BuilderSelect label="Primary channel" options={data.channels} defaultValue={data.channel} />
+        <Select label="Primary channel" options={data.channels} defaultValue={data.channel} />
       </Grid>
     </BuilderStep>
   );

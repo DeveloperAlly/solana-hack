@@ -1,18 +1,45 @@
 // Data shapes for the Brand Builder page (issue #50). Screens, fixtures and the flow hook import from here.
 // Field sources are in each screen's "Data contract" comment, against the backend map (.agentic/what/context/backend_map.md §4).
-import type { ChoiceCardOption } from '../../ui/domain/BuilderChoiceCards';
+import type { ChoiceCardOption } from '../../ui/composites/ChoiceCards';
 import type { CoverageRow } from '../../ui/domain/BuilderCoverageMap';
 import type { DnsCheckStatus, DnsRecord } from '../../ui/domain/BuilderDnsRecord';
 import type { KitIncludeOption, KitVersion } from '../../ui/domain/BuilderKitExport';
 import type { Persona } from '../../ui/domain/BuilderPersonaCard';
 import type { RegistrationStatus } from '../../ui/domain/BuilderRegistrationResult';
-import type { SourceRow } from '../../ui/domain/BuilderSourceList';
-import type { AmbassadorSubmission } from '../../ui/domain/BuilderApprovalItem';
 import type { StatTileProps } from '../../ui/composites/StatTile';
 import type { BoardKey } from './paths';
 
-export type { GateDecision, GateStatus } from '../../ui/domain/BuilderDecisionGate';
-export type { ChoiceCardOption, CoverageRow, DnsRecord, KitIncludeOption, KitVersion, Persona, SourceRow, AmbassadorSubmission };
+export type { GateDecision, GateStatus } from '../../ui/domain/DecisionGate';
+export type { ChoiceCardOption, CoverageRow, DnsRecord, KitIncludeOption, KitVersion, Persona };
+
+/** A source being read, or a stage of the reading job (D12 SourceList rows, drawn with the shared StatusList). */
+export type SourceRowTone = 'done' | 'active' | 'waiting' | 'failed';
+export interface SourceRow {
+  id: string;
+  /** Link, file name or account name. */
+  name: string;
+  /** Status chip text, e.g. "Done · 2 facts found", "Reading…", "From step 1". */
+  status: string;
+  tone: SourceRowTone;
+  /** Plain reason, shown under the name on a failed row. */
+  error?: string;
+}
+
+/** An ambassador submission awaiting the brand's decision (submissions; Dashboard, note n-dash). */
+export interface AmbassadorSubmission {
+  id: string;
+  /** "LinkedIn post", "Tutorial". */
+  kind: string;
+  author: string;
+  /** "10 USDC". */
+  amount: string;
+  excerpt: string;
+  /** Check chips, e.g. "On-brand 91%", "Verified on LinkedIn". */
+  checks: string[];
+  link: { label: string; href: string };
+}
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'paid';
 
 export type GateId = 'purpose' | 'positioning' | 'voice';
 

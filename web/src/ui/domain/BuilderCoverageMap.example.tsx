@@ -3,9 +3,9 @@ import { BuilderCoverageMap, type CoverageRow } from './BuilderCoverageMap';
 
 // First three rows of canvas board Coverage-Map (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, issue #50). Sample data.
 const rows: CoverageRow[] = [
-  { section: 'Identity', cells: [{ state: 'I', action: 'Confirm draft' }, { state: 'E', action: 'Confirm only' }] },
-  { section: 'Purpose', gate: 'Gate 1', cells: [{ state: 'I', action: 'Confirm draft' }, { state: 'E', action: 'Confirm only' }] },
-  { section: 'Beliefs / POV', cells: [{ state: 'M', action: 'Ask: step 2' }, { state: 'I', action: 'Confirm draft' }] },
+  { section: 'Identity', cells: [{ state: 'inferred', action: 'Confirm draft' }, { state: 'evidenced', action: 'Confirm only' }] },
+  { section: 'Purpose', gate: 'Gate 1', cells: [{ state: 'inferred', action: 'Confirm draft' }, { state: 'evidenced', action: 'Confirm only' }] },
+  { section: 'Beliefs / POV', cells: [{ state: 'missing', action: 'Ask: step 2' }, { state: 'inferred', action: 'Confirm draft' }] },
 ];
 
 export const example: WorkbenchExample = {

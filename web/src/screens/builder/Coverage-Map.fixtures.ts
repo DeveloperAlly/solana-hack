@@ -2,17 +2,19 @@
 // all 17 rows as drawn; totals are counted by the component and match the canvas: JamJam E 0 · I 2 · M 15, film.fun
 // E 8 · I 3 · M 6); issue #50; backend map §4, row "Coverage-Map". Statuses are sample data (note n-cov.3).
 // {brand} is the brand being built, filled from the flow (JamJam on the canvas).
-import type { CoverageState } from '../../ui/domain/BuilderCoverageBadge';
+import type { CoverageStatus } from '../../ui/domain/CoverageBadge';
 import type { CoverageData, CoverageRow } from './types';
 import { jamjamBrand } from './shared.fixtures';
 
 const DRAFTED = 'Drafted from answers; you confirm';
 const LATER = 'Not asked; add later';
 
-const row = (section: string, jam: [CoverageState, string], film: [CoverageState, string], gate?: string): CoverageRow => ({
+// Rows are written with the canvas letters; E / I / M map to the shared coverage statuses.
+const status: Record<'E' | 'I' | 'M', CoverageStatus> = { E: 'evidenced', I: 'inferred', M: 'missing' };
+const row = (section: string, jam: ['E' | 'I' | 'M', string], film: ['E' | 'I' | 'M', string], gate?: string): CoverageRow => ({
   section,
   gate,
-  cells: [{ state: jam[0], action: jam[1] }, { state: film[0], action: film[1] }],
+  cells: [{ state: status[jam[0]], action: jam[1] }, { state: status[film[0]], action: film[1] }],
 });
 
 export const coverageData: CoverageData = {

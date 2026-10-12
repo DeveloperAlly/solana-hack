@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Badge } from '../../ui/primitives';
-import { BuilderDecisionGate } from '../../ui/domain/BuilderDecisionGate';
+import { DecisionGate } from '../../ui/domain/DecisionGate';
 import { BuilderStep } from './BuilderStep';
 import { useBuilderFlow, type FlowKey } from './useBuilderFlow';
 import type { BuilderBrand, GateId } from './types';
@@ -29,7 +29,7 @@ export function BuilderGateStep({ flow, gate, brand, title, intro, draftLabel, d
   const { back, next, gates, decide, brandFor } = useBuilderFlow(flow);
   return (
     <BuilderStep flow={flow} brand={brand} tag="FALLBACK" title={title} intro={intro} flag={<Badge tone="solid">Gate {gateNumber[gate]} of 3</Badge>}>
-      <BuilderDecisionGate
+      <DecisionGate
         subject={gate}
         draftLabel={draftLabel}
         draftMeta={draftMeta}
@@ -37,12 +37,11 @@ export function BuilderGateStep({ flow, gate, brand, title, intro, draftLabel, d
         approver={brandFor(brand).approver}
         decision={gates[gate]}
         onDecide={(d) => decide(gate, d)}
-        backHref={back ?? ''}
-        backLabel={backLabel}
+        back={back ? { href: back, label: backLabel } : undefined}
         nextHref={next ?? ''}
       >
         {children}
-      </BuilderDecisionGate>
+      </DecisionGate>
     </BuilderStep>
   );
 }

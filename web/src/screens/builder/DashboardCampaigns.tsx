@@ -1,7 +1,7 @@
 import { Button, Link, Text } from '../../ui/primitives';
 import { DataTable } from '../../ui/composites/DataTable';
 import { EmptyState } from '../../ui/composites/EmptyState';
-import { BuilderProgressBar } from '../../ui/domain/BuilderProgressBar';
+import { ProgressBar } from '../../ui/composites/ProgressBar';
 import { BuilderSection } from './BuilderSection';
 import { useBoardHref } from './paths';
 import type { CampaignRow } from './types';
@@ -34,9 +34,9 @@ export function DashboardCampaigns({ campaigns }: { campaigns: CampaignRow[] }) 
             key: 'budget',
             header: 'Budget',
             cell: (c) => (
-              <BuilderProgressBar
+              <ProgressBar
                 label={`${c.name} budget`}
-                segments={[{ value: pct(c.spent, c.cap), label: 'Spent' }, { value: pct(c.committed, c.cap), label: 'Committed', tone: 'muted' }]}
+                segments={[{ value: pct(c.spent, c.cap), label: 'Spent', tone: 'primary' }, { value: pct(c.committed, c.cap), label: 'Committed', tone: 'secondary' }]}
                 caption={`${c.spent} spent · ${c.committed} committed · ${c.cap - c.spent - c.committed} left of ${c.cap} USDC`}
               />
             ),

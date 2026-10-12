@@ -16,7 +16,7 @@
 import { useState } from 'react';
 import { Button, Stack, Text } from '../../ui/primitives';
 import { StatePanel } from '../../ui/composites/StatePanel';
-import { BuilderChoiceCards } from '../../ui/domain/BuilderChoiceCards';
+import { ChoiceCards } from '../../ui/composites/ChoiceCards';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { BuilderAnswers } from './BuilderAnswers';
 import { BuilderSection } from './BuilderSection';
@@ -60,7 +60,7 @@ export function BB4Alternatives({ data, state = 'success' }: { data: Alternative
         {state === 'loading' ? (
           <StatePanel kind="loading" title="Drafting three options" body="Reading your answers and public competitor pages." />
         ) : (
-          <BuilderChoiceCards legend="Positioning options" options={options} value={selected} onChange={choosePositioning} />
+          <ChoiceCards legend="Positioning options" options={options} value={selected} onChange={choosePositioning} />
         )}
         <Stack direction="row"><Button variant="secondary" onClick={moreOptions} disabled={state === 'loading'}>Show three different options</Button></Stack>
       </BuilderSection>

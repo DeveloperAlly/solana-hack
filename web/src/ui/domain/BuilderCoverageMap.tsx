@@ -1,9 +1,9 @@
 import { Badge } from '../primitives/Badge';
-import { BuilderCoverageBadge, type CoverageState } from './BuilderCoverageBadge';
+import { CoverageBadge, coverageMeta, coverageStatuses, type CoverageStatus } from './CoverageBadge';
 import styles from './BuilderCoverageMap.module.css';
 
 export interface CoverageCell {
-  state: CoverageState;
+  state: CoverageStatus;
   /** What the builder will do, e.g. "Confirm draft", "Ask: step 2". */
   action: string;
 }
@@ -23,11 +23,10 @@ export interface BuilderCoverageMapProps {
   rows: CoverageRow[];
 }
 
-const states: CoverageState[] = ['E', 'I', 'M'];
 
 /** "E 0 · I 2 · M 15": totals are counted from the rows, never typed in. */
 export function coverageTotals(rows: CoverageRow[], brandIndex: number): string {
-  return states.map((s) => `${s} ${rows.filter((r) => r.cells[brandIndex]?.state === s).length}`).join(' · ');
+  return coverageStatuses.map((s) => `${coverageMeta[s].letter} ${rows.filter((r) => r.cells[brandIndex]?.state === s).length}`).join(' · ');
 }
 
 /**
@@ -52,7 +51,7 @@ export function BuilderCoverageMap({ caption, brands, rows }: BuilderCoverageMap
               <td>{i + 1}</td>
               <th scope="row" className={styles.section}>{r.section} {r.gate && <Badge>{r.gate}</Badge>}</th>
               {r.cells.map((c, j) => [
-                <td key={`${j}-s`}><BuilderCoverageBadge state={c.state} /></td>,
+                <td key={`${j}-s`}><CoverageBadge status={c.state} /></td>,
                 <td key={`${j}-a`} className={j > 0 ? styles.muted : undefined}>{c.action}</td>,
               ])}
             </tr>

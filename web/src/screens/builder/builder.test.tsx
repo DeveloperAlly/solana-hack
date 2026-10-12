@@ -70,7 +70,7 @@ describe('Brand Builder: onboarding and wizard, end to end', () => {
     await h1("Who it's for");
     await click('Continue', 'link');
     await h1('Pick the one that sounds like you');
-    await userEvent.click(screen.getByRole('radio', { name: /^4 of 5 \(Casual/ }));
+    await userEvent.click(within(screen.getByRole('group', { name: 'Formality' })).getByRole('radio', { name: '4' }));
     await click('Continue', 'link');
     await h1('Approve your core voice');
     expect(screen.getByRole('table', { name: 'Voice dimensions' })).toHaveTextContent('4');
@@ -141,6 +141,33 @@ describe('Brand Builder: screen interactions', () => {
     expect(within(screen.getByRole('banner')).getByText('Unverified')).toBeInTheDocument();
     expect(screen.getByText('Status: waiting for record')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Continue (when verified)' })).toBeDisabled();
+  });
+
+  it('domain: with no domain entered, the record is hidden and Check now says why it is off', async () => {
+    at(screenPath(boards.domain));
+    await userEvent.clear(await screen.findByLabelText('Domain'));
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    const check = screen.getByRole('button', { name: 'Check now' });
+    expect(check).toBeDisabled();
+    expect(check).toHaveAccessibleDescription('Enter your domain to get the record to add.');
+    await userEvent.type(screen.getByLabelText('Domain'), 'acme.example');
+    expect(screen.getByRole('table', { name: 'TXT record for acme.example' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Check now' })).toBeInTheDocument();
+  });
+
+  it('gates: changing the voice picks after Gate 3 was approved makes it stale, and Coverage counts it open again', async () => {
+    const gate = at(screenPath(boards.gateVoice));
+    await click('Approve voice');
+    expect(await screen.findByRole('heading', { name: 'Voice approved' })).toBeInTheDocument();
+    gate.unmount();
+    const voice = at(screenPath(boards.voice));
+    await userEvent.click(within(await screen.findByRole('group', { name: 'Energy' })).getByRole('radio', { name: /^5/ }));
+    voice.unmount();
+    const again = at(screenPath(boards.gateVoice));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Needs a fresh approval');
+    again.unmount();
+    at(screenPath(boards.coverage));
+    expect(await screen.findByRole('alert')).toHaveTextContent('voice');
   });
 
   it('domain: the developer email is built from the current domain, record and causes', async () => {

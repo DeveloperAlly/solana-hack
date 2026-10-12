@@ -1,7 +1,7 @@
 import { Link } from '../../ui/primitives';
 import { DataTable } from '../../ui/composites/DataTable';
 import { EmptyState } from '../../ui/composites/EmptyState';
-import { BuilderCopyButton } from '../../ui/domain/BuilderCopyButton';
+import { CopyButton } from '../../ui/composites/CopyButton';
 import { BuilderSection } from './BuilderSection';
 import { useBoardHref } from './paths';
 import type { PayoutRow } from './types';
@@ -20,7 +20,7 @@ export function DashboardPayouts({ rows, brandName, publicPageUrl }: DashboardPa
       <EmptyState
         title="No ambassador posts yet"
         body={`When a partner pays to write in ${brandName}'s voice, each piece shows here with its receipt.`}
-        actions={<BuilderCopyButton value={publicPageUrl} label="Copy your public page link" />}
+        actions={<CopyButton value={publicPageUrl} label="Copy your public page link" />}
       />
     );
   }

@@ -6,7 +6,7 @@ import { Card } from '../composites/Card';
 import { CheckboxRow } from '../composites/CheckboxRow';
 import { StatePanel } from '../composites/StatePanel';
 import { buildKitZip, kitFiles, kitTree, saveBlob, type KitFile } from '../../lib/kitZip';
-import { BuilderSelect } from './BuilderSelect';
+import { Select } from '../primitives/Select';
 import styles from './BuilderKitExport.module.css';
 
 export type KitExportStatus = 'ready' | 'preparing' | 'saved' | 'failed';
@@ -88,7 +88,7 @@ export function BuilderKitExport({ versions, includes, status = 'ready', initial
         <Text as="pre" variant="mono" className={styles.tree}>{kitTree(version.root, files)}</Text>
       </Card>
       <Card as="section">
-        <BuilderSelect label="Version" options={versions.map((v) => v.label)} value={label} onChange={(e) => pick(e.target.value)} />
+        <Select label="Version" options={versions.map((v) => v.label)} value={label} onChange={(e) => pick(e.target.value)} />
         <fieldset className={styles.includes}>
           <legend className={styles.legend}>Include</legend>
           {includes.map((i) => (

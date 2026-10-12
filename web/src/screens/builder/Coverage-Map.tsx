@@ -17,7 +17,7 @@
 import { Alert, Button, Grid, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { SampleFlag } from '../../ui/composites/SampleFlag';
-import { BuilderCoverageBadge } from '../../ui/domain/BuilderCoverageBadge';
+import { CoverageBadge, coverageStatuses } from '../../ui/domain/CoverageBadge';
 import { BuilderCoverageMap } from '../../ui/domain/BuilderCoverageMap';
 import { BuilderStep } from './BuilderStep';
 import { BuilderStepFooter } from './BuilderStepFooter';
@@ -45,9 +45,7 @@ export function CoverageMap({ data }: { data: CoverageData }) {
       }
     >
       <Stack direction="row" gap={5} wrap>
-        <BuilderCoverageBadge state="E" withDetail />
-        <BuilderCoverageBadge state="I" withDetail />
-        <BuilderCoverageBadge state="M" withDetail />
+        {coverageStatuses.map((s) => <CoverageBadge key={s} status={s} display="legend" />)}
       </Stack>
       <BuilderCoverageMap caption={fill(data.caption)} brands={data.brands.map(fill)} rows={data.rows} />
       <Grid min="md" gap={4}>
