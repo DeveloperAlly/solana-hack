@@ -14,7 +14,7 @@ tags: [pitch, script, colosseum]
 
 Total: 436 words, about 2:44 at 160 words a minute.
 
-**Chosen option (2026-10-13):** option A, "before and after", of three drafted for the owner; the owner asked the agent to finish it. **For the owner to confirm before recording:** "six months" in the slide 1 line is the owner's own words and has no source; keep it only if it is what a brand strategy took her before JamJam, otherwise say "months".
+**Chosen option (2026-10-13):** option A, "before and after", of three drafted for the owner; the owner asked the agent to finish it. **Source for "six months" (slide 1):** agency guides put a brand built from scratch at 3 to 6 months. Snapper Studio says its average brand project takes 6 months, and that "the brand itself (strategy, identity, launch) takes 4 to 6 months" ([Snapper Studio](https://www.snapper.studio/blog/how-long-branding-process-take)). Clay puts a new brand from scratch at 3 to 4 months, and a full rebrand at 5 to 9 ([Clay](https://clay.global/blog/top-branding-agencies/how-long-is-the-branding-process)). Both are agency estimates, not a survey; checked 2026-10-13.
 
 ## 1. The story in one line per slide
 
