@@ -118,7 +118,7 @@ export async function readDocument(env: SourceEnv, input: DocumentInput): Promis
   // At most 200 characters, keeping the extension at the end so the shortened name still says what the file is.
   const name = fullName.length <= 200 ? fullName : extension ? `${fullName.slice(0, 199 - extension.length - 1)}….${extension}` : fullName.slice(0, 200);
   const fail = (code: 'invalid_input' | 'unsupported_type' | 'too_large' | 'not_configured' | 'unreadable' | 'needs_ocr' | 'empty', reason: string, pages = 0) =>
-    ({ ok: false as const, kind: 'document' as const, code, reason, name: name || undefined, meta: c.meta(pages, 0, 'tomarkdown') });
+    ({ ok: false as const, kind: 'document' as const, code, reason, name: name || undefined, meta: c.meta(pages, 'tomarkdown') });
   if (!name) return fail('invalid_input', 'The file has no name; upload it again.');
   const type = DOC_TYPES[extension];
   if (!type) {
@@ -159,5 +159,5 @@ export async function readDocument(env: SourceEnv, input: DocumentInput): Promis
     return fail('empty', `This ${type.label} has no text we can use; paste the key points instead.`, pages);
   }
   const title = (body.match(/^#\s+(.+)$/m)?.[1] ?? name).trim().slice(0, 200);
-  return { ok: true, kind: 'document', trust, name, title, text: body, meta: c.meta(pages, 0, 'tomarkdown') };
+  return { ok: true, kind: 'document', trust, name, title, text: body, meta: c.meta(pages, 'tomarkdown') };
 }

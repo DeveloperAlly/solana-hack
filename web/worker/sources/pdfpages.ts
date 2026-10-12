@@ -23,6 +23,21 @@
  * the caller then keeps its previous behaviour.
  */
 export const MAX_INFLATE = 4 * 1024 * 1024;
+/**
+ * Steps of work one page count may take: every loop over a count the file declares (cross-reference rows and
+ * sections, object-stream headers, dictionary entries, array items, nesting, predictor rows, scanned tokens) spends
+ * from one budget, so no count in a small file can make the reader loop for long. Spending it all means the count is
+ * unknown (PR #71 review).
+ */
+export const MAX_WORK = 1_000_000;
+class OutOfWork extends Error {}
+/** The budget one page count draws on: inflated bytes (`left`) and steps of work (`steps`). */
+type Budget = { left: number; steps: number };
+const fresh = (): Budget => ({ left: MAX_INFLATE, steps: MAX_WORK });
+function spend(budget: Budget, n = 1): void {
+  budget.steps -= n;
+  if (budget.steps < 0) throw new OutOfWork('the page count used up its work budget');
+}
 // How far past an object's offset in an object stream its dictionary may run.
 const OBJECT_SPAN = 64 * 1024;
 
@@ -112,8 +127,9 @@ const nonNegativeInt = (w: string) => /^\d+$/.test(w);
  * The object at `at` (after white-space and comments) and where it ends, or null when there is none or it is
  * malformed. `N G R` is an indirect reference (§7.3.10), read by looking ahead past two integers.
  */
-export function parseObject(text: string, at: number, depth = 0): { value: PdfValue; end: number } | null {
+export function parseObject(text: string, at: number, budget: Budget = fresh(), depth = 0): { value: PdfValue; end: number } | null {
   if (depth > MAX_DEPTH) return null;
+  spend(budget);
   let i = skipSpace(text, at);
   const ch = text[i];
   if (ch === undefined) return null;
@@ -128,7 +144,7 @@ export function parseObject(text: string, at: number, depth = 0): { value: PdfVa
       // §7.3.7: each key is a name, followed by its value.
       if (text[i] !== '/') return null;
       const key = readName(text, i);
-      const v = parseObject(text, key.end, depth + 1);
+      const v = parseObject(text, key.end, budget, depth + 1);
       if (!v) return null;
       entries.set(key.name, v.value);
       i = v.end;
@@ -141,7 +157,7 @@ export function parseObject(text: string, at: number, depth = 0): { value: PdfVa
     while (true) {
       i = skipSpace(text, i);
       if (text[i] === ']') return { value: { kind: 'array', items }, end: i + 1 };
-      const v = parseObject(text, i, depth + 1);
+      const v = parseObject(text, i, budget, depth + 1);
       if (!v) return null;
       items.push(v.value);
       i = v.end;
@@ -167,10 +183,10 @@ export function parseObject(text: string, at: number, depth = 0): { value: PdfVa
 }
 
 /** The dictionary starting at `at` (after white-space and comments) and its end offset, or null. */
-export function dictAt(text: string, at: number): { dict: PdfDict; end: number } | null {
+export function dictAt(text: string, at: number, budget: Budget = fresh()): { dict: PdfDict; end: number } | null {
   const i = skipSpace(text, at);
   if (text[i] !== '<' || text[i + 1] !== '<') return null;
-  const o = parseObject(text, i);
+  const o = parseObject(text, i, budget);
   return o && o.value.kind === 'dict' ? { dict: o.value.entries, end: o.end } : null;
 }
 
@@ -229,14 +245,11 @@ async function streamData(text: string, dict: PdfDict, dictEnd: number, lengthOf
   return { start, end, after: close.end };
 }
 
-/** Bytes inflated in all while reading one file, shared by every stream it reads. */
-type Budget = { left: number };
-
 /**
  * Undoes a PNG predictor (§7.4.4.4, Predictor 10 to 15, one byte per sample: Colors 1, BitsPerComponent 8), the form
  * cross-reference streams use. Each row is one filter-type byte, then `columns` bytes. null for anything else.
  */
-function unpredict(data: Uint8Array, parms: PdfDict | null): Uint8Array | null {
+function unpredict(data: Uint8Array, parms: PdfDict | null, budget: Budget): Uint8Array | null {
   if (!parms) return data;
   const num = (k: string, d: number) => { const v = parms.get(k); return v === undefined ? d : v.kind === 'number' ? v.value : NaN; };
   const predictor = num('Predictor', 1);
@@ -247,6 +260,7 @@ function unpredict(data: Uint8Array, parms: PdfDict | null): Uint8Array | null {
   if (data.length % rowLen !== 0) return null;
   const out = new Uint8Array((data.length / rowLen) * columns);
   for (let r = 0; r * rowLen < data.length; r++) {
+    spend(budget);
     const type = data[r * rowLen];
     for (let c = 0; c < columns; c++) {
       const x = data[r * rowLen + 1 + c];
@@ -289,6 +303,7 @@ async function xrefOffsets(text: string, bytes: Uint8Array, budget: Budget): Pro
   const queue = [Number(first.word)];
   const seen = new Set<number>();
   while (queue.length) {
+    spend(budget);
     const at = queue.shift()!;
     if (seen.has(at) || at >= text.length) return seen.has(at) ? offsets : null;
     seen.add(at);
@@ -301,7 +316,7 @@ async function xrefOffsets(text: string, bytes: Uint8Array, budget: Budget): Pro
       while (true) {
         const a = readWord(text, skipSpace(text, i));
         if (!a) return null;
-        if (a.word === 'trailer') { trailer = dictAt(text, a.end)?.dict ?? null; break; }
+        if (a.word === 'trailer') { trailer = dictAt(text, a.end, budget)?.dict ?? null; break; }
         const c = readWord(text, skipSpace(text, a.end));
         if (!nonNegativeInt(a.word) || !c || !nonNegativeInt(c.word)) return null;
         i = c.end;
@@ -309,6 +324,7 @@ async function xrefOffsets(text: string, bytes: Uint8Array, budget: Budget): Pro
         const count = Number(c.word);
         if (count * 18 > text.length - i) return null;
         for (let k = 0; k < count; k++) {
+          spend(budget);
           const off = readWord(text, skipSpace(text, i));
           const gen = off && readWord(text, skipSpace(text, off.end));
           const type = gen && readWord(text, skipSpace(text, gen.end));
@@ -322,7 +338,7 @@ async function xrefOffsets(text: string, bytes: Uint8Array, budget: Budget): Pro
       if (stm !== null) queue.push(stm);
     } else {
       const head = objectHeader(text, start);
-      const found = head && dictAt(text, head.end);
+      const found = head && dictAt(text, head.end, budget);
       if (!found || !typeIs(found.dict, 'XRef')) return null;
       trailer = found.dict;
       // A cross-reference stream's own length is read directly: it cannot depend on the table it holds.
@@ -337,7 +353,7 @@ async function xrefOffsets(text: string, bytes: Uint8Array, budget: Budget): Pro
         const parmsV = found.dict.get('DecodeParms');
         const parms = parmsV?.kind === 'dict' ? parmsV.entries : parmsV?.kind === 'array' && parmsV.items[0]?.kind === 'dict' ? parmsV.items[0].entries : null;
         if (parmsV && !parms) return null;
-        raw = inflated && unpredict(inflated, parms);
+        raw = inflated && unpredict(inflated, parms, budget);
       }
       if (!raw) return null;
       const wv = found.dict.get('W');
@@ -345,9 +361,14 @@ async function xrefOffsets(text: string, bytes: Uint8Array, budget: Budget): Pro
       const size = int(found.dict, 'Size');
       if (!widths || size === null) return null;
       const iv = found.dict.get('Index');
-      const index = iv === undefined ? [0, size] : iv.kind === 'array' && iv.items.every((x) => x.kind === 'number') ? iv.items.map((x) => (x as { value: number }).value) : null;
+      const index = iv === undefined ? [0, size] : iv.kind === 'array' && iv.items.every((x) => x.kind === 'number' && Number.isInteger(x.value) && x.value >= 0) ? iv.items.map((x) => (x as { value: number }).value) : null;
       if (!index || index.length % 2) return null;
       const rowLen = widths[0] + widths[1] + widths[2];
+      // Every entry takes rowLen bytes (§7.5.8.2): a zero width, or more entries declared than the bytes hold, is
+      // refused before any is read, so a declared count can never drive the loop past the data (PR #71 review).
+      let declared = 0;
+      for (let s2 = 1; s2 < index.length; s2 += 2) declared += index[s2];
+      if (rowLen === 0 || declared * rowLen > raw.length) return null;
       const field = (row: number, from: number, width: number, dflt: number) => {
         if (width === 0) return dflt;
         let v = 0;
@@ -357,6 +378,7 @@ async function xrefOffsets(text: string, bytes: Uint8Array, budget: Budget): Pro
       let row = 0;
       for (let s2 = 0; s2 < index.length; s2 += 2) {
         for (let k = 0; k < index[s2 + 1]; k++, row++) {
+          spend(budget);
           if ((row + 1) * rowLen > raw.length) return null;
           // §7.5.8.3 Table 18: type 1 is an object at a byte offset; type 2 is the index-th object of an object stream;
           // type 0 is free.
@@ -405,18 +427,19 @@ interface Indexed { num: number; pos: number; dict: PdfDict; data?: { start: num
  * it really is one, never inside a string, a comment or stream bytes (PR #71 review). Returns every object (`N G obj`)
  * in file order with its dictionary and, for a stream, where its data lies, and every trailer dictionary.
  */
-async function scanFile(text: string, lengthOf: (num: number) => Promise<number | null>): Promise<{ objects: Indexed[]; trailers: { pos: number; dict: PdfDict }[] } | null> {
+async function scanFile(text: string, lengthOf: (num: number) => Promise<number | null>, budget: Budget): Promise<{ objects: Indexed[]; trailers: { pos: number; dict: PdfDict }[] } | null> {
   const objects: Indexed[] = [];
   const trailers: { pos: number; dict: PdfDict }[] = [];
   let i = 0;
   while (i < text.length) {
+    spend(budget);
     i = skipSpace(text, i);
     const ch = text[i];
     if (ch === undefined) break;
     if (ch === '(') { const end = skipLiteral(text, i); i = end < 0 ? text.length : end; continue; }
     if (ch === '<') {
       // A dictionary or hex string is stepped over whole; a malformed one is passed one byte at a time.
-      const o = parseObject(text, i);
+      const o = parseObject(text, i, budget);
       i = o ? o.end : i + 1;
       continue;
     }
@@ -424,13 +447,13 @@ async function scanFile(text: string, lengthOf: (num: number) => Promise<number 
     const w = readWord(text, i);
     if (!w) { i++; continue; }
     if (w.word === 'trailer') {
-      const d = dictAt(text, w.end);
+      const d = dictAt(text, w.end, budget);
       if (d) { trailers.push({ pos: i, dict: d.dict }); i = d.end; } else i = w.end;
       continue;
     }
     const head = objectHeader(text, i);
     if (!head) { i = w.end; continue; }
-    const found = dictAt(text, head.end);
+    const found = dictAt(text, head.end, budget);
     if (!found) { i = head.end; continue; }
     const entry: Indexed = { num: head.num, pos: i, dict: found.dict };
     i = found.end;
@@ -497,8 +520,8 @@ async function readPacked(raw: Uint8Array, dict: PdfDict, num: number, index: nu
   let offset: number | null = null;
   let at = 0;
   for (let k = 0; k < n; k++) {
-    const objNum = parseObject(head, at);
-    const objOff = objNum && parseObject(head, objNum.end);
+    const objNum = parseObject(head, at, budget);
+    const objOff = objNum && parseObject(head, objNum.end, budget);
     if (!objNum || !objOff || objNum.value.kind !== 'number' || objOff.value.kind !== 'number') break;
     if (index === null ? objNum.value.value === num : k === index) {
       if (objNum.value.value !== num) return undefined;
@@ -510,12 +533,21 @@ async function readPacked(raw: Uint8Array, dict: PdfDict, num: number, index: nu
   if (offset === null || !Number.isInteger(offset) || offset < 0) return undefined;
   const body = await inflatePrefix(raw, first + offset + OBJECT_SPAN, budget);
   if (body === null) return null;
-  return parseObject(body, first + offset)?.value ?? null;
+  return parseObject(body, first + offset, budget)?.value ?? null;
 }
 
 export async function pdfPageCount(bytes: Uint8Array): Promise<number | null> {
+  try {
+    return await countPages(bytes);
+  } catch {
+    // The work budget spent (OutOfWork), or anything else unexpected: the count is unknown.
+    return null;
+  }
+}
+
+async function countPages(bytes: Uint8Array): Promise<number | null> {
   const text = bytesToText(bytes);
-  const budget: Budget = { left: MAX_INFLATE };
+  const budget = fresh();
   // An indirect /Length is read where the cross-reference data says its object is (§7.3.8.2, §7.5.4, §7.5.8): the
   // object at that offset must be "N G obj" for that number, holding a non-negative integer. Read once, on first need.
   let xref: Promise<Map<number, XrefEntry> | null> | null = null;
@@ -528,12 +560,12 @@ export async function pdfPageCount(bytes: Uint8Array): Promise<number | null> {
     if (!entry) return null;
     if ('at' in entry) {
       const head = objectHeader(text, skipSpace(text, entry.at));
-      return head && head.num === num ? parseObject(text, head.end)?.value ?? null : null;
+      return head && head.num === num ? parseObject(text, head.end, budget)?.value ?? null : null;
     }
     const container = (await xref)?.get(entry.stream);
     if (!container || !('at' in container)) return null;
     const head = objectHeader(text, skipSpace(text, container.at));
-    const found = head && head.num === entry.stream ? dictAt(text, head.end) : null;
+    const found = head && head.num === entry.stream ? dictAt(text, head.end, budget) : null;
     if (!found || !typeIs(found.dict, 'ObjStm') || !plainFlate(found.dict)) return null;
     const data = await streamData(text, found.dict, found.end, (n) => lengthAt(n, depth + 1));
     if (!data) return null;
@@ -544,7 +576,7 @@ export async function pdfPageCount(bytes: Uint8Array): Promise<number | null> {
     return v && v.kind === 'number' && Number.isInteger(v.value) && v.value >= 0 ? v.value : null;
   };
   const lengthOf = (num: number) => lengthAt(num, 0);
-  const scanned = await scanFile(text, lengthOf);
+  const scanned = await scanFile(text, lengthOf, budget);
   if (!scanned) return null;
   const { objects, trailers } = scanned;
 

@@ -315,6 +315,19 @@ describe('redirects: only 301, 302, 303, 307 and 308 (Fetch standard "redirect s
   });
 });
 
+describe('site adapter: a read reports everything it spent, on every exit (PR #71 review)', () => {
+  it('counts an Exa answer that is not used, when the page is then read directly', async () => {
+    stub({ exa: () => new Response(JSON.stringify({ results: [{ url: 'https://a.test/', title: 'A', text: 'Loading...', extras: { links: [] } }], costDollars: { total: 0.003 } })), page: () => html('A', LONG) });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/', { subpages: 0 });
+    expect(r).toMatchObject({ ok: true, meta: { via: 'fetch', cost: 0.003 } });
+  });
+  it('counts an unreadable Exa reply at list price, and reports it on a failed read too', async () => {
+    stub({ exa: () => new Response('not json'), page: () => new Response('', { status: 500 }) });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/', { subpages: 0 });
+    expect(r).toMatchObject({ ok: false, code: 'unreadable', meta: { cost: 0.001 } });
+  });
+});
+
 describe('page text: rules in the page\'s own style sheets (PR #71 review)', () => {
   it('hides what a top-level rule hides by tag, class or id, and nothing else', () => {
     const page = (css: string, body: string) => pageText(`<style>${css}</style>${body}`).text;
@@ -327,10 +340,25 @@ describe('page text: rules in the page\'s own style sheets (PR #71 review)', () 
     expect(pageText('<style media="print">.a { display: none }</style><template><style>.b { display: none }</style></template><div class="a b">Shown</div>').text).toBe('Shown');
     expect(page('/* .a { display: none } */ @import url(x.css); .b { display: none }', '<div class="a">Shown</div><div class="b">Hidden</div>')).toBe('Shown');
   });
+  it('marks a scripted page uncertain when a hiding rule cannot be evaluated, and only then', () => {
+    const v = (css: string, scripts = true, media = '') => pageText(`<style${media}>${css}</style>${scripts ? '<script src="/app.js"></script>' : ''}<p>${LONG}</p>`).verified;
+    expect(v('@media screen { .boot { display: none } }')).toBe(false);
+    expect(v('@supports (display: grid) { .boot { visibility: hidden } }')).toBe(false);
+    expect(v('.app > .boot { display: none }')).toBe(false);
+    expect(v('.a { .b { content-visibility: hidden } }')).toBe(false);
+    expect(v('.boot { color: red }', true, ' media="(orientation: landscape)"')).toBe(true);
+    expect(v('.boot { display: none }', true, ' media="(orientation: landscape)"')).toBe(false);
+    // What it can evaluate, or what applies to print only, leaves the text verified; so does a page without scripts.
+    expect(v('.boot { display: none } @media print { .x { display: none } }')).toBe(true);
+    expect(v('.boot { display: none }', true, ' media="print"')).toBe(true);
+    expect(v('@media screen { .boot { display: none } }', false)).toBe(true);
+    expect(v('@media screen { .boot { color: red } } .a > .b { font-style: italic }')).toBe(true);
+    expect(pageText('<script type="application/ld+json">{}</script><style>@media screen { .x { display: none } }</style>').verified).toBe(true);
+  });
   it('reads the selectors in time linear in the style sheet', () => {
     const big = '@a{}'.repeat(200_000) + '.z{display:none}';
     const t = Date.now();
-    expect(hidingSelectors(big)).toEqual([{ tag: null, classes: ['z'], id: null }]);
+    expect(hidingSelectors(big)).toEqual({ selectors: [{ tag: null, classes: ['z'], id: null }], uncertain: false });
     expect(Date.now() - t).toBeLessThan(2000);
   });
 });

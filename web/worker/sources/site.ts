@@ -101,7 +101,12 @@ export function siteUrl(raw: string): URL | null {
   }
 }
 
-async function exaContents(key: string, body: { urls: string[]; text: { maxCharacters: number }; extras?: { links: number }; maxAgeHours: number }): Promise<ExaResponse | { error: string }> {
+/**
+ * One Exa contents call. Its cost is added to the read's record (`spend`) as soon as Exa has answered, whatever is
+ * done with the answer afterwards, so a reply that is not used still counts (PR #71 review): Exa's own costDollars,
+ * or the list price when the reply carries none or cannot be read.
+ */
+async function exaContents(key: string, body: { urls: string[]; text: { maxCharacters: number }; extras?: { links: number }; maxAgeHours: number }, spend: (dollars: number) => void): Promise<ExaResponse | { error: string }> {
   let res: Response;
   try {
     res = await fetch(EXA_CONTENTS, {
@@ -119,14 +124,18 @@ async function exaContents(key: string, body: { urls: string[]; text: { maxChara
     return { error: `Exa answered HTTP ${res.status}` };
   }
   let data: unknown;
+  const listPrice = body.urls.length * EXA_PER_PAGE;
   try {
     const { bytes, truncated } = await readCapped(res, exaReplyCap(body.urls.length, body.text.maxCharacters, body.extras?.links ?? 0));
-    if (truncated) return { error: 'Exa sent a reply larger than the request allows' };
+    if (truncated) { spend(listPrice); return { error: 'Exa sent a reply larger than the request allows' }; }
     data = JSON.parse(new TextDecoder().decode(bytes));
   } catch {
+    spend(listPrice);
     return { error: 'Exa sent an unreadable reply' };
   }
-  return data && typeof data === 'object' && !Array.isArray(data) ? (data as ExaResponse) : { error: 'Exa sent an unreadable reply' };
+  if (!data || typeof data !== 'object' || Array.isArray(data)) { spend(listPrice); return { error: 'Exa sent an unreadable reply' }; }
+  spend(exaCost(data as ExaResponse, body.urls.length));
+  return data as ExaResponse;
 }
 
 const exaCost = (data: ExaResponse, pages: number) => {
@@ -165,9 +174,9 @@ function exaByAddress(data: ExaResponse, asked: URL[]): Map<string, ExaPage> {
  * ranking), then reads only those. Provider output is untrusted: only an absolute http(s) URL is used (PR #67 review),
  * and only for the page it was asked for (exaByAddress).
  */
-async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (links: URL[]) => Promise<URL[]>): Promise<{ pages: SourcePage[]; cost: number; missing: URL[]; linksOk: boolean } | { error: string }> {
+async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (links: URL[]) => Promise<URL[]>, spend: (dollars: number) => void): Promise<{ pages: SourcePage[]; missing: URL[]; linksOk: boolean } | { error: string }> {
   const text = { maxCharacters: opts.maxCharacters };
-  const home = await exaContents(key, { urls: [url.toString()], text, extras: { links: EXA_LINKS }, maxAgeHours: EXA_CACHE_ONLY });
+  const home = await exaContents(key, { urls: [url.toString()], text, extras: { links: EXA_LINKS }, maxAgeHours: EXA_CACHE_ONLY }, spend);
   if ('error' in home && typeof home.error === 'string') return { error: home.error };
   const data = home as ExaResponse;
   const top = exaByAddress(data, [url]).get(pageKey(url));
@@ -188,24 +197,22 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (
     pages.push({ url: k, title: str(p.title).trim().slice(0, 200) || at.hostname, text: body });
   };
   add(top, url);
-  let cost = exaCost(data, 1);
   const rawLinks = top?.extras?.links;
   // Missing or malformed link metadata is a partial failure: the caller then takes the links from the page itself.
   const linksOk = Array.isArray(rawLinks);
   const links = (linksOk ? (rawLinks as unknown[]) : []).map(absoluteUrl).filter((u): u is URL => !!u);
   const chosen = opts.subpages > 0 ? await pick(links) : [];
   if (chosen.length) {
-    const more = await exaContents(key, { urls: chosen.map((u) => u.toString()), text, maxAgeHours: EXA_CACHE_ONLY });
+    const more = await exaContents(key, { urls: chosen.map((u) => u.toString()), text, maxAgeHours: EXA_CACHE_ONLY }, spend);
     if (!('error' in more && typeof more.error === 'string')) {
       const extra = more as ExaResponse;
       const byAddress = exaByAddress(extra, chosen);
       for (const u of chosen) add(byAddress.get(pageKey(u)), u);
-      cost += exaCost(extra, chosen.length);
     }
   }
   // Chosen pages Exa has no cached copy of: the caller reads them with its own gated reader.
   const missing = chosen.filter((u) => !seen.has(pageKey(u)));
-  return { pages, cost, missing, linksOk };
+  return { pages, missing, linksOk };
 }
 
 /**
@@ -235,7 +242,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   const c = clock();
   const url = siteUrl(raw);
   const kindOf = (u: string) => urlKind(u, options.website);
-  if (!url) return { ok: false, kind: 'page', code: 'invalid_input', reason: 'That is not a web address we can read; use a link that starts with https://.', meta: c.meta(0, 0) };
+  if (!url) return { ok: false, kind: 'page', code: 'invalid_input', reason: 'That is not a web address we can read; use a link that starts with https://.', meta: c.meta(0) };
   const net = hopSession(MAX_SITE_REQUESTS);
   const robotsFetch = (u: URL) => net.hop(u);
   const robots = await fetchRobots(url.origin, robotsFetch);
@@ -243,7 +250,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     const reason = robots.state === 'unreachable'
       ? 'We could not read this site\'s robots.txt, so we did not read the site. Paste the key text from your site instead.'
       : 'This site\'s robots.txt asks crawlers not to read this page, so we did not. Paste the key text from your site instead.';
-    return { ok: false, kind: kindOf(url.toString()), code: 'robots_disallowed', reason, url: url.toString(), meta: c.meta(0, 0) };
+    return { ok: false, kind: kindOf(url.toString()), code: 'robots_disallowed', reason, url: url.toString(), meta: c.meta(0) };
   }
   // robots.txt is read once per origin a page actually comes from: Exa subpages and redirects (apex to www included)
   // can land on another origin, whose own rules apply to it (PR #67 review).
@@ -279,14 +286,14 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     };
     // Every page leaving the adapter, whichever reader produced it, is held to the per-page limit here, at the single
     // success exit, so no read path can skip it (PR #71 review). Exa applies the same limit on its side.
-    const ok = (read: SourcePage[], cost: number, via: string): SourceResult => {
+    const ok = (read: SourcePage[], via: string): SourceResult => {
       let cut = 0;
       const pages = read.map((p) => (p.text.length > opts.maxCharacters ? (cut++, { ...p, text: p.text.slice(0, opts.maxCharacters) }) : p));
       if (cut) c.notes.push(`${cut} page(s) cut to ${opts.maxCharacters} characters`);
       if (renderer?.rendered) c.notes.push(`${renderer.rendered} script-only page(s) rendered in a browser, with robots.txt checked before every request`);
       if (renderer?.unavailable) c.notes.push(BROWSER_UNAVAILABLE[renderer.unavailable]);
       const kind = kindOf(pages[0].url);
-      return { ok: true, kind, trust: factTrust(kind).trust, url: pages[0].url, title: pages[0].title, text: pages.map((p) => p.text).join('\n\n'), pages, meta: c.meta(pages.length, cost, via) };
+      return { ok: true, kind, trust: factTrust(kind).trust, url: pages[0].url, title: pages[0].title, text: pages.map((p) => p.text).join('\n\n'), pages, meta: c.meta(pages.length, via) };
     };
 
     // One rule for every address handed to any reader (our own fetch, Exa): its redirects are
@@ -361,7 +368,9 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     // Throws when the page cannot be read at all; may return a page with almost no text.
     const readDirect = async (u: URL) => {
       const p = await readPage(u.toString(), allowedHere, true, net);
-      if (p.text.length >= MIN_TEXT || !renderer) return p;
+      // Static text counts only when it is known to be what a browser shows (ingest.ts pageText `verified`); a scripted
+      // page whose style sheets hide what this reader cannot evaluate is rendered (PR #71 review).
+      if ((p.text.length >= MIN_TEXT && p.verified) || !renderer) return p;
       const shown = await renderer.read(new URL(p.url));
       return shown && shown.text.length >= MIN_TEXT ? shown : p;
     };
@@ -387,14 +396,12 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     };
 
     // 1. Exa, as a cache: the home page with its links, then the chosen key subpages.
-    let cost = 0;
     const exaHome = env.EXA_API_KEY ? await gated(url) : null;
     if (env.EXA_API_KEY && !exaHome) c.notes.push('Exa not used: the link redirects to an address robots.txt does not let us read, or could not be followed');
     if (env.EXA_API_KEY && exaHome) {
       home = exaHome;
-      const exa = await viaExa(env.EXA_API_KEY, exaHome, opts, pick);
+      const exa = await viaExa(env.EXA_API_KEY, exaHome, opts, pick, c.spend);
       if ('pages' in exa) {
-        cost = exa.cost;
         for (const m of exa.missing) {
           const p = await readOwn(m);
           if (p && !exa.pages.some((x) => x.url === p.url)) exa.pages.push(p);
@@ -414,7 +421,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
           exa.pages.push(...(await readOwnSubpages(ownLinks, new Set(exa.pages.map((x) => x.url).concat(url.toString())))));
         }
         const allowed = await admit(exa.pages);
-        if (allowed.length) return ok(allowed, cost, 'exa');
+        if (allowed.length) return ok(allowed, 'exa');
       } else {
         c.notes.push(`${exa.error}; read the home page directly instead`);
       }
@@ -436,7 +443,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
       const pages: SourcePage[] = shortHome ? [] : [{ url: page.url, title: page.title, text: page.text }];
       if (opts.subpages > 0) pages.push(...(await readOwnSubpages(page.links, new Set([page.url, url.toString()]))));
       const kept = await admit(pages);
-      if (kept.length) return ok(kept, cost, 'fetch');
+      if (kept.length) return ok(kept, 'fetch');
       fetchError = shortHome ? 'the page has almost no readable text, and no linked page could be read' : 'the page redirected to an address its robots.txt does not let us read';
       c.notes.push(`direct read refused: ${fetchError}`);
     } catch (e) {
@@ -446,7 +453,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
 
     // 3. Nothing worked: ask for the text instead.
     if (renderer?.unavailable) c.notes.push(BROWSER_UNAVAILABLE[renderer.unavailable]);
-    return { ok: false, kind: kindOf(url.toString()), code: 'unreadable', reason: `We could not read ${url.hostname} (${fetchError}). Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0, cost) };
+    return { ok: false, kind: kindOf(url.toString()), code: 'unreadable', reason: `We could not read ${url.hostname} (${fetchError}). Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0) };
   } finally {
     await renderer?.close();
   }

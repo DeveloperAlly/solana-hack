@@ -334,6 +334,28 @@ describe('declared PDF page count', () => {
       expect(await pdfPageCount(withTable(objectsWith(false)))).toBe(1);
     });
   });
+  describe('one work budget for the whole count (PR #71 review)', () => {
+    const cpuMs = async (f: () => Promise<unknown>) => { const t = process.cpuUsage(); const r = await f(); const u = process.cpuUsage(t); return { r, ms: (u.user + u.system) / 1000 }; };
+    it('refuses a zero-width cross-reference stream that declares millions of entries, without iterating them', async () => {
+      const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+      // The content stream's length is indirect, so the cross-reference stream must be read; it has /W [0 0 0].
+      let body = '%PDF-1.5\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 1 >>\nendobj\n';
+      body += '3 0 obj\n<< /Length 4 0 R >>\nstream\nBT ET\nendstream\nendobj\n';
+      const xrefAt = body.length;
+      body += `5 0 obj\n<< /Type /XRef /Size 6 /W [0 0 0] /Index [0 3000000] /Root 1 0 R /Length 0 >>\nstream\n\nendstream\nendobj\nstartxref\n${xrefAt}\n%%EOF\n`;
+      const { r, ms } = await cpuMs(() => pdfPageCount(enc(body)));
+      expect(r).toBeNull();
+      expect(ms).toBeLessThan(100);
+    });
+    it('stops when the file declares more structure than the budget allows: an array of a million items', async () => {
+      const { pdfPageCount, MAX_WORK } = await import('../../worker/sources/pdfpages');
+      const junk = '0 '.repeat(MAX_WORK + 10);
+      const file = enc(`%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Junk [${junk}] >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 1 >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n`);
+      const { r, ms } = await cpuMs(() => pdfPageCount(file));
+      expect(r).toBeNull();
+      expect(ms).toBeLessThan(3000);
+    });
+  });
   it('inflates object streams only within a fixed budget', async () => {
     const { pdfPageCount, MAX_INFLATE } = await import('../../worker/sources/pdfpages');
     // A small stream that inflates to far more than the budget, claiming its objects start past the budget.

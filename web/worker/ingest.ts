@@ -240,13 +240,15 @@ export const NOT_READ = ['svg', 'nav', 'footer'];
 const LINE_ENDS = new Set(['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'section', 'article']);
 
 /**
- * True when a declaration block hides its element: its last display declaration is none, or its last visibility
- * declaration is hidden or collapse (CSS cascade within one block: the later declaration wins). Hiding on visibility
+ * True when a declaration block hides its element: its last display declaration is none, its last visibility
+ * declaration is hidden or collapse, or its last content-visibility declaration is hidden (CSS cascade within one
+ * block: the later declaration wins). Hiding on visibility
  * alone is the cautious side for this reader: text it cannot be sure is shown does not count as shown.
  */
 function hidesElement(declarations: string): boolean {
   let display = false;
   let visibility = false;
+  let content = false;
   for (const decl of declarations.split(';')) {
     const i = decl.indexOf(':');
     if (i === -1) continue;
@@ -254,8 +256,10 @@ function hidesElement(declarations: string): boolean {
     const value = decl.slice(i + 1).replace(/!\s*important\s*$/i, '').trim().toLowerCase();
     if (prop === 'display') display = value === 'none';
     else if (prop === 'visibility') visibility = value === 'hidden' || value === 'collapse';
+    // CSS Containment 2: content-visibility: hidden skips the element's contents (https://www.w3.org/TR/css-contain-2/).
+    else if (prop === 'content-visibility') content = value === 'hidden';
   }
-  return display || visibility;
+  return display || visibility || content;
 }
 
 /** A compound selector of a tag, classes and an id, all optional but not all absent. */
@@ -263,13 +267,22 @@ interface SimpleSelector { tag: string | null; classes: string[]; id: string | n
 const SIMPLE = /^([a-z][a-z0-9-]*)?((?:[.#][a-z_-][\w-]*)*)$/i;
 const LEADING_SPACE = /\s*/y;
 
+/** Any declaration that can hide an element, anywhere in a piece of style sheet text. */
+const HIDING = /(?:^|[;{\s])(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|content-visibility\s*:\s*hidden)\s*(?:!\s*important\s*)?(?=;|}|$)/i;
+/** A media query list that applies only to print. */
+const PRINT_ONLY = /^print$/i;
+
 /**
- * The selectors that a page's own style sheet text hides, from its top-level rules only: a rule inside an at-rule
- * (@media print, @supports and the like) applies only sometimes, and a selector with combinators, attributes or
- * pseudo-classes cannot be matched without a full style engine, so both are left alone (PR #71 review).
+ * What a page's own style sheet text hides, as far as this reader can tell without a style engine (PR #71 review):
+ * - `selectors`: top-level rules whose declarations hide (hidesElement) and whose selector is a simple compound of a
+ *   tag, classes and an id, which this reader applies;
+ * - `uncertain`: true when some hiding declaration could not be evaluated: inside an at-rule (other than one for print
+ *   only), inside a nested rule, or with any other selector. The page's static text then cannot be trusted to be what
+ *   a browser shows, and the caller renders the page instead of guessing.
  */
-export function hidingSelectors(css: string): SimpleSelector[] {
+export function hidingSelectors(css: string): { selectors: SimpleSelector[]; uncertain: boolean } {
   const out: SimpleSelector[] = [];
+  let uncertain = false;
   const src = css.replace(/\/\*[\s\S]*?\*\//g, ' ');
   let i = 0;
   while (i < src.length) {
@@ -291,17 +304,22 @@ export function hidingSelectors(css: string): SimpleSelector[] {
     for (; j < src.length && depth > 0; j++) { if (src[j] === '{') depth++; else if (src[j] === '}') depth--; }
     const block = src.slice(open + 1, j - 1);
     i = j;
-    if (prelude.startsWith('@') || block.includes('{') || !hidesElement(block)) continue;
+    if (prelude.startsWith('@')) {
+      const media = /^@media\s+(.*)$/is.exec(prelude);
+      if (!(media && PRINT_ONLY.test(media[1].trim())) && HIDING.test(block)) uncertain = true;
+      continue;
+    }
+    if (block.includes('{')) { if (HIDING.test(block)) uncertain = true; continue; }
+    if (!hidesElement(block)) continue;
     for (const sel of prelude.split(',')) {
       const m = SIMPLE.exec(sel.trim());
-      if (!m || (!m[1] && !m[2])) continue;
-      const parts = m[2].match(/[.#][^.#]+/g) ?? [];
+      const parts = m?.[2].match(/[.#][^.#]+/g) ?? [];
       const ids = parts.filter((x) => x[0] === '#').map((x) => x.slice(1));
-      if (ids.length > 1) continue;
+      if (!m || (!m[1] && !m[2]) || ids.length > 1) { uncertain = true; continue; }
       out.push({ tag: m[1] ? m[1].toLowerCase() : null, classes: parts.filter((x) => x[0] === '.').map((x) => x.slice(1)), id: ids[0] ?? null });
     }
   }
-  return out;
+  return { selectors: out, uncertain };
 }
 
 const matches = (sel: SimpleSelector, name: string, attribs: Record<string, string>) => {
@@ -327,28 +345,41 @@ function notText(name: string, attribs: Record<string, string>, hiders: SimpleSe
 }
 
 /**
- * The text of the page's own style elements that apply on screen: not inside a template (inert) and with no media
- * attribute, or one that includes screen or all. External style sheets are not fetched.
+ * The page's own style elements and whether it ships scripts. A style element applies on screen when it is not inside
+ * a template (inert) and has no media attribute or one of screen or all; one for print only is ignored; any other
+ * (a media query) applies only sometimes, so a hiding declaration in it makes the page's text uncertain. A script
+ * runs when it has no type or a JavaScript or module type (HTML standard, "the script element"); data blocks such as
+ * JSON-LD do not. External style sheets are not fetched.
  */
-function inlineStyles(html: string): string {
+function pageStyle(html: string): { css: string; conditional: string; scripts: boolean } {
   let css = '';
+  let conditional = '';
+  let scripts = false;
   let template = 0;
-  let inStyle = false;
+  let into: 'css' | 'conditional' | null = null;
   const parser = new Parser({
     onopentag(name, attribs) {
       if (name === 'template') template++;
+      if (name === 'script') {
+        const type = (attribs.type ?? '').trim().toLowerCase();
+        if (!type || type === 'module' || /(java|ecma)script/.test(type)) scripts = true;
+      }
+      if (name !== 'style' || template) return;
       const media = (attribs.media ?? '').trim().toLowerCase();
-      if (name === 'style' && !template && (!media || /\b(screen|all)\b/.test(media))) inStyle = true;
+      into = !media || media === 'screen' || media === 'all' ? 'css' : PRINT_ONLY.test(media) ? null : 'conditional';
     },
-    ontext(t) { if (inStyle) css += t; },
+    ontext(t) {
+      if (into === 'css') css += t;
+      else if (into === 'conditional') conditional += t;
+    },
     onclosetag(name) {
       if (name === 'template' && template > 0) template--;
-      if (name === 'style' && inStyle) { inStyle = false; css += '\n'; }
+      if (name === 'style') { css += '\n'; into = null; }
     },
   });
   parser.write(html);
   parser.end();
-  return css;
+  return { css, conditional, scripts };
 }
 
 /**
@@ -356,17 +387,22 @@ function inlineStyles(html: string): string {
  * (decoded once: "&amp;lt;" is the text "&lt;") and the raw text of script, style and iframe are handled as a browser
  * does. Content a browser does not show (`notText`) is left out with everything inside it, so a script-only page whose
  * only text sits in a template, a hidden element or one its own inline style sheet hides is seen as having almost no
- * text, and is rendered (PR #71 review).
+ * text, and is rendered (PR #71 review). `verified` is false when the page ships scripts and its style sheets hide
+ * something this reader could not evaluate (hidingSelectors): its text may not be what a browser shows.
  * The title is the first title element that is not inside such content (an svg icon's title is not the page's).
  */
-export function pageText(html: string): { title: string; text: string } {
+export function pageText(html: string): { title: string; text: string; verified: boolean } {
   let title: string | null = null;
   let inTitle = false;
   // Depth inside content that is not shown; every element opened there is closed there too (htmlparser2 reports an
   // implied close for void and unclosed elements).
   let hidden = 0;
   let text = '';
-  const hiders = hidingSelectors(inlineStyles(html));
+  const style = pageStyle(html);
+  const sheet = hidingSelectors(style.css);
+  const hiders = sheet.selectors;
+  // Static text is trusted only when every hiding rule on a scripted page was evaluated (PR #71 review).
+  const verified = !style.scripts || (!sheet.uncertain && !HIDING.test(style.conditional));
   const parser = new Parser({
     onopentag(name, attribs) {
       if (hidden) { hidden++; return; }
@@ -392,7 +428,7 @@ export function pageText(html: string): { title: string; text: string } {
   });
   parser.write(html);
   parser.end();
-  return { title: tidy(title ?? '').replace(/\n/g, ' '), text: tidy(text) };
+  return { title: tidy(title ?? '').replace(/\n/g, ' '), text: tidy(text), verified };
 }
 
 /**
@@ -401,7 +437,7 @@ export function pageText(html: string): { title: string; text: string } {
  * whose home page is mostly navigation (PR #71 review). An HTML page is read as HTML (pageText); a plain-text or
  * Markdown file is its own text, with no title or links of its own.
  */
-export async function readPage(raw: string, gate?: FetchGate, allowShort = false, session?: HopSession): Promise<{ url: string; title: string; text: string; links: string[] }> {
+export async function readPage(raw: string, gate?: FetchGate, allowShort = false, session?: HopSession): Promise<{ url: string; title: string; text: string; links: string[]; verified: boolean }> {
   let url: URL;
   try {
     url = new URL(raw.includes('://') ? raw : `https://${raw}`);
@@ -423,10 +459,10 @@ export async function readPage(raw: string, gate?: FetchGate, allowShort = false
     throw new HttpError(415, 'that link is not a web page or text file');
   }
   const body = await readText(res);
-  const page = isHtml ? pageText(body) : { title: '', text: tidy(body) };
+  const page = isHtml ? pageText(body) : { title: '', text: tidy(body), verified: true };
   const title = (page.title || landed.hostname).slice(0, MAX_TITLE);
   if (page.text.length < 40 && !allowShort) throw new HttpError(422, 'that page has almost no readable text');
   // The page's own links (absolute http(s), capped), so a reader can choose subpages without another service.
   const links = isHtml ? pageLinks(body, landed) : [];
-  return { url: landed.toString(), title, text: page.text, links };
+  return { url: landed.toString(), title, text: page.text, links, verified: page.verified };
 }

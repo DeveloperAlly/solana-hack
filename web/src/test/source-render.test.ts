@@ -545,3 +545,29 @@ describe('renderer: only the redirect statuses are redirects (PR #71 review)', (
     expect(fetched).not.toContain('https://a.test/other');
   });
 });
+
+describe('site adapter: static text a style sheet may hide is not trusted on a scripted page (PR #71 review)', () => {
+  const long = `<p>${'Placeholder text the app replaces once it has loaded. '.repeat(3)}</p>`;
+  const cases: [string, string][] = [
+    ['@media screen', '@media screen { .boot { display: none } }'],
+    ['@supports', '@supports (display: grid) { .boot { visibility: hidden } }'],
+    ['a combinator selector', 'body > .boot { display: none }'],
+  ];
+  for (const [what, css] of cases) {
+    it(`renders a scripted page whose style sheet hides with ${what}`, async () => {
+      network({ 'https://a.test/': { body: `<html><head><style>${css}</style></head><body><div class="boot">${long}</div><div id="app"></div><script src="/app.js"></script></body></html>` } });
+      const b = fakeBrowser();
+      const r = await readSite({}, 'https://a.test/', { website: 'a.test', subpages: 0 }, (g, max) => createRenderer(b.launch, g, max));
+      if (!r.ok || r.kind === 'document') throw new Error('expected a site read');
+      expect(r.pages![0].text).toContain('text the page shows');
+      expect(b.stats().launched).toBe(1);
+    });
+  }
+  it('does not render a scripted page with no hiding rules: its plain text is read as is', async () => {
+    network({ 'https://a.test/': { body: `<html><head><style>.boot { color: black }</style></head><body>${long}<script src="/app.js"></script></body></html>` } });
+    const b = fakeBrowser();
+    const r = await readSite({}, 'https://a.test/', { website: 'a.test', subpages: 0 }, (g, max) => createRenderer(b.launch, g, max));
+    expect(r).toMatchObject({ ok: true, meta: { via: 'fetch' } });
+    expect(b.stats().launched).toBe(0);
+  });
+});

@@ -76,12 +76,20 @@ export interface SourceEnv {
 }
 
 /** Times an adapter and records its notes, so every result carries the same meta. */
+/**
+ * The running record of one read: its notes, and its cost, which every paid call adds to as it is made (`spend`), so
+ * every exit, success, fallback or failure, reports what was spent, and no return path assembles a cost of its own
+ * (PR #71 review).
+ */
 export function clock() {
   const start = Date.now();
   const notes: string[] = [];
+  let cost = 0;
   return {
     notes,
-    meta: (pages: number, cost: number, via?: string): SourceMeta => ({ pages, cost: Math.round(cost * 10000) / 10000, ms: Date.now() - start, via, notes }),
+    /** Adds a paid call's cost in US dollars; anything not a finite, non-negative number is refused. */
+    spend: (dollars: number) => { if (Number.isFinite(dollars) && dollars >= 0) cost += dollars; },
+    meta: (pages: number, via?: string): SourceMeta => ({ pages, cost: Math.round(cost * 10000) / 10000, ms: Date.now() - start, via, notes }),
   };
 }
 
