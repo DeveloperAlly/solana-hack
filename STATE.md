@@ -1,7 +1,7 @@
 ---
 type: state
 status: active
-updated: 2026-10-08
+updated: 2026-10-12
 last_edited_by: agent
 ---
 # STATE
@@ -39,7 +39,7 @@ last_edited_by: agent
 
 ## Blockers
 - Registry 502 on the live app: cause found 2026-10-08 after #14 deployed. The self-test reports `rpcHost: mainnet.helius-rpc.com` and Solana error 3230000 (account not found) for `26JVvYKHuXzFTvGqiADhhVS1B4kG1NT54qZrQ5cf3cxF`, the WL-KIT v1 schema the spike created on devnet ([self-test report on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6053128119); the spike's record of that schema is in `spike/out`). The `DEVNET_RPC_URL` deploy secret points at Helius mainnet; it must be the devnet endpoint `https://devnet.helius-rpc.com/?api-key=<key>` ([Helius endpoints](https://www.helius.dev/docs/api-reference/endpoints)). Owner action: update the secret, then re-run the deploy.
-- Supabase email template: the Magic Link template must include `{{ .Token }}`, or sign-in emails carry a link and no code (owner action).
+- Supabase email template: the Magic Link template must include `{{ .Token }}`, or sign-in emails carry a link and no code ([Supabase passwordless docs](https://supabase.com/docs/guides/auth/auth-email-passwordless)). The `supabase-auth-config` workflow sets it, plus the Site URL. Owner action: add `SUPABASE_ACCESS_TOKEN` (a Supabase personal access token from https://supabase.com/dashboard/account/tokens) as a repo Actions secret, then run the workflow.
 - Custom SMTP for Supabase OTP is still open. The built-in limit is 2 emails an hour, which is too low for demo rehearsals.
 
 ## Proposed (awaiting owner)
