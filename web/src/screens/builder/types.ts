@@ -176,7 +176,7 @@ export interface PublishedData {
   approvedBy: string;
   sections: string;
   /** Transaction signature once registered. */
-  tx?: string;
+  tx: string | null;
   /** When registration was last tried (failed). */
   lastTry?: string;
   reason?: string;

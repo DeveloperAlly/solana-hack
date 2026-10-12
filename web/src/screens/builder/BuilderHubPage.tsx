@@ -11,7 +11,8 @@ import { useBoardHref, type SubnavItem } from './paths';
 export interface BuilderHubPageProps {
   /** The active brand (demo brands, D48). */
   brandId: string;
-  subnav: { label: string; items: SubnavItem[]; current?: string };
+  /** The section's sub-nav; `current` is the id of this screen's tab (required, so no page forgets it). */
+  subnav: { label: string; items: SubnavItem[]; current: string };
   title: string;
   /** Canvas tag; flagged tags (THIN, STRETCH) show a chip beside the title. */
   tag?: RouteTag;
@@ -33,7 +34,7 @@ export function BuilderHubPage({ brandId, subnav, title, tag, intro, action, chi
     <AppShell brandSlot={<BrandSwitcher brands={demoBrands} currentId={current} onSelect={setCurrent} />}>
       <Container width="app">
         <Stack gap={6}>
-          <TabNav label={subnav.label} items={subnav.items.map((i) => ({ id: i.id, label: i.label, href: to(i.board) }))} value={subnav.current ?? ''} />
+          <TabNav label={subnav.label} items={subnav.items.map((i) => ({ id: i.id, label: i.label, href: to(i.board) }))} value={subnav.current} />
           <Stack direction="row" gap={4} justify="between" align="center" wrap>
             <Stack gap={2}>
               <Stack direction="row" gap={3} align="center" wrap>

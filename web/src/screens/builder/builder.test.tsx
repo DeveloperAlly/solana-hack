@@ -6,6 +6,8 @@ import { GalleryScreen } from '../../gallery/Gallery';
 import { resetBuilderFlow } from './useBuilderFlow';
 import { screenPath } from '../../gallery/screenPath';
 import { boards } from './paths';
+import { Onboard6Published } from './Onboard-6-Published';
+import { publishedData } from './Onboard-6-Published.fixtures';
 
 // Brand Builder flows (issue #50), run through the gallery routes the screens are registered on.
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
@@ -94,13 +96,41 @@ describe('Brand Builder: screen interactions', () => {
     await h1('Sign in with email');
   });
 
-  it('domain: Check now shows the failure, Check again continues to intake step 1', async () => {
+  it('domain: Check now keeps the entered values; Check again records verified and the Unverified flag clears', async () => {
     at(screenPath(boards.domain));
-    await click('Check now', 'link');
     await h1('Prove you own your domain');
-    expect(screen.getByRole('alert')).toHaveTextContent("We couldn't find the record on jamjam.tech");
+    expect(within(screen.getByRole('banner')).getByText('Unverified')).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText('Domain'));
+    await userEvent.type(screen.getByLabelText('Domain'), 'brand.example');
+    await userEvent.clear(screen.getByLabelText('Brand name'));
+    await userEvent.type(screen.getByLabelText('Brand name'), 'Acme');
+    await click('Check now', 'link');
+    expect(await screen.findByRole('alert')).toHaveTextContent("We couldn't find the record on brand.example");
+    expect(screen.getByText('Build your brand: Acme')).toBeInTheDocument();
     await click('Check again', 'link');
     await h1('The basics');
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveValue('Acme');
+    await click('Continue: read my links');
+    await h1('What should we read?');
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument();
+  });
+
+  it('kit: the registration links to the explorer externally; Kit-Export marks its tab current', async () => {
+    at(screenPath(boards.published));
+    await h1('JamJam kit v1 is ready');
+    expect(screen.getByText('[tx signature]')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /View on explorer/ })).not.toBeInTheDocument();
+    await click(/^Download the kit/, 'link');
+    await h1('Download your kit');
+    expect(screen.getByRole('link', { name: 'Brand kit' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('kit: a known signature opens the registration transaction on Solana Explorer in a new tab', () => {
+    render(<MemoryRouter><Onboard6Published data={{ ...publishedData, tx: '5sigExample' }} /></MemoryRouter>);
+    const link = screen.getByRole('link', { name: /^Registration transaction/ });
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link.getAttribute('href')).toContain('explorer.solana.com/tx/5sigExample');
   });
 
   it('basics: an invalid link blocks Continue with an inline error', async () => {

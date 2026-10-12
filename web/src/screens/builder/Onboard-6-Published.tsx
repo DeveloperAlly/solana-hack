@@ -11,7 +11,7 @@
  * | version/hash | kit_versions.version, kit_versions.hash (SHA-256 of canonical JSON) | never: the kit is approved    |
  * | approvedBy   | decisions (owner email, date, time)                               | never                           |
  * | sections     | kit_sections counts: gates approved, confirmed, missing           | n/a                             |
- * | tx           | registrations.signature (explorer link)                           | "Not yet" with lastTry          |
+ * | tx           | registrations.signature -> Solana Explorer (devnet) via VerifyReceiptLink | "Not yet" with lastTry; null shows [tx signature] |
  * | reason       | registrations.error in plain words                                | n/a                             |
  * | errorDetails | registrations.error, full, for "Copy error details"               | n/a                             |
  *
@@ -21,6 +21,8 @@
 import { Badge, Button, Grid, Heading, Link, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { BuilderRegistrationResult } from '../../ui/domain/BuilderRegistrationResult';
+import { VerifyReceiptLink } from '../../ui/domain/VerifyReceiptLink';
+import { useBuilderFlow } from './useBuilderFlow';
 import { BuilderStep } from './BuilderStep';
 import { BuilderStepFooter } from './BuilderStepFooter';
 import { useBoardHref, type BoardKey } from './paths';
@@ -34,6 +36,7 @@ const nextSteps: { board: BoardKey; title: string; body: string }[] = [
 
 export function Onboard6Published({ data }: { data: PublishedData }) {
   const to = useBoardHref();
+  const { brandFor } = useBuilderFlow(data.status === 'registered' ? 'published' : 'registerFailed');
   const registered = data.status === 'registered';
   const record = [
     { label: 'Version', value: data.version },
@@ -41,14 +44,14 @@ export function Onboard6Published({ data }: { data: PublishedData }) {
     ...(registered ? [{ label: 'Approved by', value: data.approvedBy }, { label: 'Sections', value: data.sections }] : []),
     {
       label: 'Registered on Solana',
-      value: registered ? <><Text as="span" variant="mono">{data.tx}</Text> · <Link href={to('verifyMatch')}>View on explorer</Link></> : `Not yet · last try ${data.lastTry}`,
+      value: registered ? <VerifyReceiptLink signature={data.tx ?? null} placeholder="[tx signature]">Registration transaction</VerifyReceiptLink> : `Not yet · last try ${data.lastTry}`,
     },
   ];
   return (
     <BuilderStep
       flow={registered ? 'published' : 'registerFailed'}
       brand={data.brand}
-      title={registered ? `${data.brand.name} kit ${data.version} is ready` : `Kit ${data.version} is approved, but not registered yet`}
+      title={registered ? `${brandFor(data.brand).name} kit ${data.version} is ready` : `Kit ${data.version} is approved, but not registered yet`}
       flag={<Badge tone="solid">Approved</Badge>}
       footer={!registered && <BuilderStepFooter><Button href={to('draftReview')} variant="secondary">Continue without registering</Button></BuilderStepFooter>}
     >

@@ -7,7 +7,7 @@ import { publishedData } from './Onboard-6-Published.fixtures';
 export const registerFailedData: PublishedData = {
   ...publishedData,
   status: 'failed',
-  tx: undefined,
+  tx: null,
   lastTry: '[time]',
   reason: '[Plain-language reason, e.g. "the network didn\'t confirm in time"].',
   errorDetails: '[error details: registration id, kit hash, RPC error]',

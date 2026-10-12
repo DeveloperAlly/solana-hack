@@ -13,9 +13,9 @@
  * | developerSteps | Client: the record and causes as an email body                          | n/a                           |
  *
  * States: success (waiting for the record) on Onboard-2; error (record not found) on Onboard-2b. Skip continues
- * unverified to intake step 1 (note n-ob2.1). In the prototype "Check now" shows the failure and "Check again" succeeds.
+ * unverified to intake step 1 (note n-ob2.1). In the prototype "Check now" shows the failure and "Check again" succeeds:
+ * it records verified in the flow, so later steps drop the Unverified flag. Entered name and domain are kept in the flow.
  */
-import { useState } from 'react';
 import { Badge, Button, Field, Grid, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { BuilderDnsRecord } from '../../ui/domain/BuilderDnsRecord';
@@ -27,13 +27,14 @@ import type { DomainData } from './types';
 export function Onboard2Domain({ data }: { data: DomainData }) {
   const waiting = data.check === 'waiting';
   const flowKey = waiting ? 'domain' : 'domainFailed';
-  const { back, next, skip } = useBuilderFlow(flowKey);
-  const [name, setName] = useState(data.brand.name);
-  const [domain, setDomain] = useState(data.domain);
+  const { back, next, skip, brand, enterBrand } = useBuilderFlow(flowKey);
+  // Entered values live in the flow, so the result screen (2b) shows what was typed; fixtures fill in only when empty.
+  const name = brand.brandName ?? data.brand.name;
+  const domain = brand.domain ?? data.domain;
   const mailto = `mailto:?subject=${encodeURIComponent(`DNS record for ${domain}`)}&body=${encodeURIComponent(data.developerSteps)}`;
   const actions = waiting
-    ? <Button href={next ?? ''}>Check now</Button>
-    : <><Button href={next ?? ''}>Check again</Button><Button href={mailto} variant="secondary">Email these steps to my developer</Button></>;
+    ? <Button href={next ?? ''} onClick={() => enterBrand({ brandName: name, domain })}>Check now</Button>
+    : <><Button href={next ?? ''} onClick={() => enterBrand({ verified: true })}>Check again</Button><Button href={mailto} variant="secondary">Email these steps to my developer</Button></>;
   return (
     <BuilderStep
       flow={flowKey}
@@ -43,14 +44,14 @@ export function Onboard2Domain({ data }: { data: DomainData }) {
       intro={waiting && 'A verified domain lets people check that posts and claims really come from you. You can skip this and verify later.'}
       footer={
         <BuilderStepFooter back={back} next={waiting ? { label: 'Continue (when verified)', blockedReason: 'Verify the domain first, or skip.' } : undefined}>
-          <Button href={skip ?? ''} variant="secondary">Skip, continue unverified</Button>
+          <Button href={skip ?? ''} variant="secondary" onClick={() => enterBrand({ brandName: name, domain, verified: false })}>Skip, continue unverified</Button>
         </BuilderStepFooter>
       }
     >
       {waiting && (
         <Grid min="sm" gap={4}>
-          <Field label="Brand name" value={name} onChange={(e: { target: { value: string } }) => setName(e.target.value)} />
-          <Field label="Domain" value={domain} onChange={(e: { target: { value: string } }) => setDomain(e.target.value)} />
+          <Field label="Brand name" value={name} onChange={(e: { target: { value: string } }) => enterBrand({ brandName: e.target.value })} />
+          <Field label="Domain" value={domain} onChange={(e: { target: { value: string } }) => enterBrand({ domain: e.target.value })} />
         </Grid>
       )}
       {/* INTEGRATION: POST /api/brands/:id/domain/check (backend map §4); the Registrar writes an identity attestation on success. */}

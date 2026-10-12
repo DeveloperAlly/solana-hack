@@ -24,7 +24,7 @@ export function KitExport({ data, state = 'success' }: { data: KitExportData; st
   return (
     <BuilderHubPage
       brandId={data.brandId}
-      subnav={{ label: 'Brand', items: brandSubnav }}
+      subnav={{ label: 'Brand', items: brandSubnav, current: 'kit' }}
       title="Download your kit"
       tag="HACKATHON (THIN)"
       intro="Your kit is yours. Take it as a folder of plain Markdown files you can read, edit or load into any AI tool."

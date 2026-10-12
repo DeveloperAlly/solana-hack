@@ -33,7 +33,7 @@ const linkError = (text: string) => {
 
 export function BB1Basics({ data, state = 'success' }: { data: BasicsData; state?: ScreenState }) {
   const navigate = useNavigate();
-  const { back, next, skip } = useBuilderFlow('basics');
+  const { back, next, skip, brandFor, enterBrand } = useBuilderFlow('basics');
   const [type, setType] = useState(data.type);
   const [links, setLinks] = useState(data.links);
   const [error, setError] = useState(state === 'error' ? linkError(data.links) : null);
@@ -54,7 +54,7 @@ export function BB1Basics({ data, state = 'success' }: { data: BasicsData; state
       footer={<BuilderStepFooter back={back} skip={skip} next={{ label: 'Continue: read my links', onClick: submit }} />}
     >
       <Grid min="sm" gap={4}>
-        <Field label="Name" defaultValue={data.brand.name} />
+        <Field label="Name" value={brandFor(data.brand).name} onChange={(e: { target: { value: string } }) => enterBrand({ brandName: e.target.value })} />
         <Field label="One-line description" defaultValue={data.description} />
       </Grid>
       <BuilderChoiceCards legend="Type" options={data.typeOptions} value={type} onChange={setType} />

@@ -7,7 +7,7 @@
 import { useSyncExternalStore } from 'react';
 import type { StepperStep } from '../../ui/composites/Stepper';
 import { useBoardHref, type BoardKey } from './paths';
-import type { DialValues, GateDecision, GateId, VoicePick } from './types';
+import type { BuilderBrand, DialValues, GateDecision, GateId, VoicePick } from './types';
 
 interface Step {
   label: string;
@@ -64,7 +64,16 @@ const config: Record<FlowKey, StepConfig> = {
   registerFailed: { steps: phase, current: 4 },
 };
 
+/** What the owner entered about the brand and its domain; unset fields fall back to the screen's fixtures. */
+export interface BrandEntry {
+  brandName?: string;
+  domain?: string;
+  /** Set by a successful domain check (true) or by skipping it (false). */
+  verified?: boolean;
+}
+
 export interface FlowState {
+  brand: BrandEntry;
   gates: Record<GateId, GateDecision>;
   positioningOption: string;
   voice: VoicePick;
@@ -72,6 +81,7 @@ export interface FlowState {
 }
 
 const initial: FlowState = {
+  brand: {},
   gates: { purpose: { status: 'pending' }, positioning: { status: 'pending' }, voice: { status: 'pending' } },
   positioningOption: '',
   voice: { round1: 'B', round2: 'C' },
@@ -108,6 +118,9 @@ export function useBuilderFlow(key: FlowKey) {
     next: href(c.next),
     skip: href(c.skip),
     ...flow,
+    /** The brand as entered in this flow, over the fixture brand: name and verified status (Unverified flag). */
+    brandFor: (fixture: BuilderBrand): BuilderBrand => ({ ...fixture, name: flow.brand.brandName ?? fixture.name, verified: flow.brand.verified ?? fixture.verified }),
+    enterBrand: (entry: BrandEntry) => set({ brand: { ...flow.brand, ...entry } }),
     allGatesApproved: Object.values(flow.gates).every((g) => g.status === 'approved'),
     decide: (gate: GateId, decision: GateDecision) => set({ gates: { ...flow.gates, [gate]: decision } }),
     choosePositioning: (option: string) => set({ positioningOption: option }),

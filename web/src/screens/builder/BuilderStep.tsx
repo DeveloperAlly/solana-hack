@@ -26,10 +26,12 @@ export interface BuilderStepProps {
 
 /**
  * One Brand Builder wizard step: the page frame (BuilderShell), then WizardLayout with the flow's stepper.
- * Unverified brands carry the flag on every step (note n-ob2.2); every step after sign-in offers "Save and finish later".
+ * The brand name and verified status come from the flow when entered (domain step), else the fixture. Unverified brands
+ * carry the flag on every step (note n-ob2.2); every step after sign-in offers "Save and finish later".
  */
-export function BuilderStep({ flow, brand, tag, title, intro, estimate, flag, footer, error, children }: BuilderStepProps) {
-  const { steps, current, hrefFor } = useBuilderFlow(flow);
+export function BuilderStep({ flow, brand: fixtureBrand, tag, title, intro, estimate, flag, footer, error, children }: BuilderStepProps) {
+  const { steps, current, hrefFor, brandFor } = useBuilderFlow(flow);
+  const brand = fixtureBrand && brandFor(fixtureBrand);
   const to = useBoardHref();
   return (
     <BuilderShell
