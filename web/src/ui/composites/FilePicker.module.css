@@ -1,0 +1,7 @@
+.root { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-2); }
+/* Visually hidden but focusable: the label shows the focus ring through the sibling selector. */
+.input { position: absolute; width: var(--wl-space-half); height: var(--wl-space-half); opacity: 0; overflow: hidden; }
+.button { white-space: nowrap; }
+.input:focus-visible + .button { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); outline-offset: var(--wl-border-width-focus); }
+.disabled { cursor: not-allowed; opacity: 0.5; }
+.hint { font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
