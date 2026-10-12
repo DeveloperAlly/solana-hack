@@ -11,7 +11,7 @@ export interface ConfirmFactCardProps {
   /** The person's decision, with their wording when they edited it; undefined until decided. */
   record?: FactRecord;
   onDecide: (decision: FactDecision, edit?: string) => void | Promise<void>;
-  onUndo: () => void | Promise<void>;
+  onUndo?: () => void | Promise<void>;
 }
 
 const decisionLabel: Record<FactDecision, string> = { accepted: 'Accepted', edited: 'Edited', rejected: 'Rejected' };
@@ -29,7 +29,7 @@ export function ConfirmFactCard({ fact, record, onDecide, onUndo }: ConfirmFactC
     <InlineForm fields={[{ name: 'statement', label: `Edit: ${fact.section}`, multiline: true, defaultValue: shown.statement, validate: required('The statement cannot be empty.') }]} submitLabel="Save" onCancel={() => setEditing(false)} busy={task.busy} errors={{ statement: task.error }} onSubmit={({ statement }) => void task.run(() => onDecide('edited', statement), () => setEditing(false))} />
   ) : undefined;
   const actions = decision ? (
-    <Button variant="secondary" disabled={task.busy} onClick={() => void task.run(onUndo)}>Undo</Button>
+    <>{onUndo && <Button variant="secondary" disabled={task.busy} onClick={() => void task.run(onUndo)}>Undo</Button>}</>
   ) : (
     <>
       <Button onClick={() => void task.run(() => onDecide('accepted'))} disabled={editing || task.busy}>Accept</Button>

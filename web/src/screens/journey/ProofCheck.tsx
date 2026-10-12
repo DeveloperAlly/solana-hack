@@ -1,3 +1,5 @@
+import { useJourneyFlow } from './useJourneyFlow';
+import { useJourneyTask } from './useJourneyTask';
 import { useState } from 'react';
 import { normalise } from '../../lib/normalise';
 import { Stack } from '../../ui/primitives';
@@ -25,15 +27,18 @@ const verdicts: Record<Verdict, { tone: VerifyResultTone; title: string }> = {
  * D34 result card. Composition only, no styles.
  */
 export function ProofCheck({ registeredText, officialNote }: ProofCheckProps) {
-  const [verdict, setVerdict] = useState<Verdict>('official');
-  const v = verdicts[verdict];
-  const summary = verdict === 'official' ? officialNote : 'No exact match to a post JamJam approved. An edited copy is not official.';
+  const { actions, live } = useJourneyFlow('proof');
+  const task = useJourneyTask();
+  const [verdict, setVerdict] = useState<Verdict | null>(live ? null : 'official');
+  const [note, setNote] = useState(officialNote);
+  const v = verdict ? verdicts[verdict] : null;
+  const summary = live ? note : verdict === 'official' ? officialNote : 'No exact match to a post JamJam approved. An edited copy is not official.';
   return (
     <Stack gap={3}>
       {/* INTEGRATION: POST /api/verify {text} (web/worker/api.ts, verifyText); backend map row "Verify-1, Verify-2, Verify-3". */}
-      <VerifyInput defaultValue={registeredText} onCheck={(t) => setVerdict(normalise(t) === normalise(registeredText) ? 'official' : 'not-official')} />
+      <VerifyInput defaultValue={registeredText} checking={task.busy} error={task.error} onCheck={t => { if (!live) { setVerdict(normalise(t) === normalise(registeredText) ? 'official' : 'not-official'); return; } setVerdict(null); void task.run(async () => { if (!actions.verifyPost) throw new Error('Verification is unavailable.'); const result = await actions.verifyPost(t); setVerdict(result.official ? 'official' : 'not-official'); setNote(result.note); }); }} />
       <div role="status">
-        <VerifyResultCard tone={v.tone} title={v.title} summary={summary} level={3} />
+        {v && <VerifyResultCard tone={v.tone} title={v.title} summary={summary} level={3} />}
       </div>
     </Stack>
   );

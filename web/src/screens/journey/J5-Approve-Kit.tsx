@@ -38,9 +38,9 @@ export interface ApproveKitProps {
 export function J5ApproveKit({ data, state = 'success' }: ApproveKitProps) {
   const navigate = useNavigate();
   const flow = useJourneyFlow('approveKit');
-  const { selections, actions } = flow;
+  const { selections, actions, live } = flow;
   // Each gate as the person left it on J3 and J4 (rejected facts dropped, edits and answers used), else the fixture.
-  const gates = data.gates.map((g) => gateView(g, selections, data.voice));
+  const gates = data.gates.map((g) => live ? g : gateView(g, selections, data.voice));
   // One decision per gate for every screen: an approval counts only while it matches the draft it approved.
   const decisions = gates.map((g) => flow.gateDecision(g.id, gateFingerprint(g), g.approval));
   return (
@@ -68,8 +68,8 @@ export function J5ApproveKit({ data, state = 'success' }: ApproveKitProps) {
         approved={decisions.filter((d) => d.status === 'approved').length}
         total={gates.length}
         failure={state === 'error' ? data.registration : undefined}
-        onRegister={() => { actions.setKitRegistered(true); navigate(flow.nextHref); }}
-        onRetry={() => actions.setKitRegistered(false)}
+        onRegister={() => { const result = actions.setKitRegistered(true); if (result) return result.then(() => navigate(flow.nextHref)); navigate(flow.nextHref); }}
+        onRetry={async () => { await actions.setKitRegistered(live); if (live) navigate(flow.nextHref); }}
       />
     </JourneyStepFrame>
   );
