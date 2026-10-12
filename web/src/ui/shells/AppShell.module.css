@@ -10,5 +10,6 @@
 .link:hover { background: var(--wl-bg-subtle); }
 .active { font-weight: var(--wl-font-weight-semibold); text-decoration: underline; text-underline-offset: var(--wl-space-1); }
 .tag { font-size: var(--wl-chip-font-size); color: var(--wl-text-secondary); }
+.subnav { max-width: var(--wl-layout-width-app); margin-inline: auto; padding: 0 var(--wl-layout-page-padX); }
 .main { display: block; }
 .main:focus { outline: none; }
