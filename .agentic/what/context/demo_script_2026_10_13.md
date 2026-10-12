@@ -74,7 +74,7 @@ Route `/sign-in` · depends on EMAIL SIGN-IN · placeholder: wireframe Onboard-1
 - Cut: the sign-in email opened off camera
 - Lands on /home: "Welcome to JamJam"
 
-**Who cares, and why:** Judges, because a wallet and seed phrase are where most normal users quit crypto, and this has neither. Founders, because there is nothing to set up.
+**Who cares, and why:** Judges, because only 13% of US adults find Web3 wallets intuitive, against 75% for payment apps ([Mercuryo and Protocol Theory survey](https://mercuryo.io/explore/learn/us-market-research), 2025), and this needs no wallet. Founders, because there is nothing to set up.
 
 **Say:** I sign in with email. No password, no wallet.
 

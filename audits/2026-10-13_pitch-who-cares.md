@@ -39,7 +39,7 @@ Verdict: **Keep**, **Fixed** (changed on the deck, 2026-10-13), or **Owner** (th
 | 4 | Title "Streamline Brand, Content & Growth Strategy. Distribute everywhere. Grow with data." | Unclear | Says what JamJam does, not what changes for the founder | **Owner.** Suggest "Every step checked. Nothing goes out until you approve it." |
 | 4 | Status chips (BUILT, NEXT) | Judges | Shows what is real today; judges reward honesty | Keep |
 | 4 | Verify "A lookup, not a label that can be stripped off." | Judges | Proof that survives screenshots and reposts | **Fixed:** "Can't be stripped off like a watermark." |
-| 4 | Bar "No wallet needed for proof." | Judges, founders | Wallets are where normal users quit crypto | Keep |
+| 4 | Bar "No wallet needed for proof." | Judges, founders | Wallets put people off: in a nationally representative survey of 3,428 US adults, 12% use Web3 wallets and 13% find them intuitive, against 75% for payment apps ([Mercuryo and Protocol Theory](https://mercuryo.io/explore/learn/us-market-research), September 2025) | Keep |
 | 5 | Title (fakes, X, agents, AI copy) | Judges | Four reasons this is the moment | Keep (owner) |
 | 5 | $3.5B imposter losses | Judges, fans | Size of the fake problem | Keep |
 | 5 | X barred reward-for-posting apps | Judges | Rewards now need approved, disclosed content, which JamJam does | Keep |
