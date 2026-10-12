@@ -10,7 +10,7 @@ tags: [pitch, script, colosseum]
 
 # Pitch script: JamJam
 
-Total: 477 words, about 2:59 at 160 words a minute.
+Total: 476 words, about 2:58 at 160 words a minute.
 
 ## 1. Dot points per slide
 
@@ -66,12 +66,12 @@ Total: 477 words, about 2:59 at 160 words a minute.
 - Flywheel: verified posts carry a check-it badge back to JamJam
 
 **10. Roadmap** (2:34–2:44)
-- Now: brand in minutes
+- Now: your brand kit
 - Next: content you approve unedited
 - Then: publish everywhere; tips and fan rewards
 - Later: agents pay for your brand
 
-**11. Team and ask** (2:44–2:59)
+**11. Team and ask** (2:44–2:58)
 - Founded Lilypad; built the original Waterlily.ai
 - Developer communities at IBM and Filecoin Foundation
 - JamJam: your brand team, in one app
@@ -114,10 +114,10 @@ We checked fifty-nine products. The best do two of the four steps, so founders s
 
 Building your brand kit is free. Solo is thirty-nine dollars a month, Team is a hundred and ninety-nine, and we take three percent on tips and rewards. Verified posts carry a check-it badge back to JamJam, so every audience becomes our pipeline.
 
-**10. Roadmap** · 2:34–2:44 · 27 words
+**10. Roadmap** · 2:34–2:44 · 26 words
 
-The road: your brand in minutes, then content you approve without editing, then publishing everywhere, tips and fan rewards, and finally agents paying to use your brand.
+The road: your brand kit, then content you approve without editing, then publishing everywhere, tips and fan rewards, and finally agents paying to use your brand.
 
-**11. Team and ask** · 2:44–2:59 · 39 words
+**11. Team and ask** · 2:44–2:58 · 39 words
 
 I founded Lilypad, a decentralised AI compute network, and in 2023 I built the original Waterlily, AI art that paid its artists. I've built developer communities at IBM and the Filecoin Foundation. JamJam: your brand team, in one app.
