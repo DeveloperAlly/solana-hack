@@ -76,7 +76,7 @@ export const EXTRACT_FACTS: WorkflowSpec = {
   concurrency: 'parallel',
   retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
   steps: [
-    { id: 'read', type: 'fetch', label: 'Reading the source', reader: '$input.reader', args: { url: '$input.url', website: '$input.website', text: '$input.text', name: '$input.name' }, maxChars: 200000, maxBytes: 600000 },
+    { id: 'read', type: 'fetch', label: 'Reading the source', reader: '$input.reader', args: '$input.args', maxChars: 200000, maxBytes: 600000 },
     { id: 'chunk', type: 'code', label: 'Splitting it into parts', fn: 'chunk_text', args: { text: '$steps.read.text', target: '12000', min: '8000', max: '16000', overlap: '600', max_chunks: '20' } },
     {
       id: 'extract', type: 'map', label: 'Finding facts', over: '$steps.chunk.chunks', max: 20,
@@ -122,4 +122,6 @@ export const EXTRACT_MODELS: TaskModels = {
 export const SEED_CONFIG = [{ key: TASK_MODELS_KEY, value: EXTRACT_MODELS }];
 
 /** The definitions, prompts and config each migration seeds; worker-engine and worker-extract tests check them against the SQL. */
+/** Definitions each migration retires (status 'retired': no new runs; runs already started keep their version). */
+export const RETIRED_BY = { '011_fact_extraction.sql': [{ id: 'ingest_url', version: 1 }] };
 export const SEEDED_BY = { '010_workflow_engine.sql': { defs: [INGEST_URL], prompts: ['ingest.extract_facts'], config: [] }, '011_fact_extraction.sql': { defs: [EXTRACT_FACTS], prompts: ['extract.facts', 'extract.check_support'], config: SEED_CONFIG } };
