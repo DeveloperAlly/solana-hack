@@ -237,6 +237,18 @@ describe('voice by example (J4)', () => {
     tables.evidence = [fact(b.id, 'purpose')];
     llm = () => ({ samples: [sample('friendly')] });
     expect((await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 })).status).toBe(502);
+    // A malformed reply is a 502, never a 500: samples not an array, or entries that are not objects.
+    llm = () => ({ samples: { template: 'friendly' } });
+    expect((await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 })).status).toBe(502);
+  });
+  it('skips malformed sample entries and keeps the usable ones', async () => {
+    const b = brandRow('p-1');
+    tables.brands = [b];
+    tables.evidence = [fact(b.id, 'purpose')];
+    llm = () => ({ samples: [null, 7, 'x', sample('friendly'), sample('academic'), sample('playful')] });
+    const res = await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 });
+    expect(res.status).toBe(200);
+    expect((res.body.samples as { template: string }[]).map((s) => s.template)).toEqual(['friendly', 'academic', 'playful']);
   });
   it('a picked sample is kept in the voice answer but never becomes evidence', async () => {
     const b = brandRow('p-1');

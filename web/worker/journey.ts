@@ -94,7 +94,9 @@ export async function voiceSamples(env: Env, brand: { id: string; name: string }
   const want = round === 2 ? `one paragraph in each of these three templates: ${candidates.join(', ')}` : 'three paragraphs in three clearly different templates from the list that could suit this brand';
   const system = `You show a brand owner how "${brand.name}" could sound. Write ${want}. Each paragraph is 40 to 70 words introducing the brand, using only the facts given; no numbers, customers or claims that are not in the facts. ${SLOP_RULES} Reply with JSON only: {"samples": [{"template": string, "text": string}]}.`;
   const { text } = await chat(env, system, `Templates:\n${list}\n\nFacts:\n${facts}`);
-  const raw = parseJson<{ samples?: { template?: string; text?: string }[] }>(text).samples ?? [];
+  // Validated at run time: the model's JSON can have any shape. A malformed entry is skipped; too few usable ones is a 502.
+  const samples = (parseJson<unknown>(text) as { samples?: unknown } | null)?.samples;
+  const raw = Array.isArray(samples) ? samples.filter((s): s is { template?: unknown; text?: unknown } => !!s && typeof s === 'object') : [];
   const seen = new Set<string>();
   const out: VoiceSample[] = [];
   for (const s of raw) {
