@@ -2,7 +2,6 @@
 // its own draft, and switching back restores it (Codex review on PR #79). In memory for the browser session only: no
 // network, nothing persisted (INTEGRATION: POST /api/campaigns, then PATCH /api/campaigns/:id per step; backend map
 // rows "Campaign-v2-1" to "Campaign-v2-6").
-import { useMemo } from 'react';
 import { createBrandScopedStore } from '../../lib/brandScopedStore';
 import { activeBrand } from '../brand/activeBrand';
 import { approve, isCurrent, type Approval } from '../../lib/approval';
@@ -60,8 +59,8 @@ function completedBefore(completed: FlowState['completed'], step: CampaignStepId
 /** A brand with no campaign yet starts here; never mutated, so it is safe to share. */
 const initialState: FlowState = { draft: campaignDraftFixture, completed: {} };
 /** One draft per brand, keyed by the app-wide active brand (flows/brand/activeBrand). */
-const byBrand = createBrandScopedStore<FlowState>(activeBrand);
-const read = (): FlowState => ({ ...initialState, ...byBrand.read() });
+const byBrand = createBrandScopedStore<FlowState>(activeBrand, initialState);
+const read = byBrand.read;
 const write = (next: FlowState) => byBrand.set(next);
 
 export const campaignStore = {
@@ -89,10 +88,7 @@ export const campaignStore = {
   /** Clears every brand's campaign (between tests). */
   reset: byBrand.reset,
   /** The active brand's campaign; re-renders when it or the active brand changes. */
-  use: (): FlowState => {
-    const [scoped] = byBrand.use();
-    return useMemo(() => ({ ...initialState, ...scoped }), [scoped]);
-  },
+  use: (): FlowState => byBrand.use()[0],
 };
 
 /** Whether the draft's spending cap is approved: an approval of a different cap is stale (Codex review on PR #103). */

@@ -2,7 +2,8 @@
 // Changes are kept as additions and removals on top of each screen's fixture data, so any fixture (or the empty
 // demo state) plus the person's own actions gives what they expect to see. In memory for the tab only: nothing is
 // persisted and nothing calls the network (each write names its future endpoint in an INTEGRATION comment).
-import { createStore } from '../../lib/createStore';
+import { createBrandScopedStore } from '../../lib/brandScopedStore';
+import { activeBrand } from '../../flows/brand/activeBrand';
 import type { BadgeStyle, ConnectionState, Invite, Member, Referral, Tip } from './types';
 
 export interface GrowthSession {
@@ -22,7 +23,11 @@ export interface GrowthSession {
   membersAdded: Member[];
 }
 
-export const growthSession = createStore<GrowthSession>({
+/**
+ * Kept per brand (lib/brandScopedStore, keyed by the active brand), so connections, referrals, the badge, tips, invites
+ * and members made for one brand never show under another (Codex review on PR #103).
+ */
+export const growthSession = createBrandScopedStore<GrowthSession>(activeBrand, {
   connections: {},
   referralsAdded: [],
   badge: { postId: null, style: 'outline' },
