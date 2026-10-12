@@ -24,7 +24,8 @@ import { EventDetail } from './Event-Detail';
 import { EventsBoard } from './Events-Board';
 import { EventRating } from './Event-Rating';
 import { Quests } from './Quests';
-import { ActiveBrandLoop, resolveState } from '../loop/ActiveBrandLoop';
+import { ActiveBrandLoop } from '../loop/ActiveBrandLoop';
+import { resolveState } from '../resolveState';
 import type { BrandVariants, GrowBrandData } from './brandData';
 import { eventRating, eventRatingEmpty, eventsBoard, eventsBoardEmpty } from './board.fixtures';
 import type { RouteTag } from '../../config/routes';
@@ -78,6 +79,7 @@ function brandEntry<D>(
     states: screenStates,
     render: (state) => createElement(ActiveBrandLoop, {
       artboard,
+      state,
       view: (d) => {
         const v = select(d.grow);
         if (!v) return null;

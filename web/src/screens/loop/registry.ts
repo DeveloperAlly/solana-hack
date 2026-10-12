@@ -8,7 +8,8 @@ import { MToday } from './MToday';
 import { PostDetail } from './PostDetail';
 import { Today } from './Today';
 import { VerifyHome } from './VerifyHome';
-import { ActiveBrandLoop, resolveState } from './ActiveBrandLoop';
+import { ActiveBrandLoop } from './ActiveBrandLoop';
+import { resolveState } from '../resolveState';
 import { brainRules } from '../../domain/brain';
 import type { LoopBrandData } from './fixtures';
 import type { LearnRulesData, PostDetailData, TodayData, VerifyHomeData } from './types';
@@ -37,6 +38,7 @@ function loopEntry<D>(artboard: ArtboardName, page: ScreenEntry['page'], title: 
     states: screenStates,
     render: (state) => createElement(ActiveBrandLoop, {
       artboard,
+      state,
       view: (d: LoopBrandData) => {
         const data = state === 'empty' ? s.empty(d) : s.full(d);
         return s.render(data, resolveState(state, s.isEmpty(data)));

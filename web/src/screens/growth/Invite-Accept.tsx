@@ -13,6 +13,7 @@
  * States (C28): success = the invite with Accept and Decline (then accepted or declined); empty = no open invite;
  * loading = opening the invite; error = it could not be opened.
  */
+import { resolveState } from '../resolveState';
 import { StateView } from '../../ui/composites/StateView';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import { ScreenLink } from '../../gallery/ScreenLink';
@@ -38,7 +39,7 @@ export function InviteAccept({ data, state = 'success' }: ScreenProps<InviteAcce
       meta="Drawn, not built. Defined in: issue #82 (Invite a teammate or partner)."
     >
       <StateView
-        state={invite ? state : 'empty'}
+        state={resolveState(state, !invite)}
         loading={{ title: 'Opening your invite', body: 'Checking the invite link.' }}
         error={{ title: 'Could not open this invite', body: 'Reload the page in a minute, or ask for a new invite.' }}
         empty={{ title: 'This invite is no longer open', body: 'It was revoked or already answered. Ask the brand owner for a new one.' }}

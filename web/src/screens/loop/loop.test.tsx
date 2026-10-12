@@ -12,6 +12,8 @@ import { LearnRules } from './LearnRules';
 import { PostDetail } from './PostDetail';
 import { VerifyHome } from './VerifyHome';
 import { screens } from './registry';
+import { screens as growthScreens } from '../growth/registry';
+import { GalleryModeContext } from '../../ui/hooks/galleryMode';
 import { brainScreen, learnRules, learnRulesCollecting, postDetail, today, verifyHome } from './fixtures';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
@@ -262,6 +264,24 @@ describe('Brain and Learn-Rules share the Brain', () => {
     expect(screen.queryByText('[detail]', { exact: false })).toBeNull();
   });
 
+  it('loading and error always win: every brand-scoped screen (loop and Grow), for a first-run brand, shows its loading and error panels', () => {
+    act(() => selectBrand('jamjam'));
+    const missing: string[] = [];
+    // Brand-scoped screens are the ones ActiveBrandLoop renders: every loop screen and Grow's brand screens.
+    const brandScoped = [...screens, ...growthScreens.filter((s) => ['Grow-Home', 'Distribute-Adapt', 'Events', 'Event-Detail', 'Quests', 'Referral', 'Badge-Embed', 'Tips-Received', 'Invite-Team'].includes(s.artboard))];
+    expect(brandScoped).toHaveLength(15);
+    for (const entry of brandScoped) {
+      for (const state of ['loading', 'error'] as const) {
+        if (!entry.states.includes(state)) continue;
+        const { container, unmount } = renderWithRouter(<GalleryModeContext.Provider value={true}>{entry.render(state)}</GalleryModeContext.Provider>);
+        const shown = state === 'loading' ? container.querySelector('[aria-busy="true"]') : container.querySelector('[role="alert"]');
+        if (!shown) missing.push(`${entry.artboard} (${state})`);
+        unmount();
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
   it('a brand with no loop data says so, never showing another brand', () => {
     act(() => selectBrand('filmfun'));
     renderWithRouter(screens.find((s) => s.artboard === 'Today')!.render('success'));
@@ -280,7 +300,7 @@ describe('Brain and Learn-Rules share the Brain', () => {
   });
 
   it('collecting shows nothing to suggest yet', () => {
-    renderWithRouter(<LearnRules data={learnRulesCollecting} />);
+    renderWithRouter(<LearnRules data={learnRulesCollecting} state="empty" />);
     expect(screen.getByText('Nothing to suggest yet')).toBeInTheDocument();
   });
 

@@ -13,6 +13,7 @@
  * States (canvas note on the board): success; empty = no ratings yet; loading; error. Search, sort and kind filter
  * change the list.
  */
+import { resolveState } from '../resolveState';
 import { Grid } from '../../ui/primitives';
 import { StateView } from '../../ui/composites/StateView';
 import { EventBoardFilters } from '../../ui/domain/EventBoardFilters';
@@ -29,7 +30,7 @@ const kinds = [{ value: 'all', label: 'All' }, ...boardEventKinds.map((k) => ({ 
 export function EventsBoard({ data, state = 'success' }: ScreenProps<EventsBoardData>) {
   const flow = useEventsBoard(data);
   const links = useGrowthLinks();
-  const view = state === 'success' && data.events.length === 0 ? 'empty' : state;
+  const view = resolveState(state, data.events.length === 0);
   return (
     <PublicFrame tag="ROADMAP" title="Is this event worth it?"
       intro="Rated only by people who were there. Every rating and every edit is kept and registered, and a removal leaves a public note saying why, so no one can quietly change the record, organisers included."

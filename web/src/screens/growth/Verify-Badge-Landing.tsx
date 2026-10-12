@@ -12,6 +12,7 @@
  * States (C28): success = verified post with the badge and "Make yours"; empty = the badge's post is not registered;
  * loading = checking; error = could not check.
  */
+import { resolveState } from '../resolveState';
 import { Stack, Text } from '../../ui/primitives';
 import { Columns } from '../../ui/layouts/Columns';
 import { StateView } from '../../ui/composites/StateView';
@@ -34,7 +35,7 @@ export function VerifyBadgeLanding({ data, state = 'success' }: ScreenProps<Veri
       meta="Drawn, not built: Verify looks posts up by their text today, not by a badge link. Defined in: issue #82 (Check-it badge)."
     >
       <StateView
-        state={post ? state : 'empty'}
+        state={resolveState(state, !post)}
         loading={{ title: 'Checking', body: 'Looking for the registration on Solana.' }}
         error={{ title: 'Could not check right now', body: 'Solana could not be checked just now, so this cannot be confirmed. Try again in a minute.' }}
         empty={{ title: 'This badge points at nothing registered', body: 'Treat the post as unverified. A real badge always opens a registered post.' }}

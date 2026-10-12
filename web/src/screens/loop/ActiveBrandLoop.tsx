@@ -1,14 +1,17 @@
 import type { ReactElement } from 'react';
-import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import type { ArtboardName } from '../../config/artboards';
 import { useActiveBrand } from '../../flows/brand/activeBrand';
 import { EmptyState } from '../../ui/composites/EmptyState';
+import { StatePanel } from '../../ui/composites/StatePanel';
+import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { LoopFrame } from '../../ui/shells/LoopFrame';
 import { loopDataFor, type LoopBrandData } from './fixtures';
 
 export interface ActiveBrandLoopProps {
   /** The board, for the frame of the "no data yet" state. */
   artboard: ArtboardName;
+  /** The demo state asked for: loading and error win over "nothing here yet" (screens/resolveState.ts). */
+  state: ScreenState;
   /** Renders the screen from the active brand's loop data; null when the brand has no data for this screen yet. */
   view: (data: LoopBrandData) => ReactElement | null;
 }
@@ -19,21 +22,17 @@ export interface ActiveBrandLoopProps {
  * loop data yet gets an explicit empty state, never another brand's data.
  * INTEGRATION: GET the brand's Brain, queue, posts and registrations (X18, N5, posts, ledger; not built).
  */
-export function ActiveBrandLoop({ artboard, view }: ActiveBrandLoopProps) {
+export function ActiveBrandLoop({ artboard, state, view }: ActiveBrandLoopProps) {
   const brand = useActiveBrand();
   const data = loopDataFor(brand.id);
   const screen = data ? view(data) : null;
   if (screen) return screen;
   return (
     <LoopFrame artboard={artboard} tag="COMING SOON" brandName={brand.name}>
-      <EmptyState level={1} title={`Nothing here for ${brand.name} yet`} body={data ? 'This brand has nothing on this screen yet: it comes with its first approved post or event.' : 'This demo has sample data for aDNA, JamJam and GamersLab. Switch brand to see one of them.'} />
+      {state === 'loading' && <StatePanel kind="loading" level={1} title="Loading" body={`Reading ${brand.name}'s data.`} />}
+      {state === 'error' && <StatePanel kind="error" level={1} title="Couldn't load this screen" body="Nothing changed. Try again in a minute." />}
+      {state !== 'loading' && state !== 'error' && <EmptyState level={1} title={`Nothing here for ${brand.name} yet`} body={data ? 'This brand has nothing on this screen yet: it comes with its first approved post or event.' : 'This demo has sample data for aDNA, JamJam and GamersLab. Switch brand to see one of them.'} />}
     </LoopFrame>
   );
 }
 
-/**
- * The state a screen shows: the demo state asked for, except that "success" on data with nothing in it is the empty
- * state, so a first-run brand never sees a success layout with zero data (Codex review on PR 111). Loading and error
- * are shown as asked. Every brand-scoped registry (loop, growth) uses it.
- */
-export const resolveState = (requested: ScreenState, isEmpty: boolean): ScreenState => (requested === 'success' && isEmpty ? 'empty' : requested);
