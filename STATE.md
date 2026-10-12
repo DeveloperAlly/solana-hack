@@ -1,7 +1,7 @@
 ---
 type: state
 status: active
-updated: 2026-10-12
+updated: 2026-10-13
 last_edited_by: agent
 ---
 # STATE
@@ -43,7 +43,7 @@ last_edited_by: agent
 - S0 check (2), email sign-in with a code, is not yet exercised live ([mission S0 row](./.agentic/how/missions/mission_ui_build.md)). Sign-in by link works ([sign-in proof on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118522618)), after the [auth config run](https://github.com/DeveloperAlly/solana-hack/actions/runs/38207926808) set custom SMTP through Resend; the app accepts the 8-digit code since [PR #27](https://github.com/DeveloperAlly/solana-hack/pull/27). The check names a 6-digit code, but the project sends 8 digits. Owner decision: set the project's code length to 6 (the `mailer_otp_length` auth setting, 6 to 10 allowed) and then sign in once by code, or revise the check to accept the project's code length.
 
 ## Proposed (awaiting owner)
-- [CPO audit: deck vs plan vs build](./audits/2026-10-13_cpo-audit-deck-plan-build.md) ([issue #92](https://github.com/DeveloperAlly/solana-hack/issues/92), 2026-10-13): Build and Verify are built on main and Create is built for text posts; Distribute, Grow and Learn have no backend; nothing has run live and Build fails live until migration 009 is applied. The intelligence system is per-feature LLM calls with no eval harness or feedback loop. Recommends shipping the full UI vision with Live and Preview badges and early-access counters, 14 deck label fixes, and a four-phase launch plan. Owner decisions: §Owner decisions.
+- [Engineering release-readiness audit](./audits/2026-10-13_engineering-release-readiness.md) ([#92](https://github.com/DeveloperAlly/solana-hack/issues/92), snapshot 2026-10-13): main e2387db passes local tests/typecheck/build; latest deploy reports database up to date; live API Journey passes J0-J3 and fails J4; 99 preview screens, no deployed loop screens, and no ledger kit/post entries observed. Full authenticated browser proof remains open. The [earlier CPO audit](./audits/2026-10-13_cpo-audit-deck-plan-build.md) is retained as an older snapshot. Pitch deck stays in its sales voice and must not be edited without explicit owner authorization; demo revisions are allowed. Background orchestration is proposed, not started.
 - [ADR-011](./.agentic/what/decisions/adr_011_evidence_trust.md) ([issue #57](https://github.com/DeveloperAlly/solana-hack/issues/57), 2026-10-12): evidence trust classes, owner review of third-party facts, and one allow-list for drafting, the kit snapshot, registration and the claims gate.
 - [Onboarding journey audit](./audits/2026-10-12_onboarding-journey-wireframe-audit.md) ([issue #43](https://github.com/DeveloperAlly/solana-hack/issues/43), 2026-10-12): the first run fails the value test (about 16 minutes of questions before any output; the differentiator is a footer claim). The canvas now opens on a Journey (v3) page with five aha moments. Owner decisions D1–D5 (§Owner decisions): read the site before sign-in, kit size shown, time claim on the landing, brand layer, ratify ADR-008.
 - [Research 10](./.agentic/what/context/research/10_competitor_onboarding_pricing.md) ([issue #29](https://github.com/DeveloperAlly/solana-hack/issues/29), 2026-10-12): onboarding and pricing of 59 competitors, checked against every decision doc. Owner to accept, defer or reject 14 new proposals (N1–N14, §7.1) and whether to add Pressmaster and Encypher to pitch deck slide 9 (§8).

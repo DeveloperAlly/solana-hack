@@ -2,7 +2,7 @@
 type: manifest
 status: active
 created: 2026-10-06
-updated: 2026-10-12
+updated: 2026-10-13
 last_edited_by: agent
 tags: [manifest, index]
 ---
@@ -51,6 +51,7 @@ The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [A
 | [.agentic/what/context/links.md](./.agentic/what/context/links.md) | active | Working links: wireframes, deck, PRD, research |
 | [audits/2026-10-12_onboarding-journey-wireframe-audit.md](./audits/2026-10-12_onboarding-journey-wireframe-audit.md) | active | Audit 2026-10-12: onboarding journey and wireframes vs the delivery plan; root causes, fixes and owner decisions |
 | [audits/2026-10-13_cpo-audit-deck-plan-build.md](./audits/2026-10-13_cpo-audit-deck-plan-build.md) | active | Audit 2026-10-13: the deck's six pillars against plans, wireframes, code and the live app; intelligence system; four-phase launch plan |
+| [audits/2026-10-13_engineering-release-readiness.md](./audits/2026-10-13_engineering-release-readiness.md) | active | Engineering architecture, release evidence, priority fix queue and submission plan; sales/engineering boundary |
 | [.github/pull_request_template.md](./.github/pull_request_template.md) | active | PR checklist, including the canvas check (AGENTS.md rule 8) |
 | [.agentic/what/context/research/README.md](./.agentic/what/context/research/README.md) | active | Research index |
 | [.agentic/what/context/research/01_brand_pillars.md](./.agentic/what/context/research/01_brand_pillars.md) | active | Brand-building pillars and the 9-step onboarding workflow |

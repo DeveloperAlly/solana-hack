@@ -10,6 +10,8 @@ tags: [audit, product, pitch, architecture, intelligence-system, launch-plan]
 
 # CPO audit: deck vs plan vs build (2026-10-13)
 
+> Later engineering evidence: [release-readiness audit](./2026-10-13_engineering-release-readiness.md). This document retains its earlier snapshot; its migration/live-status statements are not current deployment authority. Owner clarification: the pitch deck is sales positioning and remains in its sales voice. Do not implement deck changes without explicit owner authorization; suggestions are advisory. The demo may be revised.
+
 ## Task
 In the owner's words, 2026-10-13:
 - "Audit the complete plans across UI and architecture, act as a founder and CPO of this product: does it match the core value proposition in the deck? Does it, or will it eventually, do what it says?"
