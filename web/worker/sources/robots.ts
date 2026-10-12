@@ -6,15 +6,26 @@
  * - robots.txt "unavailable" (4xx) means no restrictions (§2.3.1.3); "unreachable" (5xx or a network error) means
  *   assume complete disallow (§2.3.1.4).
  */
-export const BOT_TOKEN = 'jamjambot';
+// The product token: letters, "_" and "-" only, and a substring of the User-Agent we send (RFC 9309 §2.2.1).
+export const BOT_TOKEN = 'JamJamBot';
+// RFC 9309 §2.5: the parsing limit MUST be at least 500 kibibytes (512,000 bytes).
+export const ROBOTS_MAX_BYTES = 500 * 1024;
 export const USER_AGENT = 'JamJamBot/0.1 (+https://jamjam.tech)';
 
 interface Rule { allow: boolean; path: string }
 
+/**
+ * The product token named on a user-agent line: its leading identifier characters (RFC 9309 §2.2 ABNF: identifier is
+ * letters, "_" and "-"), lower-cased, so "JamJamBot/1.0" names jamjambot. "*" stays "*".
+ */
+const agentToken = (value: string) => (value.trim().startsWith('*') ? '*' : (value.trim().match(/^[A-Za-z_-]+/)?.[0] ?? '').toLowerCase());
+
 export function parseRobots(body: string, token = BOT_TOKEN): Rule[] {
   const groups: { agents: string[]; rules: Rule[] }[] = [];
   let cur: { agents: string[]; rules: Rule[] } | null = null;
-  let lastWasAgent = false;
+  // A group is one or more user-agent lines followed by rules; it ends only at a user-agent line that comes after a
+  // rule (RFC 9309 §2.1). Other records, such as Sitemap, never end a group (§2.2.4).
+  let sawRule = false;
   for (const raw of body.split(/\r?\n/)) {
     const line = raw.replace(/#.*$/, '').trim();
     const m = line.match(/^([A-Za-z-]+)\s*:\s*(.*)$/);
@@ -22,18 +33,17 @@ export function parseRobots(body: string, token = BOT_TOKEN): Rule[] {
     const key = m[1].toLowerCase();
     const value = m[2].trim();
     if (key === 'user-agent') {
-      if (!cur || !lastWasAgent) { cur = { agents: [], rules: [] }; groups.push(cur); }
-      cur.agents.push(value.toLowerCase());
-      lastWasAgent = true;
+      if (!cur || sawRule) { cur = { agents: [], rules: [] }; groups.push(cur); sawRule = false; }
+      cur.agents.push(agentToken(value));
     } else if ((key === 'allow' || key === 'disallow') && cur) {
-      lastWasAgent = false;
-      // An empty Disallow allows everything, so it adds no rule.
+      // Rules before the first user-agent line belong to no group and are ignored (§2.2.2).
+      sawRule = true;
+      // An empty Disallow allows everything, so it adds no rule (but it still ends the user-agent list).
       if (value) cur.rules.push({ allow: key === 'allow', path: normalisePath(value) });
-    } else {
-      lastWasAgent = false;
     }
   }
-  const mine = groups.filter((g) => g.agents.some((a) => a !== '*' && token.startsWith(a.split('/')[0])));
+  // Groups are matched on the whole product token, case-insensitively (§2.2.1); groups for it are combined.
+  const mine = groups.filter((g) => g.agents.includes(token.toLowerCase()));
   const chosen = mine.length ? mine : groups.filter((g) => g.agents.includes('*'));
   return chosen.flatMap((g) => g.rules);
 }
@@ -79,7 +89,9 @@ export async function fetchRobots(origin: string, fetcher: typeof fetch = fetch)
     const res = await fetcher(`${origin}/robots.txt`, { redirect: 'follow', signal: AbortSignal.timeout(5000), headers: { 'user-agent': USER_AGENT } });
     if (res.status >= 400 && res.status < 500) return { state: 'none' };
     if (!res.ok) return { state: 'unreachable' };
-    return { state: 'rules', rules: parseRobots((await res.text()).slice(0, 500_000)) };
+    // Read up to the parsing limit in bytes, then decode: a limit in characters could stop short of 500 KiB.
+    const bytes = new Uint8Array(await res.arrayBuffer()).subarray(0, ROBOTS_MAX_BYTES);
+    return { state: 'rules', rules: parseRobots(new TextDecoder().decode(bytes)) };
   } catch {
     return { state: 'unreachable' };
   }

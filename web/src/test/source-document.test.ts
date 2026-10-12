@@ -35,6 +35,14 @@ describe('document adapter', () => {
       expect(((env.AI!.toMarkdown as ReturnType<typeof vi.fn>).mock.calls[0][0] as { blob: Blob }[])[0].blob.type).toBe(mime);
     }
   });
+  it('reads a supported file whose name is over 200 characters, keeping its extension (PR #67 review)', async () => {
+    const long = `${'Quarterly brand narrative and positioning '.repeat(8)}final.docx`;
+    const env: SourceEnv = { AI: ai({ name: 'x', format: 'markdown', data: prose }) };
+    const r = await readDocument(env, { name: long, bytes });
+    expect(r).toMatchObject({ ok: true });
+    expect(r.ok && r.name?.length).toBe(200);
+    expect(r.ok && r.name?.endsWith('….docx')).toBe(true);
+  });
   it('refuses unsupported, empty and oversized files before calling the converter', async () => {
     const env: SourceEnv = { AI: ai({ name: 'x', format: 'markdown', data: prose }) };
     expect(await readDocument(env, { name: 'deck.pptx', bytes })).toMatchObject({ ok: false, code: 'unsupported_type', reason: expect.stringContaining('export the deck as a PDF') });

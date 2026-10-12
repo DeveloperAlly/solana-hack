@@ -44,6 +44,17 @@ interface ExaResponse { results?: ExaPage[]; statuses?: { id?: string; status?: 
 /** Host without a leading "www.", so an apex-to-www redirect stays on the same site. */
 const hostKey = (u: URL) => u.hostname.toLowerCase().replace(/^www\./, '');
 
+/** An absolute http(s) URL as given, never completed or guessed; null for anything else. */
+function absoluteUrl(raw: unknown): URL | null {
+  if (typeof raw !== 'string') return null;
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u : null;
+  } catch {
+    return null;
+  }
+}
+
 /** A web address as the adapter reads it: http(s) only, default ports only (same rules as ingest.ts readPage). */
 export function siteUrl(raw: string): URL | null {
   try {
@@ -80,9 +91,11 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS): Promis
   const pages: SourcePage[] = [];
   for (const p of [top, ...(top.subpages ?? [])]) {
     const text = p.text?.trim();
-    if (!p.url || !text || seen.has(p.url)) continue;
-    seen.add(p.url);
-    pages.push({ url: p.url, title: (p.title ?? '').trim().slice(0, 200) || new URL(p.url).hostname, text });
+    // Provider output is untrusted: only an absolute http(s) URL is used (PR #67 review).
+    const u = absoluteUrl(p.url);
+    if (!u || !text || seen.has(u.toString())) continue;
+    seen.add(u.toString());
+    pages.push({ url: u.toString(), title: (p.title ?? '').trim().slice(0, 200) || u.hostname, text });
   }
   const cost = typeof data.costDollars?.total === 'number' ? data.costDollars.total : pages.length * EXA_PER_PAGE;
   return { pages, cost };
@@ -190,7 +203,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   // 3. Rendered Markdown, for sites that only show text after their scripts run.
   const rendered = await viaRendered(env, url);
   if ('text' in rendered) {
-    const final = siteUrl(rendered.finalUrl ?? '') ?? url;
+    const final = absoluteUrl(rendered.finalUrl) ?? url;
     const kept = await admit([{ url: final.toString(), title: final.hostname, text: rendered.text }]);
     if (kept.length) return ok(kept, cost, 'rendered');
     c.notes.push('rendered page refused: it ended on an address its robots.txt does not let us read');

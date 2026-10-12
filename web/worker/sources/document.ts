@@ -55,13 +55,17 @@ export function readableText(markdown: string, name: string): { body: string; pa
 export async function readDocument(env: SourceEnv, input: DocumentInput): Promise<SourceResult> {
   const c = clock();
   const { trust } = factTrust('document');
-  const name = (input.name ?? '').trim().slice(0, 200);
+  // The type comes from the full name; only the name kept for display is shortened (PR #67 review).
+  const fullName = (input.name ?? '').trim();
+  const extension = ext(fullName);
+  // At most 200 characters, keeping the extension at the end so the shortened name still says what the file is.
+  const name = fullName.length <= 200 ? fullName : extension ? `${fullName.slice(0, 199 - extension.length - 1)}….${extension}` : fullName.slice(0, 200);
   const fail = (code: 'invalid_input' | 'unsupported_type' | 'too_large' | 'not_configured' | 'unreadable' | 'needs_ocr' | 'empty', reason: string, pages = 0) =>
     ({ ok: false as const, kind: 'document' as const, code, reason, name: name || undefined, meta: c.meta(pages, 0, 'tomarkdown') });
   if (!name) return fail('invalid_input', 'The file has no name; upload it again.');
-  const type = DOC_TYPES[ext(name)];
+  const type = DOC_TYPES[extension];
   if (!type) {
-    return ext(name) === 'pptx' || ext(name) === 'ppt'
+    return extension === 'pptx' || extension === 'ppt'
       ? fail('unsupported_type', 'Slides cannot be read yet; export the deck as a PDF and upload that.')
       : fail('unsupported_type', 'We read PDF, Word (DOCX) and Excel (XLSX) files; export the file as one of those, or paste its text.');
   }
@@ -82,7 +86,7 @@ export async function readDocument(env: SourceEnv, input: DocumentInput): Promis
   // The converter echoes the input name (ConversionResult.name, binding docs above).
   const { body, pages } = readableText(out.data, out.name || name);
   const letters = letterCount(body);
-  if (ext(name) === 'pdf' && (letters < MIN_LETTERS || letters / pages < MIN_LETTERS_PER_PAGE)) {
+  if (extension === 'pdf' && (letters < MIN_LETTERS || letters / pages < MIN_LETTERS_PER_PAGE)) {
     return fail('needs_ocr', 'This file has no readable text (it looks like a scan). Export it with text, or paste the key points.', pages);
   }
   if (letters === 0) return fail('empty', `This ${type.label} has no text we can use; paste the key points instead.`, pages);

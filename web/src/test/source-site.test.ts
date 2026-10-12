@@ -63,11 +63,30 @@ describe('site adapter: trust follows the brand website (PR #63 review)', () => 
     stub({ exa: () => exaReply([{ url: 'https://elsewhere.test/', title: 'Elsewhere', text: LONG }]) });
     expect(await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/go', { website: 'jamjam.tech' })).toMatchObject({ ok: true, kind: 'page', trust: 'third_party' });
   });
+  it('a path-scoped website on a shared host owns only its own path (PR #63 urlKind)', async () => {
+    stub({ exa: () => exaReply([{ url: 'https://github.com/acme', title: 'acme', text: LONG }, { url: 'https://github.com/acme/brand', title: 'brand', text: 'ours' }, { url: 'https://github.com/other', title: 'other', text: 'theirs' }]) });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://github.com/acme', { website: 'github.com/acme' });
+    expect(r).toMatchObject({ ok: true, kind: 'site', trust: 'owned' });
+    expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://github.com/acme', 'https://github.com/acme/brand']);
+    stub({ page: () => html('Other', LONG) });
+    expect(await readSite({}, 'https://github.com/other', { website: 'github.com/acme' })).toMatchObject({ ok: true, kind: 'page', trust: 'third_party' });
+    stub({ page: () => html('Docs', LONG) });
+    expect(await readSite({}, 'https://docs.github.com/', { website: 'github.com/acme' })).toMatchObject({ ok: true, kind: 'page' });
+  });
   it('drops subpages off the website, so one result never mixes owned and third-party text', async () => {
     stub({ exa: () => exaReply([{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://partner.test/jamjam', title: 'Partner', text: 'claims' }]) });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/', { website: 'jamjam.tech' });
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/']);
     expect(r.meta.notes.join(' ')).toMatch(/not on the same site/);
+  });
+});
+
+describe('site adapter: untrusted Exa output', () => {
+  it('skips relative, malformed and non-http page URLs instead of throwing (PR #67 review)', async () => {
+    stub({ exa: () => new Response(JSON.stringify({ results: [{ url: 'https://a.test/', title: '', text: LONG, subpages: [{ url: '/about', title: '', text: 'x' }, { url: 'http://[bad', title: '', text: 'y' }, { url: 'javascript:alert(1)', title: '', text: 'z' }, { url: 42, text: 'n' }] }] })) });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/');
+    expect(r).toMatchObject({ ok: true, title: 'a.test' });
+    expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://a.test/']);
   });
 });
 
@@ -151,6 +170,26 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     const f = await readSite({}, 'https://open.test/go');
     expect(f).toMatchObject({ ok: false, code: 'unreadable' });
     expect(f.meta.notes.join(' ')).toMatch(/robots\.txt does not let us read/);
+  });
+  it('a Sitemap record does not end a group (RFC 9309 §2.2.4; PR #67 review)', () => {
+    // JamJamBot and OtherBot share one group: the Sitemap line between their user-agent lines must not split it.
+    const rules = parseRobots('User-agent: JamJamBot\nSitemap: https://x.test/s.xml\nUser-agent: OtherBot\nDisallow: /secret\n\nUser-agent: *\nDisallow: /\n');
+    expect(allowedBy(rules, '/secret')).toBe(false);
+    expect(allowedBy(rules, '/open')).toBe(true);
+  });
+  it('matches only the whole product token, case-insensitively (RFC 9309 §2.2.1; PR #67 review)', () => {
+    const prefix = parseRobots('User-agent: jam\nAllow: /\n\nUser-agent: *\nDisallow: /\n');
+    expect(allowedBy(prefix, '/page')).toBe(false);
+    expect(allowedBy(parseRobots('User-agent: JAMJAMBOT\nDisallow: /x\n'), '/x')).toBe(false);
+    expect(allowedBy(parseRobots('User-agent: JamJamBot/2.0\nDisallow: /x\n'), '/x')).toBe(false);
+    // Groups for the same token are combined (§2.2.1 Figure 2); rules before any user-agent line are ignored.
+    const merged = parseRobots('Disallow: /early\nUser-agent: jamjambot\nDisallow: /foo\n\nUser-agent: JamJamBot\nDisallow: /baz\n');
+    expect([allowedBy(merged, '/foo'), allowedBy(merged, '/baz'), allowedBy(merged, '/early')]).toEqual([false, false, true]);
+  });
+  it('reads robots.txt up to 500 KiB in bytes (RFC 9309 §2.5; PR #67 review)', async () => {
+    const filler = `# ${'x'.repeat(505_000)}\n`;
+    stub({ robots: () => new Response(`User-agent: *\n${filler}Disallow: /late\n`) });
+    expect(await readSite({}, 'https://x.test/late')).toMatchObject({ ok: false, code: 'robots_disallowed' });
   });
   it('applies our own group over *, the longest match, allow on a tie, * and $', () => {
     const rules = parseRobots('User-agent: *\nDisallow: /\n\nUser-agent: JamJamBot\nDisallow: /admin\nAllow: /admin/public$\nDisallow: /*.pdf$\n');
