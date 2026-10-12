@@ -10,7 +10,7 @@ tags: [pitch, script, colosseum]
 
 # Pitch script: JamJam
 
-Total: 476 words, about 2:58 at 160 words a minute.
+Total: 475 words, about 2:58 at 160 words a minute.
 
 ## 1. Dot points per slide
 
@@ -48,13 +48,13 @@ Total: 476 words, about 2:58 at 160 words a minute.
 - Money: USDC tips; Kaito, but legal
 - Agents: pay per call to use your brand; stablecoin plans
 
-**7. Go to market** (1:46–2:05)
+**7. Go to market** (1:46–2:04)
 - Launch in crypto, where proof matters most: impersonation +1,400%
 - Then every founder who is their own brand
 - They pay $20–49 a month for one AI writing tool and stitch 3–4 tools
 - Customer zero: me (JamJam, aDNA)
 
-**8. Competition** (2:05–2:18)
+**8. Competition** (2:04–2:18)
 - Four tools that don't talk, or one
 - 59 products checked; the best do two steps
 - JamJam does all four
@@ -98,15 +98,15 @@ JamJam reads before it asks. Whatever it finds on your site, you just confirm. I
 
 Why now? AI made content free, so trust is the scarce thing. Americans reported losing three and a half billion dollars to imposters last year, nearly a billion of it to fake businesses. And X has barred apps that reward people for posting.
 
-**6. Why Solana** · 1:21–1:46 · 66 words
+**6. Why Solana** · 1:21–1:46 · 65 words
 
-We don't need a blockchain to write your posts. We need one where trust and money move. Your posts, your ambassadors' approved posts and your AI persona go on an open record any wallet or exchange can check, so a fake stands out. Fans tip creators in USDC, and brands reward real content, disclosed and approved. And AI agents pay per call to use your brand.
+We don't need a blockchain to write your posts. We need one where trust and money move. Your official accounts, posts, ambassadors' posts and AI persona go on an open record any wallet or exchange can check, so a fake stands out. Fans tip creators in USDC, and brands reward real content, disclosed and approved. And AI agents pay per call to use your brand.
 
-**7. Go to market** · 1:46–2:05 · 50 words
+**7. Go to market** · 1:46–2:04 · 50 words
 
 We launch in crypto, where proving it's really you matters most: impersonation there is up fourteen hundred percent. Then every founder who is their own brand. They already pay twenty to forty-nine dollars a month for one AI writing tool, and stitch together three or four. Customer zero is me.
 
-**8. Competition** · 2:05–2:18 · 36 words
+**8. Competition** · 2:04–2:18 · 36 words
 
 We checked fifty-nine products. The best do two of the four steps, so founders stitch tools. JamJam is the only one we found that builds the brand, runs it, proves it and pays for the work.
 
