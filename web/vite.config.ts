@@ -7,9 +7,13 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: { modules: { classNameStrategy: 'non-scoped' } },
-    // axe-core on a full jsdom page (e.g. /system with every workbench example) is slow on shared CI runners.
-    // Measured 2026-10-12 with --reporter=verbose: the slowest test is public.test.tsx "/system ... no axe violations"
-    // at 7.65 s locally (the workbench now renders every example), over the 5 s default; CI runners are slower still.
+    // axe-core on a full jsdom page (/system renders every workbench example) runs close to the 5 s default.
+    // What was measured: the duration of public.test.tsx "/system renders its heading with no axe violations".
+    // - PR #66 CI at 28b524c, 5 s default: 5377 ms, then "Test timed out in 5000ms" and "Axe is already running"
+    //   (https://github.com/DeveloperAlly/solana-hack/actions/runs/38238215773/job/114774045700).
+    // - PR #66 CI at 3b87aa4, this timeout: 4935 ms, passed
+    //   (https://github.com/DeveloperAlly/solana-hack/actions/runs/38240221918/job/114780695574).
+    // 30 s leaves headroom as the workbench grows; the axe queue in src/test/axe.ts stops one slow run cascading.
     testTimeout: 30_000,
   },
 });
