@@ -57,6 +57,16 @@ export type FactDecision = 'accepted' | 'edited' | 'rejected';
 /** A decided fact; `edit` is present only for an edited one. */
 export type FactRecord = { decision: Exclude<FactDecision, 'edited'>; edit?: undefined } | { decision: 'edited'; edit: string };
 
+/**
+ * A gate approval bound to the draft it approved: `fingerprint` is the draft and its inputs (derive.ts gateFingerprint).
+ * When the inputs change after approval (an edited J4 answer, a J3 decision), the fingerprints differ and every screen
+ * treats the gate as pending again. null means reopened, which also hides an approval that came with the data.
+ */
+export interface GateApproval {
+  decision: GateDecision;
+  fingerprint: string;
+}
+
 /** A kit gate on J5 (the `gates` and `kit_sections` rows). */
 export interface JourneyGate {
   id: 'purpose' | 'positioning' | 'voice';
@@ -66,8 +76,8 @@ export interface JourneyGate {
   builtFrom: string;
   /** Facts and answers the draft cites. */
   evidence: JourneyFact[];
-  /** Set when the gate was already approved (who, when, why). */
-  decision?: GateDecision;
+  /** Set when the gate was already approved: the decision (who, when, why) and the fingerprint of what it approved. */
+  approval?: GateApproval;
 }
 
 /** A claim in a draft and the evidence that backs it (J6). */

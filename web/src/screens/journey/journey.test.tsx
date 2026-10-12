@@ -289,8 +289,7 @@ describe('Journey screens: other interactions and states', () => {
     expect(screen.getByRole('heading', { name: 'Kit v1 is approved, but not registered yet' })).toBeInTheDocument();
     expect(screen.getAllByText('Approved')).toHaveLength(3);
     expect(screen.queryByText('Continue without registering')).not.toBeInTheDocument();
-    // Brand-Build is not registered yet (links.test merge order), so this opens the live Brand page until it lands.
-    expect(screen.getByRole('link', { name: 'Review the kit' })).toHaveAttribute('href', '/brand');
+    expect(screen.getByRole('link', { name: 'Review the kit' })).toHaveAttribute('href', path('brandBuild'));
     await click('Retry registration');
     expect(screen.getByText('Not yet · last try just now')).toBeInTheDocument();
   });
@@ -472,6 +471,38 @@ describe('Codex round 2: approvals, retry and the voice choice stay consistent',
     await userEvent.click(within(screen.getByRole('region', { name: 'Voice' })).getByRole('button', { name: 'Change' }));
     expect(button('Retry registration')).toBeDisabled();
     expect(screen.getAllByText('Approve all 3 gates first: 2 of 3 approved.').length).toBeGreaterThan(0);
+  });
+
+  it('approvals loaded with the data go stale like local ones when their inputs change (Codex review on PR #75)', async () => {
+    at('approveKit', 'error');
+    expect(screen.getAllByText('Approved')).toHaveLength(3);
+    expect(button('Retry registration')).toBeEnabled();
+    again('gapsVoice');
+    await userEvent.type(screen.getByLabelText('What can only you do?'), 'Reads first');
+    again('approveKit', 'error');
+    const positioning = screen.getByRole('region', { name: 'Positioning' });
+    expect(within(positioning).getByText(/Its inputs changed since you approved it/)).toBeInTheDocument();
+    expect(button('Retry registration')).toBeDisabled();
+  });
+
+  it('a new round-one voice pick clears the round-two pick, so J4 needs round two again (Codex review on PR #75)', async () => {
+    at('gapsVoice');
+    await finishGapsVoice();
+    expect(button('Review my kit')).toBeEnabled();
+    await click('Back to round 1');
+    await userEvent.click(screen.getByRole('radio', { name: 'A Plainspoken' }));
+    expect(button('Review my kit')).toBeDisabled();
+    await click('Next round');
+    for (const r of screen.getAllByRole('radio')) expect(r).not.toBeChecked();
+  });
+
+  it('J8 shows no first post until J6 approved one, even with kit v1 registered (Codex review on PR #75)', async () => {
+    at('approveKit');
+    for (const b of screen.getAllByRole('button', { name: 'Approve' })) await userEvent.click(b);
+    await click('Approve and register kit v1');
+    again('hub');
+    expect(screen.getByText(/Kit v1 registered · no post yet/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Start: Write your first post' })).toHaveAttribute('href', path('firstPost'));
   });
 
   it('the voice is picks or one sentence, never both', async () => {

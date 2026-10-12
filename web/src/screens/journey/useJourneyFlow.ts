@@ -8,7 +8,7 @@
 import { createStore } from '../../lib/createStore';
 import type { GateDecision } from '../../ui/domain/DecisionGate';
 import { journeySteps, useJourneyHref, type JourneyStepId } from './paths';
-import type { FactDecision, FactRecord } from './types';
+import type { FactDecision, FactRecord, GateApproval } from './types';
 
 export type VoiceRound = 1 | 2;
 
@@ -16,16 +16,6 @@ export type VoiceRound = 1 | 2;
 export type VoiceChoice =
   | { mode: 'picks'; round: VoiceRound; picks: Partial<Record<VoiceRound, string>> }
   | { mode: 'sentence'; sentence: string };
-
-/**
- * A gate approval bound to the draft it approved: `fingerprint` is the draft and its inputs (derive.ts gateFingerprint).
- * When the inputs change after approval (an edited J4 answer, a J3 decision), the fingerprints differ and every screen
- * treats the gate as pending again. null means reopened, which also hides an approval that came with the data.
- */
-export interface GateApproval {
-  decision: GateDecision;
-  fingerprint: string;
-}
 
 /** J2 sign-in as a state machine: a code is accepted only once an email was sent. */
 export type SignInPhase = 'email' | 'sending' | 'code';
@@ -56,7 +46,8 @@ export interface JourneySelections {
   post?: ApprovedPost;
 }
 
-const empty: JourneySelections = {
+/** The selections before anything is chosen (a new visit). */
+export const initialSelections: JourneySelections = {
   site: '',
   signIn: 'email',
   emailSentTo: '',
@@ -69,7 +60,7 @@ const empty: JourneySelections = {
   gateApprovals: {},
 };
 
-const store = createStore<JourneySelections>(empty);
+const store = createStore<JourneySelections>(initialSelections);
 function update(patch: (s: JourneySelections) => Partial<JourneySelections>) {
   store.set(patch(store.read()));
 }
@@ -102,9 +93,16 @@ const actions = {
   setAlternatives: (selected: string[]) => update(() => ({ alternatives: selected })),
   addAlternative: (option: string) => update((s) => ({ customAlternatives: [...s.customAlternatives, option], alternatives: [...s.alternatives, option] })),
   setAnswer: (id: string, value: string) => update((s) => ({ answers: { ...s.answers, [id]: value } })),
-  /** A pick switches the voice to picks mode; a sentence held before is dropped. */
+  /**
+   * A pick switches the voice to picks mode; a sentence held before is dropped. A new round-one pick clears round two,
+   * whose paragraphs were written around the old pick (Codex review on PR #75).
+   */
   pickVoice: (round: VoiceRound, value: string) =>
-    update((s) => ({ voice: { mode: 'picks', round, picks: { ...(s.voice.mode === 'picks' ? s.voice.picks : {}), [round]: value } } })),
+    update((s) => {
+      const held = s.voice.mode === 'picks' ? s.voice.picks : {};
+      const kept = round === 1 && held[1] !== value ? {} : held;
+      return { voice: { mode: 'picks', round, picks: { ...kept, [round]: value } } };
+    }),
   setVoiceRound: (round: VoiceRound) => update((s) => ({ voice: { mode: 'picks', round, picks: s.voice.mode === 'picks' ? s.voice.picks : {} } })),
   /** One sentence replaces any picks. */
   setVoiceSentence: (sentence: string) => update(() => ({ voice: { mode: 'sentence', sentence } })),
@@ -127,6 +125,10 @@ export const voiceDone = (s: JourneySelections) => {
   return Boolean(s.answers.edge?.trim() && s.answers.origin?.trim() && voiceSet);
 };
 
+/** The approval that stands for a gate: one made or reopened this visit wins over the one loaded with the data. */
+const approvalOf = (s: JourneySelections, id: string, loaded?: GateApproval): GateApproval | null =>
+  id in s.gateApprovals ? s.gateApprovals[id] : loaded ?? null;
+
 const afterKit = journeySteps.findIndex((x) => x.id === 'approveKit');
 /** Header chip: the step's own, except after J5 while kit v1 is known not to be registered. */
 const kitStatus = (s: JourneySelections, index: number) => (s.kitRegistered === false && index > afterKit ? 'Kit v1 not registered' : journeySteps[index]?.status);
@@ -148,17 +150,17 @@ export function useJourneyFlow(step?: JourneyStepId) {
     stepHref: (i: number): string | undefined => (i < index ? to(journeySteps[i].id) : undefined),
     selections,
     /**
-     * The gate decision every screen shows: the person's approval while its fingerprint still matches the draft's
-     * inputs, else pending (stale); with no action this visit, the one that came with the data (the `gates` row).
+     * The gate decision every screen shows: the approval while its fingerprint still matches the draft's inputs, else
+     * pending (stale). One approval model: an approval made this visit and one loaded with the data (the `gates` row)
+     * are both `{ decision, fingerprint }` and go stale the same way (Codex review on PR #75).
      */
-    gateDecision: (id: string, fingerprint: string, fromData?: GateDecision): GateDecision => {
-      if (!(id in selections.gateApprovals)) return fromData ?? { status: 'pending' };
-      const approval = selections.gateApprovals[id];
+    gateDecision: (id: string, fingerprint: string, loaded?: GateApproval): GateDecision => {
+      const approval = approvalOf(selections, id, loaded);
       return approval && approval.fingerprint === fingerprint ? approval.decision : { status: 'pending' };
     },
-    /** True when the person approved this gate and its inputs changed since. */
-    gateStale: (id: string, fingerprint: string) => {
-      const approval = selections.gateApprovals[id];
+    /** True when the gate was approved (this visit or before) and its inputs changed since. */
+    gateStale: (id: string, fingerprint: string, loaded?: GateApproval) => {
+      const approval = approvalOf(selections, id, loaded);
       return Boolean(approval && approval.fingerprint !== fingerprint);
     },
     actions,

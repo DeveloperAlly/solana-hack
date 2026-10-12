@@ -77,13 +77,22 @@ export function gateView(gate: JourneyGate, s: JourneySelections, voice: GapsVoi
   return { ...gate, evidence, builtFrom: derived.builtFrom, draft: s.gateDrafts[gate.id] ?? derived.draft };
 }
 
-/** J8 as this visit left it: when kit v1 registration failed, the kit is approved but not registered and no post exists yet. */
+/** Whether this visit started a journey (Main, or a step that registers): J8 then reflects it, not its fixture. */
+const journeyActive = (s: JourneySelections) => s.site !== '' || s.kitRegistered !== undefined || s.post !== undefined;
+
+/**
+ * J8 as this visit left it. The kit is pending when its registration failed. The first post counts only once J6
+ * approved one (s.post), never because the kit registered (Codex review on PR #75); without a journey, the fixture.
+ */
 export function hubView(data: HubFirstRunData, s: JourneySelections) {
   const kitPending = s.kitRegistered === false;
-  const postPending = kitPending;
+  const postPending = kitPending || (journeyActive(s) && !s.post);
+  const postRow: Partial<JourneyChecklistEntry> = kitPending
+    ? { label: 'Write your first post', hint: 'drafted once kit v1 is registered', done: false }
+    : { label: 'Write your first post', hint: 'not approved yet', done: false, target: 'firstPost' };
   const pending: Record<'kit' | 'post', Partial<JourneyChecklistEntry> | null> = {
     kit: kitPending ? { label: 'Register kit v1', hint: 'approved; registration did not go through', done: false, target: 'approveKit' } : null,
-    post: postPending ? { label: 'Write your first post', hint: 'drafted once kit v1 is registered', done: false } : null,
+    post: postPending ? postRow : null,
   };
   const checklist = data.checklist.map((item) => ({ ...item, ...(pending[item.id as 'kit' | 'post'] ?? {}) }));
   const unregistered = (row: JourneyRecordRow, isPending: boolean): JourneyRecordRow => (isPending ? { label: row.label, value: 'Not registered yet' } : row);

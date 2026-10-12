@@ -7,7 +7,8 @@
 import type { ApproveKitData } from './types';
 import { facts, ownerAnswer } from './journey.fixtures';
 import { gapsVoiceFixture } from './J4-Gaps-Voice.fixtures';
-import { ALTERNATIVES_ID } from './derive';
+import { ALTERNATIVES_ID, gateFingerprint, gateView } from './derive';
+import { initialSelections } from './useJourneyFlow';
 
 const alternatives = { id: ALTERNATIVES_ID, section: 'Alternatives', status: 'found', statement: 'Pressmaster, Google Pomelli, Canva Brand Kit', note: 'From competitor research (research 10), each with its link.' } as const;
 
@@ -45,6 +46,11 @@ export const approveKitFixture: ApproveKitData = {
 /** Error: all three gates were approved, then registration failed; the kit stays approved (Kit-RegisterFailed). */
 export const approveKitFixtureFailed: ApproveKitData = {
   ...approveKitFixture,
-  gates: approveKitFixture.gates.map((g) => ({ ...g, decision: { status: 'approved', by: '[approver]', at: '[time]' } })),
+  // Each loaded approval carries the fingerprint of the draft it approved (the gate as loaded, before any edit this
+  // visit), so it goes stale like one made here.
+  gates: approveKitFixture.gates.map((g) => ({
+    ...g,
+    approval: { decision: { status: 'approved', by: '[approver]', at: '[time]' }, fingerprint: gateFingerprint(gateView(g, initialSelections, approveKitFixture.voice)) },
+  })),
   registration: { reason: "[Plain-language reason, e.g. \"the network didn't confirm in time\"]", hash: '[sha256 of kit v1]', lastTry: '[time]' },
 };
