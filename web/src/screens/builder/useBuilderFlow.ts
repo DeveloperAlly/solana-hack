@@ -34,7 +34,7 @@ interface StepConfig {
   skip?: string;
 }
 
-type FlowKey = Exclude<BuilderPathKey, 'kitExport' | 'dashboard' | 'dashboardEmpty'>;
+export type FlowKey = Exclude<BuilderPathKey, 'kitExport' | 'dashboard' | 'dashboardEmpty'>;
 
 const p = builderPaths;
 const config: Record<FlowKey, StepConfig> = {
