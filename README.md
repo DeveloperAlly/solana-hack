@@ -54,7 +54,7 @@ npm run lint:tokens    # no raw colours or px; contrast checked for every theme
 npm run dev            # the SPA alone on Vite; API calls fail without the Worker
 ```
 
-To run the app and API together you need a Supabase project with the schema applied: run the migrations in `spec/db/` in order (`001` to `007`). Then put the Worker settings in `web/.dev.vars`: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `OPENROUTER_API_KEY`, `REGISTRAR_KEY`, `RPC_URL` (your own values; never commit them). The SPA reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` at build time, so put those in `web/.env.local`. Then build and serve both from Wrangler:
+To run the app and API together you need a Supabase project with the schema applied: run every migration in `spec/db/` in file order (`001` to the highest number there). Then put the Worker settings in `web/.dev.vars`: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `OPENROUTER_API_KEY`, `REGISTRAR_KEY`, `RPC_URL` (your own values; never commit them). The SPA reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` at build time, so put those in `web/.env.local`. Then build and serve both from Wrangler:
 
 ```sh
 npm run build && npx wrangler dev   # serves dist/ and /api/* on http://localhost:8787

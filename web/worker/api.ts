@@ -107,8 +107,8 @@ export async function ingest(env: Env, brand: Brand, rawUrl: string) {
 /**
  * How long a kit row may stay 'pending' before it is treated as an interrupted request. A registration fetches a
  * blockhash, sends, polls for confirmation for up to 45 s and reads back for up to about 8 s (registry.ts). A blockhash
- * is usable for about 151 blocks, 60 to 90 seconds (Solana docs, "Transaction Confirmation & Expiration"), so after
- * 5 minutes no live request can still be waiting on that transaction.
+ * is usable for about 151 blocks, 60 to 90 seconds (https://solana.com/docs/core/transactions/confirmation, section
+ * "How does transaction expiration work?"), so after 5 minutes no live request can still be waiting on that transaction.
  */
 export const KIT_PENDING_TIMEOUT_MS = 5 * 60 * 1000;
 
