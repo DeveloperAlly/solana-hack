@@ -50,7 +50,7 @@ tags: [adr, product, information-architecture, navigation, ui]
    | **Create** | Content-Dashboard(+Empty), Draft-Review(+Beautified, PolishError), Media-Composer and Media-Review, Claims |
    | **Distribute** | Platforms and Platform-Detail (#82), Distribute-Adapt (new: write once, adapt per platform), Publish-Calendar, Settings-Connections (moved) |
    | **Verify** | Verify-Home (new), Ledger, Verify-1..5, Badge-Embed, Verify-Badge-Landing, Tip-Sheet and Tips-Received (#82), the public check page |
-   | **Grow** | Grow-Home (new), Ambassadors (Amb-*, M-*, seats plus public campaigns), Campaign-v2-1..6 (moved from Create), **Events and Event-Detail (new)**, Influencer-Setup and Influencer-Queue, Partners, Leads, Engage-Queue and Engage-Rules, Referral and Referral-Landing, Invite-Team (#82), Quests (component inventory S8; not drawn on the canvas yet), public **Events-Board and Event-Rating (roadmap)** |
+   | **Grow** | Grow-Home (new), Ambassadors (Amb-*, M-*, seats plus public campaigns), Campaign-v2-1..6 (moved from Create), **Events and Event-Detail (new)**, Influencer-Setup and Influencer-Queue, Partners, Leads, Engage-Queue and Engage-Rules, Referral and Referral-Landing, Invite-Team (#82), Quests (paid community tasks in USDC; component inventory D53, drawn in canvas v24), public **Events-Board and Event-Rating (roadmap)** |
    | **Learn** | Analytics(+Empty), Outcome-Log, Learn-Rules (new: suggested rules) |
    | Utilities | Inbox (Inbox-All, NeedsReply, Connect), Settings (Settings-AI, GetKey, Plan, Pricing, Upgrade) |
 3. **A Post shows the whole loop.** The Post is the core object. Every post card and the Post detail screen carry a six-step **lifecycle strip**:

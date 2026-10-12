@@ -6,7 +6,7 @@ updated: 2026-10-13
 last_edited_by: agent
 tags: [links, wireframes, deck, prd]
 ---
-> **Status: active.** Working links. The wireframe canvas is at v22 (2026-10-13): its pages follow the six-step loop proposed in ADR-012. Pitch deck v2 predates ADR-012 and still tells Build, Run, Prove, Pay.
+> **Status: active.** Working links. The wireframe canvas is at v24 (2026-10-13): its pages follow the six-step loop proposed in ADR-012. Pitch deck v2 predates ADR-012 and still tells Build, Run, Prove, Pay.
 
 # JamJam: working links
 
