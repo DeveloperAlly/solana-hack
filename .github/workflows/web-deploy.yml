@@ -2,7 +2,7 @@ name: web deploy
 on:
   push:
     branches: [main]
-    paths: ['web/**', 'spec/db/**', '.github/workflows/web-deploy.yml']
+    paths: ['web/**', 'spec/db/**', '.github/workflows/web-*.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -11,7 +11,12 @@ concurrency:
   group: web-deploy
   cancel-in-progress: false
 jobs:
+  # Local reusable workflow runs from the same commit as this caller (#114).
+  check:
+    uses: ./.github/workflows/web-ci.yml
+    secrets: inherit
   deploy:
+    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -44,6 +49,7 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
           OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
         run: |
           test -n "$SPIKE_KEYS" || { echo "MISSING: SPIKE_KEYS"; exit 1; }
@@ -57,6 +63,7 @@ jobs:
               // S1-S4 product API: Supabase (auth check + data) and the LLM gateway.
               SUPABASE_URL: process.env.SUPABASE_URL || "", SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY || "",
               SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY || "", OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
+              EXA_API_KEY: process.env.EXA_API_KEY || "",
               OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || "openrouter/free" };
             for (const k of Object.keys(out)) if (!out[k]) { delete out[k]; console.log("not set: " + k); }
             require("fs").writeFileSync(process.env.RUNNER_TEMP + "/worker-secrets.json", JSON.stringify(out), { mode: 0o600 });'
@@ -77,7 +84,9 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/worker-secrets.json"
       - name: Install Chromium for the deployed check
-        run: npx --yes playwright@$(node -p "require('playwright-core/package.json').version") install --with-deps chromium
+        run: |
+          PLAYWRIGHT_VERSION=$(node -p "require('playwright-core/package.json').version")
+          npx --yes "playwright@$PLAYWRIGHT_VERSION" install --with-deps chromium
       - name: Check the deployed site
         env:
           BASE_URL: https://jamjam.tech
@@ -88,7 +97,8 @@ jobs:
           EXPECTED_REGISTRAR: E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG
           SPIKE_KEYS: ${{ secrets.SPIKE_KEYS }}
         run: |
-          export REGISTRAR_KEY=$(node -e 'process.stdout.write(JSON.stringify(JSON.parse(process.env.SPIKE_KEYS).registrar))')
+          REGISTRAR_KEY=$(node -e 'process.stdout.write(JSON.stringify(JSON.parse(process.env.SPIKE_KEYS).registrar))')
+          export REGISTRAR_KEY
           node worker/check-registry.mjs
       - name: Post the registry proof to issue 4
         if: always()

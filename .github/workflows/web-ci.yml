@@ -1,10 +1,8 @@
 name: web CI
 on:
+  workflow_call:
   pull_request:
-    paths: ['web/**', '.github/workflows/web-*.yml']
-  push:
-    branches: [main]
-    paths: ['web/**', '.github/workflows/web-*.yml']
+    paths: ['web/**', 'spec/db/**', '.github/workflows/web-*.yml']
 permissions:
   contents: read
 jobs:
@@ -31,13 +29,15 @@ jobs:
       - run: npm run build
       # S0 proof: token edit changes the page, theme edits reach the shell preview, axe on / and /system.
       - name: Install Chromium
-        run: npx --yes playwright@$(node -p "require('playwright-core/package.json').version") install --with-deps chromium
+        run: |
+          PLAYWRIGHT_VERSION=$(node -p "require('playwright-core/package.json').version")
+          npx --yes "playwright@$PLAYWRIGHT_VERSION" install --with-deps chromium
       - run: npm run proof
       # Gallery and workbench in a real browser: axe with colour contrast on, every registered screen, state and theme.
       - run: npm run check:gallery
       # Names only: confirms every deploy setting exists without printing a value.
       - name: Deploy settings present
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
