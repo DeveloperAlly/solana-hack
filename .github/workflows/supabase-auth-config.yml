@@ -1,0 +1,82 @@
+name: supabase-auth-config
+# Sets the Supabase project's auth config so email sign-in sends a 6-digit code:
+# the Magic Link template carries {{ .Token }}, and the Site URL and redirect allow list point at jamjam.tech.
+#
+# API: PATCH / GET https://api.supabase.com/v1/projects/{ref}/config/auth
+#   (operationIds v1-update-auth-service-config / v1-get-auth-service-config).
+# Field names verified 2026-10-12 against Supabase's Management API OpenAPI spec
+#   (https://api.supabase.com/api/v1, source file
+#   https://github.com/supabase/supabase/blob/master/apps/docs/spec/api_v1_openapi.json,
+#   schema UpdateAuthConfigBody): site_url (string, no commas), uri_allow_list (string),
+#   mailer_subjects_magic_link (string), mailer_templates_magic_link_content (string).
+# Template fields and the curl pattern: https://supabase.com/docs/guides/auth/auth-email-templates
+# OTP needs {{ .Token }} in the Magic Link template: https://supabase.com/docs/guides/auth/auth-email-passwordless
+# ** wildcard in redirect URLs: https://supabase.com/docs/guides/auth/redirect-urls
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE_URL: https://jamjam.tech
+    steps:
+      - name: Check inputs
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo "::error::MISSING secret SUPABASE_ACCESS_TOKEN. Add a Supabase personal access token (https://supabase.com/dashboard/account/tokens) as a repo Actions secret."; exit 1; }
+          test -n "${SUPABASE_URL:-}" || { echo "::error::MISSING variable SUPABASE_URL (the deploy workflow uses it)."; exit 1; }
+          # The project ref is the subdomain of the project API URL, https://<ref>.supabase.co
+          host="${SUPABASE_URL#https://}"; host="${host%%/*}"
+          ref="${host%%.*}"
+          [[ "$host" == *.supabase.co && "$ref" =~ ^[a-z0-9]+$ ]] || { echo "::error::SUPABASE_URL is not https://<ref>.supabase.co"; exit 1; }
+          echo "PROJECT_REF=$ref" >> "$GITHUB_ENV"
+
+      - name: Write the config body
+        run: |
+          set -euo pipefail
+          # Quoted heredoc: the shell expands nothing, so {{ .Token }} reaches Supabase literally.
+          cat > "$RUNNER_TEMP/auth-config.json" <<'JSON'
+          {
+            "site_url": "https://jamjam.tech",
+            "uri_allow_list": "https://jamjam.tech/**",
+            "mailer_subjects_magic_link": "Your JamJam sign-in code",
+            "mailer_templates_magic_link_content": "<h2>Your JamJam sign-in code</h2><p>Enter this code to sign in: <strong>{{ .Token }}</strong></p><p>It expires shortly and works once. If you did not ask for it, ignore this email.</p>"
+          }
+          JSON
+          jq -e '.mailer_templates_magic_link_content | contains("{{ .Token }}")' "$RUNNER_TEMP/auth-config.json" > /dev/null
+
+      - name: Update the auth config
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl -sS --fail-with-body -o /dev/null -w 'PATCH config/auth: HTTP %{http_code}\n' \
+            -X PATCH "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data @"$RUNNER_TEMP/auth-config.json"
+
+      - name: Read back and check
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/auth-config-live.json"
+          trap 'rm -f "$out"' EXIT
+          curl -sS --fail-with-body -o "$out" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+          # Print only the four checked values, never the full config.
+          jq '{site_url, uri_allow_list, mailer_subjects_magic_link,
+               template_has_token: ((.mailer_templates_magic_link_content // "") | contains("{{ .Token }}"))}' "$out"
+          jq -e --arg site "$SITE_URL" '.site_url == $site' "$out" > /dev/null || { echo "::error::site_url is not $SITE_URL"; exit 1; }
+          jq -e '(.mailer_templates_magic_link_content // "") | contains("{{ .Token }}")' "$out" > /dev/null || { echo "::error::Magic Link template has no {{ .Token }}"; exit 1; }
+          jq -e '.uri_allow_list == "https://jamjam.tech/**"' "$out" > /dev/null || { echo "::error::uri_allow_list was not saved as expected"; exit 1; }
+          jq -e '.mailer_subjects_magic_link == "Your JamJam sign-in code"' "$out" > /dev/null || { echo "::error::Magic Link subject was not saved as expected"; exit 1; }
+          echo "Auth config OK"
