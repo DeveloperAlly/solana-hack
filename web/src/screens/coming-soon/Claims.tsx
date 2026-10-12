@@ -17,10 +17,11 @@
 import { useState, type ReactNode } from 'react';
 import { Badge, Button, Text } from '../../ui/primitives';
 import { DataTable } from '../../ui/composites/DataTable';
-import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
+import { SoonPage } from './SoonPage';
 import { SoonInlineForm } from '../../ui/domain/SoonInlineForm';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { tableState } from './tableState';
+import { useSoonSession } from './useSoonSession';
 import { ChipBadge } from './ChipBadge';
 import { claimChips, filterOptionsFrom } from './status';
 import { required } from './validate';
@@ -29,9 +30,11 @@ import type { Claim, ClaimStatus, ClaimsData } from './types';
 const filterOptions = filterOptionsFrom(claimChips);
 
 export function Claims({ data, state = 'success' }: { data: ClaimsData; state?: ScreenState }) {
-  const [rows, setRows] = useState<Claim[]>(data.claims);
+  const [session, set] = useSoonSession();
+  // Claim edits (here or from Media-Review "Add a source") are session state over the fixture rows.
+  const rows = data.claims.map((c) => ({ ...c, ...session.claims?.[c.id] }));
   const [evidenceFor, setEvidenceFor] = useState<string | null>(null);
-  const patch = (id: string, p: Partial<Claim>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...p } : r)));
+  const patch = (id: string, p: Partial<Claim>) => set({ claims: { ...session.claims, [id]: { ...session.claims?.[id], ...p } } });
   // INTEGRATION: PATCH …/claims/:id; Register -> the Registrar's SAS claim attestation (backend map "Claims").
   const actionFor: Record<ClaimStatus, (c: Claim) => ReactNode> = {
     approved: (c) => (c.registered ? <Badge tone="solid">Registered</Badge> : <Button variant="secondary" aria-label={`Register ${c.text}`} onClick={() => patch(c.id, { registered: true })}>Register</Button>),
@@ -43,7 +46,7 @@ export function Claims({ data, state = 'success' }: { data: ClaimsData; state?: 
     setEvidenceFor(null);
   };
   return (
-    <SoonHubFrame header={{ title: 'Claims', intro: 'Every factual claim your posts may make, with its evidence, an owner and an expiry.', definedIn: 'component inventory D19 ClaimTable, D14; screen map row Claims / Claims-Empty' }}>
+    <SoonPage header={{ title: 'Claims', intro: 'Every factual claim your posts may make, with its evidence, an owner and an expiry.', definedIn: 'component inventory D19 ClaimTable, D14; screen map row Claims / Claims-Empty' }}>
       <DataTable<Claim>
         caption="Claims"
         hideCaption
@@ -72,6 +75,6 @@ export function Claims({ data, state = 'success' }: { data: ClaimsData; state?: 
         />
       )}
       <Text variant="small" tone="secondary">Drafts may only make approved, unexpired claims. Expired or pending claims are blocked before you see a draft.</Text>
-    </SoonHubFrame>
+    </SoonPage>
   );
 }

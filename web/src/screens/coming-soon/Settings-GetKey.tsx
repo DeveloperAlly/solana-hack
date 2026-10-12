@@ -15,10 +15,11 @@
 import { useState } from 'react';
 import { Alert, Badge, Button, Grid, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
-import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
+import { SoonPage } from './SoonPage';
 import { SoonInlineForm } from '../../ui/domain/SoonInlineForm';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { StateView } from './StateView';
+import { useSoonSession } from './useSoonSession';
 import { useSoonRoutes } from './routes';
 import { required } from './validate';
 import type { SettingsGetKeyData } from './types';
@@ -35,8 +36,19 @@ export function SettingsGetKey({ data, state = 'success' }: { data: SettingsGetK
   const routes = useSoonRoutes();
   const [outcome, setOutcome] = useState<Outcome>(state === 'error' ? 'failed' : 'none');
   const banner = alerts(data.keyError)[outcome];
+  const [, set] = useSoonSession();
+  const connect = () => {
+    set({ openRouter: 'connected' });
+    setOutcome('connected');
+  };
+  // Only the last 4 characters are kept, as the stored-key row shows (never the key itself).
+  const save = (v: Record<string, string>) => {
+    if (state === 'error') return setOutcome('failed');
+    set({ aiKey: { last4: v.key.slice(-4) } });
+    setOutcome('saved');
+  };
   return (
-    <SoonHubFrame
+    <SoonPage
       header={{
         title: 'Get an AI key in a minute',
         intro: 'One button connects your OpenRouter account. Prefer to paste a key? You can.',
@@ -50,7 +62,7 @@ export function SettingsGetKey({ data, state = 'success' }: { data: SettingsGetK
           <Card variant="selected" header={<Stack direction="row" gap={2} align="center" wrap><Heading level={2} size="lg">Connect OpenRouter</Heading><Badge tone="solid">Recommended</Badge></Stack>}>
             <Text tone="secondary">{data.connectNote}</Text>
             {/* INTEGRATION: OpenRouter OAuth (PKCE) redirect, then PUT …/ai-settings with the returned key. */}
-            <Button onClick={() => setOutcome('connected')}>Connect OpenRouter</Button>
+            <Button onClick={connect}>Connect OpenRouter</Button>
           </Card>
           <Card header={<Heading level={2} size="lg">Paste a key</Heading>}>
             {/* INTEGRATION: PUT …/ai-settings { key } then the key test; the error state shows the provider message. */}
@@ -58,7 +70,7 @@ export function SettingsGetKey({ data, state = 'success' }: { data: SettingsGetK
               label="Paste a key"
               fields={[{ name: 'key', label: 'API key', type: 'password', validate: required('your API key') }]}
               submitLabel="Save and test"
-              onSubmit={() => setOutcome(state === 'error' ? 'failed' : 'saved')}
+              onSubmit={save}
             />
           </Card>
         </Grid>
@@ -66,6 +78,6 @@ export function SettingsGetKey({ data, state = 'success' }: { data: SettingsGetK
           <Text>{data.whyOwnKey}</Text>
         </Card>
       </StateView>
-    </SoonHubFrame>
+    </SoonPage>
   );
 }

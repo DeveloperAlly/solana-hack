@@ -10,6 +10,8 @@ export interface SoonPlanTierProps {
   features: string;
   cta: string;
   href: string;
+  /** Called when the call to action is followed (records the choice). */
+  onChoose?: () => void;
   /** Source note, e.g. a market band from research. */
   note?: string;
   /** The highlighted tier. */
@@ -19,7 +21,7 @@ export interface SoonPlanTierProps {
 }
 
 /** Pricing tier card (canvas Pricing): name, price, what is included, a call to action and an optional note. */
-export function SoonPlanTier({ name, price, features, cta, href, note, featured = false, level = 2 }: SoonPlanTierProps) {
+export function SoonPlanTier({ name, price, features, cta, href, note, onChoose, featured = false, level = 2 }: SoonPlanTierProps) {
   const id = useId();
   return (
     <Card as="section" labelledBy={id} variant={featured ? 'selected' : 'default'}>
@@ -27,7 +29,7 @@ export function SoonPlanTier({ name, price, features, cta, href, note, featured 
         <Heading level={level} size="xl" id={id}>{name}</Heading>
         <Text variant="label">{price}</Text>
         <Text tone="secondary">{features}</Text>
-        <Button href={href} variant={featured ? 'primary' : 'secondary'}>{cta}</Button>
+        <Button href={href} onClick={onChoose} variant={featured ? 'primary' : 'secondary'}>{cta}</Button>
         {note && <Text variant="caption" tone="secondary">{note}</Text>}
       </Stack>
     </Card>

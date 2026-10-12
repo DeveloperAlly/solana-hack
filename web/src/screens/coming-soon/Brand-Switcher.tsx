@@ -14,15 +14,16 @@
  *
  * States: success, loading.
  */
-import { useState } from 'react';
 import { Badge, Button } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
-import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
+import { SoonPage } from './SoonPage';
 import { SoonAddForm } from '../../ui/domain/SoonAddForm';
 import { SoonStatusList } from '../../ui/domain/SoonStatusList';
 import { SoonStatusRow } from '../../ui/domain/SoonStatusRow';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
+import { uniqueId } from '../../lib/id';
 import { StateView } from './StateView';
+import { useSoonSession } from './useSoonSession';
 import { useSoonRoutes } from './routes';
 import { soonStatus } from './status';
 import { domain, required } from './validate';
@@ -30,8 +31,11 @@ import type { BrandSwitcherData, StatusRowItem } from './types';
 
 export function BrandSwitcherScreen({ data, state = 'success' }: { data: BrandSwitcherData; state?: ScreenState }) {
   const routes = useSoonRoutes();
-  const [brands, setBrands] = useState<StatusRowItem[]>(data.brands);
-  const [current, setCurrent] = useState(data.currentId);
+  const [session, set] = useSoonSession();
+  // The current brand and added brands are session state, shared with the hub frame's switcher on every screen.
+  const brands = [...data.brands, ...(session.addedBrands ?? [])];
+  const current = session.brandId ?? data.currentId;
+  const setCurrent = (brandId: string) => set({ brandId });
   const actionFor = (b: StatusRowItem) => {
     if (b.id === current) return <Badge tone="solid">Current</Badge>;
     if (b.id === data.founderId) return <Button href={routes.founderProfile} variant="secondary" aria-label={`Open ${b.name}`}>Open</Button>;
@@ -40,10 +44,10 @@ export function BrandSwitcherScreen({ data, state = 'success' }: { data: BrandSw
   };
   // INTEGRATION: POST /api/brands { name, domain }; a new brand is self-declared until its domain is verified.
   const add = (v: Record<string, string>) => {
-    setBrands((bs) => [...bs, { id: `brand-${bs.length + 1}`, name: v.name, detail: v.domain, status: 'self-declared' }]);
+    set({ addedBrands: [...(session.addedBrands ?? []), { id: uniqueId('brand'), name: v.name, detail: v.domain, status: 'self-declared' }] });
   };
   return (
-    <SoonHubFrame header={{ title: 'Your brands', intro: 'Switch brand, or add another. Each brand has its own kit, posts and record.', definedIn: 'component inventory D48 BrandSwitcher, D36; architecture §3 (Brand, founder link)' }}>
+    <SoonPage header={{ title: 'Your brands', intro: 'Switch brand, or add another. Each brand has its own kit, posts and record.', definedIn: 'component inventory D48 BrandSwitcher, D36; architecture §3 (Brand, founder link)' }}>
       <StateView state={state} loading={{ title: 'Loading your brands', body: 'Reading the brands on your account.' }}>
         <Card>
           <SoonStatusList label="Brands">
@@ -63,6 +67,6 @@ export function BrandSwitcherScreen({ data, state = 'success' }: { data: BrandSw
           onSubmit={add}
         />
       </StateView>
-    </SoonHubFrame>
+    </SoonPage>
   );
 }

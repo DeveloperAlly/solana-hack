@@ -16,13 +16,14 @@
 import { useState } from 'react';
 import { Alert, Button, Heading, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
-import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
+import { SoonPage } from './SoonPage';
 import { SoonInlineForm } from '../../ui/domain/SoonInlineForm';
 import { SoonStatusList } from '../../ui/domain/SoonStatusList';
 import { SoonStatusRow } from '../../ui/domain/SoonStatusRow';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { SettingsNav } from './SettingsNav';
 import { StateView } from './StateView';
+import { useSoonSession } from './useSoonSession';
 import { useSoonRoutes } from './routes';
 import { soonStatus } from './status';
 import { httpsUrl } from './validate';
@@ -32,24 +33,30 @@ type TestResult = 'none' | 'ok' | 'failed';
 
 export function SettingsAI({ data, state = 'success' }: { data: SettingsAIData; state?: ScreenState }) {
   const routes = useSoonRoutes();
-  const [sources, setSources] = useState<StatusRowItem[]>(data.sources);
-  const [storedKey, setStoredKey] = useState(data.storedKey);
+  const [session, set] = useSoonSession();
+  // Fixtures are defaults; what was changed here or on Settings-GetKey (session) wins.
+  const sources = data.sources.map((r): StatusRowItem => {
+    if (r.id === 'openrouter' && session.openRouter) return { ...r, status: session.openRouter };
+    if (r.id === 'endpoint' && session.endpoint) return { ...r, detail: session.endpoint, status: 'connected' };
+    return r;
+  });
+  const storedKey = session.aiKey === undefined ? data.storedKey : session.aiKey && { last4: session.aiKey.last4, addedOn: '[date]' };
   const [adding, setAdding] = useState(false);
   const [test, setTest] = useState<TestResult>(state === 'error' ? 'failed' : 'none');
 
   const actionFor = (row: StatusRowItem) => {
-    if (row.id === 'openrouter') return <Button href={routes.settingsGetKey} variant="secondary">Connect OpenRouter</Button>;
+    if (row.id === 'openrouter' && row.status !== 'connected') return <Button href={routes.settingsGetKey} variant="secondary">Connect OpenRouter</Button>;
     if (row.id === 'endpoint' && row.status === 'not-set') return <Button variant="secondary" onClick={() => setAdding(true)}>Add endpoint</Button>;
     return null;
   };
   // INTEGRATION: PUT …/ai-settings { endpoint } (backend map "Settings › AI").
   const saveEndpoint = (v: Record<string, string>) => {
-    setSources((rows) => rows.map((r) => (r.id === 'endpoint' ? { ...r, detail: v.url, status: 'connected' } : r)));
+    set({ endpoint: v.url });
     setAdding(false);
   };
 
   return (
-    <SoonHubFrame header={{ title: 'Settings', intro: 'Which AI model writes for you, and whose key pays for it.', definedIn: 'component inventory D54; backend map, Settings › AI; delivery plan Phase 1' }} nav={<SettingsNav value="ai" />}>
+    <SoonPage header={{ title: 'Settings', intro: 'Which AI model writes for you, and whose key pays for it.', definedIn: 'component inventory D54; backend map, Settings › AI; delivery plan Phase 1' }} nav={<SettingsNav value="ai" />}>
       <StateView state={state} loading={{ title: 'Loading AI settings', body: 'Reading your model sources and key.' }}>
         <Card header={<Heading level={2} size="lg">Model source, in order</Heading>}>
           <SoonStatusList label="Model sources">
@@ -73,7 +80,7 @@ export function SettingsAI({ data, state = 'success' }: { data: SettingsAIData; 
                 {/* INTEGRATION: PUT …/ai-settings key test (OpenRouter, Anthropic or OpenAI). */}
                 <Button variant="secondary" onClick={() => setTest(state === 'error' ? 'failed' : 'ok')}>Test key</Button>
                 <Button href={routes.settingsGetKey} variant="secondary">Replace</Button>
-                <Button variant="secondary" onClick={() => { setStoredKey(null); setTest('none'); }}>Remove</Button>
+                <Button variant="secondary" onClick={() => { set({ aiKey: null }); setTest('none'); }}>Remove</Button>
               </Stack>
               {test === 'ok' && <Alert tone="success" title="That key works." />}
               {test === 'failed' && <Alert tone="danger" title={data.keyError} />}
@@ -87,6 +94,6 @@ export function SettingsAI({ data, state = 'success' }: { data: SettingsAIData; 
           <Text>{data.usage.calls} calls · estimated spend {data.usage.spend} on your key</Text>
         </Card>
       </StateView>
-    </SoonHubFrame>
+    </SoonPage>
   );
 }

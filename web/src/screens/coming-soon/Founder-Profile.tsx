@@ -17,10 +17,11 @@ import { useState } from 'react';
 import { Button, Heading, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { CheckboxRow } from '../../ui/composites/CheckboxRow';
-import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
+import { SoonPage } from './SoonPage';
 import { SoonAddForm } from '../../ui/domain/SoonAddForm';
 import { SoonStatusList } from '../../ui/domain/SoonStatusList';
 import { SoonStatusRow } from '../../ui/domain/SoonStatusRow';
+import { uniqueId } from '../../lib/id';
 import { useSoonRoutes } from './routes';
 import { soonStatus } from './status';
 import { required } from './validate';
@@ -31,10 +32,10 @@ export function FounderProfile({ data }: { data: FounderProfileData }) {
   const [sources, setSources] = useState<StatusRowItem[]>(data.sources);
   const [shared, setShared] = useState(data.sharedStories);
   // INTEGRATION: POST /api/brands/:id/sources (person kit); DELETE …/sources/:id to remove.
-  const add = (v: Record<string, string>) => setSources((s) => [...s, { id: `src-${s.length + 1}`, name: v.name, detail: v.detail || undefined, status: 'uploaded' }]);
+  const add = (v: Record<string, string>) => setSources((s) => [...s, { id: uniqueId('src'), name: v.name, detail: v.detail || undefined, status: 'uploaded' }]);
   const remove = (id: string) => setSources((s) => s.filter((x) => x.id !== id));
   return (
-    <SoonHubFrame header={{ title: `Founder profile: ${data.name}`, intro: 'A person’s own kit, linked to the company. Shares the story bank; keeps its own voice.', definedIn: 'architecture §3 (Person, founder link) and §12.1 step 2a (proposed)' }}>
+    <SoonPage header={{ title: `Founder profile: ${data.name}`, intro: 'A person’s own kit, linked to the company. Shares the story bank; keeps its own voice.', definedIn: 'architecture §3 (Person, founder link) and §12.1 step 2a (proposed)' }}>
       <Card header={<Heading level={2} size="lg">Sources</Heading>}>
         {sources.length === 0 && <Text tone="secondary">No sources yet. Add a CV or a LinkedIn export to start this kit.</Text>}
         <SoonStatusList label="Sources">
@@ -60,6 +61,6 @@ export function FounderProfile({ data }: { data: FounderProfileData }) {
         <CheckboxRow label="Stories you approve can be used by both kits." checked={shared} onChange={(e) => setShared(e.target.checked)} />
         <Text variant="small" tone="secondary" role="status">{shared ? 'Approved stories are shared with the linked brand kit.' : 'Stories stay in this profile only.'}</Text>
       </Card>
-    </SoonHubFrame>
+    </SoonPage>
   );
 }

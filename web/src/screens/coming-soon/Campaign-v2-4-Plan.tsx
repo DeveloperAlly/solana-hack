@@ -31,6 +31,7 @@ export function CampaignPlan({ data, state = 'success' }: { data: CampaignPlanDa
   const remove = (id: string) => update({ removedPlanItems: [...removed, id] });
   const canContinue = () => {
     setError(rows.length === 0);
+    if (rows.length > 0) update({ planDays: rows.map((r) => r.day) });
     return rows.length > 0;
   };
   return (

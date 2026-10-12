@@ -28,7 +28,8 @@ export function CampaignAudience({ data, state = 'success' }: { data: CampaignAu
   // Nothing is pre-checked: Continue stays disabled until the person picks a segment (review finding).
   const chosen = draft.audience ?? [];
   const toggle = (id: string, on: boolean) => {
-    update({ audience: on ? [...chosen, id] : chosen.filter((x) => x !== id) });
+    const audience = on ? [...chosen, id] : chosen.filter((x) => x !== id);
+    update({ audience, audienceNames: data.segments.filter((s) => audience.includes(s.id)).map((s) => s.label) });
   };
   const isEmpty = state === 'empty' || data.segments.length === 0;
   return (

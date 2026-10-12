@@ -16,7 +16,7 @@
  */
 import { Text } from '../../ui/primitives';
 import { DataTable } from '../../ui/composites/DataTable';
-import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
+import { SoonPage } from './SoonPage';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { tableState } from './tableState';
 import { ChipBadge } from './ChipBadge';
@@ -27,7 +27,7 @@ const filterOptions = filterOptionsFrom(fitChips);
 
 export function OutcomeLog({ data, state = 'success' }: { data: OutcomeLogData; state?: ScreenState }) {
   return (
-    <SoonHubFrame header={{ title: 'What came in', intro: 'Inbound you can trace to your posts, qualified against your audience, through to the outcome.', definedIn: 'canvas board Outcome-Log; no backend row yet (proposed in issue #51)' }}>
+    <SoonPage header={{ title: 'What came in', intro: 'Inbound you can trace to your posts, qualified against your audience, through to the outcome.', definedIn: 'canvas board Outcome-Log; no backend row yet (proposed in issue #51)' }}>
       {/* INTEGRATION: no endpoint yet (issue #51); rows will come from leads plus registrations attribution. */}
       <DataTable<Outcome>
         caption="Inbound and outcomes"
@@ -48,6 +48,6 @@ export function OutcomeLog({ data, state = 'success' }: { data: OutcomeLogData; 
         error={<Text tone="danger">Could not load the outcome log. Try again in a minute.</Text>}
       />
       <Text variant="small" tone="secondary">No third-party personal data is stored: roles and company types only.</Text>
-    </SoonHubFrame>
+    </SoonPage>
   );
 }

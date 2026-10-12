@@ -41,6 +41,7 @@ export interface SettingsConnectionsData {
 export interface Invoice { id: string; date: Bracketed; amount: Bracketed }
 export interface SettingsPlanData {
   plan: Bracketed;
+  planNames: PlanNames;
   seats: Bracketed;
   nextBill: Bracketed;
   billingProvider: string;
@@ -57,10 +58,16 @@ export interface PlanTier {
   /** Market band note from research 10 §6, where the canvas gives one. */
   note?: string;
 }
+export type PaidPlan = Exclude<PlanTier['id'], 'free'>;
+/** Paid tier names (canvas Pricing), shown on Upgrade and Settings-Plan for the plan chosen on Pricing. */
+export type PlanNames = Record<PaidPlan, string>;
 export interface PricingData { tiers: PlanTier[]; footnote: string }
+export interface UpgradeTier { name: string; price: Bracketed }
 export interface UpgradeData {
-  planName: string;
-  price: Bracketed;
+  /** Checkout data per paid tier; the tier chosen on Pricing (session) picks one. */
+  tiers: Record<PaidPlan, UpgradeTier>;
+  /** The tier shown when none was chosen on Pricing in this session. */
+  defaultPlan: PaidPlan;
   cardForm: string;
   keepNote: string;
   failure: string;
@@ -73,7 +80,7 @@ export interface MediaFormat { id: MediaKind; label: string; slides: Slide[]; hi
 export interface ExportOption { value: string; label: string; /** What choosing it produces, shown once chosen. */ detail: string }
 export interface MediaComposerData { formats: MediaFormat[]; exportOptions: ExportOption[] }
 export type CheckResult = 'backed' | 'unsupported' | 'passed';
-export interface SlideCheck { id: string; slide: number; text: string; claims: CheckResult; slop: CheckResult; alt: Bracketed }
+export interface SlideCheck { id: string; slide: number; text: string; claims: CheckResult; slop: CheckResult; alt: Bracketed; /** The Claims row this slide's claim maps to. */ claimId?: string }
 export interface MediaReviewData { checks: SlideCheck[] }
 
 /* Campaign v2 (steps 2, 4, 5, 6 on this page; 1 and 3 on Superhub) */

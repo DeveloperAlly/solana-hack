@@ -1,13 +1,16 @@
 // Sample data for Pricing. Source: wireframe canvas (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn), board Pricing,
 // issue #51; backend map G-BILLING (provider not chosen). Prices stay bracketed: the owner has not decided them (issue #51).
 // The market band note is the canvas text, citing .agentic/what/context/research/10_competitor_onboarding_pricing.md §6.
-import type { PricingData } from './types';
+import type { PlanNames, PricingData } from './types';
+
+/** The paid tier names, from the tiers below; Upgrade and Settings-Plan show them for the chosen plan. */
+export const planNames: PlanNames = { solo: 'Solo', team: 'Team' };
 
 export const pricing: PricingData = {
   tiers: [
     { id: 'free', name: 'Free', price: '$0', features: 'Brand kit v1, registered · [n] posts a month · Verify and Ledger', cta: 'Start free' },
-    { id: 'solo', name: 'Solo', price: '[price] / month', features: 'Unlimited drafts · publishing · media · claims table', cta: 'Choose Solo', note: 'Market band for solo AI tools: $29–49 a month (research 10 §6)' },
-    { id: 'team', name: 'Team', price: '[price] / month', features: 'Seats and roles · approvals · ambassador campaigns', cta: 'Choose Team' },
+    { id: 'solo', name: planNames.solo, price: '[price] / month', features: 'Unlimited drafts · publishing · media · claims table', cta: 'Choose Solo', note: 'Market band for solo AI tools: $29–49 a month (research 10 §6)' },
+    { id: 'team', name: planNames.team, price: '[price] / month', features: 'Seats and roles · approvals · ambassador campaigns', cta: 'Choose Team' },
   ],
   footnote: 'No card to start. No wallet, ever. [Annual discount, if any]',
 };

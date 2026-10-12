@@ -34,7 +34,9 @@ export function CampaignLaunch({ data, state = 'success' }: { data: CampaignLaun
   const [launched, setLaunched] = useState(false);
   const blocked = state === 'error' || data.overBalance;
   const cap = `${draft.cap ?? data.cap} USDC`;
-  const audience = draft.audience ? `${draft.audience.length} segment(s) chosen` : data.audience;
+  // What was chosen on earlier steps (useCampaignFlow) replaces the fixture values.
+  const audience = draft.audienceNames?.join(', ') || data.audience;
+  const plan = draft.planDays ? `${data.plan} · days: ${draft.planDays.join(', ')}` : data.plan;
   // INTEGRATION: POST …/launch; the server re-checks the cap against the wallet balance.
   const launch = () => {
     setLaunched(true);
@@ -61,7 +63,7 @@ export function CampaignLaunch({ data, state = 'success' }: { data: CampaignLaun
               { label: 'Goal', value: data.goal },
               { label: 'Audience', value: audience },
               { label: 'Main metric', value: data.metric },
-              { label: 'Content plan', value: data.plan },
+              { label: 'Content plan', value: plan },
               { label: 'Spending cap', value: cap },
             ]}
           />

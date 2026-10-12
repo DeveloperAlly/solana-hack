@@ -8,6 +8,8 @@ import { MemoryRouter, Route, Routes, useLocation, useParams, useSearchParams } 
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { screens } from './registry';
 import { resetCampaignDraft } from './useCampaignFlow';
+import { resetMediaDraft } from './useMediaFlow';
+import { soonSession } from './useSoonSession';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
 
@@ -40,6 +42,8 @@ const h1 = (name: string | RegExp) => screen.getByRole('heading', { level: 1, na
 let fetchSpy: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   resetCampaignDraft();
+  resetMediaDraft();
+  soonSession.reset();
   fetchSpy = vi.fn(() => { throw new Error('no network in the gallery'); });
   vi.stubGlobal('fetch', fetchSpy);
 });
@@ -150,11 +154,11 @@ describe('Pricing to paid', () => {
     await user.click(screen.getByRole('link', { name: 'Choose Solo' }));
     expect(h1('Upgrade to Solo')).toBeInTheDocument();
     await user.type(screen.getByLabelText('Billing email'), 'nope');
-    await user.click(screen.getByRole('button', { name: 'Pay [price] and upgrade' }));
+    await user.click(screen.getByRole('button', { name: 'Pay [Solo price] and upgrade' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Enter an email address');
     await user.clear(screen.getByLabelText('Billing email'));
     await user.type(screen.getByLabelText('Billing email'), 'owner@example.com');
-    await user.click(screen.getByRole('button', { name: 'Pay [price] and upgrade' }));
+    await user.click(screen.getByRole('button', { name: 'Pay [Solo price] and upgrade' }));
     expect(screen.getByRole('heading', { name: "You're on Solo" })).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'See your plan' }));
     expect(screen.getByRole('heading', { name: 'Invoices' })).toBeInTheDocument();
@@ -249,7 +253,8 @@ describe('Campaign v2 flow (steps 2, 4, 5, 6 here; 1 and 3 on Superhub)', () => 
 
     const summary = screen.getByLabelText('Campaign summary');
     expect(within(summary).getByText('300 USDC')).toBeInTheDocument();
-    expect(within(summary).getByText('1 segment(s) chosen')).toBeInTheDocument();
+    expect(within(summary).getByText('[Audience segment 2]')).toBeInTheDocument();
+    expect(within(summary).getByText('[n] brand posts · [n] ambassador pieces · days: Mon, Wed')).toBeInTheDocument();
     // State machine: steps finished in this session link back from the stepper; the current step does not.
     const stepper = screen.getByRole('list', { name: 'Step 6 of 6' });
     expect(within(stepper).getByRole('link', { name: /People and budget/ })).toHaveAttribute('href', '/screens/Campaign-v2-5-Budget');
@@ -358,5 +363,106 @@ describe('Outcome log', () => {
     await user.click(screen.getByRole('button', { name: 'All' }));
     await user.click(screen.getByRole('button', { name: /Fits your audience/ }));
     expect(screen.getByRole('columnheader', { name: /Fits your audience/ })).toHaveAttribute('aria-sort', 'ascending');
+  });
+});
+
+// Values changed on one screen must show on every later screen; fixtures are only the defaults (coordinator audit,
+// Codex review on PR #79).
+describe('upstream values flow downstream', () => {
+  it('Choose Team checks out Team, and the paid plan shows on Settings-Plan', async () => {
+    const user = at('/screens/Pricing');
+    await user.click(screen.getByRole('link', { name: 'Choose Team' }));
+    expect(h1('Upgrade to Team')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Team, monthly' })).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Billing email'), 'owner@example.com');
+    await user.click(screen.getByRole('button', { name: 'Pay [Team price] and upgrade' }));
+    expect(screen.getByRole('heading', { name: "You're on Team" })).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'See your plan' }));
+    expect(screen.getByText('Team')).toBeInTheDocument();
+    expect(screen.queryByText('[Plan name]')).not.toBeInTheDocument();
+  });
+
+  it('composer edits, media type and format reach Media-Review', async () => {
+    const user = at('/screens/Media-Composer');
+    await user.clear(screen.getByLabelText('Slide 1 · Hook text'));
+    await user.type(screen.getByLabelText('Slide 1 · Hook text'), 'Edited hook');
+    await user.click(screen.getByRole('radio', { name: 'Image set' }));
+    await user.click(screen.getByRole('button', { name: 'Check and review' }));
+    expect(h1('Review your carousel')).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Edited hook' })).toBeInTheDocument();
+    expect(screen.getByText('Format: Image set. Exports one image per slide.')).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'Edit slides' }));
+    expect(screen.getByLabelText('Slide 1 · Hook text')).toHaveValue('Edited hook');
+    expect(screen.getByRole('radio', { name: 'Image set' })).toBeChecked();
+    await user.click(screen.getByRole('tab', { name: 'Short video' }));
+    expect(h1('Make a short video')).toBeInTheDocument();
+  });
+
+  it('a source attached on Media-Review approves the claim on Claims', async () => {
+    const user = at('/screens/Media-Review');
+    await user.click(screen.getByRole('button', { name: 'Add a source for slide 3' }));
+    await user.type(screen.getByLabelText(/Evidence URL/), 'https://example.com/brands');
+    await user.click(screen.getByRole('button', { name: 'Attach source' }));
+    cleanup();
+    at('/screens/Claims');
+    expect(screen.getByRole('button', { name: 'Register "[n] brands use JamJam"' })).toBeInTheDocument();
+    expect(screen.getByText('https://example.com/brands')).toBeInTheDocument();
+  });
+
+  it('the brand chosen on Brand-Switcher carries to the hub frame on other screens', async () => {
+    const user = at('/screens/Brand-Switcher');
+    await user.click(screen.getByRole('button', { name: 'Switch to aDNA' }));
+    expect(screen.getByRole('button', { name: 'aDNA, switch brand' })).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'Open [Founder name]' }));
+    expect(screen.getByRole('button', { name: 'aDNA, switch brand' })).toBeInTheDocument();
+  });
+
+  it('a key saved on Settings-GetKey shows on Settings-AI; OpenRouter shows connected', async () => {
+    const user = at('/screens/Settings-GetKey');
+    await user.type(screen.getByLabelText('API key'), 'placeholder-key-1234');
+    await user.click(screen.getByRole('button', { name: 'Save and test' }));
+    await user.click(screen.getByRole('button', { name: 'Connect OpenRouter' }));
+    await user.click(screen.getByRole('link', { name: '← Back to AI settings' }));
+    expect(screen.getByText('Key ending …1234 · added [date]')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Connect OpenRouter' })).not.toBeInTheDocument();
+  });
+
+  it('reconnecting X on Settings-Connections lets the calendar retry the failed post', async () => {
+    const user = at('/screens/Settings-Connections');
+    await user.click(screen.getByRole('button', { name: 'Reconnect X' }));
+    cleanup();
+    const cal = at('/screens/Publish-Calendar');
+    await cal.click(screen.getByRole('button', { name: 'Retry now' }));
+    expect(screen.queryByText(/A post didn't go out/)).not.toBeInTheDocument();
+    expect(screen.getByText('09:00 X · [title]')).toBeInTheDocument();
+  });
+});
+
+describe('review fixes (Codex, PR #79)', () => {
+  it('Cancel on the calendar clears the whole selection', async () => {
+    const user = at('/screens/Publish-Calendar');
+    await user.click(screen.getAllByRole('button', { name: '[open slot]' })[0]);
+    await user.click(screen.getByRole('radio', { name: '[approved post 1]' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('radio', { name: '[approved post 1]' })).not.toBeInTheDocument();
+    await user.click(screen.getAllByRole('button', { name: '[open slot]' })[1]);
+    expect(screen.getByRole('radio', { name: '[approved post 1]' })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Schedule here' })).toBeDisabled();
+  });
+
+  it('added sources get unique ids, so removing one never removes another', async () => {
+    const user = at('/screens/Founder-Profile?state=empty');
+    for (const name of ['Talk A', 'Talk B']) {
+      await user.click(screen.getByRole('button', { name: 'Add a source' }));
+      await user.type(screen.getByLabelText('Source'), name);
+      await user.click(screen.getByRole('button', { name: 'Add source' }));
+    }
+    await user.click(screen.getByRole('button', { name: 'Remove Talk A' }));
+    await user.click(screen.getByRole('button', { name: 'Add a source' }));
+    await user.type(screen.getByLabelText('Source'), 'Talk C');
+    await user.click(screen.getByRole('button', { name: 'Add source' }));
+    await user.click(screen.getByRole('button', { name: 'Remove Talk B' }));
+    expect(screen.getByText('Talk C')).toBeInTheDocument();
+    expect(screen.queryByText('Talk B')).not.toBeInTheDocument();
   });
 });

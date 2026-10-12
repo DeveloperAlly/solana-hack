@@ -15,24 +15,21 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Alert, Button, Choice, Stack, Text } from '../../ui/primitives';
 import { Tabs } from '../../ui/composites/Tabs';
-import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
+import { SoonPage } from './SoonPage';
 import { SoonSlideEditor } from '../../ui/domain/SoonSlideEditor';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { StateView } from './StateView';
 import { useSoonRoutes } from './routes';
-import type { MediaComposerData, MediaFormat, MediaKind } from './types';
+import type { MediaComposerData, MediaKind } from './types';
+import { mediaKindTitles, useMediaFlow } from './useMediaFlow';
 
 export function MediaComposer({ data, state = 'success' }: { data: MediaComposerData; state?: ScreenState }) {
   const routes = useSoonRoutes();
   const navigate = useNavigate();
-  const [formats, setFormats] = useState<MediaFormat[]>(data.formats);
-  const [tab, setTab] = useState<MediaKind>('carousel');
-  // No format is pre-selected: the person chooses one before review (review finding: never pre-select).
-  const [exportAs, setExportAs] = useState('');
-  const chosen = data.exportOptions.find((o) => o.value === exportAs);
+  // The draft lives in useMediaFlow so Media-Review renders these edits; no export format is pre-selected.
+  const media = useMediaFlow(data.formats);
+  const { formats, kind: tab, exportAs: chosen } = media;
   const [blocked, setBlocked] = useState(false);
-  const edit = (kind: MediaKind) => (id: string, text: string) =>
-    setFormats((fs) => fs.map((f) => (f.id === kind ? { ...f, slides: f.slides.map((s) => (s.id === id ? { ...s, text } : s)) } : f)));
   // INTEGRATION: PATCH /api/drafts/:id with the slides, then the same checks as a post (Media-Review).
   const review = () => {
     const empty = formats.find((f) => f.id === tab)?.slides.some((s) => s.text.trim() === '');
@@ -40,7 +37,7 @@ export function MediaComposer({ data, state = 'success' }: { data: MediaComposer
     if (!empty) navigate(routes.mediaReview);
   };
   return (
-    <SoonHubFrame header={{ title: 'Make a carousel', intro: 'Carousels, image cards and short videos from your kit, in your look.', definedIn: 'canvas board Media-Composer; no backend row yet (proposed in issue #51)' }}>
+    <SoonPage header={{ title: mediaKindTitles[tab], intro: 'Carousels, image cards and short videos from your kit, in your look.', definedIn: 'canvas board Media-Composer; no backend row yet (proposed in issue #51)' }}>
       <StateView
         state={state}
         loading={{ title: 'Drafting slides', body: 'Writing each slide from the post, in your voice.' }}
@@ -50,25 +47,25 @@ export function MediaComposer({ data, state = 'success' }: { data: MediaComposer
         <Tabs
           label="Media type"
           value={tab}
-          onChange={(id) => setTab(id as MediaKind)}
+          onChange={(id) => media.setKind(id as MediaKind)}
           items={formats.map((f) => ({
             id: f.id,
             label: f.label,
             panel: (
               <Stack gap={3}>
-                <SoonSlideEditor label={`${f.label} slides`} slides={f.slides} onChange={edit(f.id)} />
+                <SoonSlideEditor label={`${f.label} slides`} slides={f.slides} onChange={(id, text) => media.editSlide(f.id, id, text)} />
                 <Text variant="small" tone="secondary">{f.hint}</Text>
               </Stack>
             ),
           }))}
         />
-        <Choice legend="Format" options={data.exportOptions} value={exportAs} onChange={setExportAs} />
+        <Choice legend="Format" options={data.exportOptions} value={chosen?.value ?? ''} onChange={(v) => media.setExportAs(data.exportOptions.find((o) => o.value === v))} />
         <Text variant="small" tone="secondary" role="status">{chosen ? chosen.detail : 'Choose a format to continue.'}</Text>
         {blocked && <Alert tone="danger" title="Every slide needs text before review." />}
         <Stack direction="row" gap={3} wrap>
           <Button onClick={review} disabled={!chosen}>Check and review</Button>
         </Stack>
       </StateView>
-    </SoonHubFrame>
+    </SoonPage>
   );
 }

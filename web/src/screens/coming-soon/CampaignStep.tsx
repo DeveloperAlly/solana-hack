@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Button } from '../../ui/primitives';
 import { WizardLayout } from '../../ui/layouts/WizardLayout';
-import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
+import { SoonPage } from './SoonPage';
 import { useCampaignFlow, type CampaignStepId } from './useCampaignFlow';
 
 export interface CampaignStepProps {
@@ -29,7 +29,7 @@ export function CampaignStep({ step, pageTitle, title, intro, definedIn, onConti
     flow.next();
   };
   return (
-    <SoonHubFrame header={{ title: pageTitle, definedIn }}>
+    <SoonPage header={{ title: pageTitle, definedIn }}>
       <WizardLayout
         steps={flow.steps}
         current={flow.current}
@@ -47,6 +47,6 @@ export function CampaignStep({ step, pageTitle, title, intro, definedIn, onConti
       >
         {children}
       </WizardLayout>
-    </SoonHubFrame>
+    </SoonPage>
   );
 }

@@ -16,12 +16,16 @@ import { PublicShell } from '../../ui/shells/PublicShell';
 import { SoonPageHeader } from '../../ui/domain/SoonPageHeader';
 import { SoonPlanTier } from '../../ui/domain/SoonPlanTier';
 import { useSoonRoutes, type SoonRoute } from './routes';
-import type { PlanTier, PricingData } from './types';
+import type { PaidPlan, PlanTier, PricingData } from './types';
+import { useSoonSession } from './useSoonSession';
 
+const isPaid = (id: PlanTier['id']): id is PaidPlan => id !== 'free';
 const tierRoute: Record<PlanTier['id'], SoonRoute> = { free: 'main', solo: 'upgrade', team: 'upgrade' };
 
 export function Pricing({ data }: { data: PricingData }) {
   const routes = useSoonRoutes();
+  const [, set] = useSoonSession();
+  const choose = (plan: PaidPlan) => () => set({ plan, paid: false });
   return (
     <PublicShell>
       <Container width="app">
@@ -33,7 +37,7 @@ export function Pricing({ data }: { data: PricingData }) {
           />
           <Grid min="md" gap={5}>
             {data.tiers.map((t) => (
-              <SoonPlanTier key={t.id} name={t.name} price={t.price} features={t.features} cta={t.cta} note={t.note} href={routes[tierRoute[t.id]]} featured={t.id === 'solo'} />
+              <SoonPlanTier key={t.id} name={t.name} price={t.price} features={t.features} cta={t.cta} note={t.note} href={routes[tierRoute[t.id]]} onChoose={isPaid(t.id) ? choose(t.id) : undefined} featured={t.id === 'solo'} />
             ))}
           </Grid>
           <Text tone="secondary">{data.footnote}</Text>

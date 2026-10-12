@@ -10,42 +10,56 @@
  * | checks[].text    | Slide text                                              | never                 |
  * | checks[].claims  | Claims check: backed by an approved claim, or blocked   | never                 |
  * | checks[].slop    | No-AI-slop check result                                 | never                 |
+ * | checks[].claimId | The claims row behind the slide's claim (Claims shows it approved) | no claim  |
  * | checks[].alt     | Alt text for the slide image                            | "[alt]" until written |
  *
  * States: success (slide 3 blocked until it has a source), loading (checks running), error (checks failed to run).
  */
 import { useState } from 'react';
-import { Alert, Button, Stack } from '../../ui/primitives';
+import { Alert, Button, Stack, Text } from '../../ui/primitives';
 import { DataTable } from '../../ui/composites/DataTable';
 import { StatePanel } from '../../ui/composites/StatePanel';
-import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
+import { SoonPage } from './SoonPage';
 import { SoonInlineForm } from '../../ui/domain/SoonInlineForm';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { useSoonRoutes } from './routes';
 import { tableState } from './tableState';
 import { ChipBadge } from './ChipBadge';
 import { checkChips } from './status';
+import { mediaKindNames, useMediaFlow } from './useMediaFlow';
+import { useSoonSession } from './useSoonSession';
 import { httpsUrl } from './validate';
 import type { MediaReviewData, SlideCheck } from './types';
 
 export function MediaReview({ data, state = 'success' }: { data: MediaReviewData; state?: ScreenState }) {
   const routes = useSoonRoutes();
-  const [checks, setChecks] = useState<SlideCheck[]>(data.checks);
+  const [session, set] = useSoonSession();
+  const media = useMediaFlow();
+  // A slide's claim is backed once its Claims row is approved (here or on Claims).
+  const checks = data.checks.map((c): SlideCheck => ({
+    ...c,
+    // Slide text edited on Media-Composer (useMediaFlow) replaces the fixture text.
+    text: media.editedSlides?.[c.slide - 1]?.text ?? c.text,
+    claims: c.claimId && session.claims?.[c.claimId]?.status === 'approved' ? 'backed' : c.claims,
+  }));
+  const kindLabel = mediaKindNames[media.kind];
   const [fixing, setFixing] = useState<string | null>(null);
   const [approved, setApproved] = useState(false);
   const blocked = checks.filter((c) => c.claims === 'unsupported');
   // INTEGRATION: POST …/claims with the evidence URL, then re-run GET /api/drafts/:id/checks.
-  const addSource = (id: string) => {
-    setChecks((cs) => cs.map((c) => (c.id === id ? { ...c, claims: 'backed' } : c)));
+  const addSource = (checkId: string, url: string) => {
+    const claimId = checks.find((c) => c.id === checkId)?.claimId;
+    if (claimId) set({ claims: { ...session.claims, [claimId]: { ...session.claims?.[claimId], evidence: url, status: 'approved', expires: '[date]' } } });
     setFixing(null);
   };
   return (
-    <SoonHubFrame header={{ title: 'Review your carousel', intro: 'Every slide passes the same checks as a post before you can approve it.', definedIn: 'ChecksPanel D3 in the component inventory; no backend row yet (proposed in issue #51)' }}>
+    <SoonPage header={{ title: `Review your ${kindLabel}`, intro: 'Every slide passes the same checks as a post before you can approve it.', definedIn: 'ChecksPanel D3 in the component inventory; no backend row yet (proposed in issue #51)' }}>
       {approved ? (
         // INTEGRATION: POST /api/drafts/:id/approve, then the Registrar's SAS content attestation.
         <StatePanel kind="success" title="Approved and registered" body="Every slide passed its checks. Anyone can now check this carousel on Verify." actions={<Button href={routes.publishCalendar}>Schedule it</Button>} />
       ) : (
         <Stack gap={4}>
+          {media.exportAs && <Text tone="secondary">Format: {media.exportAs.label}. {media.exportAs.detail}</Text>}
           <DataTable<SlideCheck>
             caption="Checks on every slide"
             columns={[
@@ -66,7 +80,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
               label="Add a source"
               fields={[{ name: 'url', label: 'Evidence URL', type: 'url', hint: 'A page that supports the claim on this slide.', validate: httpsUrl }]}
               submitLabel="Attach source"
-              onSubmit={() => addSource(fixing)}
+              onSubmit={(v) => addSource(fixing, v.url)}
               onCancel={() => setFixing(null)}
             />
           )}
@@ -77,6 +91,6 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
           </Stack>
         </Stack>
       )}
-    </SoonHubFrame>
+    </SoonPage>
   );
 }
