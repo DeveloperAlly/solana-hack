@@ -14,7 +14,7 @@ tags: [demo, script, colosseum]
 
 **Demo brand:** JamJam builds its own brand (compendium §4, decided). One critical path; every wait is cut, and the voice-over says so.
 
-**Voice-over:** 268 words over 3:00, about 110 words a minute, leaving room for the screen.
+**Voice-over:** 272 words over 3:00, about 110 words a minute, leaving room for the screen.
 
 ## 0. Who this is for
 
@@ -175,7 +175,7 @@ Route `/verify (public)` · depends on DEVNET RPC · placeholder: wireframe Veri
 
 **Who cares, and why:** Fans, journalists and exchanges, because fakes and scams cost billions and this lets anyone check a post themselves. Judges, because it is the payoff of putting proof on Solana.
 
-**Say:** Now anyone can check it. Paste the post into Verify: it's ours, confirmed on Solana. Change one word, and it's flagged as not official. That's how a fan spots a fake. And every post we approve sits on a public record anyone can browse.
+**Say:** Now anyone can check it. Paste the post into Verify: it's the exact post we approved, confirmed on Solana. Change one word, and it's flagged as not official. That's how a fan spots a fake. And every post we register sits on a public record anyone can browse.
 
 **Recording:** The result also says the brand name is self-declared (domain proof is next). Don't cover it; the VO stays true.
 
@@ -228,6 +228,6 @@ Route `end card (edited, not app copy)` · depends on NO DEPENDENCY · placehold
 
 **1:35** Now a post. I ask for a LinkedIn launch post, and it writes it in our voice, with the AI clichés already stripped out. Beautify makes it read well on LinkedIn. Now watch: I add a claim we can't back up, used by ten thousand brands. JamJam blocks it. I take it out, approve, register, and it's on Solana.
 
-**2:20** Now anyone can check it. Paste the post into Verify: it's ours, confirmed on Solana. Change one word, and it's flagged as not official. That's how a fan spots a fake. And every post we approve sits on a public record anyone can browse.
+**2:20** Now anyone can check it. Paste the post into Verify: it's the exact post we approved, confirmed on Solana. Change one word, and it's flagged as not official. That's how a fan spots a fake. And every post we register sits on a public record anyone can browse.
 
 **2:50** JamJam: your brand team, in one app. Every post provably yours.
