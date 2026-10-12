@@ -10,7 +10,7 @@ tags: [pitch, script, colosseum]
 
 # Pitch script: JamJam
 
-Total: 472 words, about 2:57 at 160 words a minute.
+Total: 466 words, about 2:55 at 160 words a minute.
 
 ## 1. Dot points per slide
 
@@ -40,48 +40,48 @@ Total: 472 words, about 2:57 at 160 words a minute.
 - Prove: paste any text, the public record answers
 - Email sign-in, no wallet
 
-**5. Why now** (0:59–1:15)
+**5. Why now** (0:59–1:13)
 - Fakes: $3.5B US imposter losses in 2025, ~$1B business impersonators
 - Platforms: X barred apps that reward posting (Jan 2026)
-- Money: first US stablecoin law, GENIUS Act (Jul 2025)
-- Rails: Solana attestations and x402 agent payments (2025)
+- Agents: x402 lets AI agents pay per request; first US stablecoin law (Jul 2025)
+- Copy: some slop patterns 1,000x more frequent in LLM output (Antislop)
 
-**6. Why Solana** (1:15–1:42)
+**6. Why Solana** (1:13–1:40)
 - No blockchain needed to write posts; needed where trust and money move
 - Trust: verified content from you and your ambassadors; verified AI persona
 - Money: USDC tips; rewards for real content, disclosed and approved
 - Monetise your voice: agents pay per call to use your voice and brand; stablecoin plans
 
-**7. Solana integration** (1:42–1:48)
+**7. Solana integration** (1:40–1:46)
 - Today: official records on Solana; email sign-in; live verification
 - Next: verified accounts; ambassador payouts in USDC; open record
 - Later: USDC tips; voice licensing; stablecoin plans
 
-**8. Go to market** (1:48–2:03)
+**8. Go to market** (1:46–2:00)
 - First customers: web3 founders and creators; impersonation +1,400%
 - Then everyone who is their own brand
 - AI writing tools list at $20–49 a month; the whole job takes 3–4 (our estimate)
 - Customer zero: me (JamJam, aDNA)
 
-**9. Competition** (2:03–2:17)
+**9. Competition** (2:00–2:15)
 - Four tools that don't talk, or one
 - 59 products checked; the best do two steps
 - JamJam does all four
 
-**10. Business model** (2:17–2:35)
+**10. Business model** (2:15–2:33)
 - Free kit is the hook
 - Solo $39, Team $199 a month
 - 3% on tips and rewards
 - Flywheel: every check happens on a public JamJam Verify page
 - Refer a friend: you both get 2 months free
 
-**11. Roadmap** (2:35–2:42)
+**11. Roadmap** (2:33–2:40)
 - Now: your brand kit
 - Next: content you approve unedited
 - Then: publish everywhere; tips and fan rewards
 - Later: monetise your voice
 
-**12. Team and ask** (2:42–2:57)
+**12. Team and ask** (2:40–2:55)
 - Founded Lilypad; built the original Waterlily.ai
 - Developer communities at IBM and Filecoin Foundation
 - JamJam: your brand team, in one app
@@ -104,34 +104,34 @@ JamJam is the brand team you need: available, affordable, streamlined and on-bra
 
 Every step is checked. A fact stays only if its quote is in your source. Every claim is checked against your evidence. And anyone can check a post on Solana.
 
-**5. Why now** · 0:59–1:15 · 43 words
+**5. Why now** · 0:59–1:13 · 37 words
 
-Why now? Four things changed. Fakes cost Americans three and a half billion dollars last year. X cut apps that pay people to post. The US passed its first stablecoin law. And the rails arrived: attestations on Solana, and payments for AI agents.
+Why now? Fakes cost Americans three and a half billion dollars last year. X cut apps that pay people to post. AI agents can now pay per request, in stablecoins. And AI copy still reads like AI.
 
-**6. Why Solana** · 1:15–1:42 · 72 words
+**6. Why Solana** · 1:13–1:40 · 72 words
 
 We don't need a blockchain to write your posts. We need one where trust and money move. Prove you own your domain and accounts once. Then your posts, ambassadors' posts and AI persona go on an open record any wallet or exchange can check, so a fake stands out. Fans tip creators in USDC, and brands reward real content, disclosed and approved. And you get paid when AI agents use your voice.
 
-**7. Solana integration** · 1:42–1:48 · 17 words
+**7. Solana integration** · 1:40–1:46 · 17 words
 
 Today the Solana registry is live on devnet, with email sign-in. Next: verified accounts and USDC payouts.
 
-**8. Go to market** · 1:48–2:03 · 38 words
+**8. Go to market** · 1:46–2:00 · 38 words
 
 Our first customers are web3 founders and creators, where impersonation is up fourteen hundred percent. Then everyone who is their own brand. Comparable AI writing tools list at twenty to forty-nine dollars a month. Customer zero is me.
 
-**9. Competition** · 2:03–2:17 · 38 words
+**9. Competition** · 2:00–2:15 · 38 words
 
 We checked fifty-nine products. The best do two of the four steps. JamJam is the only one we found that builds the brand, runs it, proves it and pays for the work, and it exports to your tools.
 
-**10. Business model** · 2:17–2:35 · 48 words
+**10. Business model** · 2:15–2:33 · 48 words
 
 Building your brand kit is free. Solo is thirty-nine dollars a month, Team is a hundred and ninety-nine, and we take three percent on tips and rewards. Every check of a post happens on a public JamJam page. Refer a friend, and you both get two months free.
 
-**11. Roadmap** · 2:35–2:42 · 19 words
+**11. Roadmap** · 2:33–2:40 · 19 words
 
 Next: content you approve unedited, publishing everywhere, tips and fan rewards, then getting paid when agents use your voice.
 
-**12. Team and ask** · 2:42–2:57 · 40 words
+**12. Team and ask** · 2:40–2:55 · 40 words
 
 I founded Lilypad, a decentralised AI compute network, and built the original Waterlily, AI art that paid its artists. I've built developer communities at IBM and the Filecoin Foundation. JamJam: your brand team, in one app. Every post provably yours.
