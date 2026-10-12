@@ -3,6 +3,7 @@
 // INTEGRATION: PATCH /api/drafts/:id with the slides and format (no media row in the backend map yet; issue #51).
 import { createBrandScopedStore } from '../../lib/brandScopedStore';
 import { activeBrand } from '../../flows/brand/activeBrand';
+import { approve, isCurrent, type Approval } from '../../lib/approval';
 import type { ExportOption, MediaFormat, MediaKind } from './types';
 
 interface MediaDraft {
@@ -12,8 +13,8 @@ interface MediaDraft {
   exportAs?: ExportOption;
   /** Slide text at the last checks re-run, by slide id (Media-Review). */
   rerunText?: Record<string, string>;
-  /** Fingerprint of the draft that was approved; any later change to it un-approves (Media-Review). */
-  approvedFingerprint?: string;
+  /** The approval of the draft (lib/approval); any later change to it makes the approval stale (Media-Review). */
+  approval?: Approval;
 }
 
 // Kept per brand (Codex review on PR #79): another brand's media never shows here.
@@ -35,7 +36,8 @@ export function useMediaFlow(defaults: MediaFormat[] = []) {
   const kind = draft.kind ?? 'carousel';
   const slides = formats.find((f) => f.id === kind)?.slides ?? [];
   // What an approval covers: the media type, every slide's text and the export format.
-  const fingerprint = JSON.stringify([kind, slides.map((s) => s.text), draft.exportAs?.value ?? null]);
+  // What an approval is bound to: the media type, every slide's text and the export format.
+  const inputs = [kind, slides.map((s) => s.text), draft.exportAs?.value ?? null];
   return {
     formats,
     kind,
@@ -43,9 +45,9 @@ export function useMediaFlow(defaults: MediaFormat[] = []) {
     /** The slides of the current media type: the ones Review checks. */
     slides,
     /** Approved: this exact draft (type, text, format) was approved for this brand. */
-    approved: draft.approvedFingerprint === fingerprint,
+    approved: isCurrent(draft.approval, inputs),
     // INTEGRATION: POST /api/drafts/:id/approve with the content hash, then the SAS content attestation.
-    approve: () => set({ approvedFingerprint: fingerprint }),
+    approve: () => set({ approval: approve(inputs) }),
     rerunText: draft.rerunText ?? {},
     /** Records a checks re-run on the current slides' text. */
     rerunChecks: (slides: { id: string; text: string }[]) => set({ rerunText: { ...draft.rerunText, ...Object.fromEntries(slides.map((s) => [s.id, s.text])) } }),

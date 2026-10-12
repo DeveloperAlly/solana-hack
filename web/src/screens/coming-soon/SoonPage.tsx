@@ -5,7 +5,6 @@ import { LoopFrame } from '../../ui/shells/LoopFrame';
 import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { ActiveBrandSwitcher } from '../../flows/brand/ActiveBrandSwitcher';
 import { useActiveBrand } from '../../flows/brand/activeBrand';
-import { useSoonSession } from './useSoonSession';
 
 export interface SoonHeader {
   title: string;
@@ -26,19 +25,17 @@ export interface SoonPageProps {
 /**
  * This page's hub frame, a page composition (screens/README.md, "Shared components"): the loop frame (L1 AppShell on
  * the one nav; ADR-012) with the D48 brand switcher, then L5 PageHeader with the Coming soon flag. The brand chosen
- * here or on Brand-Switcher lives in the session, so it carries across every screen; brands added on Brand-Switcher
- * appear in the switcher.
+ * here or on Brand-Switcher is the app-wide active brand, and brands added on Brand-Switcher join the brand catalog
+ * (flows/brand).
  */
 export function SoonPage({ artboard, header, children }: SoonPageProps) {
-  const [session] = useSoonSession();
   const brand = useActiveBrand();
-  const added = (session.addedBrands ?? []).map((b) => ({ id: b.id, name: b.name }));
   const { title, intro, definedIn, actions, tag = 'COMING SOON' } = header;
   return (
     <LoopFrame
       artboard={artboard}
       brandName={brand.name}
-      brandSlot={<ActiveBrandSwitcher added={added} />}
+      brandSlot={<ActiveBrandSwitcher />}
       header={{ title, intro, actions, badges: <ComingSoonFlag tag={tag} />, meta: definedIn && `Drawn, not built. Defined in: ${definedIn}` }}
     >
       {children}

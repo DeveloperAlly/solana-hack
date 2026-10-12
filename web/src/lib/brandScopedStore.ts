@@ -11,12 +11,23 @@ export interface BrandSource {
 }
 
 /**
- * A store with one state per brand. `read`, `set` and `use` act on the active brand from `brand`; an untouched
- * brand reads as `{}`, so callers fall back to their fixture defaults.
+ * A store with one state per brand. `read`, `set` and `use` act on the active brand from `brand`. A brand reads as
+ * `defaults` merged with what was set for it; without defaults an untouched brand reads as `{}`, so callers fall back
+ * to their fixture defaults.
  */
-export function createBrandScopedStore<T extends object>(brand: BrandSource): Store<Partial<T>> {
+export function createBrandScopedStore<T extends object>(brand: BrandSource): Store<Partial<T>>;
+export function createBrandScopedStore<T extends object>(brand: BrandSource, defaults: T): Store<T>;
+export function createBrandScopedStore<T extends object>(brand: BrandSource, defaults: Partial<T> = {}): Store<Partial<T>> {
   const byBrand = createStore<Record<string, Partial<T>>>({});
-  const read = () => byBrand.read()[brand.read()] ?? {};
+  // One merged object per stored state, so `use` hands React a stable snapshot.
+  const merged = new WeakMap<Partial<T>, Partial<T>>();
+  const empty: Partial<T> = {};
+  const view = (own: Partial<T> | undefined) => {
+    const key = own ?? empty;
+    if (!merged.has(key)) merged.set(key, { ...defaults, ...key });
+    return merged.get(key)!;
+  };
+  const read = () => view(byBrand.read()[brand.read()]);
   const set = (patch: Partial<T>) => {
     const id = brand.read();
     byBrand.set({ [id]: { ...byBrand.read()[id], ...patch } });
@@ -28,7 +39,7 @@ export function createBrandScopedStore<T extends object>(brand: BrandSource): St
     subscribe: byBrand.subscribe,
     use: () => {
       const [all] = byBrand.use();
-      return [all[brand.use()] ?? {}, set];
+      return [view(all[brand.use()]), set];
     },
   };
 }

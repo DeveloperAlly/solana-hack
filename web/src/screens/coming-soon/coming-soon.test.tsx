@@ -299,6 +299,20 @@ describe('Campaign v2 flow (steps 2, 4, 5, 6 here; 1 and 3 on Superhub)', () => 
     expect(screen.getByRole('button', { name: 'Launch campaign' })).toBeDisabled();
   });
 
+  it('a cap approval is bound to the cap it approved: editing the cap on Budget unchecks it on Launch (Codex review on PR #103)', async () => {
+    const launch = at('/screens/Campaign-v2-6-Launch');
+    await launch.click(screen.getByRole('checkbox', { name: 'I approve a spending cap of 500 USDC for this campaign.' }));
+    expect(screen.getByRole('checkbox', { name: /spending cap of 500 USDC/ })).toBeChecked();
+    cleanup();
+    const budget = at('/screens/Campaign-v2-5-Budget');
+    await budget.clear(screen.getByLabelText(/^Spending cap/));
+    await budget.type(screen.getByLabelText(/^Spending cap/), '400');
+    cleanup();
+    at('/screens/Campaign-v2-6-Launch');
+    expect(screen.getByRole('checkbox', { name: 'I approve a spending cap of 400 USDC for this campaign.' })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Launch campaign' })).toBeDisabled();
+  });
+
   it('lowering the cap below the over-balance cap clears the check; raising it back flags it again (Codex review on PR #79)', async () => {
     const user = at('/screens/Campaign-v2-5-Budget?state=error');
     const cap = screen.getByLabelText(/^Spending cap/);

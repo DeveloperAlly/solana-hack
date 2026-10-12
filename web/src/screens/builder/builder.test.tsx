@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { GalleryScreen } from '../../gallery/Gallery';
-import { effectiveGates, recordDecision, resetBuilderFlow, type FlowState } from './useBuilderFlow';
+import { effectiveGates, pendingGates, recordDecision, resetBuilderFlow, type FlowState } from './useBuilderFlow';
 import { screenPath } from '../../gallery/screenPath';
 import { boards } from './paths';
 import { Onboard6Published } from './Onboard-6-Published';
@@ -174,7 +174,7 @@ describe('Brand Builder: screen interactions', () => {
     const approved = { status: 'approved', by: '[approver]', at: '[date]' } as const;
     let s: FlowState = {
       brand: { brandName: 'aDNA' },
-      gates: { purpose: { status: 'pending' }, positioning: { status: 'pending' }, voice: { status: 'pending' } },
+      gates: pendingGates,
       positioningOption: 'A',
       voice: { round1: 'B', round2: 'C' },
       dials: { formality: 2, energy: 3, humour: 2 },

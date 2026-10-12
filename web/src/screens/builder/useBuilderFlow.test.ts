@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyBrandEntry, effectiveGates, openGates, recordDecision, type FlowState } from './useBuilderFlow';
+import { applyBrandEntry, effectiveGates, openGates, pendingGates, recordDecision, type FlowState } from './useBuilderFlow';
 
 describe('brand entry reducer', () => {
   it('resets verification when the domain changes', () => {
@@ -25,7 +25,7 @@ describe('open gates', () => {
 describe('gate approvals are bound to their inputs', () => {
   const base: FlowState = {
     brand: {},
-    gates: { purpose: { status: 'pending' }, positioning: { status: 'pending' }, voice: { status: 'pending' } },
+    gates: pendingGates,
     positioningOption: 'A',
     voice: { round1: 'B', round2: 'C' },
     dials: { formality: 2, energy: 3, humour: 2 },

@@ -5,6 +5,7 @@
 // State is held in memory for the session, so it survives moving between /screens routes; nothing is sent anywhere.
 // INTEGRATION: gates persist through POST /api/brands/:id/gates/:gate/approve (backend map §4, "Gate 1, Gate 2, Gate 3").
 import { createStore } from '../../lib/createStore';
+import { approve, isStale, type Approval } from '../../lib/approval';
 import { activeBrand, selectBrand } from '../../flows/brand/activeBrand';
 import type { StepperStep } from '../../ui/composites/Stepper';
 import { useBoardHref, type BoardKey } from './paths';
@@ -100,9 +101,16 @@ export interface FlowState {
   dials: DialValues;
 }
 
+/** Every gate before a decision. */
+export const pendingGates: Record<GateId, StoredDecision> = {
+  purpose: approve(null, { status: 'pending' }),
+  positioning: approve(null, { status: 'pending' }),
+  voice: approve(null, { status: 'pending' }),
+};
+
 const initial: FlowState = {
   brand: {},
-  gates: { purpose: { status: 'pending' }, positioning: { status: 'pending' }, voice: { status: 'pending' } },
+  gates: pendingGates,
   positioningOption: '',
   voice: { round1: 'B', round2: 'C' },
   dials: { formality: 2, energy: 3, humour: 2 },
@@ -115,7 +123,8 @@ const set = store.set;
 export const resetBuilderFlow = store.reset;
 
 /** A gate decision as stored: an approval also keeps the fingerprint of the flow inputs it approved. */
-export type StoredDecision = GateDecision & { inputs?: string };
+/** A gate decision as stored (lib/approval): the decision and the fingerprint of the inputs it was made on. */
+export type StoredDecision = Approval<GateDecision>;
 
 /** The gates in dependency order: each is drafted from the ones before it (brand_builder_architecture.md, "Gates"). */
 export const gateOrder: readonly GateId[] = ['purpose', 'positioning', 'voice'];
@@ -126,28 +135,28 @@ export const gateOrder: readonly GateId[] = ['purpose', 'positioning', 'voice'];
  * Positioning). Own inputs: Purpose, the brand name (its answers are not held in the flow); Positioning, the BB-4
  * option; Voice, the BB-6 picks and dials.
  */
-export function gateInputs(s: Pick<FlowState, 'brand' | 'positioningOption' | 'voice' | 'dials'>, gate: GateId): string {
+export function gateInputs(s: Pick<FlowState, 'brand' | 'positioningOption' | 'voice' | 'dials'>, gate: GateId): unknown {
   const own: Record<GateId, unknown> = {
     purpose: [s.brand.brandName ?? ''],
     positioning: [s.positioningOption],
     voice: [s.voice.round1, s.voice.round2, s.dials.formality, s.dials.energy, s.dials.humour],
   };
   const upstream = gateOrder[gateOrder.indexOf(gate) - 1];
-  return JSON.stringify([own[gate], upstream ? gateInputs(s, upstream) : null]);
+  return [own[gate], upstream ? gateInputs(s, upstream) : null];
 }
 
 /** Records a decision; an approval is bound to the inputs it approved. */
 export function recordDecision(s: FlowState, gate: GateId, decision: GateDecision): Record<GateId, StoredDecision> {
-  const stored: StoredDecision = decision.status === 'approved' ? { ...decision, inputs: gateInputs(s, gate) } : decision;
-  return { ...s.gates, [gate]: stored };
+  return { ...s.gates, [gate]: approve(gateInputs(s, gate), decision) };
 }
 
 /** Decisions as they stand now: an approval whose inputs changed since is stale (D17's stale state) and must be re-approved. */
 export function effectiveGates(s: FlowState): Record<GateId, GateDecision> {
   const out = {} as Record<GateId, GateDecision>;
   for (const g of Object.keys(s.gates) as GateId[]) {
-    const { inputs, ...d } = s.gates[g];
-    out[g] = d.status === 'approved' && inputs !== undefined && inputs !== gateInputs(s, g) ? { ...d, status: 'stale' } : d;
+    const stored = s.gates[g];
+    const d = stored.decision;
+    out[g] = d.status === 'approved' && isStale(stored, gateInputs(s, g)) ? { ...d, status: 'stale' } : d;
   }
   return out;
 }
