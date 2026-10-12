@@ -23,6 +23,7 @@ Research tracks commissioned to refine JamJam's purpose. Each doc cites its sour
 | 7 | [07_gamerslab_leadfinder.md](./07_gamerslab_leadfinder.md) | Can the GamersLab lead finder be reused, and what must change? |
 | 8 | [08_adna_evaluation.md](./08_adna_evaluation.md) | Should we use aDNA to keep project context current? |
 | 9 | [09_demo_brands.md](./09_demo_brands.md) | What public presence do the demo brands have, and what can be ingested vs asked? |
+| 10 | [10_competitor_onboarding_pricing.md](./10_competitor_onboarding_pricing.md) (2026-10-12; detail in [10_competitor_detail/](./10_competitor_detail/)) | How do 59 competitors onboard and price, what do they do well, what do they lack against the full build plan, and what should JamJam adopt? |
 
 **Decisions and designs built on these:**
 - [ADR-002: purpose](../../decisions/adr_002_purpose_build_run_prove.md), decided 2026-10-06
