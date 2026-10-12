@@ -10,6 +10,9 @@
  * lexical pass (scanFile) that steps over strings, comments and stream data, so text in them is never taken for either,
  * and every dictionary is parsed into its entries (parseObject, ISO 32000-1 §7.2 and §7.3), so a key is read only where
  * it is a key of that dictionary, never from a string, comment, array or nested dictionary inside it (PR #71 review).
+ * A stream's data is located only by its /Length, read through the cross-reference data when it is indirect, and
+ * checked against the "endstream" that must follow; when that fails the count is unknown, since reading payload bytes
+ * as syntax could find objects that are not there (PR #71 review).
  *
  * Objects stored in object streams (`/Type /ObjStm`, §7.5.7) are read by inflating only as much of the stream as
  * needed (its header, then up to the object), and never more than MAX_INFLATE bytes for the whole document, so a small
@@ -186,6 +189,206 @@ const typeIs = (dict: PdfDict, type: string) => {
   return v?.kind === 'name' && v.name === type;
 };
 
+/** "N G obj" at `at` (§7.3.10), three tokens with any white-space or comments between them (§7.2.3). */
+function objectHeader(text: string, at: number): { num: number; end: number } | null {
+  const n = readWord(text, at);
+  if (!n || !nonNegativeInt(n.word)) return null;
+  const g = readWord(text, skipSpace(text, n.end));
+  if (!g || !nonNegativeInt(g.word)) return null;
+  const o = readWord(text, skipSpace(text, g.end));
+  return o && o.word === 'obj' ? { num: Number(n.word), end: o.end } : null;
+}
+
+/**
+ * ISO 32000-1 §7.3.8.1: "stream" is followed by CRLF or LF, "and not by a CARRIAGE RETURN alone". A lone CR is still
+ * accepted when the next byte is not LF, where it cannot be misread, as other readers do for files that break the rule
+ * (pdf-lib: https://github.com/Hopding/pdf-lib/issues/59) (PR #71 review).
+ */
+function dataStart(text: string, afterKeyword: number): number | null {
+  if (text.startsWith('\r\n', afterKeyword)) return afterKeyword + 2;
+  return text[afterKeyword] === '\n' || text[afterKeyword] === '\r' ? afterKeyword + 1 : null;
+}
+
+/**
+ * Where a stream's data lies, from its /Length (§7.3.8.2), direct or indirect, never by searching the data: payload
+ * bytes can hold "endstream" or anything else (PR #71 review). The length is accepted only when "endstream" follows
+ * it, after an optional end-of-line, as §7.3.8.1 requires. Returns null when the dictionary is not followed by a
+ * stream, undefined when it is but its end cannot be established.
+ */
+async function streamData(text: string, dict: PdfDict, dictEnd: number, lengthOf: (num: number) => Promise<number | null>): Promise<{ start: number; end: number; after: number } | null | undefined> {
+  const kw = readWord(text, skipSpace(text, dictEnd));
+  if (!kw || kw.word !== 'stream') return null;
+  const start = dataStart(text, kw.end);
+  if (start === null) return undefined;
+  const v = dict.get('Length');
+  const length = v?.kind === 'ref' ? await lengthOf(v.num) : int(dict, 'Length');
+  if (length === null || start + length > text.length) return undefined;
+  const end = start + length;
+  const close = readWord(text, skipSpace(text, end));
+  if (!close || close.word !== 'endstream') return undefined;
+  return { start, end, after: close.end };
+}
+
+/** Bytes inflated in all while reading one file, shared by every stream it reads. */
+type Budget = { left: number };
+
+/**
+ * Undoes a PNG predictor (§7.4.4.4, Predictor 10 to 15, one byte per sample: Colors 1, BitsPerComponent 8), the form
+ * cross-reference streams use. Each row is one filter-type byte, then `columns` bytes. null for anything else.
+ */
+function unpredict(data: Uint8Array, parms: PdfDict | null): Uint8Array | null {
+  if (!parms) return data;
+  const num = (k: string, d: number) => { const v = parms.get(k); return v === undefined ? d : v.kind === 'number' ? v.value : NaN; };
+  const predictor = num('Predictor', 1);
+  if (predictor === 1) return data;
+  const columns = num('Columns', 1);
+  if (predictor < 10 || predictor > 15 || num('Colors', 1) !== 1 || num('BitsPerComponent', 8) !== 8 || !Number.isInteger(columns) || columns < 1) return null;
+  const rowLen = columns + 1;
+  if (data.length % rowLen !== 0) return null;
+  const out = new Uint8Array((data.length / rowLen) * columns);
+  for (let r = 0; r * rowLen < data.length; r++) {
+    const type = data[r * rowLen];
+    for (let c = 0; c < columns; c++) {
+      const x = data[r * rowLen + 1 + c];
+      const left = c > 0 ? out[r * columns + c - 1] : 0;
+      const up = r > 0 ? out[(r - 1) * columns + c] : 0;
+      const upLeft = r > 0 && c > 0 ? out[(r - 1) * columns + c - 1] : 0;
+      let pred: number;
+      if (type === 0) pred = 0;
+      else if (type === 1) pred = left;
+      else if (type === 2) pred = up;
+      else if (type === 3) pred = Math.floor((left + up) / 2);
+      else if (type === 4) {
+        const p = left + up - upLeft;
+        const pa = Math.abs(p - left), pb = Math.abs(p - up), pc = Math.abs(p - upLeft);
+        pred = pa <= pb && pa <= pc ? left : pb <= pc ? up : upLeft;
+      } else return null;
+      out[r * columns + c] = (x + pred) & 0xff;
+    }
+  }
+  return out;
+}
+
+/**
+ * The byte offset of each object as the file's cross-reference data gives it (§7.5.4 cross-reference table, §7.5.8
+ * cross-reference streams), newest section first, following /Prev through incremental updates (§7.5.6) and /XRefStm
+ * in hybrid files (§7.5.8.4). An object whose newest entry is free or in an object stream maps to null. Read from the
+ * last startxref (§7.5.5). null when the data cannot be read.
+ */
+async function xrefOffsets(text: string, bytes: Uint8Array, budget: Budget): Promise<Map<number, number | null> | null> {
+  const sx = text.lastIndexOf('startxref');
+  const first = sx < 0 ? null : readWord(text, skipSpace(text, sx + 9));
+  if (!first || !nonNegativeInt(first.word)) return null;
+  const offsets = new Map<number, number | null>();
+  const keep = (num: number, at: number | null) => { if (!offsets.has(num)) offsets.set(num, at); };
+  const queue = [Number(first.word)];
+  const seen = new Set<number>();
+  while (queue.length) {
+    const at = queue.shift()!;
+    if (seen.has(at) || at >= text.length) return seen.has(at) ? offsets : null;
+    seen.add(at);
+    const start = skipSpace(text, at);
+    const kw = readWord(text, start);
+    let trailer: PdfDict | null = null;
+    if (kw?.word === 'xref') {
+      // Subsections: "first count", then count entries of "offset generation n|f" (§7.5.4).
+      let i = kw.end;
+      while (true) {
+        const a = readWord(text, skipSpace(text, i));
+        if (!a) return null;
+        if (a.word === 'trailer') { trailer = dictAt(text, a.end)?.dict ?? null; break; }
+        const c = readWord(text, skipSpace(text, a.end));
+        if (!nonNegativeInt(a.word) || !c || !nonNegativeInt(c.word)) return null;
+        i = c.end;
+        const firstNum = Number(a.word);
+        const count = Number(c.word);
+        if (count * 18 > text.length - i) return null;
+        for (let k = 0; k < count; k++) {
+          const off = readWord(text, skipSpace(text, i));
+          const gen = off && readWord(text, skipSpace(text, off.end));
+          const type = gen && readWord(text, skipSpace(text, gen.end));
+          if (!off || !gen || !type || !nonNegativeInt(off.word) || !nonNegativeInt(gen.word) || (type.word !== 'n' && type.word !== 'f')) return null;
+          keep(firstNum + k, type.word === 'n' ? Number(off.word) : null);
+          i = type.end;
+        }
+      }
+      if (!trailer) return null;
+      const stm = int(trailer, 'XRefStm');
+      if (stm !== null) queue.push(stm);
+    } else {
+      const head = objectHeader(text, start);
+      const found = head && dictAt(text, head.end);
+      if (!found || !typeIs(found.dict, 'XRef')) return null;
+      trailer = found.dict;
+      // A cross-reference stream's own length is read directly: it cannot depend on the table it holds.
+      const data = await streamData(text, found.dict, found.end, async () => null);
+      if (!data) return null;
+      const filter = found.dict.get('Filter');
+      const flate = filter?.kind === 'name' ? filter.name === 'FlateDecode' : filter?.kind === 'array' ? filter.items.length === 1 && filter.items[0].kind === 'name' && filter.items[0].name === 'FlateDecode' : false;
+      let raw: Uint8Array | null = bytes.subarray(data.start, data.end);
+      if (filter && !flate) return null;
+      if (flate) {
+        const inflated = await inflateAll(raw, budget);
+        const parmsV = found.dict.get('DecodeParms');
+        const parms = parmsV?.kind === 'dict' ? parmsV.entries : parmsV?.kind === 'array' && parmsV.items[0]?.kind === 'dict' ? parmsV.items[0].entries : null;
+        if (parmsV && !parms) return null;
+        raw = inflated && unpredict(inflated, parms);
+      }
+      if (!raw) return null;
+      const wv = found.dict.get('W');
+      const widths = wv?.kind === 'array' && wv.items.length === 3 && wv.items.every((x) => x.kind === 'number' && Number.isInteger(x.value) && x.value >= 0 && x.value <= 8) ? wv.items.map((x) => (x as { value: number }).value) : null;
+      const size = int(found.dict, 'Size');
+      if (!widths || size === null) return null;
+      const iv = found.dict.get('Index');
+      const index = iv === undefined ? [0, size] : iv.kind === 'array' && iv.items.every((x) => x.kind === 'number') ? iv.items.map((x) => (x as { value: number }).value) : null;
+      if (!index || index.length % 2) return null;
+      const rowLen = widths[0] + widths[1] + widths[2];
+      const field = (row: number, from: number, width: number, dflt: number) => {
+        if (width === 0) return dflt;
+        let v = 0;
+        for (let b = 0; b < width; b++) v = v * 256 + raw![row * rowLen + from + b];
+        return v;
+      };
+      let row = 0;
+      for (let s2 = 0; s2 < index.length; s2 += 2) {
+        for (let k = 0; k < index[s2 + 1]; k++, row++) {
+          if ((row + 1) * rowLen > raw.length) return null;
+          // §7.5.8.3 Table 18: type 1 is an object at a byte offset; type 0 free; type 2 in an object stream.
+          const type = field(row, 0, widths[0], 1);
+          keep(index[s2] + k, type === 1 ? field(row, widths[0], widths[1], 0) : null);
+        }
+      }
+    }
+    const prev = int(trailer, 'Prev');
+    if (prev !== null) queue.push(prev);
+  }
+  return offsets;
+}
+
+/** Inflates a whole Flate stream within the shared budget; null when it is longer than the budget or damaged. */
+async function inflateAll(data: Uint8Array, budget: Budget): Promise<Uint8Array | null> {
+  try {
+    const source = new ReadableStream<BufferSource>({ start(c) { c.enqueue(new Uint8Array(data)); c.close(); } });
+    const reader = source.pipeThrough(new DecompressionStream('deflate')).getReader();
+    const parts: Uint8Array[] = [];
+    let got = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      got += value.length;
+      if (got > budget.left) { await reader.cancel().catch(() => undefined); return null; }
+      parts.push(value);
+    }
+    budget.left -= got;
+    const out = new Uint8Array(got);
+    let at = 0;
+    for (const p of parts) { out.set(p, at); at += p.length; }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 interface Indexed { num: number; pos: number; dict: PdfDict; data?: { start: number; end: number } }
 
 /**
@@ -194,18 +397,9 @@ interface Indexed { num: number; pos: number; dict: PdfDict; data?: { start: num
  * it really is one, never inside a string, a comment or stream bytes (PR #71 review). Returns every object (`N G obj`)
  * in file order with its dictionary and, for a stream, where its data lies, and every trailer dictionary.
  */
-function scanFile(text: string): { objects: Indexed[]; trailers: { pos: number; dict: PdfDict }[] } {
+async function scanFile(text: string, lengthOf: (num: number) => Promise<number | null>): Promise<{ objects: Indexed[]; trailers: { pos: number; dict: PdfDict }[] } | null> {
   const objects: Indexed[] = [];
   const trailers: { pos: number; dict: PdfDict }[] = [];
-  // The next token's word at `at`, past white-space and comments (a comment is white-space, §7.2.3), or null.
-  const wordAfter = (at: number) => readWord(text, skipSpace(text, at));
-  // ISO 32000-1 §7.3.8.1: "stream" is followed by CRLF or LF, "and not by a CARRIAGE RETURN alone". A lone CR is
-  // still accepted when the next byte is not LF, where it cannot be misread, as other readers do for files that break
-  // the rule (pdf-lib: https://github.com/Hopding/pdf-lib/issues/59) (PR #71 review).
-  const dataStart = (afterKeyword: number) => {
-    if (text.startsWith('\r\n', afterKeyword)) return afterKeyword + 2;
-    return text[afterKeyword] === '\n' || text[afterKeyword] === '\r' ? afterKeyword + 1 : null;
-  };
   let i = 0;
   while (i < text.length) {
     i = skipSpace(text, i);
@@ -226,31 +420,23 @@ function scanFile(text: string): { objects: Indexed[]; trailers: { pos: number; 
       if (d) { trailers.push({ pos: i, dict: d.dict }); i = d.end; } else i = w.end;
       continue;
     }
-    // An object header is three tokens, "N G obj" (§7.3.10), with any white-space or comments between them.
-    const gen = nonNegativeInt(w.word) ? wordAfter(w.end) : null;
-    const obj = gen && nonNegativeInt(gen.word) ? wordAfter(gen.end) : null;
-    if (!obj || obj.word !== 'obj') { i = w.end; continue; }
-    const found = dictAt(text, obj.end);
-    if (!found) { i = obj.end; continue; }
-    const entry: Indexed = { num: Number(w.word), pos: i, dict: found.dict };
+    const head = objectHeader(text, i);
+    if (!head) { i = w.end; continue; }
+    const found = dictAt(text, head.end);
+    if (!found) { i = head.end; continue; }
+    const entry: Indexed = { num: head.num, pos: i, dict: found.dict };
     i = found.end;
-    // A stream's dictionary is followed by the "stream" keyword, as a token like any other (§7.3.8.1).
-    const kw = wordAfter(found.end);
-    const start = kw && kw.word === 'stream' ? dataStart(kw.end) : null;
-    if (start !== null) {
-      const length = int(found.dict, 'Length');
-      const end = length !== null && start + length <= text.length ? start + length : text.indexOf('endstream', start);
-      if (end < start) { objects.push(entry); break; }
-      entry.data = { start, end };
-      i = end;
-    }
+    const data = await streamData(text, found.dict, found.end, lengthOf);
+    // A stream whose end cannot be established: the scan stops rather than read its bytes as syntax (PR #71 review).
+    if (data === undefined) return null;
+    if (data) { entry.data = data; i = data.after; }
     objects.push(entry);
   }
   return { objects, trailers };
 }
 
 /** Inflates the first `limit` bytes of a Flate stream, within the shared budget; null when it cannot. */
-async function inflatePrefix(data: Uint8Array, limit: number, budget: { left: number }): Promise<string | null> {
+async function inflatePrefix(data: Uint8Array, limit: number, budget: Budget): Promise<string | null> {
   const want = Math.min(limit, budget.left);
   if (want <= 0) return null;
   try {
@@ -290,8 +476,22 @@ const plainFlate = (dict: PdfDict) => {
 
 export async function pdfPageCount(bytes: Uint8Array): Promise<number | null> {
   const text = bytesToText(bytes);
-  const { objects, trailers } = scanFile(text);
-  const budget = { left: MAX_INFLATE };
+  const budget: Budget = { left: MAX_INFLATE };
+  // An indirect /Length is read where the cross-reference data says its object is (§7.3.8.2, §7.5.4, §7.5.8): the
+  // object at that offset must be "N G obj" for that number, holding a non-negative integer. Read once, on first need.
+  let xref: Promise<Map<number, number | null> | null> | null = null;
+  const lengthOf = async (num: number): Promise<number | null> => {
+    xref ??= xrefOffsets(text, bytes, budget);
+    const at = (await xref)?.get(num);
+    if (at === undefined || at === null) return null;
+    const head = objectHeader(text, skipSpace(text, at));
+    if (!head || head.num !== num) return null;
+    const v = parseObject(text, head.end);
+    return v && v.value.kind === 'number' && Number.isInteger(v.value.value) && v.value.value >= 0 ? v.value.value : null;
+  };
+  const scanned = await scanFile(text, lengthOf);
+  if (!scanned) return null;
+  const { objects, trailers } = scanned;
 
   // Newest definition of each top-level object.
   const latest = new Map<number, Indexed>();

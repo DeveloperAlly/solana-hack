@@ -49,6 +49,12 @@ export async function readText(res: Response, max = MAX_BYTES): Promise<string> 
 export const tidy = (text: string) => text.replace(/\u00A0/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
 
 export const USER_AGENT = 'JamJamBot/0.1 (+https://jamjam.tech)';
+/** Links a page gives a reader, at most: the first this many unique http(s) links, by either reader. */
+export const MAX_PAGE_LINKS = 200;
+/** A link longer than this is not kept: Exa accepts URLs of 1 to 2,048 characters (https://exa.ai/docs/reference/get-contents). */
+export const MAX_LINK_LENGTH = 2048;
+/** Characters of a page title kept. */
+export const MAX_TITLE = 200;
 /** At most this many redirects are followed, the same bound the Fetch standard sets: https://fetch.spec.whatwg.org/#http-redirect-fetch */
 export const MAX_REDIRECTS = 20;
 /** A check run on every address before it is fetched, the first one included; false means do not fetch it. */
@@ -159,7 +165,8 @@ export async function resolveRedirects(url: URL, gate: FetchGate, session?: HopS
 }
 
 /**
- * The page's own links, absolute http(s), at most 200, read with a real HTML tokenizer (htmlparser2), so quoting,
+ * The page's own links, absolute http(s), at most MAX_PAGE_LINKS of at most MAX_LINK_LENGTH characters each, read
+ * with a real HTML tokenizer (htmlparser2), so quoting,
  * comments, entities and the raw text of script and style are handled as browsers do, not by pattern matching
  * (PR #71 review). Links inside template, noscript and svg are not part of the rendered page and are skipped. Relative
  * links resolve against the document base: the first <base> with an href, resolved against the landed address, when
@@ -175,7 +182,7 @@ export function pageLinks(html: string, landed: URL): string[] {
       if (INERT.has(name)) { inert++; return; }
       if (inert) return;
       if (name === 'base' && baseHref === null && typeof attribs.href === 'string') baseHref = attribs.href;
-      // No cap on raw anchors (the body is already capped at MAX_BYTES): the 200 limit applies to cleaned, unique
+      // No cap on raw anchors (the body is already capped at MAX_BYTES): the link limit applies to cleaned, unique
       // links below, so duplicates and fragment links early on a dense page cannot crowd out later ones (PR #71 review).
       if (name === 'a' && typeof attribs.href === 'string') raw.push(attribs.href);
     },
@@ -196,13 +203,14 @@ export function pageLinks(html: string, landed: URL): string[] {
   }
   const links: string[] = [];
   for (const href of raw) {
-    if (links.length >= 200) break;
+    if (links.length >= MAX_PAGE_LINKS) break;
     const h = href.trim();
     if (!h || h.startsWith('#')) continue;
     try {
       const u = new URL(h, base);
       u.hash = '';
-      if ((u.protocol === 'https:' || u.protocol === 'http:') && !links.includes(u.toString())) links.push(u.toString());
+      const link = u.toString();
+      if ((u.protocol === 'https:' || u.protocol === 'http:') && link.length <= MAX_LINK_LENGTH && !links.includes(link)) links.push(link);
     } catch {
       // not a usable address
     }
@@ -317,9 +325,9 @@ export async function readPage(raw: string, gate?: FetchGate, allowShort = false
   }
   const body = await readText(res);
   const page = isHtml ? pageText(body) : { title: '', text: tidy(body) };
-  const title = (page.title || landed.hostname).slice(0, 200);
+  const title = (page.title || landed.hostname).slice(0, MAX_TITLE);
   if (page.text.length < 40 && !allowShort) throw new HttpError(422, 'that page has almost no readable text');
-  // The page's own links (absolute http(s), at most 200), so a reader can choose subpages without another service.
+  // The page's own links (absolute http(s), capped), so a reader can choose subpages without another service.
   const links = isHtml ? pageLinks(body, landed) : [];
   return { url: landed.toString(), title, text: page.text, links };
 }

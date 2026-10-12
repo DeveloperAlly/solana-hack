@@ -261,6 +261,58 @@ describe('declared PDF page count', () => {
     );
     expect(await pdfPageCount(pdf)).toBe(4);
   });
+  describe('stream boundaries come from /Length, never from searching the data (PR #71 review)', () => {
+    // A payload holding "endstream" and decoy objects before its real end: read as syntax, its catalog would point to
+    // a page tree of 9 pages, defined after the real catalog, so the newest definition would win.
+    const payload = 'BT (x) Tj ET\nendstream\nendobj\n9 0 obj\n<< /Type /Pages /Kids [] /Count 9 >>\nendobj\n1 0 obj\n<< /Type /Catalog /Pages 9 0 R >>\nendobj\n% padding';
+    const objectsWith = (lengthObj: boolean, lengthValue = payload.length) => [
+      '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+      '2 0 obj\n<< /Type /Pages /Kids [] /Count 1 >>\nendobj\n',
+      `3 0 obj\n<< /Length ${lengthObj ? '4 0 R' : lengthValue} >>\nstream\n${payload}\nendstream\nendobj\n`,
+      ...(lengthObj ? [`4 0 obj\n${lengthValue}\nendobj\n`] : []),
+    ];
+    // Objects 1.. in order, then a classic cross-reference table and trailer (ISO 32000-1 §7.5.4, entries of 20 bytes).
+    const withTable = (objs: string[]) => {
+      let body = '%PDF-1.4\n';
+      const offsets: number[] = [];
+      for (const o of objs) { offsets.push(body.length); body += o; }
+      const xrefAt = body.length;
+      body += `xref\n0 ${objs.length + 1}\n0000000000 65535 f\r\n${offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n\r\n`).join('')}`;
+      body += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xrefAt}\n%%EOF\n`;
+      return enc(body);
+    };
+    it('reads an indirect /Length through the cross-reference table', async () => {
+      const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+      expect(await pdfPageCount(withTable(objectsWith(true)))).toBe(1);
+    });
+    it('reads an indirect /Length through a compressed cross-reference stream with a PNG predictor', async () => {
+      const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+      const objs = objectsWith(true);
+      let body = '%PDF-1.5\n';
+      const offsets: number[] = [];
+      for (const o of objs) { offsets.push(body.length); body += o; }
+      const xrefAt = body.length;
+      // Rows of /W [1 4 1]: type, offset, generation; each row PNG-filtered "Up" (type byte 2), as /Predictor 12 says.
+      const rows = [[0, 0, 255], ...offsets.map((o) => [1, o, 0]), [1, xrefAt, 0]].map(([t, o, g]) => [t, (o >>> 24) & 255, (o >>> 16) & 255, (o >>> 8) & 255, o & 255, g]);
+      const filtered: number[] = [];
+      rows.forEach((r, i) => { filtered.push(2, ...r.map((b, c) => (b - (i ? rows[i - 1][c] : 0)) & 255)); });
+      const data = await deflate(Buffer.from(filtered));
+      const head = `${objs.length + 1} 0 obj\n<< /Type /XRef /Size ${rows.length} /W [1 4 1] /Root 1 0 R /Filter /FlateDecode /DecodeParms << /Columns 6 /Predictor 12 >> /Length ${data.length} >>\nstream\n`;
+      const pdf = join(enc(body + head), data, enc(`\nendstream\nendobj\nstartxref\n${xrefAt}\n%%EOF\n`));
+      expect(await pdfPageCount(pdf)).toBe(1);
+    });
+    it('gives no count when an indirect /Length cannot be resolved, rather than search the data', async () => {
+      const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+      const objs = objectsWith(true);
+      expect(await pdfPageCount(enc(`%PDF-1.4\n${objs.join('')}trailer\n<< /Root 1 0 R >>\n%%EOF\n`))).toBeNull();
+    });
+    it('gives no count when /Length does not end where "endstream" is', async () => {
+      const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+      // A length that ends inside "ET", so no "endstream" follows it.
+      expect(await pdfPageCount(withTable(objectsWith(false, payload.indexOf('endstream') - 2)))).toBeNull();
+      expect(await pdfPageCount(withTable(objectsWith(false)))).toBe(1);
+    });
+  });
   it('inflates object streams only within a fixed budget', async () => {
     const { pdfPageCount, MAX_INFLATE } = await import('../../worker/sources/pdfpages');
     // A small stream that inflates to far more than the budget, claiming its objects start past the budget.

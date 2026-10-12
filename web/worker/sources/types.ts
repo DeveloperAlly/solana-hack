@@ -7,6 +7,9 @@ import type { SourceKind, Trust } from './registry';
  */
 export interface SourcePage { url: string; title: string; text: string }
 
+/** Characters of text kept per page by default (the site adapter's maxCharacters, Exa's text.maxCharacters). */
+export const PAGE_TEXT_MAX = 20_000;
+
 export interface SourceMeta {
   /** Pages (or documents) read. */
   pages: number;

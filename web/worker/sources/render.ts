@@ -1,4 +1,5 @@
-import { hopSession, NOT_READ, pageLinks, readable, readText, tidy, USER_AGENT, type FetchGate, type HopSession, type SessionCookie } from '../ingest';
+import { hopSession, MAX_LINK_LENGTH, MAX_PAGE_LINKS, MAX_TITLE, NOT_READ, readable, readText, tidy, USER_AGENT, type FetchGate, type HopSession, type SessionCookie } from '../ingest';
+import { PAGE_TEXT_MAX } from './types';
 
 /**
  * Rendered reading for script-only sites (architecture §6.1 "Source ingestion": "fall back to a plain fetch, then
@@ -60,10 +61,14 @@ export interface RenderPage {
   setCookie(...cookies: (SessionCookie & { url?: string })[]): Promise<void>;
   goto(url: string, options: { waitUntil: 'networkidle0'; timeout: number }): Promise<unknown>;
   url(): string;
-  title(): Promise<string>;
-  content(): Promise<string>;
-  evaluate(expression: string): Promise<unknown>;
+  /** A DevTools protocol session on the page (Page.createCDPSession in @cloudflare/puppeteer 1.4.0). */
+  createCDPSession(): Promise<CdpSession>;
   close(): Promise<void>;
+}
+/** The parts of a CDPSession this module uses. */
+export interface CdpSession {
+  send(method: string, params?: Record<string, unknown>): Promise<unknown>;
+  detach(): Promise<void>;
 }
 /** The parts of a Puppeteer target this module uses (Target in @cloudflare/puppeteer 1.4.0: page() is null for a
  * target that is not a page). */
@@ -124,12 +129,71 @@ export const RENDER_CSP = "frame-src 'none'; child-src 'none'; worker-src 'none'
 // (https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-open).
 export const PRE_SCRIPT = `(() => { for (const k of ['WebSocket', 'WebTransport', 'RTCPeerConnection', 'webkitRTCPeerConnection']) { try { Object.defineProperty(globalThis, k, { value: undefined, configurable: false, writable: false }); } catch {} } try { Object.defineProperty(globalThis, 'open', { value: () => null, configurable: false, writable: false }); } catch {} })();`;
 /**
- * The text the page shows, as readPage takes it. innerText already leaves out what is not rendered (scripts, styles,
- * templates, hidden elements: https://html.spec.whatwg.org/multipage/dom.html#the-innertext-idl-attribute), so only
- * the furniture readPage leaves out by choice (NOT_READ) is hidden here, with an inline display: none. Nothing is
- * removed: removing a stylesheet would show content it hides (PR #71 review). Run after the links are taken.
+ * What the reader takes from a rendered page, worked out inside the browser and capped there, so the Worker never
+ * receives more than these bounds whatever the page grew its DOM to (PR #71 review): the title (MAX_TITLE characters),
+ * the text (`maxCharacters`), and at most MAX_PAGE_LINKS unique http(s) links of at most MAX_LINK_LENGTH characters,
+ * resolved against the document base as a browser does, leaving out links inside svg as readPage does.
+ *
+ * Text is innerText, which already leaves out what is not rendered (scripts, styles, templates, hidden elements:
+ * https://html.spec.whatwg.org/multipage/dom.html#the-innertext-idl-attribute); only the furniture readPage leaves out
+ * by choice (NOT_READ) is hidden first, with an inline display: none. Nothing is removed: removing a stylesheet would
+ * show content it hides (PR #71 review). It runs in an isolated world (readIsolated), so the page's scripts cannot
+ * change the built-ins it uses to cap.
  */
-export const PAGE_TEXT = `(() => { for (const el of document.querySelectorAll(${JSON.stringify(NOT_READ.join(','))})) el.style.setProperty('display', 'none', 'important'); return document.body ? document.body.innerText : ''; })()`;
+export const pageData = (maxCharacters: number) => `(() => {
+  const links = [];
+  for (const a of document.querySelectorAll('a[href]')) {
+    if (links.length >= ${MAX_PAGE_LINKS}) break;
+    if (a.closest('svg')) continue;
+    const raw = (a.getAttribute('href') || '').trim();
+    if (!raw || raw.startsWith('#') || raw.length > ${MAX_LINK_LENGTH}) continue;
+    let u;
+    try { u = new URL(raw, document.baseURI); } catch { continue; }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') continue;
+    u.hash = '';
+    const link = u.href;
+    if (link.length <= ${MAX_LINK_LENGTH} && !links.includes(link)) links.push(link);
+  }
+  for (const el of document.querySelectorAll(${JSON.stringify(NOT_READ.join(','))})) el.style.setProperty('display', 'none', 'important');
+  const text = document.body ? String(document.body.innerText).slice(0, ${Math.max(0, Math.floor(maxCharacters))}) : '';
+  return { title: String(document.title).trim().slice(0, ${MAX_TITLE}), text, links };
+})()`;
+
+/** How long the in-browser read may run. */
+const READ_TIMEOUT_MS = 5_000;
+
+/**
+ * Evaluates an expression in a new isolated world of the page's main frame and returns its value by value. An
+ * isolated world shares the page's DOM but not its JavaScript objects, so nothing the page's scripts did to built-ins
+ * (String.prototype.slice, say) applies (DevTools protocol, devtools-protocol 0.0.1299070 as bundled with
+ * @cloudflare/puppeteer 1.4.0: Page.getFrameTree, Page.createIsolatedWorld, Runtime.evaluate with contextId,
+ * returnByValue and timeout).
+ */
+async function readIsolated(page: RenderPage, expression: string): Promise<unknown> {
+  const cdp = await page.createCDPSession();
+  try {
+    const tree = (await cdp.send('Page.getFrameTree')) as { frameTree?: { frame?: { id?: string } } };
+    const frameId = tree.frameTree?.frame?.id;
+    if (!frameId) return null;
+    const world = (await cdp.send('Page.createIsolatedWorld', { frameId, worldName: 'jamjam-reader' })) as { executionContextId?: number };
+    if (typeof world.executionContextId !== 'number') return null;
+    const out = (await cdp.send('Runtime.evaluate', { expression, contextId: world.executionContextId, returnByValue: true, timeout: READ_TIMEOUT_MS })) as { result?: { value?: unknown }; exceptionDetails?: unknown };
+    return out.exceptionDetails ? null : out.result?.value ?? null;
+  } finally {
+    await cdp.detach().catch(() => undefined);
+  }
+}
+
+/** The in-browser read's value, checked against the same bounds: anything else is not a page this reader returns. */
+function checkedData(v: unknown, maxCharacters: number): { title: string; text: string; links: string[] } | null {
+  if (!v || typeof v !== 'object') return null;
+  const { title, text, links } = v as Record<string, unknown>;
+  if (typeof title !== 'string' || title.length > MAX_TITLE) return null;
+  if (typeof text !== 'string' || text.length > maxCharacters) return null;
+  if (!Array.isArray(links) || links.length > MAX_PAGE_LINKS) return null;
+  if (!links.every((l) => typeof l === 'string' && l.length <= MAX_LINK_LENGTH)) return null;
+  return { title, text, links: links as string[] };
+}
 
 /** A response's headers for the browser: transfer headers left out, Set-Cookie once per value. */
 function forwarded(res: Response): Record<string, string | string[]> {
@@ -144,7 +208,7 @@ function forwarded(res: Response): Record<string, string | string[]> {
  * A renderer over one browser session, launched on first use and closed by `close()`. `launch` opens the browser:
  * in the Worker it is `puppeteer.launch(env.BROWSER)` (see `browserRenderer`); tests pass a fake.
  */
-export function createRenderer(launch: () => Promise<RenderBrowser>, gate: FetchGate, maxPages: number, session: HopSession = hopSession(maxPages * MAX_REQUESTS)): Renderer {
+export function createRenderer(launch: () => Promise<RenderBrowser>, gate: FetchGate, maxPages: number, session: HopSession = hopSession(maxPages * MAX_REQUESTS), maxCharacters = PAGE_TEXT_MAX): Renderer {
   let browser: Promise<RenderBrowser> | null = null;
   let rendered = 0;
   let attempts = 0;
@@ -208,11 +272,10 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
       const landed = new URL(p.url());
       // The address shown must be one the gate allowed; anything else (an error page) is not read.
       if (!readable(landed) || !(await gate(landed))) return null;
-      const html = await p.content();
-      const title = (await p.title()).trim().slice(0, 200) || landed.hostname;
-      const text = tidy(String((await p.evaluate(PAGE_TEXT)) ?? ''));
+      const data = checkedData(await readIsolated(p, pageData(maxCharacters)), maxCharacters);
+      if (!data) return null;
       rendered++;
-      return { url: landed.toString(), title, text, links: pageLinks(html, landed) };
+      return { url: landed.toString(), title: data.title || landed.hostname, text: tidy(data.text), links: data.links };
     } catch {
       return null;
     } finally {
@@ -318,10 +381,10 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
 export interface BrowserBinding { fetch: typeof fetch }
 
 /** A renderer on the Browser Run binding, with @cloudflare/puppeteer loaded only when a page is first rendered. */
-export function browserRenderer(binding: BrowserBinding, gate: FetchGate, maxPages: number, session?: HopSession): Renderer {
+export function browserRenderer(binding: BrowserBinding, gate: FetchGate, maxPages: number, session?: HopSession, maxCharacters?: number): Renderer {
   return createRenderer(async () => {
     const puppeteer = (await import('@cloudflare/puppeteer')).default;
     // The structural types above are the subset of Puppeteer's Browser and Page that this module calls.
     return (await puppeteer.launch(binding)) as unknown as RenderBrowser;
-  }, gate, maxPages, session);
+  }, gate, maxPages, session, maxCharacters);
 }
