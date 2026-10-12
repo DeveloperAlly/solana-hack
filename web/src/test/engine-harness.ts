@@ -20,6 +20,8 @@ function matches(row: Row, q: URLSearchParams) {
     if (v.startsWith('in.(') && !v.slice(4, -1).split(',').includes(String(row[k]))) return false;
     // ISO timestamps compare in order as strings, as PostgREST's gte does on timestamptz for these values.
     if (v.startsWith('gte.') && !(String(row[k] ?? '') >= v.slice(4))) return false;
+    if (v.startsWith('neq.') && String(row[k]) === v.slice(4)) return false;
+    if (v === 'not.is.null' && (row[k] === null || row[k] === undefined)) return false;
   }
   return true;
 }
@@ -43,7 +45,94 @@ function recordFactConflict({ p_brand, p_slot, p_evidence, p_question }: { p_bra
   if (c) Object.assign(c, { evidence_ids: [...new Set([...(c.evidence_ids as string[]), ...p_evidence])].sort(), question: p_question });
   else rows.push((c = { id: uuid(), brand_id: p_brand, slot: p_slot, evidence_ids: [...new Set(p_evidence)].sort(), question: p_question, status: 'open' }));
   for (const e of db.tables.evidence ?? []) if (e.brand_id === p_brand && p_evidence.includes(e.id as string) && e.review_status === 'approved' && e.trust !== 'owner_answer') e.review_status = 'proposed';
+  rederiveConflicts(p_brand, p_slot);
   return c.id;
+}
+
+/** A database error a function raises on purpose (PostgREST PTxyz: the status and message reach the caller). */
+export class FakePgError extends Error {
+  constructor(public status: number, public code: string, message: string) { super(message); }
+}
+const pt = (status: number, message: string) => new FakePgError(status, `PT${status}`, message);
+const metered = (s: Row) => s.type === 'llm' || (s.cost_usd !== null && s.cost_usd !== undefined);
+
+/** Same semantics as spec/db/011 admit_run (checked against Postgres 16): run rate, then the metered-call budget, then
+ * the run row as the reservation. Single-threaded here, as the advisory lock makes it in Postgres. */
+function admitRun(a: { p_brand: string; p_kind: string; p_version: number; p_executor: string; p_progress: unknown; p_created_by: string | null; p_planned: number; p_budget: number; p_run_rate: number; p_spend_cap: number }) {
+  const now = Date.now();
+  const runs = db.tables.runs.filter((r) => r.brand_id === a.p_brand);
+  const hourAgo = new Date(now - 3_600_000).toISOString();
+  if (runs.filter((r) => String(r.created_at) >= hourAgo).length >= a.p_run_rate) throw pt(429, `this brand has started ${a.p_run_rate} runs in the last hour; wait a little and try again`);
+  if (a.p_planned > 0) {
+    const today = new Date(Math.floor(now / 86_400_000) * 86_400_000).toISOString();
+    const ids = new Set(runs.map((r) => r.id));
+    const spent = db.tables.run_steps.filter((x) => ids.has(x.run_id) && String(x.created_at) >= today).reduce((n, x) => n + Number(x.cost_usd ?? 0), 0);
+    if (spent >= a.p_spend_cap) throw pt(429, `this brand has spent $${Math.round(spent * 10000) / 10000} of its $${a.p_spend_cap} daily allowance for paid services; try again after 00:00 UTC`);
+    const used = db.tables.run_steps.filter((x) => ids.has(x.run_id) && String(x.created_at) >= today && metered(x)).length;
+    const reserved = runs.filter((r) => (r.status === 'running' || r.status === 'paused') && typeof r.metered_planned === 'number')
+      .reduce((n, r) => n + Math.max((r.metered_planned as number) - db.tables.run_steps.filter((x) => x.run_id === r.id && metered(x)).length, 0), 0);
+    if (used + reserved + a.p_planned > a.p_budget) throw pt(429, `this brand has used its ${a.p_budget} metered calls for today (${used} made, ${reserved} reserved by runs still going, ${a.p_planned} needed); try again after 00:00 UTC`);
+  }
+  const at = new Date(now).toISOString();
+  const run: Row = { id: uuid(), brand_id: a.p_brand, kind: a.p_kind, workflow_version: a.p_version, executor: a.p_executor, status: 'running', input: {}, progress: a.p_progress, created_by: a.p_created_by, metered_planned: a.p_planned, created_at: at, updated_at: at };
+  db.tables.runs.push(run);
+  return { ...run };
+}
+
+/** Same semantics as spec/db/011 resolve_fact_conflict (checked against Postgres 16). */
+function resolveFactConflict({ p_brand, p_conflict, p_keep, p_by, p_answer }: { p_brand: string; p_conflict: string; p_keep: string[] | null; p_by: string | null; p_answer?: Record<string, unknown> | null }) {
+  const c = (db.tables.fact_conflicts ??= []).find((x) => x.id === p_conflict && x.brand_id === p_brand);
+  if (!c) throw pt(404, 'no such conflict for this brand');
+  if (c.status !== 'open') throw pt(409, 'this conflict is already resolved');
+  const ids = c.evidence_ids as string[];
+  const keep = [...new Set(p_keep ?? [])];
+  if (!keep.every((k) => ids.includes(k))) throw pt(400, 'keep names a fact that is not on this conflict');
+  if (db.tables.evidence.filter((e) => e.brand_id === p_brand && keep.includes(e.id as string) && e.review_status !== 'rejected').length !== keep.length) throw pt(409, 'this disagreement changed since it was shown; reload it');
+  let answer: Row | null = null;
+  if (p_answer) {
+    if (keep.length) throw pt(400, 'give either the facts to keep or your own answer, not both');
+    const str = (k: string) => (typeof p_answer[k] === 'string' ? (p_answer[k] as string).trim() : '');
+    const [section, claim, value, key] = [str('section'), str('claim'), str('value'), typeof p_answer.slot_key === 'string' ? p_answer.slot_key : ''];
+    if (!section || section.length > 40) throw pt(400, 'the answer needs its kit section');
+    if (!claim || claim.length > 500) throw pt(400, 'the answer must be 1 to 500 characters');
+    if (p_answer.slot !== c.slot) throw pt(400, 'the answer must be for this question');
+    if (!value || value.length > 120 || !key || key.length > 120) throw pt(400, 'the answer needs a value of 1 to 120 characters');
+    const from = p_answer.edited_from as string | undefined;
+    if (from !== undefined && !(ids.includes(from) && db.tables.evidence.some((e) => e.id === from && e.brand_id === p_brand && e.trust !== 'owner_answer'))) throw pt(400, 'edited_from must be a source fact on this conflict');
+    answer = { id: uuid(), created_at: new Date().toISOString(), brand_id: p_brand, source_id: null, section, claim, quote: null, origin: 'owner_answer', trust: 'owner_answer', review_status: 'approved', slot: c.slot, slot_value: value, slot_key: key, ...(from ? { edited_from: from } : {}) };
+  }
+  Object.assign(c, { status: 'resolved', resolved_by: p_by, resolved_at: new Date().toISOString() });
+  let changed = 0;
+  for (const e of db.tables.evidence) if (e.brand_id === p_brand && ids.includes(e.id as string) && e.trust !== 'owner_answer') { e.review_status = keep.includes(e.id as string) ? 'approved' : 'rejected'; changed++; }
+  if (answer) db.tables.evidence.push(answer);
+  return { changed, answer: answer?.id ?? null };
+}
+
+/** Same semantics as spec/db/011 rederive_conflicts (checked against Postgres 16), run as its triggers run it: after
+ * every delete on evidence and every change of a fact's review_status. */
+function rederiveConflicts(brand: string, slot: string) {
+  for (const c of db.tables.fact_conflicts ?? []) {
+    if (c.brand_id !== brand || c.slot !== slot || c.status !== 'open') continue;
+    const live = db.tables.evidence.filter((e) => (c.evidence_ids as string[]).includes(e.id as string));
+    c.evidence_ids = live.map((e) => e.id as string).sort();
+    const values = new Set(live.filter((e) => e.review_status !== 'rejected' && e.slot_key != null).map((e) => e.slot_key));
+    if (values.size >= 2) continue;
+    Object.assign(c, { status: 'dissolved', resolved_at: new Date().toISOString() });
+    for (const e of live) if (e.review_status === 'proposed' && e.trust !== 'owner_answer') e.review_status = e.trust === 'owned' && e.match === 'exact' ? 'approved' : 'proposed';
+  }
+}
+const rederiveFor = (rows: Row[]) => {
+  for (const key of new Set(rows.filter((r) => r.slot).map((r) => `${r.brand_id}|${r.slot}`))) rederiveConflicts(...(key.split('|') as [string, string]));
+};
+
+/** fakeDb as a fetch Response: a FakePgError becomes PostgREST's error body with its status. */
+export function fakeDbResponse(url: string, init: RequestInit = {}) {
+  try {
+    return new Response(JSON.stringify(fakeDb(url, init)));
+  } catch (e) {
+    if (e instanceof FakePgError) return new Response(JSON.stringify({ code: e.code, message: e.message, details: null, hint: null }), { status: e.status });
+    throw e;
+  }
 }
 
 export function fakeDb(url: string, init: RequestInit = {}) {
@@ -55,6 +144,17 @@ export function fakeDb(url: string, init: RequestInit = {}) {
   db.calls.push({ method, table: path, query: u.search });
   if (path === 'rpc/record_run_step') return recordRunStep(body);
   if (path === 'rpc/record_fact_conflict') return recordFactConflict(body);
+  if (path === 'rpc/admit_run') return admitRun(body);
+  if (path === 'rpc/resolve_fact_conflict') return resolveFactConflict(body);
+  if (path === 'rpc/delete_source') {
+    // Same semantics as spec/db/011 delete_source: 404 when missing; the facts, then the source, then the conflicts re-derived.
+    if (!db.tables.sources.some((x) => x.id === body.p_source && x.brand_id === body.p_brand)) throw pt(404, 'not found');
+    const gone = db.tables.evidence.filter((e) => e.brand_id === body.p_brand && e.source_id === body.p_source);
+    db.tables.evidence = db.tables.evidence.filter((e) => !gone.includes(e));
+    db.tables.sources = db.tables.sources.filter((x) => x.id !== body.p_source);
+    rederiveFor(gone);
+    return null;
+  }
   const rows = (db.tables[path] ??= []);
   if (method === 'GET') {
     if (Number(q.get('offset') ?? 0) > 0) return [];
@@ -63,8 +163,19 @@ export function fakeDb(url: string, init: RequestInit = {}) {
     const cols = q.get('select')?.split(',');
     return cols ? ordered.map((r) => Object.fromEntries(cols.filter((c) => c in r).map((c) => [c, r[c]]))) : ordered;
   }
-  if (method === 'DELETE') { db.tables[path] = rows.filter((r) => !matches(r, q)); return null; }
-  if (method === 'PATCH') { const hit = rows.filter((r) => matches(r, q)); hit.forEach((r) => Object.assign(r, body)); return hit; }
+  if (method === 'DELETE') {
+    const gone = rows.filter((r) => matches(r, q));
+    db.tables[path] = rows.filter((r) => !matches(r, q));
+    if (path === 'evidence') rederiveFor(gone);
+    return null;
+  }
+  if (method === 'PATCH') {
+    const hit = rows.filter((r) => matches(r, q));
+    const reviewed = hit.filter((r) => 'review_status' in body && r.review_status !== body.review_status);
+    hit.forEach((r) => Object.assign(r, body));
+    if (path === 'evidence') rederiveFor(reviewed);
+    return hit;
+  }
   const conflict = q.get('on_conflict')?.split(',');
   const ignore = String((init.headers as Record<string, string> | undefined)?.prefer ?? '').includes('ignore-duplicates');
   return ([] as Row[]).concat(body).flatMap((r) => {

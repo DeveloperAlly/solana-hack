@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BRAND, db, env, Evicted, fakeDb, fakeStep, seedTables, type Row } from './engine-harness';
+import { BRAND, db, env, Evicted, fakeDbResponse, fakeStep, seedTables, type Row } from './engine-harness';
 
 // Workflow engine (issue #32). Supabase is the in-memory PostgREST in engine-harness.ts; the page and OpenRouter are
 // stubbed fetches. Runs go through the same runner the Workflows class uses, with a stand-in step API.
@@ -38,7 +38,7 @@ beforeEach(async () => {
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     external.push(url.split('?')[0]);
     if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'u', email: 'o@example.com' }));
-    if (url.startsWith('https://db.test')) return new Response(JSON.stringify(fakeDb(url, init)));
+    if (url.startsWith('https://db.test')) return fakeDbResponse(url, init);
     if (url.startsWith('https://openrouter.ai')) { llmCalls++; return new Response(JSON.stringify({ model: 'test/model', choices: [{ message: { content: goodFacts } }] })); }
     pageFetches++;
     if (pageFails-- > 0) throw new TypeError('network down');
@@ -258,12 +258,19 @@ describe('round 2 review fixes (PR #70)', () => {
     expect(capText('ab\u{1F600}', 4, 6)).toBe('ab\u{1F600}');
   });
 
-  it('a failed run insert closes the source it prepared instead of leaving it pending', async () => {
+  it('a failed run start after prepare closes the source it prepared instead of leaving it pending', async () => {
+    // The run row is written first by admit_run (spec/db/011); writing its input after prepare() is the step that fails.
     const realFetch = globalThis.fetch;
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => (url.endsWith('/rest/v1/runs') && init?.method === 'POST' ? new Response('{}', { status: 503 }) : realFetch(url, init))));
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => (url.includes('/rest/v1/runs?') && init?.method === 'PATCH' ? new Response('{}', { status: 503 }) : realFetch(url, init))));
     const r = await addSource({ url: 'https://example.com' });
     expect(r).toEqual({ status: 500, body: { error: 'database error' } });
     expect(db.tables.sources[0]).toMatchObject({ status: 'failed', error: 'the run could not start' });
+  });
+  it('a failed admission writes nothing', async () => {
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => (url.endsWith('/rest/v1/rpc/admit_run') ? new Response('{}', { status: 503 }) : realFetch(url, init))));
+    expect(await addSource({ url: 'https://example.com' })).toEqual({ status: 500, body: { error: 'database error' } });
+    expect([db.tables.sources.length, db.tables.runs.length]).toEqual([0, 0]);
   });
 
   it('a retried save writes the same evidence ids and keeps a review made in between', async () => {

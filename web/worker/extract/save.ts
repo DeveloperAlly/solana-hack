@@ -90,7 +90,7 @@ export async function saveExtractedFacts(env: Env, run: Pick<RunRow, 'id' | 'bra
     return {
       id: m.id, brand_id: brand, source_id: sid, section: f.section, claim: f.claim, quote: f.quote, origin: 'source',
       trust, review_status: initialReviewFor(trust, f.match, contested.has(m.id)),
-      quote_start: f.start, quote_end: f.end, match: f.match, confidence: conf.get(m.id), slot: m.slot, slot_value: m.slot_value, run_id: run.id,
+      quote_start: f.start, quote_end: f.end, match: f.match, confidence: conf.get(m.id), slot: m.slot, slot_value: m.slot_value, slot_key: m.slot_value === null ? null : normText(m.slot_value), run_id: run.id,
       page_url: page?.url ?? null, page_title: page?.title ?? null,
     };
   });

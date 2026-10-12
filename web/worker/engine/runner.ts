@@ -6,6 +6,7 @@ import { db } from '../db';
 import { HttpError, safeError, type Env } from '../env';
 import { runStep, resolve, WRITES, type RunState, type StepContext } from './steps';
 import { loadTaskModels, type TaskModels } from '../models';
+import { MeteredFailure } from '../metering';
 import type { Progress, RetrySpec, RunRow, StepProgress, StepSpec, StepTrace, WorkflowSpec } from './types';
 
 /** The subset of the Workflows step API the runner uses (https://developers.cloudflare.com/workflows/build/workers-api/#step). */
@@ -210,8 +211,9 @@ async function attempt(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepConte
         const d = decodeError(err);
         if (d.kind === 'superseded') throw err;
         const waiting = d.kind === 'rate' ? "Waiting for the AI model's rate limit before trying again." : null;
-        // A call made before the failure (a refused model reply) keeps its model, tokens and cost on the record (steps.ts withTrace).
-        const made = (e as { trace?: Partial<StepTrace> } | null)?.trace ?? {};
+        // A failure after money was spent (metering.ts MeteredFailure: a refused model reply, a paid read that returned
+        // nothing usable) keeps its cost and the call's trace on the error record, so spend and admission count it.
+        const made = e instanceof MeteredFailure ? { ...(e.trace ?? {}), cost_usd: e.cost } : {};
         await record(env, ctx.run.id, { ...made, step: traceId, attempt: sctx.attempt, type: inner.type, outcome: 'error', duration_ms: Date.now() - t0, error: d.message.slice(0, 300) }, { progress: progressAt(spec, i, 'running', waiting) }).catch(() => undefined);
         throw err;
       }

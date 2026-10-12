@@ -392,11 +392,9 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
     // registration (registerKit refuses stale citations); kits already registered keep their own evidence snapshot.
     const id = p[4];
     if (!/^[0-9a-f-]{36}$/i.test(id)) throw new HttpError(404, 'not found');
-    const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
-    const [src] = await db.select<{ id: string }>(env, 'sources', `${f}&select=id`);
-    if (!src) throw new HttpError(404, 'not found');
-    await db.del(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('source_id', id)}`);
-    await db.del(env, 'sources', f);
+    // One transaction (spec/db/011 delete_source): the facts and the source go together, and every conflict those facts
+    // were on is re-derived (a conflict left with one value closes and its other facts return to their own review).
+    await db.rpc(env, 'delete_source', { p_brand: brand.id, p_source: id });
     return json({ removed: id });
   }
   if (p[3] === 'sources' && p.length === 4 && m === 'POST') {

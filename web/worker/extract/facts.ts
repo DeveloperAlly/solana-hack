@@ -50,6 +50,47 @@ export function factKey(f: { section: string; claim: string; slot?: string | nul
   return f.slot && f.slot !== 'none' ? `slot:${f.slot}:${normText(f.slot_value ?? '')}` : `claim:${f.section}:${normText(f.claim)}`;
 }
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+
+/**
+ * A slot value stands alone in its passage (Codex review on PR #91: "York" must not stand for "New York"). It must
+ * occur on token boundaries (no letter or digit touching either end, and a number not continuing as "10,000" or
+ * "2.5"), compared through the quote normaliser. A capitalised value must also be the whole name where it occurs: the
+ * word right after it is not capitalised, and neither is the word right before it unless that word starts a sentence.
+ * This is a cheap guard; the support check, which now sees the slot and value, decides the meaning.
+ */
+export function valueStandsAlone(value: string, passage: string): boolean {
+  const v = normaliseQuote(value);
+  if (!v) return false;
+  const p = normaliseQuote(passage);
+  let at = p.indexOf(v);
+  let bounded = false;
+  while (at >= 0 && !bounded) {
+    const before = p.slice(0, at);
+    const after = p.slice(at + v.length);
+    bounded = !/[\p{L}\p{N}]$/u.test(before) && !/^[\p{L}\p{N}]/u.test(after) && !(/\d$/.test(v) && /^[.,]\d/.test(after)) && !(/^\d/.test(v) && /\d[.,]$/.test(before));
+    at = p.indexOf(v, at + 1);
+  }
+  if (!bounded) return false;
+  // Capitalisation is read from the passage as written (the normaliser lowercases).
+  const src = passage.normalize('NFKC');
+  const word = value.normalize('NFKC').trim();
+  if (!/^\p{Lu}/u.test(word)) return true;
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(word).replace(/\s+/g, '\\s+')}(?![\\p{L}\\p{N}])`, 'gu');
+  let seen = false;
+  for (const m of src.matchAll(re)) {
+    seen = true;
+    const before = src.slice(0, m.index);
+    const after = src.slice(m.index! + m[0].length);
+    const next = /^ (\p{Lu})/u.test(after);
+    const prev = / ?(\S+) $/u.exec(before);
+    const prevCapital = !!prev && /^\p{Lu}/u.test(prev[1]) && !/(^|[.!?:;]\s*)$/.test(before.slice(0, before.length - prev[0].length));
+    if (!next && !prevCapital) return true;
+  }
+  // Not found as written (typography differs from the value): the boundary check above stands.
+  return !seen;
+}
+
 /** Numbers in text, thousands separators removed: "1,250 brands in 2.5 years" -> ["1250", "2.5"]. */
 export function numbersIn(s: string): string[] {
   return (normaliseQuote(s).match(/\d+(?:,\d{3})*(?:\.\d+)?/g) ?? []).map((n) => n.replace(/,/g, ''));

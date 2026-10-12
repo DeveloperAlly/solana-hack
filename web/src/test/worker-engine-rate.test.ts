@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BRAND, db, env, Evicted, fakeDb, fakeStep, seedTables } from './engine-harness';
+import { BRAND, db, env, Evicted, fakeDbResponse, fakeStep, seedTables } from './engine-harness';
 
 // The model's rate limits inside a run (issue #32). llm.ts is stubbed here: after its own three tries it throws "the AI
 // model is busy" for a 429 or 5xx, which is all the runner can see today (see the PR's llm.ts follow-up).
@@ -26,7 +26,7 @@ beforeEach(async () => {
   db.tables.runs.push({ id: 'r1', brand_id: BRAND, kind: 'ingest_url', workflow_version: 1, executor: 'workflows', status: 'running', input: { url: 'https://example.com', sourceId: 's1', brandName: 'JamJam' }, progress: progressAt(INGEST_URL, 0) });
   llm.calls = 0;
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-    if (url.startsWith('https://db.test')) return new Response(JSON.stringify(fakeDb(url, init)));
+    if (url.startsWith('https://db.test')) return fakeDbResponse(url, init);
     return new Response('<title>JamJam</title><p>JamJam helps brands prove what they say. More text to read here.</p>', { headers: { 'content-type': 'text/html' } });
   }));
 });
