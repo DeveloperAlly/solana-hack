@@ -21,6 +21,7 @@ export const growthArtboards = {
   eventDetail: 'Event-Detail',
   eventsBoard: 'Events-Board',
   eventRating: 'Event-Rating',
+  quests: 'Quests',
 } as const satisfies Record<string, ArtboardName>;
 
 /** Query keys these screens read: `platform` picks the Platform-Detail platform; `event` the event on Event-Detail and Event-Rating. */

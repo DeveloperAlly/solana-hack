@@ -7,6 +7,7 @@ import { screenPath } from '../../gallery/screenPath';
 import { planTemplates } from '../../domain/event';
 import { growthSession } from './session';
 import { growthArtboards } from './paths';
+import { loopStore } from '../../flows/loop/store';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
 
@@ -15,6 +16,7 @@ vi.mock('../../lib/supabase', () => ({ supabase: null }));
 let fetchSpy: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   growthSession.reset();
+  loopStore.reset();
   fetchSpy = vi.fn(() => { throw new Error('the loop screens must not call fetch'); });
   vi.stubGlobal('fetch', fetchSpy);
 });
@@ -336,5 +338,53 @@ describe('Event-Rating (public, roadmap)', () => {
     await user.click(screen.getByRole('link', { name: 'All events' }));
     expect(h1('Is this event worth it?')).toBeInTheDocument();
     expect(growthArtboards.eventsBoard).toBe('Events-Board');
+  });
+});
+
+describe('Quests', () => {
+  it('approves a submission through the shared queue; a blocked one cannot be approved', async () => {
+    const user = at(screenPath('Quests'));
+    expect(within(screen.getByRole('navigation', { name: 'Grow' })).getByRole('link', { name: 'Ambassadors' })).toHaveAttribute('aria-current', 'page');
+    const answers = screen.getByRole('region', { name: 'Answer 5 setup questions in the community' });
+    expect(within(answers).getByText('2 to review')).toBeInTheDocument();
+    const list = screen.getByRole('list', { name: 'Quest submissions' });
+    const [first, second] = within(list).getAllByRole('button', { name: 'Approve and pay' });
+    expect(second).toBeDisabled();
+    expect(within(list).getByText('Blocked: Disclosure missing. Ask them to add it.')).toBeInTheDocument();
+    await user.click(first);
+    expect(within(list).getByText('Approved. The 10 USDC payout is queued.')).toBeInTheDocument();
+    expect(loopStore.read().outcomes['q-quest-answers-1']).toMatch(/^Approved/);
+    expect(screen.getByText('150 USDC')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Answer 5 setup questions in the community' })).getByText('1 to review')).toBeInTheDocument();
+  });
+
+  it('Submissions shows one quest’s submissions', async () => {
+    const user = at(screenPath('Quests'));
+    await user.click(within(screen.getByRole('region', { name: /set up aDNA in an existing repo/ })).getByRole('button', { name: 'Submissions' }));
+    expect(screen.getByRole('heading', { name: 'No submissions here' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'All submissions' }));
+    expect(screen.getByRole('list', { name: 'Quest submissions' })).toBeInTheDocument();
+  });
+
+  it('a new quest opens only when valid, then shows as Open', async () => {
+    const user = at(screenPath('Quests'));
+    await user.click(screen.getByRole('button', { name: 'New quest' }));
+    const open = screen.getByRole('button', { name: 'Open quest' });
+    expect(open).toBeDisabled();
+    await user.type(screen.getByLabelText('Task'), 'Write an event recap');
+    await user.selectOptions(screen.getByLabelText('Format'), 'recap');
+    await user.type(screen.getByLabelText('Reward per completion (USDC)'), '20');
+    await user.type(screen.getByLabelText('Slots'), '4');
+    expect(screen.getByLabelText('Budget cap')).toHaveValue('80.00 USDC, held before the quest opens');
+    await user.click(open);
+    expect(within(screen.getByRole('region', { name: 'Write an event recap' })).getByText('Open')).toBeInTheDocument();
+  });
+
+  it('empty: suggestions from the kit prefill the form, format included', async () => {
+    const user = at(screenPath('Quests', 'empty'));
+    await user.click(screen.getByRole('button', { name: 'Record a 2-minute demo of an agent reading the folder' }));
+    expect(screen.getByLabelText('Task')).toHaveValue('Record a 2-minute demo of an agent reading the folder');
+    expect(screen.getByLabelText('Format')).toHaveValue('video');
+    expect(screen.getByRole('button', { name: 'Open quest' })).toBeDisabled();
   });
 });

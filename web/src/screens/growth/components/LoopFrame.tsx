@@ -1,10 +1,8 @@
 import type { ReactNode } from 'react';
 import type { RouteTag } from '../../../config/routes';
 import type { StageId } from '../../../config/nav';
-import { AppShell } from '../../../ui/shells/AppShell';
 import { PageHeader } from '../../../ui/layouts/PageHeader';
-import { ComingSoonFlag } from '../../../ui/domain/ComingSoonFlag';
-import { Container, Stack } from '../../../ui/primitives';
+import { LoopPage } from '../../loop/LoopPage';
 
 export interface LoopFrameProps {
   /** Loop stage and tab from config/nav.ts (ADR-012: one navigation). */
@@ -20,16 +18,15 @@ export interface LoopFrameProps {
   children: ReactNode;
 }
 
-/** A signed-in loop screen: the loop shell on its stage and tab, a page header with the canvas tag. */
+/**
+ * A signed-in loop screen on the growth page: the loop screens' frame (screens/loop LoopPage: the one nav, the brand
+ * chip, the canvas tag in the bar) with a page header. A composition, no styles of its own.
+ */
 export function LoopFrame({ stage, tab, title, tag, intro, meta, back, actions, children }: LoopFrameProps) {
   return (
-    <AppShell stage={stage} tab={tab} brandName="aDNA">
-      <Container width="app">
-        <Stack gap={6}>
-          <PageHeader title={title} badges={<ComingSoonFlag tag={tag} />} intro={intro} meta={meta} back={back} actions={actions} />
-          {children}
-        </Stack>
-      </Container>
-    </AppShell>
+    <LoopPage stage={stage} tab={tab} brandName="aDNA" tag={tag}>
+      <PageHeader title={title} intro={intro} meta={meta} back={back} actions={actions} />
+      {children}
+    </LoopPage>
   );
 }

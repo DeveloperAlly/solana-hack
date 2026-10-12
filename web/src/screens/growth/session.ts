@@ -7,6 +7,7 @@ import type { Approval } from '../../domain/approval';
 import type { BrandEvent, EventRole, EventStatus, EventPlanItem } from '../../domain/event';
 import type { Post } from '../../domain/post';
 import type { EventRating } from '../../domain/rating';
+import type { Quest } from '../../domain/quest';
 import type { BadgeStyle, ConnectionState, Invite, Member, Referral, Tip } from './types';
 
 /** What a person changed on one adapted post (Distribute-Adapt), over its fixture. */
@@ -55,6 +56,8 @@ export interface GrowthSession {
   draftsAdded: Post[];
   /** The viewer's own rating, by board event id (Event-Rating; Events-Board counts it). */
   myRatings: Record<string, EventRating>;
+  /** Quests opened on Quests, newest first. */
+  questsAdded: Quest[];
 }
 
 export const growthSession = createStore<GrowthSession>({
@@ -70,6 +73,7 @@ export const growthSession = createStore<GrowthSession>({
   eventEdits: {},
   draftsAdded: [],
   myRatings: {},
+  questsAdded: [],
 });
 
 /** "2026-10-13T09:41" for now, in the viewer's local time (the format the date formatter reads). */

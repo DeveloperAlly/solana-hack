@@ -23,6 +23,8 @@ import { Events } from './Events';
 import { EventDetail } from './Event-Detail';
 import { EventsBoard } from './Events-Board';
 import { EventRating } from './Event-Rating';
+import { Quests } from './Quests';
+import { quests, questsEmpty } from './quests.fixtures';
 import { growHome, growHomeFirstRun } from './growHome.fixtures';
 import { adapt, adaptNoneChosen } from './adapt.fixtures';
 import { eventDetail, eventDetailCancelled, eventDetailPlanEmpty, events, eventsEmpty } from './events.fixtures';
@@ -77,4 +79,5 @@ export const screens: ScreenEntry[] = [
   entry('Event-Detail', 'Grow › one event: plan, people, results', EventDetail, eventDetail, { empty: eventDetailPlanEmpty, error: eventDetailCancelled }),
   entry('Events-Board', 'Public › events board: rated by people who went', EventsBoard, eventsBoard, { empty: eventsBoardEmpty }, 'ROADMAP'),
   entry('Event-Rating', 'Public › one event’s ratings, and rate it', EventRating, eventRating, { empty: eventRatingEmpty }, 'ROADMAP'),
+  entry('Quests', 'Grow › quests: paid community tasks in USDC', Quests, quests, { empty: questsEmpty }),
 ];
