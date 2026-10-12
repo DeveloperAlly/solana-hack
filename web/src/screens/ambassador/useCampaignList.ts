@@ -5,11 +5,13 @@ import type { CampaignSummary, Channel } from './types';
 export type ChannelFilter = 'all' | Channel;
 export type CampaignSort = 'ending' | 'payout';
 
+/** Display names of the paid channels (no X: ADR-002). */
+export const channelNames: Record<Channel, string> = { linkedin: 'LinkedIn', blog: 'Blog' };
+
 /** Canvas Amb-1 filter chips and sort select. */
 export const channelFilters: { id: ChannelFilter; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'linkedin', label: 'LinkedIn' },
-  { id: 'blog', label: 'Blog' },
+  ...(Object.keys(channelNames) as Channel[]).map((id) => ({ id, label: channelNames[id] })),
 ];
 export const campaignSorts: { value: CampaignSort; label: string }[] = [
   { value: 'ending', label: 'Ending soonest' },
@@ -33,6 +35,15 @@ const by = (sort: CampaignSort) => (a: CampaignSummary, b: CampaignSummary) => {
 };
 const comparators: Record<CampaignSort, (a: CampaignSummary, b: CampaignSummary) => number> = { ending: by('ending'), payout: by('payout') };
 const matchChannel = (c: CampaignSummary, channel: string) => c.channels.includes(channel as Channel);
+
+/** The live line under the list, so a filter or sort always shows its effect ("3 campaigns on Blog"). */
+export function listSummary(count: number, channel: string): string {
+  const name = channelNames[channel as Channel];
+  const where = name ? ` on ${name}` : '';
+  if (count === 0) return `No campaigns${where}.`;
+  const noun = count === 1 ? 'campaign' : 'campaigns';
+  return `${count} ${noun}${where}, closed ones last.`;
+}
 
 /**
  * Campaign list state (canvas note n-a1): filter by channel, sort by time left or payout (the foundation's useTableView),
@@ -58,6 +69,7 @@ export function useCampaignList(campaigns: CampaignSummary[]) {
     sort: table.sort?.key ?? 'ending',
     setSort: table.sortBy,
     visible: table.view,
+    summary: listSummary(table.view.length, table.filter),
     notified,
     toggleNotify,
   };

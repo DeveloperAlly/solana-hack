@@ -21,10 +21,12 @@ export interface AmbChecksListProps {
   compact?: boolean;
   /** Shown when nothing is flagged. */
   emptyText?: string;
+  /** Fixes are off while a draft is generating. */
+  disabled?: boolean;
 }
 
 /** D3 ChecksPanel (full list): each open flag with its reason and a one-click fix (canvas note n-a3). Empty: a single line. */
-export function AmbChecksList({ checks, onFix, compact = false, emptyText = 'No flags.' }: AmbChecksListProps) {
+export function AmbChecksList({ checks, onFix, compact = false, emptyText = 'No flags.', disabled = false }: AmbChecksListProps) {
   if (checks.length === 0) return <p className={styles.empty}>{emptyText}</p>;
   return (
     <ul className={`${styles.list} ${compact ? styles.compact : ''}`}>
@@ -35,7 +37,7 @@ export function AmbChecksList({ checks, onFix, compact = false, emptyText = 'No 
             {c.phrase && <span>{compact ? ': ' : ' · '}"{c.phrase}"</span>}
           </p>
           {!compact && <p className={styles.detail}>{c.detail}</p>}
-          <Button variant="secondary" onClick={() => onFix(c.id)}>
+          <Button variant="secondary" onClick={() => onFix(c.id)} disabled={disabled}>
             {compact ? c.shortFixLabel ?? c.fixLabel : c.fixLabel}
             <span className="wl-visually-hidden">: {c.title}</span>
           </Button>

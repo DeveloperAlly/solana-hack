@@ -7,7 +7,11 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { GalleryScreen } from '../../gallery/Gallery';
 import { applyFix, isOpen, scoreFor } from './useDraft';
 import { generateData } from './fixtures';
-import { validateLinkedInPostUrl, validatePageUrl, X_NOT_PAID } from './validators';
+import { validateCode, validateLinkedInPostUrl, validatePageUrl, X_NOT_PAID } from './validators';
+import { renderHook, act } from '@testing-library/react';
+import { useCampaignList } from './useCampaignList';
+import { campaignsData } from './fixtures';
+import { allScreens } from '../../gallery/registry';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
 
@@ -34,6 +38,20 @@ function at(path: string) {
 const h1 = (name: string | RegExp) => screen.findByRole('heading', { level: 1, name });
 const user = () => userEvent.setup();
 
+/** The join state machine: email (validated) → code (only after it was sent) → joined. */
+async function joinWithCode(u: ReturnType<typeof user>) {
+  expect(screen.queryByLabelText('6-digit code')).not.toBeInTheDocument();
+  await u.click(screen.getByRole('button', { name: 'Email me a code' }));
+  expect(screen.getByRole('alert')).toHaveTextContent('Enter your email to join.');
+  await u.type(screen.getByLabelText('Sign in with email to join'), 'mai@example.com');
+  await u.click(screen.getByRole('button', { name: 'Email me a code' }));
+  expect(screen.getByText(/We sent a code to mai@example.com/)).toBeInTheDocument();
+  await u.click(screen.getByRole('button', { name: 'Join and start writing' }));
+  expect(screen.getByRole('alert')).toHaveTextContent('Enter the code from the email.');
+  await u.type(screen.getByLabelText('6-digit code'), '123456');
+  await u.click(screen.getByRole('button', { name: 'Join and start writing' }));
+}
+
 async function fixAllFlags(u: ReturnType<typeof user>, names: RegExp[]) {
   for (const name of names) await u.click(screen.getByRole('button', { name }));
 }
@@ -45,10 +63,7 @@ describe('desktop flow', () => {
     await h1('Open campaigns');
     await u.click(screen.getByRole('link', { name: 'View aDNA launch week' }));
     await h1('aDNA launch week');
-    await u.click(screen.getByRole('button', { name: 'Join and start writing' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter your email to join.');
-    await u.type(screen.getByLabelText('Sign in with email to join'), 'mai@example.com');
-    await u.click(screen.getByRole('button', { name: 'Join and start writing' }));
+    await joinWithCode(u);
     await h1('Write your piece');
     const cont = screen.getByRole('button', { name: 'Continue to publish' });
     expect(cont).toBeDisabled();
@@ -218,7 +233,8 @@ describe('mobile flow (390 px artboards)', () => {
     await h1('aDNA launch week');
     await u.click(screen.getByRole('button', { name: 'Read more' }));
     expect(screen.getByRole('button', { name: 'Show less' })).toHaveAttribute('aria-expanded', 'true');
-    await u.click(screen.getByRole('link', { name: 'Join and start writing' }));
+    await u.click(screen.getByRole('button', { name: 'Join and start writing' }));
+    await joinWithCode(u);
     await h1('Write your piece');
     expect(screen.getByRole('button', { name: 'Publish (after fixes)' })).toBeDisabled();
     await u.click(screen.getByRole('button', { name: '3 flags' }));
@@ -250,5 +266,75 @@ describe('mobile flow (390 px artboards)', () => {
     await h1('Open campaigns');
     await u.click(within(screen.getByRole('navigation', { name: 'Ambassador' })).getByRole('link', { name: 'My posts' }));
     await h1('Paid 10 USDC');
+  });
+});
+
+describe('no dead or dishonest controls (review rules, issue #45)', () => {
+  it('the channel filter and sort change what the list shows', async () => {
+    const blogOnly = { ...campaignsData.campaigns[1], id: 'blog-only', channels: ['blog' as const] };
+    const { result } = renderHook(() => useCampaignList([...campaignsData.campaigns, blogOnly]));
+    expect(result.current.visible).toHaveLength(4);
+    act(() => result.current.setChannel('linkedin'));
+    expect(result.current.visible.map((c) => c.id)).not.toContain('blog-only');
+    expect(result.current.summary).toBe('3 campaigns on LinkedIn, closed ones last.');
+    act(() => result.current.setSort('payout'));
+    expect(result.current.visible[0].id).toBe('adna-launch-week');
+  });
+
+  it('the filter shows its effect on screen', async () => {
+    const u = user();
+    at('/screens/Amb-1-Campaigns');
+    expect(await screen.findByRole('status')).toHaveTextContent('3 campaigns, closed ones last.');
+    await u.click(screen.getByRole('button', { name: 'LinkedIn' }));
+    expect(screen.getByRole('status')).toHaveTextContent('3 campaigns on LinkedIn');
+  });
+
+  it('the Format select changes the piece shown', async () => {
+    const u = user();
+    at('/screens/Amb-3-Generate');
+    await h1('Write your piece');
+    expect(screen.getByText(/^LinkedIn post · 10 USDC · Piece 2 of 3/)).toBeInTheDocument();
+    await u.selectOptions(screen.getByLabelText('Format'), 'tutorial');
+    expect(screen.getByText(/^Tutorial · 50 USDC · Piece 2 of 3/)).toBeInTheDocument();
+  });
+
+  it('actions are disabled while a draft is generating', async () => {
+    at('/screens/Amb-3-Generate?state=loading');
+    await h1('Write your piece');
+    for (const name of ['Regenerate', 'Undo', /^History/, 'Continue to publish', /^Remove line/]) expect(screen.getByRole('button', { name })).toBeDisabled();
+  });
+
+  it('publish is reachable only once the draft passes: no skip-ahead link', async () => {
+    at('/screens/Amb-3-Generate');
+    await h1('Write your piece');
+    expect(screen.getByRole('button', { name: 'Continue to publish' })).toBeDisabled();
+    expect(screen.queryByRole('link', { name: /skip ahead/i })).not.toBeInTheDocument();
+  });
+
+  it('the code step exists only after a code was sent, and the email can be changed', async () => {
+    const u = user();
+    at('/screens/Amb-2-Detail');
+    await h1('aDNA launch week');
+    expect(screen.queryByLabelText('6-digit code')).not.toBeInTheDocument();
+    await u.type(screen.getByLabelText('Sign in with email to join'), 'mai@example.com');
+    await u.click(screen.getByRole('button', { name: 'Email me a code' }));
+    await u.type(screen.getByLabelText('6-digit code'), '12');
+    await u.click(screen.getByRole('button', { name: 'Join and start writing' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('The code is 6 digits.');
+    await u.click(screen.getByRole('button', { name: 'Change email' }));
+    expect(screen.getByLabelText('Sign in with email to join')).toBeInTheDocument();
+    expect(validateCode('123456')).toBeNull();
+  });
+
+  it('no screen claims approval is on-chain (only registration and payouts are)', () => {
+    for (const s of allScreens.filter((x) => x.page === 'ambassador')) {
+      for (const state of s.states) {
+        const { container, unmount } = render(<MemoryRouter>{s.render(state)}</MemoryRouter>);
+        for (const el of container.querySelectorAll('p, li, dt, dd, button, a, h1, h2, label')) {
+          expect(el.textContent ?? '').not.toMatch(/approv\w*[^.]*on-?chain|on-?chain[^.]*approv/i);
+        }
+        unmount();
+      }
+    }
   });
 });

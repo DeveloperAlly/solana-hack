@@ -15,8 +15,8 @@ export function DraftPanel({ draft, charLimit, generating }: DraftPanelProps) {
   const history = useDisclosure();
   const toolbar = (
     <>
-      <Button variant="secondary" onClick={draft.undo} disabled={draft.history.length === 0}>Undo</Button>
-      <Button variant="secondary" onClick={history.toggle} aria-expanded={history.open}>History ({draft.history.length})</Button>
+      <Button variant="secondary" onClick={draft.undo} disabled={generating || draft.history.length === 0}>Undo</Button>
+      <Button variant="secondary" onClick={history.toggle} aria-expanded={history.open} disabled={generating}>History ({draft.history.length})</Button>
     </>
   );
   return (

@@ -19,6 +19,12 @@ export function validateEmail(value: string): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? null : 'Enter a valid email, like name@example.com.';
 }
 
+/** The 6-digit sign-in code from the email (Supabase email OTP, ADR-006). */
+export function validateCode(value: string): string | null {
+  if (!value) return 'Enter the code from the email.';
+  return /^\d{6}$/.test(value) ? null : 'The code is 6 digits.';
+}
+
 /** A LinkedIn post link: linkedin.com/posts/… or linkedin.com/feed/update/… (share-sheet links included, canvas note n-m4). */
 export function validateLinkedInPostUrl(value: string): string | null {
   if (!value) return 'Paste the link to your LinkedIn post.';

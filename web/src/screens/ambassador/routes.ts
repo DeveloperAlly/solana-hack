@@ -1,6 +1,7 @@
 // The one route map for the Ambassador page (issue #53). Screens never write paths; they read them from here through
 // useAmbassadorFlow. Each step opens its gallery route /screens/<Artboard> (issue #45, "Where it lives").
 // Canvas links followed: https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, boards Amb-1 to Amb-5d and M-1 to M-5.
+import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import type { Device } from './types';
 
 /** Steps of the ambassador flow, in order: campaigns → detail → generate → publish → status. */
@@ -11,7 +12,13 @@ export type AmbStep = (typeof ambSteps)[number];
 export type AmbOutcomeStep = 'paid' | 'failed' | 'budget';
 export type AmbRouteKey = AmbStep | AmbOutcomeStep;
 
-const screen = (artboard: string, state?: string) => `/screens/${artboard}${state ? `?state=${state}` : ''}`;
+/** A gallery screen to open: its artboard and, when not the default, its state. Hrefs come from the gallery's
+ * useScreenHref (src/gallery/screenPath.ts), which keeps the theme; this file never builds a path. */
+export interface ScreenTarget {
+  artboard: string;
+  state?: ScreenState;
+}
+const screen = (artboard: string, state?: ScreenState): ScreenTarget => ({ artboard, state });
 
 /** Every artboard this page registers, keyed for the registry. */
 export const ambArtboards = {
@@ -37,7 +44,7 @@ const a = ambArtboards;
  * Where each step goes, per device. Mobile has one status artboard (M-5), so its outcomes are M-5 states; the canvas
  * draws no mobile budget-reached board, so mobile has no `budget` route.
  */
-export const ambRoutes: Record<Device, Record<AmbStep | 'paid' | 'failed', string> & { budget?: string }> = {
+export const ambRoutes: Record<Device, Record<AmbStep | 'paid' | 'failed', ScreenTarget> & { budget?: ScreenTarget }> = {
   desktop: {
     campaigns: screen(a.campaigns),
     detail: screen(a.detail),
@@ -59,13 +66,14 @@ export const ambRoutes: Record<Device, Record<AmbStep | 'paid' | 'failed', strin
   },
 };
 
-/** Routes outside this page that the canvas links to. */
+/** Another page's screen the canvas links to: Amb-5b "See public check" opens Verify-1-Match (issue #49 builds it). */
+export const verifyMatch = screen('Verify-1-Match');
+
+/** App routes outside the gallery that the canvas links to. */
 export const pageRoutes = {
   /** Canvas logo link "Main" (the landing page). */
   home: '/',
   signIn: '/sign-in',
   /** "Change" the connected LinkedIn account: Settings › Connections (backend map row "Settings › Connections"). */
   settings: '/settings',
-  /** Canvas Amb-5b "See public check" opens Verify-1-Match (issue #49 builds it). */
-  verifyMatch: screen('Verify-1-Match'),
 } as const;

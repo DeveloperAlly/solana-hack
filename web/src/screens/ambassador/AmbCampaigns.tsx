@@ -25,7 +25,7 @@ import { CampaignAction } from './parts/CampaignAction';
 import { NotifyList } from './parts/NotifyList';
 import { PageTitle } from './parts/PageTitle';
 import { useAmbassadorFlow } from './useAmbassadorFlow';
-import { campaignSorts, channelFilters, useCampaignList } from './useCampaignList';
+import { campaignSorts, channelFilters, channelNames, useCampaignList } from './useCampaignList';
 import type { CampaignsData, CampaignSummary, Device } from './types';
 
 export interface AmbCampaignsProps {
@@ -34,7 +34,6 @@ export interface AmbCampaignsProps {
   state?: ScreenState;
 }
 
-const channelNames = { linkedin: 'LinkedIn', blog: 'Blog' } as const;
 const channelsLabel = (c: CampaignSummary, sep: string) => c.channels.map((ch) => channelNames[ch]).join(sep);
 
 export function AmbCampaigns({ data, device, state = 'success' }: AmbCampaignsProps) {
@@ -84,7 +83,7 @@ export function AmbCampaigns({ data, device, state = 'success' }: AmbCampaignsPr
                 </li>
               ))}
             </Stack>
-            {list.visible.length === 0 && <Text tone="secondary">No open campaigns on this channel.</Text>}
+            <Text variant="small" tone="secondary" role="status">{list.summary}</Text>
           </Stack>
         )}
       </Stack>

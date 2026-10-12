@@ -50,10 +50,10 @@ export function AmbGenerate({ data, device, state = 'success' }: AmbGenerateProp
     return (
       <AmbShell {...flow.shell} account={data.account}>
         <Stack gap={5}>
-          <PageTitle title="Write your piece" context={data.pieceLabel} back={{ href: flow.back('generate'), label: data.campaignTitle }} />
+          <PageTitle title="Write your piece" context={`${draft.formatLabel} · ${data.pieceLabel}`} back={{ href: flow.back('generate'), label: data.campaignTitle }} />
           <HubColumns
-            start={<GenerateControls draft={draft} formats={data.formats} />}
-            end={<ChecksPanel draft={draft} threshold={data.threshold} publishHref={flow.paths.publish} onPublish={() => flow.go('publish')} />}
+            start={<GenerateControls draft={draft} formats={data.formats} generating={generating} />}
+            end={<ChecksPanel draft={draft} threshold={data.threshold} generating={generating} onPublish={() => flow.go('publish')} />}
           >
             {editor}
           </HubColumns>
@@ -72,8 +72,8 @@ export function AmbGenerate({ data, device, state = 'success' }: AmbGenerateProp
       pinned={<AmbOnBrandMeter layout="bar" score={draft.score} threshold={data.threshold} action={<Button variant="secondary" onClick={flags.show} aria-haspopup="dialog">{flagCount}</Button>} />}
       footer={
         <Stack direction="row" gap={2}>
-          <Button variant="secondary" onClick={draft.regenerate}>Regenerate</Button>
-          <Button onClick={() => flow.go('publish')} disabled={!draft.canPublish} fullWidth>{draft.canPublish ? 'Publish' : 'Publish (after fixes)'}</Button>
+          <Button variant="secondary" onClick={draft.regenerate} disabled={generating}>Regenerate</Button>
+          <Button onClick={() => flow.go('publish')} disabled={generating || !draft.canPublish} fullWidth>{draft.canPublish ? 'Publish' : 'Publish (after fixes)'}</Button>
         </Stack>
       }
     >
@@ -81,7 +81,7 @@ export function AmbGenerate({ data, device, state = 'success' }: AmbGenerateProp
       <Field label="Your angle" value={draft.angle} onChange={(e) => draft.setAngle(e.target.value)} />
       {editor}
       <AmbSheet open={flags.open} onClose={flags.hide} title="Flags">
-        <AmbChecksList compact checks={draft.open} onFix={draft.fix} />
+        <AmbChecksList compact checks={draft.open} onFix={draft.fix} disabled={generating} />
       </AmbSheet>
     </AmbShell>
   );

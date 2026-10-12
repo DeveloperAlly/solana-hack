@@ -12,10 +12,11 @@
  * | budget (spent, committed, cap)      | campaigns cap; payouts spent; submissions awaiting approval     | spent 0: the empty bar     |
  * | howPaid, joinEmail                  | copy; the email field of the inline sign-in (canvas note n-a2)  | joinEmail is a placeholder |
  *
- * States: success. Interactions: inline email sign-in validates and joins (desktop, note n-a2); mobile has a sticky Join bar and
- * the brief collapses after 4 lines (note n-m2); budget bar warns under 20% (note n-a2); back to campaigns.
+ * States: success. Interactions: inline sign-in to join (note n-a2), a state machine in useJoin: email → code (only after a code
+ * was sent) → joined → Generate; on mobile it sits in the sticky bottom bar behind the Join button and the brief collapses after
+ * 4 lines (note n-m2); the budget bar warns under 20% (note n-a2); back to campaigns.
  */
-import { Button, Stack, Text } from '../../ui/primitives';
+import { Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { DataTable } from '../../ui/composites/DataTable';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
@@ -23,11 +24,11 @@ import { AmbShell } from '../../ui/domain/AmbShell';
 import { HubColumns } from '../../ui/domain/HubColumns';
 import { AmbBudgetBar } from '../../ui/domain/AmbBudgetBar';
 import { AmbCollapsibleText } from '../../ui/domain/AmbCollapsibleText';
-import { AmbInlineForm } from '../../ui/domain/AmbInlineForm';
 import { InfoCard } from './parts/InfoCard';
+import { JoinPanel } from './parts/JoinPanel';
 import { PageTitle } from './parts/PageTitle';
 import { useAmbassadorFlow } from './useAmbassadorFlow';
-import { validateEmail } from './validators';
+import { useJoin } from './useJoin';
 import type { CampaignDetailData, Device, PayoutFormat } from './types';
 
 export interface AmbDetailProps {
@@ -46,6 +47,8 @@ export function AmbDetail({ data, device }: AmbDetailProps) {
   const flow = useAmbassadorFlow(device);
   const desktop = device === 'desktop';
   const { campaign } = data;
+  const join = useJoin({ startOpen: desktop, onJoined: () => flow.go('generate') });
+  const joinPanel = <JoinPanel join={join} emailPlaceholder={data.joinEmail} />;
 
   const main = (
     <Stack gap={5}>
@@ -60,21 +63,9 @@ export function AmbDetail({ data, device }: AmbDetailProps) {
     </Stack>
   );
   const budget = <InfoCard title="Budget"><AmbBudgetBar budget={data.budget} /></InfoCard>;
-  // INTEGRATION: Supabase email code, then POST /api/campaigns/:id/join (memberships).
-  const join = (
-    <Card variant="subtle" as="div">
-      <AmbInlineForm label="Sign in with email to join" type="email" placeholder={data.joinEmail} submitLabel="Join and start writing" validate={validateEmail} onSubmit={() => flow.go('generate')} />
-    </Card>
-  );
-  const footer = (
-    <>
-      <Button href={flow.paths.generate} fullWidth>Join and start writing</Button>
-      <Text variant="small" tone="secondary">Sign in with email on the next step</Text>
-    </>
-  );
 
   return (
-    <AmbShell {...flow.shell} account={data.account} active="campaigns" back={{ href: flow.paths.campaigns, label: 'Back to campaigns' }} title={campaign.title} footer={desktop ? undefined : footer}>
+    <AmbShell {...flow.shell} account={data.account} active="campaigns" back={{ href: flow.paths.campaigns, label: 'Back to campaigns' }} title={campaign.title} footer={desktop ? undefined : joinPanel}>
       <Stack gap={6}>
         <PageTitle
           title={campaign.title}
@@ -88,7 +79,7 @@ export function AmbDetail({ data, device }: AmbDetailProps) {
               <>
                 {budget}
                 <InfoCard title="How you get paid"><Text variant="small">{data.howPaid}</Text></InfoCard>
-                {join}
+                <Card variant="subtle" as="div">{joinPanel}</Card>
               </>
             }
           >
