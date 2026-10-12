@@ -12,17 +12,18 @@ export interface LogoProps {
 }
 
 /**
- * JamJam logo (issue #47): an outlined jar with a check mark, drawn in `currentColor` so it follows the theme's text
- * colour. The wordmark is live text in the theme's display font, not outlined, so a new theme restyles it.
- * The path data matches `public/brand/logo-mark.svg`; keep the two in step (see `public/README.md`).
+ * JamJam logo (issue #47): the pitch deck's mark, a square with both diagonals (owner, 2026-10-12), drawn in
+ * `currentColor` so it follows the theme's text colour. The wordmark is live text in the theme's display font, not
+ * outlined, so a new theme restyles it. The geometry matches `public/brand/logo-mark.svg`; keep the two in step
+ * (see `public/README.md`).
  */
 export function Logo({ variant = 'full', size = 'inherit', className }: LogoProps) {
   return (
     <span role="img" aria-label="JamJam" className={[styles.logo, styles[`size-${size}`], className].filter(Boolean).join(' ')}>
-      <svg className={styles.mark} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-        <rect x="17" y="5" width="30" height="9" rx="2" />
-        <path d="M21 14v3c0 3-9 4-9 11v20a9 9 0 0 0 9 9h22a9 9 0 0 0 9-9V28c0-7-9-8-9-11v-3" />
-        <path d="M22 38l7 7 13-14" />
+      <svg className={styles.mark} viewBox="0 0 64 64" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
+        <rect x="1.5" y="1.5" width="61" height="61" strokeWidth="3" />
+        <line x1="1.5" y1="1.5" x2="62.5" y2="62.5" strokeWidth="2" />
+        <line x1="62.5" y1="1.5" x2="1.5" y2="62.5" strokeWidth="2" />
       </svg>
       {variant === 'full' && (
         <span className={styles.wordmark} aria-hidden="true">
