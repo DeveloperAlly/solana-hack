@@ -32,7 +32,7 @@ import { useJourneyFlow } from './useJourneyFlow';
 import type { ProofData } from './types';
 
 export function J7Proof({ data }: { data: ProofData }) {
-  const { selections } = useJourneyFlow('proof');
+  const { selections, live } = useJourneyFlow('proof');
   const post = selections.post;
   const postText = post?.text ?? data.postText;
   const r = data.record;
@@ -46,7 +46,7 @@ export function J7Proof({ data }: { data: ProofData }) {
   const transaction = <VerifyReceiptLink signature={data.signature} placeholder="[explorer link once registered]">View on Solana Explorer</VerifyReceiptLink>;
   return (
     <JourneyStepFrame step="proof" title="Your first post is registered" footer={<Button href={to('hub')}>Plan the rest of my week</Button>}>
-      <JourneyAha n={5} tone="inverse">Anyone can check this came from you.</JourneyAha>
+      <JourneyAha n={5} tone="inverse">{live ? "Anyone can check the text you approved." : "Anyone can check this came from you."}</JourneyAha>
       <Columns
         ratio="5-7"
         stackBelow="md"

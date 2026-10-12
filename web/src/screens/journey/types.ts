@@ -130,6 +130,7 @@ export interface SaveData {
 
 /** J3-Confirm. */
 export interface ConfirmData {
+  conflicts?: { question: JourneyFact; sides: JourneyFact[] }[];
   /** Cards with a quote that the person can accept, edit or reject. */
   facts: JourneyFact[];
   /** Partly found, picked by example on J4. */
@@ -145,6 +146,7 @@ export interface ConfirmData {
 
 /** J4-Gaps-Voice. */
 export interface GapsVoiceData {
+  questions?: { id: string; question: string; optional: boolean; kind: string; step?: string; field?: string; sections: string[] }[];
   brandName: string;
   alternatives: { question: string; hint: string; options: string[]; source: string };
   edgeQuestion: string;
@@ -166,6 +168,9 @@ export interface ApproveKitData {
 
 /** J6-First-Post. */
 export interface FirstPostData {
+  approvalReady?: boolean;
+  checkRows?: JourneyStatusRow[];
+  notice?: string;
   /** Each channel's draft; `polish` holds a sample revision per polish action (what POST …/polish returns). */
   channels: { id: JourneyChannel; label: string; segments: JourneyClaimSegment[]; polish?: Record<string, JourneyClaimSegment[]> }[];
   claims: JourneyClaim[];
