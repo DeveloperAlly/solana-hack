@@ -38,3 +38,6 @@ These routes run in `web/worker/` (not stubs). The journey UI ([issue #48](https
 | J6 First post | Polish, undo, edit, approve, register | `POST .../posts/:pid/polish {action, rev}`, `.../undo {rev}`, `PUT .../posts/:pid {body, rev}`, `.../approve {rev}`, `.../register {rev, publishedUrl?}` | Register needs a saved account. |
 | J7 Prove | Check the exact text | `POST /api/verify {text}` (no sign-in) | `official: true` only when the Solana attestation verifies. |
 | J8 Return | Brand list and state | `GET /api/me`, `GET /api/brands/:id` | |
+## Run-backed routes (live in `web/worker/`, issue #64, PR #91)
+- `POST /api/brands/:id/sources {url}` starts the `extract_facts` workflow (whole-site read, quote and support checks). It answers `201 {sourceId, facts, dropped, kind, needsReview, conflicts, runId}` when the run finishes within the wait, or `202 {runId, sourceId, status, progress, resume_at, message}` while it goes on (the drafting route's contract): follow it with `GET /api/runs/:runId` until `done` or `failed`. It used to answer 409 "still reading" in that case. Over a cap it answers 429 with the reason.
+- `POST /api/brands/:id/runs {kind, reader?, ...}` starts any registered run kind (`web/worker/engine/kinds.ts`) and answers `202 {run}`.

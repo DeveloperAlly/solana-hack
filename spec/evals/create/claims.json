@@ -1,0 +1,525 @@
+{
+  "about": "F6-style claims fixtures for the Create claims gate (architecture §13.1 F6, §13.2 'Unsupported claims caught: >= 95% recall'; issue #93). Synthetic: written for this PR, not labelled by the owner. Synthetic errors (changed numbers, invented customers, upgraded nouns, superlatives, guarantees, prices) are reported separately from real-draft fixtures, which do not exist yet (§13.1: F6 is mostly real drafts, labelled by hand). Each item: the usable facts, a post, the claims its writer declared, the claims level, and whether the post's claims are all supported. Rule change on PR #99 review: a declared claim is one whole sentence of the post. Under that rule the earlier fixtures s1, s2 and s5, which declared part of a sentence, were refused (3 of 8 supported items flagged); they now declare whole sentences, as the drafting prompt asks.",
+  "facts": [
+    {
+      "id": "f-teams",
+      "claim": "JamJam is used by teams at 10 companies.",
+      "quote": "JamJam is used by teams at 10 companies."
+    },
+    {
+      "id": "f-solana",
+      "claim": "JamJam registers each approved post on Solana.",
+      "quote": "Every approved post is registered on Solana."
+    },
+    {
+      "id": "f-price",
+      "claim": "The Solo plan costs $19 a month.",
+      "quote": "Solo: $19 a month."
+    },
+    {
+      "id": "f-founded",
+      "claim": "JamJam was founded in 2026 in Melbourne.",
+      "quote": "Founded in Melbourne in 2026."
+    },
+    {
+      "id": "f-first",
+      "claim": "JamJam is the first brand tool to register posts on Solana.",
+      "quote": "the first brand tool to register posts on Solana"
+    },
+    {
+      "id": "f-happy",
+      "claim": "JamJam has 10 happy companies.",
+      "quote": "10 happy companies"
+    }
+  ],
+  "items": [
+    {
+      "id": "s1",
+      "kind": "supported",
+      "level": "4",
+      "body": "Teams at 10 companies use JamJam to keep their posts on brand.",
+      "claims": [
+        {
+          "text": "Teams at 10 companies use JamJam to keep their posts on brand.",
+          "fact_ids": [
+            "f-teams"
+          ]
+        }
+      ],
+      "expect": "supported"
+    },
+    {
+      "id": "s2",
+      "kind": "supported",
+      "level": "4",
+      "body": "Every post you approve is registered on Solana, so anyone can check it.",
+      "claims": [
+        {
+          "text": "Every post you approve is registered on Solana, so anyone can check it.",
+          "fact_ids": [
+            "f-solana"
+          ]
+        }
+      ],
+      "expect": "supported"
+    },
+    {
+      "id": "s3",
+      "kind": "supported",
+      "level": "4",
+      "body": "Solo costs $19 a month.",
+      "claims": [
+        {
+          "text": "Solo costs $19 a month",
+          "fact_ids": [
+            "f-price"
+          ]
+        }
+      ],
+      "expect": "supported"
+    },
+    {
+      "id": "s4",
+      "kind": "supported",
+      "level": "4",
+      "body": "We think brands should be able to prove what they said.",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s5",
+      "kind": "supported",
+      "level": "4",
+      "body": "Founded in Melbourne in 2026, JamJam started with one question.",
+      "claims": [
+        {
+          "text": "Founded in Melbourne in 2026, JamJam started with one question.",
+          "fact_ids": [
+            "f-founded"
+          ]
+        }
+      ],
+      "expect": "supported"
+    },
+    {
+      "id": "s6",
+      "kind": "supported",
+      "level": "4",
+      "body": "JamJam is the first brand tool to register posts on Solana.",
+      "claims": [
+        {
+          "text": "JamJam is the first brand tool to register posts on Solana",
+          "fact_ids": [
+            "f-first"
+          ]
+        }
+      ],
+      "expect": "supported"
+    },
+    {
+      "id": "s7",
+      "kind": "supported",
+      "level": "3",
+      "body": "We are the friendliest way to build a brand.",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "u1",
+      "kind": "upgraded_noun",
+      "level": "4",
+      "body": "JamJam now serves 10 enterprise customers.",
+      "claims": [
+        {
+          "text": "JamJam now serves 10 enterprise customers",
+          "fact_ids": [
+            "f-teams"
+          ]
+        }
+      ],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u2",
+      "kind": "changed_number",
+      "level": "4",
+      "body": "Teams at 12 companies use JamJam.",
+      "claims": [
+        {
+          "text": "Teams at 12 companies use JamJam",
+          "fact_ids": [
+            "f-teams"
+          ]
+        }
+      ],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u3",
+      "kind": "invented_customer",
+      "level": "4",
+      "body": "Teams at 10 companies, including Stripe, use JamJam.",
+      "claims": [
+        {
+          "text": "Teams at 10 companies",
+          "fact_ids": [
+            "f-teams"
+          ]
+        }
+      ],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u4",
+      "kind": "undeclared_number",
+      "level": "4",
+      "body": "JamJam has 10,000 users.",
+      "claims": [],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u5",
+      "kind": "no_fact",
+      "level": "4",
+      "body": "JamJam doubles engagement in 30 days.",
+      "claims": [
+        {
+          "text": "JamJam doubles engagement in 30 days",
+          "fact_ids": []
+        }
+      ],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u6",
+      "kind": "unknown_fact",
+      "level": "4",
+      "body": "JamJam has 500 brands on board.",
+      "claims": [
+        {
+          "text": "JamJam has 500 brands on board",
+          "fact_ids": [
+            "f-invented"
+          ]
+        }
+      ],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u7",
+      "kind": "superlative",
+      "level": "4",
+      "body": "JamJam is the best brand tool on Solana.",
+      "claims": [
+        {
+          "text": "JamJam is the best brand tool on Solana",
+          "fact_ids": [
+            "f-solana"
+          ]
+        }
+      ],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u8",
+      "kind": "guarantee",
+      "level": "4",
+      "body": "Every post is guaranteed to be registered on Solana.",
+      "claims": [
+        {
+          "text": "Every post is guaranteed to be registered on Solana",
+          "fact_ids": [
+            "f-solana"
+          ]
+        }
+      ],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u9",
+      "kind": "changed_price",
+      "level": "4",
+      "body": "Solo costs $9 a month.",
+      "claims": [
+        {
+          "text": "Solo costs $9 a month",
+          "fact_ids": [
+            "f-price"
+          ]
+        }
+      ],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u10",
+      "kind": "claim_not_in_post",
+      "level": "4",
+      "body": "Thousands of teams use JamJam every day.",
+      "claims": [
+        {
+          "text": "Teams at 10 companies use JamJam",
+          "fact_ids": [
+            "f-teams"
+          ]
+        }
+      ],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u11",
+      "kind": "undeclared_superlative",
+      "level": "4",
+      "body": "JamJam is the fastest way to a brand kit.",
+      "claims": [],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u12",
+      "kind": "light_gate_number",
+      "level": "3",
+      "body": "We have helped 40 founders this month.",
+      "claims": [],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u13",
+      "kind": "strict_gate_brand_claim",
+      "level": "5",
+      "body": "Our team answers every message the same day.",
+      "claims": [],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u14",
+      "kind": "named_customer_light",
+      "level": "3",
+      "body": "Stripe uses JamJam.",
+      "claims": [],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u15",
+      "kind": "customer_result",
+      "level": "4",
+      "body": "Our customers ship posts in half the time.",
+      "claims": [],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u16",
+      "kind": "comparison",
+      "level": "4",
+      "body": "JamJam is simpler than every other brand tool.",
+      "claims": [],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u17",
+      "kind": "named_customer_cited_wrong_fact",
+      "level": "4",
+      "body": "Stripe uses JamJam to register posts on Solana.",
+      "claims": [
+        {
+          "text": "Stripe uses JamJam to register posts on Solana",
+          "fact_ids": [
+            "f-solana"
+          ]
+        }
+      ],
+      "expect": "unsupported"
+    },
+    {
+      "id": "s8",
+      "kind": "supported",
+      "level": "3",
+      "body": "We write every post with care.",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "u18",
+      "kind": "partial_claim",
+      "level": "4",
+      "body": "We serve 10 enterprise customers.",
+      "claims": [
+        {
+          "text": "10",
+          "fact_ids": [
+            "f-teams"
+          ]
+        }
+      ],
+      "expect": "unsupported",
+      "note": "Codex review on PR #99: declaring only the number"
+    },
+    {
+      "id": "u19",
+      "kind": "plain_factual",
+      "level": "4",
+      "body": "JamJam runs on Solana.",
+      "claims": [],
+      "expect": "unsupported",
+      "note": "Codex review on PR #99"
+    },
+    {
+      "id": "u20",
+      "kind": "plain_factual",
+      "level": "4",
+      "body": "The product supports teams.",
+      "claims": [],
+      "expect": "unsupported",
+      "note": "Codex review on PR #99"
+    },
+    {
+      "id": "u21",
+      "kind": "partial_claim",
+      "level": "3",
+      "body": "Teams at 10 companies and 3 banks use JamJam.",
+      "claims": [
+        {
+          "text": "Teams at 10 companies",
+          "fact_ids": [
+            "f-teams"
+          ]
+        }
+      ],
+      "expect": "unsupported"
+    },
+    {
+      "id": "s9",
+      "kind": "question",
+      "level": "4",
+      "body": "What would you post if every claim had to be true?",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s10",
+      "kind": "imperative",
+      "level": "4",
+      "body": "Try it on your own site.",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s11",
+      "kind": "opinion",
+      "level": "4",
+      "body": "We think every brand deserves proof.",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s12",
+      "kind": "intention",
+      "level": "4",
+      "body": "We will open the beta to more teams soon.",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s13",
+      "kind": "fragment",
+      "level": "4",
+      "body": "jamjam.tech",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s14",
+      "kind": "supported",
+      "level": "4",
+      "body": "JamJam registers each approved post on Solana.",
+      "claims": [
+        {
+          "text": "JamJam registers each approved post on Solana.",
+          "fact_ids": [
+            "f-solana"
+          ]
+        }
+      ],
+      "expect": "supported"
+    },
+    {
+      "id": "u22",
+      "kind": "question_with_assertion",
+      "level": "4",
+      "body": "Did you know JamJam doubles revenue?",
+      "claims": [],
+      "expect": "unsupported",
+      "note": "Codex review on PR #99: a question's shape does not exempt its content"
+    },
+    {
+      "id": "u23",
+      "kind": "imperative_with_guarantee",
+      "level": "4",
+      "body": "Try JamJam, guaranteed to double revenue.",
+      "claims": [],
+      "expect": "unsupported",
+      "note": "Codex review on PR #99"
+    },
+    {
+      "id": "u24",
+      "kind": "opinion_with_assertion",
+      "level": "4",
+      "body": "We think JamJam doubles revenue.",
+      "claims": [],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u25",
+      "kind": "question_with_number",
+      "level": "3",
+      "body": "Want to know how 40 founders use it?",
+      "claims": [],
+      "expect": "unsupported"
+    },
+    {
+      "id": "s15",
+      "kind": "question",
+      "level": "4",
+      "body": "Have you tried writing a post without a single adjective?",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s16",
+      "kind": "imperative",
+      "level": "4",
+      "body": "Start with your own website and see what it says.",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "u26",
+      "kind": "counted_phrase_hidden_noun",
+      "level": "4",
+      "body": "We serve 10 happy enterprise customers.",
+      "claims": [
+        {
+          "text": "We serve 10 happy enterprise customers.",
+          "fact_ids": [
+            "f-happy"
+          ]
+        }
+      ],
+      "expect": "unsupported",
+      "note": "Codex review on PR #99: an adjective must not hide the noun"
+    },
+    {
+      "id": "s17",
+      "kind": "supported",
+      "level": "4",
+      "body": "JamJam has 10 happy companies.",
+      "claims": [
+        {
+          "text": "JamJam has 10 happy companies.",
+          "fact_ids": [
+            "f-happy"
+          ]
+        }
+      ],
+      "expect": "supported"
+    }
+  ]
+}

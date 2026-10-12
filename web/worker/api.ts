@@ -3,13 +3,15 @@ import { claimMap } from './claims';
 import { assertCanAddSource, assertCanCreateBrand, claimAnonymous, coverage, editFact, FIRST_POST_BRIEF, voiceSamples } from './journey';
 import { db } from './db';
 import { HttpError, json, safeError, sha256Hex, type Env } from './env';
-import { readPage } from './ingest';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
-import { MAX_QUOTE, normalisePage, quoteOnPage } from './quote';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
-import { factTrust, urlKind, usableFact } from './sources/registry';
-import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
+import { draftChecks } from './create/checks';
+import { activeRun, activeRuns, draftRun, getRun, ingestSource, startRun } from './engine/api';
+import { addSocialExport, findCompetitors, listCompetitors, uploadDocument } from './intake';
+import type { WaitUntil } from './engine/executor';
+import { usableFact } from './sources/registry';
+import { approvePost, contentHash, editPost, rejectPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
 export const MAX_POSTS = 500;
@@ -43,7 +45,10 @@ async function brandState(env: Env, brand: Brand) {
   const f = db.eq('brand_id', brand.id);
   const [answers, sources, evidence, sections, gates, kits] = await Promise.all([
     db.select<Answer>(env, 'answers', f),
-    db.select(env, 'sources', `${f}&select=id,url,title,status,error,fetched_at&order=created_at`),
+    // The brand's own sources and pages about it. Competitor candidates (#35) are not sources the kit is built from,
+    // so they are listed apart (GET /api/brands/:id/competitors) and never enter the kit's source list. kind says what
+    // a source without an address is (an upload, an export, a web search: url '', named by its title).
+    db.select(env, 'sources', `${f}&kind=neq.competitor_page&select=id,url,kind,title,status,error,fetched_at&order=created_at`),
     // Paged: the kit snapshot records all evidence, so a response row cap must not drop any.
     db.selectAll<Evidence>(env, 'evidence', `${f}&order=created_at.asc,id.asc`),
     db.select<Section>(env, 'kit_sections', f),
@@ -79,40 +84,6 @@ export async function draftSection(env: Env, brand: Brand, section: SectionId) {
   const gate = SECTIONS[section].gate;
   if (gate) await db.del(env, 'gates', `${db.eq('brand_id', brand.id)}&${db.eq('gate', gate)}`);
   return row;
-}
-
-export async function ingest(env: Env, brand: Brand, rawUrl: string) {
-  // Owned only when the page is on the brand's own website; any other page is third-party (registry urlKind).
-  let kind = urlKind(rawUrl, brand.website);
-  const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url: rawUrl.slice(0, 500), status: 'pending', kind });
-  try {
-    const page = await readPage(rawUrl);
-    // readPage follows redirects, so classify again on the page actually read: an on-site link that redirects off the
-    // website is third-party (PR #63 review). Owned needs both the link and the final page on the website.
-    if (urlKind(page.url, brand.website) !== 'site') kind = 'page';
-    const text = page.text.slice(0, 14000);
-    const system = `You extract facts about the brand "${brand.name}" from a web page. Each fact needs an exact quote copied character for character from the page text, at most ${MAX_QUOTE} characters. Sections: ${Object.keys(SECTIONS).join(', ')}. Reply with JSON only: {"facts": [{"section": string, "claim": string, "quote": string}]}. At most 12 facts. No facts that the page does not state.`;
-    const { text: reply } = await chat(env, system, `Page title: ${page.title}\nURL: ${page.url}\n\n${text}`);
-    const facts = parseJson<{ facts?: { section?: string; claim?: string; quote?: string }[] }>(reply).facts ?? [];
-    // One normaliser for the page and every quote (quote.ts), so typography and line breaks cannot fail a real quote.
-    const hay = normalisePage(page.text);
-    // Keep only facts whose quote really is on the page (no invented evidence). The quote checked is the quote stored:
-    // one longer than the stored limit is refused here, never cut after the check (a cut quote may no longer match).
-    const rows = facts
-      .map((f) => ({ ...f, quote: typeof f.quote === 'string' ? f.quote.trim() : '' }))
-      .filter((f) => f.claim && f.quote && f.quote.length <= MAX_QUOTE && isSection(f.section ?? '') && quoteOnPage(hay, f.quote))
-      // Trust and the starting review decision come from the source type registry (sources/registry.ts), not from here.
-      .map((f) => ({ brand_id: brand.id, source_id: src.id, section: f.section, claim: str(f.claim, 500), quote: f.quote, origin: 'source', ...factTrust(kind) }));
-    if (rows.length) await db.insert(env, 'evidence', rows);
-    // source_text (spec/db/008) keeps the full text the quotes were checked against, so any stored quote can be
-    // re-checked later; text_excerpt stays for existing readers.
-    await db.update(env, 'sources', db.eq('id', src.id), { status: 'read', kind, title: page.title, text_excerpt: text.slice(0, 2000), source_text: page.text, fetched_at: new Date().toISOString(), url: page.url.slice(0, 500) });
-    return { sourceId: src.id, facts: rows.length, dropped: facts.length - rows.length, kind, needsReview: kind === 'page' ? rows.length : 0 };
-  } catch (e) {
-    const msg = e instanceof HttpError ? e.message : 'reading the page failed';
-    await db.update(env, 'sources', db.eq('id', src.id), { status: 'failed', error: msg });
-    throw e;
-  }
 }
 
 /**
@@ -338,7 +309,10 @@ const REVIEWABLE = ['owned', 'third_party'];
  * only once approved; any reviewable fact can be rejected. Returns the sections citing the fact when it stops being
  * usable, since registration now refuses them until redrafted or the fact is approved again.
  */
-export async function reviewEvidence(env: Env, brand: Brand, id: string, decision: string) {
+/** The owner's review of a fact read from a source. Records the owner's decision (owner_decision 'confirmed' or
+ * 'rejected', by and when: spec/db/011) as well as review_status, so confirming a fact the system already approved is
+ * kept. A side of an open conflict cannot be approved here (409 from the database: resolve the disagreement). */
+export async function reviewEvidence(env: Env, brand: Brand, id: string, decision: string, by: string | null = null) {
   if (decision !== 'approved' && decision !== 'rejected') throw new HttpError(400, 'review_status must be approved or rejected');
   const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
   const [row] = await db.select<Evidence>(env, 'evidence', f);
@@ -346,7 +320,7 @@ export async function reviewEvidence(env: Env, brand: Brand, id: string, decisio
   if (!REVIEWABLE.includes(row.trust ?? '')) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
   // Read before the update: the database trigger (spec/db/010) deletes the correction as part of approving the source.
   const [correction] = decision === 'approved' ? await db.select<{ id: string }>(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('edited_from', id)}&select=id&limit=1`) : [];
-  const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision });
+  const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision, owner_decision: decision === 'approved' ? 'confirmed' : 'rejected', owner_decided_by: by, owner_decided_at: new Date().toISOString() });
   const sections = () => db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
   if (decision === 'approved') {
     // Restoring a source fact the owner had reworded retires the rewording (journey.ts editFact), so a kit never holds
@@ -358,6 +332,9 @@ export async function reviewEvidence(env: Env, brand: Brand, id: string, decisio
   return { evidence: updated, stale: (await sections()).filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };
 }
 
+/** The run starter as the engine's start checks see it (engine/guards.ts): the user, with their IP for per-IP caps. */
+const caller = (req: Request, user: { id: string; isAnonymous?: boolean }) => ({ ...user, ip: req.headers.get('cf-connecting-ip') });
+
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
 export async function publicLimit(req: Request, env: Env, scope: string) {
   if (!env.PUBLIC_LIMITER) return;
@@ -367,7 +344,7 @@ export async function publicLimit(req: Request, env: Env, scope: string) {
 }
 
 /** Authenticated product API (S1-S4). Returns null for paths it does not own. */
-export async function handleApi(req: Request, env: Env, url: URL): Promise<Response | null> {
+export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUntil): Promise<Response | null> {
   const p = url.pathname.split('/').filter(Boolean); // ['api', ...]
   const m = req.method;
   // Public (no sign-in): Verify and Ledger (S6), limited per client IP because they query the database and Solana.
@@ -380,8 +357,20 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     return json(await verifyText(env, str(b.text, 8000)));
   }
   if (p[1] === 'ledger' && p.length === 2 && m === 'GET') { await publicLimit(req, env, 'ledger'); return json(await ledger(env)); }
-  if (p[1] !== 'me' && p[1] !== 'brands') return null;
+  if (p[1] !== 'me' && p[1] !== 'brands' && p[1] !== 'runs' && p[1] !== 'drafts') return null;
   const user = await requireUser(req, env);
+  // GET /api/runs/:id -> {run, steps}: a run's status, progress and step traces, for the brand's owner (issue #32).
+  if (p[1] === 'runs') return p.length === 3 && m === 'GET' ? json(await getRun(env, user, p[2])) : json({ error: 'not found' }, 404);
+  // GET /api/drafts/:id/checks -> the draft's checks for the Ambassador Generate screen (#78), from the verdict stored on
+  // the post (create/checks.ts; issue #93). Owner only: a post of someone else's brand is reported as not found.
+  if (p[1] === 'drafts') {
+    if (!(p.length === 4 && p[3] === 'checks' && m === 'GET' && /^[0-9a-f-]{36}$/i.test(p[2]))) return json({ error: 'not found' }, 404);
+    const [post] = await db.select<Post>(env, 'posts', `${db.eq('id', p[2])}&select=id,brand_id,channel,checks,body`);
+    const [own] = post ? await db.select<{ id: string }>(env, 'brands', `${db.eq('id', post.brand_id)}&${db.eq('owner_id', user.id)}&select=id`) : [];
+    if (!post || !own) throw new HttpError(404, 'draft not found');
+    // Checks describe the current text only: a verdict for an earlier text is not served (posts.ts approvePost rule).
+    return json(draftChecks(post, await contentHash(post.body)));
+  }
 
   if (p[1] === 'me' && p.length === 2 && m === 'GET') {
     const brands = await db.select<Brand>(env, 'brands', `${db.eq('owner_id', user.id)}&order=created_at`);
@@ -405,7 +394,17 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   if (p[1] !== 'brands' || !p[2]) return json({ error: 'not found' }, 404);
   const brand = await ownBrand(env, user, p[2]);
 
-  if (p.length === 3 && m === 'GET') return json(await brandState(env, brand));
+  if (p.length === 3 && m === 'GET') {
+    // activeRun: the newest running or paused run, so a reload shows its progress (issue #32).
+    const [state, run] = await Promise.all([brandState(env, brand), activeRun(env, brand.id)]);
+    return json({ ...state, activeRun: run });
+  }
+  // POST /api/brands/:id/runs {kind, ...input} -> 202 {run}
+  if (p[3] === 'runs' && p.length === 4 && m === 'GET') return json({ runs: await activeRuns(env, brand.id, url.searchParams.get('kind') ?? '') });
+  if (p[3] === 'runs' && p.length === 4 && m === 'POST') {
+    const b = await body(req);
+    return json({ run: await startRun(env, ctx, caller(req, user), brand, str(b.kind, 60), b) }, 202);
+  }
   if (p.length === 3 && m === 'PATCH') {
     const b = await body(req);
     const patch: Record<string, string | null> = {};
@@ -429,8 +428,19 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     if (!/^[0-9a-f-]{36}$/i.test(p[4])) throw new HttpError(404, 'fact not found');
     const b = await body(req);
     if (typeof b.claim === 'string') return json(await editFact(env, brand.id, p[4], b.claim));
-    return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20)));
+    return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20), user.id));
   }
+  // Sources converted when they are added, then read into fact extraction (intake.ts; R9 on #38, #33): a document
+  // upload and the owner's own social export. Competitor candidates for the positioning step (#35).
+  if (p[3] === 'sources' && p.length === 5 && m === 'POST' && (p[4] === 'document' || p[4] === 'social')) {
+    const r = p[4] === 'document' ? await uploadDocument(env, ctx, caller(req, user), brand, req) : await addSocialExport(env, ctx, caller(req, user), brand, req);
+    return json(r.body, r.status);
+  }
+  if (p[3] === 'competitors' && p.length === 4 && m === 'POST') {
+    const r = await findCompetitors(env, ctx, caller(req, user), brand);
+    return json(r.body, r.status);
+  }
+  if (p[3] === 'competitors' && p.length === 4 && m === 'GET') return json(await listCompetitors(env, brand));
   if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
     // The anonymous source cap counts the rows that exist, so removing a source needs the saved account: otherwise
     // delete and re-add would read sources (and call the model) without bound (Codex review on PR #96).
@@ -439,11 +449,9 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     // registration (registerKit refuses stale citations); kits already registered keep their own evidence snapshot.
     const id = p[4];
     if (!/^[0-9a-f-]{36}$/i.test(id)) throw new HttpError(404, 'not found');
-    const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
-    const [src] = await db.select<{ id: string }>(env, 'sources', `${f}&select=id`);
-    if (!src) throw new HttpError(404, 'not found');
-    await db.del(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('source_id', id)}`);
-    await db.del(env, 'sources', f);
+    // One transaction (spec/db/011 delete_source): the facts and the source go together, and every conflict those facts
+    // were on is re-derived (a conflict left with one value closes and its other facts return to their own review).
+    await db.rpc(env, 'delete_source', { p_brand: brand.id, p_source: id });
     return json({ removed: id });
   }
   if (p[3] === 'sources' && p.length === 4 && m === 'POST') {
@@ -455,7 +463,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
       await publicLimit(req, env, 'read');
       await assertCanAddSource(env, user, brand.id);
     }
-    return json(await ingest(env, brand, u), 201);
+    const r = await ingestSource(env, ctx, caller(req, user), brand, { url: b.url });
+    return json(r.body, r.status);
   }
   if (p[3] === 'sections' && p[4] && isSection(p[4])) {
     const section = p[4];
@@ -507,14 +516,16 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
         if (any) throw new HttpError(400, 'say what the post is about');
         brief = FIRST_POST_BRIEF;
       }
-      return json({ post: await draftPost(env, brand, brief, str(b.channel, 40)) }, 201);
+      const r = await draftRun(env, ctx, user, brand, { brief, channel: str(b.channel, 40) });
+      return json(r.body, r.status);
     }
     const [post] = p[4] && /^[0-9a-f-]{36}$/.test(p[4]) ? await db.select<Post>(env, 'posts', `${db.eq('id', p[4])}&${db.eq('brand_id', brand.id)}`) : [];
     if (!post) throw new HttpError(404, 'post not found');
     const b = await body(req);
     // Every change names the revision the person saw; if the post changed since (another tab), it is refused.
     if (b.rev !== post.rev) throw new HttpError(409, 'this post changed since you loaded it; reload to see the latest version');
-    if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str(b.body, 4000)) });
+    if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str(b.body, 4000), user) });
+    if (p[5] === 'reject' && m === 'POST') return json({ post: await rejectPost(env, user, post, str(b.reason, 40), str(b.note, 500)) });
     if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
     // POST .../posts/:pid/claims {rev} -> {claimMap}: each claim with the facts it rests on, or unsupported (H9, #62).
     if (p[5] === 'claims' && m === 'POST') return json({ claimMap: await claimMap(env, post) });

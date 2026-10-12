@@ -84,6 +84,10 @@ describe('polish safety', () => {
   });
 });
 
+// A passing verdict for exactly the approval tests' text (PR #99: no text is approvable without one); these tests are
+// about the approval check (policyCheck) that runs after it.
+const passing = { bodyHash: await contentHash('We are 2x faster.'), passed: true, failedGates: [], reasons: [], evaluators: {}, findings: { slop: [], claims: [], unsupported: [], silent: [] }, source: 'draft', generator: 'g', judge: 'j', prompt: null, at: '' };
+
 describe('approval gates: claims and content policy', () => {
   const clean = { unsupported: [], sexual: false, minors: false, explicitLanguage: false };
   it('passes only with no unsupported claims and no blocked category', () => {
@@ -117,12 +121,14 @@ describe('approval gates: claims and content policy', () => {
       if (url.includes('/kits?')) return new Response(JSON.stringify([{ payload: { policy: kitPolicy ?? voice, evidence: [{ claim: 'Founded in 2024', origin: 'source', trust: 'owned', review_status: 'approved' }] } }]));
       if (url.includes('/answers?')) return new Response(JSON.stringify([{ data: voice }]));
       if (init.method === 'PATCH') { writes.push(JSON.parse(String(init.body))); return new Response(JSON.stringify([{ id: 'p' }])); }
+      // An approval lands with its decision row in one transaction (spec/db/013 change_post_with_decision).
+      if (url.includes('/rpc/change_post_with_decision')) { writes.push(JSON.parse(String(init.body)).p_patch); return new Response(JSON.stringify([{ id: 'p' }])); }
       return new Response('[]');
     }));
     return { writes, system: () => system };
   }
   const llmEnv = { ...env, OPENROUTER_API_KEY: 'k' } as Env;
-  const post = { id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'We are 2x faster.', checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [] } } as unknown as Post;
+  const post = { id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'We are 2x faster.', checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [], verdict: passing } } as unknown as Post;
   const user = { id: 'u' } as never;
 
   it('blocks approval when the claims gate finds an unsupported claim, and records why', async () => {

@@ -1,7 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AppShell } from '../../ui/shells/AppShell';
 import { Alert, Box, Button, Container, Field, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { api, ApiError } from '../../lib/api';
+import { followRun, runMessage, type RunView } from './followRun';
 
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
@@ -31,6 +32,14 @@ export function Create() {
   const [shown, setShown] = useState(20);
   const [more, setMore] = useState(false);
   const [capped, setCapped] = useState(false);
+  // Draft runs still going, by run id, with what to say about each (followRun.ts). Read back from the server on load,
+  // so leaving and coming back resumes following them.
+  const [drafting, setDrafting] = useState<Record<string, string>>({});
+  // Each run of the mount effect owns an AbortController, aborted by its cleanup: leaving the page, or StrictMode's
+  // set-up, clean-up, set-up cycle, stops that run's polling and its requests (PR #99 review). Follows started by a
+  // draft use the controller current at the time.
+  const ctrl = useRef<AbortController | null>(null);
+  const following = useRef(new Map<string, AbortSignal>());
 
   async function load(id = brandId, limit = shown) {
     if (!id) return;
@@ -40,15 +49,59 @@ export function Create() {
     setCapped(!!r.capped);
   }
   useEffect(() => {
-    api<{ brands: { id: string }[] }>('/me')
+    const c = new AbortController();
+    ctrl.current = c;
+    api<{ brands: { id: string }[] }>('/me', { signal: c.signal })
       .then(async (me) => {
+        if (c.signal.aborted) return;
         if (!me.brands.length) return setError('Build your brand first, then come back to create.');
         setBrandId(me.brands[0].id);
+        // Runs still going are read before the list (PR #99 review): a run that ends between the two reads then has its
+        // post in the list, and one still going is followed and reloads the list when it ends.
+        const going = await api<{ runs?: { id: string }[] }>(`/brands/${me.brands[0].id}/runs?kind=draft_post`, { signal: c.signal });
         await load(me.brands[0].id);
+        for (const r of going.runs ?? []) void follow(r.id, me.brands[0].id, c.signal);
       })
-      .catch((e) => setError(msg(e)));
+      .catch((e) => { if (!c.signal.aborted) setError(msg(e)); });
+    return () => c.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Follows one draft run to its end, then reloads the list (done) or shows its error (failed), until `signal` aborts. */
+  async function follow(runId: string, id = brandId, signal = ctrl.current?.signal) {
+    if (!signal || signal.aborted) return;
+    const already = following.current.get(runId);
+    if (already && !already.aborted) return;
+    following.current.set(runId, signal);
+    const update = (run: RunView) => setDrafting((d) => ({ ...d, [runId]: runMessage(run) }));
+    try {
+      const end = await followRun(runId, {
+        get: async (rid) => (await api<{ run: RunView }>(`/runs/${rid}`, { signal })).run,
+        sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+        onUpdate: update,
+        cancelled: () => signal.aborted,
+      });
+      if (!end) return;
+      if (end.status !== 'done') setError(end.error ?? 'Drafting failed. Try again.');
+      await load(id);
+    } catch (err) {
+      if (!signal.aborted) setError(msg(err));
+    } finally {
+      if (following.current.get(runId) === signal) following.current.delete(runId);
+      if (!signal.aborted) setDrafting(({ [runId]: _, ...rest }) => rest);
+    }
+  }
+
+  /**
+   * The one path for every call that starts a draft run (the form and Draft again; PR #99 review): a draft that outlasts
+   * the request comes back as a run to follow (202, no post yet), followed with the current effect's controller, and the
+   * list reloads when it ends; a finished draft reloads the list at once.
+   */
+  async function startAndFollow(body: { brief: string; channel: string }) {
+    const r = await api<{ post: Post | null; runId?: string }>(`/brands/${brandId}/posts`, { body, signal: ctrl.current?.signal });
+    if (!r.post && r.runId) void follow(r.runId);
+    else await load();
+  }
 
   async function draft(e: FormEvent) {
     e.preventDefault();
@@ -56,9 +109,8 @@ export function Create() {
     setBusy(true);
     setError(null);
     try {
-      await api(`/brands/${brandId}/posts`, { body: { brief, channel } });
+      await startAndFollow({ brief, channel });
       setBrief('');
-      await load();
     } catch (err) {
       setError(msg(err));
     } finally {
@@ -84,8 +136,9 @@ export function Create() {
               </Stack>
             </form>
           )}
+          {Object.entries(drafting).map(([id, text]) => <Alert key={id} tone="info">{text}</Alert>)}
           {posts.map((p) => (
-            <PostCard key={p.id} post={p} brandId={brandId!} onChange={() => load()} />
+            <PostCard key={p.id} post={p} brandId={brandId!} onChange={() => load()} redraft={() => startAndFollow({ brief: p.brief, channel: p.channel ?? '' })} />
           ))}
           {more && (
             <Button variant="secondary" onClick={() => { const n = Math.min(shown + 20, 500); setShown(n); load(brandId, n).catch((e) => setError(msg(e))); }}>Show older posts</Button>
@@ -97,7 +150,7 @@ export function Create() {
   );
 }
 
-function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; onChange: () => Promise<void> }) {
+function PostCard({ post, brandId, onChange, redraft }: { post: Post; brandId: string; onChange: () => Promise<void>; redraft: () => Promise<void> }) {
   const [text, setText] = useState(post.body);
   const [url, setUrl] = useState(post.published_url ?? '');
   const [busy, setBusy] = useState<string | null>(null);
@@ -187,7 +240,7 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
         {error && <Alert tone="danger">{error}</Alert>}
         <Stack direction="row" gap={3} wrap>
           {post.status !== 'registered' && dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('save', () => api(base, { method: 'PUT', body: { body: text, rev: post.rev } }))}>Save edits</Button>}
-          {hiddenAi && <Button disabled={!!busy} onClick={() => run('redraft', () => api(`/brands/${brandId}/posts`, { body: { brief: post.brief, channel: post.channel ?? '' } }))}>{busy === 'redraft' ? 'Drafting…' : 'Draft again'}</Button>}
+          {hiddenAi && <Button disabled={!!busy} onClick={() => run('redraft', redraft)}>{busy === 'redraft' ? 'Drafting…' : 'Draft again'}</Button>}
           {post.status === 'drafted' && !hiddenAi && !dirty && <Button disabled={!!busy || !slop?.passed} onClick={() => run('approve', () => api(`${base}/approve`, { body: { rev: post.rev } }))}>{busy === 'approve' ? 'Approving…' : 'Approve'}</Button>}
           {post.status === 'registering' && (
             // A send whose outcome was unknown: the server checks Solana and finishes or reopens it.

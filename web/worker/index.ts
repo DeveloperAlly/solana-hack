@@ -1,9 +1,14 @@
 // JamJam Worker: serves the SPA from static assets and answers /api/* (wrangler.jsonc run_worker_first).
 import { registrarFromSecret, registerKitAttestation } from './registry';
 import { handleApi } from './api';
+import { openRouterKeyInfo } from './openrouter';
 import { HttpError, json as jsonOut, rpcHostLabel, safeError, type Env as AppEnv } from './env';
 
 type Env = AppEnv;
+
+// The Workflows class must be a top-level export of the Worker's main module (wrangler.jsonc "workflows" class_name;
+// https://developers.cloudflare.com/workflows/get-started/guide/#4-write-your-api).
+export { RunWorkflow } from './engine/workflow';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
@@ -23,7 +28,7 @@ async function tokenOk(header: string | null, expected: string | undefined) {
 }
 
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env, ctx?: { waitUntil(p: Promise<unknown>): void }): Promise<Response> {
     const url = new URL(req.url);
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(req);
 
@@ -36,7 +41,10 @@ export default {
       }
       // ok is false when a registrar key is set but unusable: every registration would fail. The status stays 200 so
       // the Settings screen can still read the diagnostic fields.
-      return json({ ok: !registrarError, registrar, registrarError, rpcConfigured: !!env.RPC_URL, aiConfigured: !!env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || 'openrouter/free' });
+      // freeModelDailyLimit: OpenRouter's free-model requests per UTC day for this account, the ceiling every brand's
+      // model-call budget shares (engine/guards.ts).
+      const { isFreeTier, freeModelDailyLimit } = await openRouterKeyInfo(env.OPENROUTER_API_KEY);
+      return json({ ok: !registrarError, registrar, registrarError, rpcConfigured: !!env.RPC_URL, aiConfigured: !!env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || 'openrouter/free', isFreeTier, freeModelDailyLimit });
     }
 
     // S0 done-when (3): one Registrar-signed devnet registration. Deploy-run only (token), so the
@@ -74,7 +82,7 @@ export default {
       }
     }
     try {
-      const res = await handleApi(req, env, url);
+      const res = await handleApi(req, env, url, ctx);
       if (res) return res;
     } catch (e) {
       if (e instanceof HttpError) return jsonOut({ error: e.message }, e.status);
