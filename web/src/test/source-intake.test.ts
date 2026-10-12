@@ -490,6 +490,10 @@ describe('competitor candidates (#35): three, with sources, for the positioning 
     const out = await saveCompetitorCandidates(envWith, { id: 'r-old', brand_id: BRAND }, read);
     expect(out.current).toBe(false);
     expect(db.tables.sources.filter((s) => s.kind === 'competitor_page').map((s) => s.title)).toEqual(['New']);
+    // Equal timestamps: (created_at, id) is a total order, so only one of the two runs is the latest.
+    db.tables.runs.push({ id: 'r-twin-a', brand_id: BRAND, kind: 'find_competitors', created_at: '2026-10-13T00:02:00.000Z' }, { id: 'r-twin-b', brand_id: BRAND, kind: 'find_competitors', created_at: '2026-10-13T00:02:00.000Z' });
+    expect((await saveCompetitorCandidates(envWith, { id: 'r-twin-a', brand_id: BRAND }, read)).current).toBe(false);
+    expect((await saveCompetitorCandidates(envWith, { id: 'r-twin-b', brand_id: BRAND }, read)).current).toBe(true);
   });
 
   it('Codex review on PR #100: a findSimilar reply without costDollars records the cost as unknown, never the /search price', async () => {

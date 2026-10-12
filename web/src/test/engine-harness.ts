@@ -50,12 +50,15 @@ function recordFactConflict({ p_brand, p_slot, p_evidence, p_question }: { p_bra
   return c.id;
 }
 
-/** Same semantics as spec/db/014 replace_competitor_candidates: a superseded run writes nothing; otherwise the brand's
- * competitor_page rows become exactly the given set, in one step. */
+/** Same semantics as spec/db/014 replace_competitor_candidates (checked against Postgres 16 with two sessions): only
+ * the brand's latest find_competitors run by (created_at, id) writes; its set replaces the brand's competitor_page rows
+ * in one step. Single-threaded here, as the per-brand advisory lock makes it in Postgres. */
 function replaceCompetitorCandidates({ p_brand, p_run, p_rows }: { p_brand: string; p_run: string; p_rows: Row[] }) {
   const mine = db.tables.runs.find((r) => r.id === p_run && r.brand_id === p_brand && r.kind === 'find_competitors');
   if (!mine) throw new Error(`run ${p_run} is not a find_competitors run of brand ${p_brand}`);
-  if (db.tables.runs.some((r) => r.brand_id === p_brand && r.kind === 'find_competitors' && String(r.created_at) > String(mine.created_at))) return false;
+  const [latest] = db.tables.runs.filter((r) => r.brand_id === p_brand && r.kind === 'find_competitors')
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)) || String(b.id).localeCompare(String(a.id)));
+  if (latest.id !== p_run) return false;
   const keep = new Set(p_rows.map((x) => x.id));
   db.tables.sources = db.tables.sources.filter((s) => !(s.brand_id === p_brand && s.kind === 'competitor_page' && !keep.has(s.id)));
   for (const x of p_rows) {

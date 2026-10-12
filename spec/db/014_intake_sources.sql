@@ -30,20 +30,26 @@ revoke all on function public.reserve_search_source(uuid, text) from public, ano
 grant execute on function public.reserve_search_source(uuid, text) to service_role;
 
 -- Competitor candidates are replaced as one set (Codex review on PR #100): each run's candidates take the place of the
--- brand's previous ones in one transaction (a PostgREST call to a function runs as one), so GET /competitors always
--- lists the latest set, never an accumulation and never a half-written one. A run that a newer find_competitors run of
--- the same brand has superseded writes nothing, so a late save cannot bring an older set back. Rows are keyed by brand
--- and address (web/worker/intake.ts), so a retried save writes the same set. Returns false when superseded.
+-- brand's previous ones in one transaction, so GET /competitors always lists the latest set, never an accumulation and
+-- never a half-written one. Only the brand's latest find_competitors run writes: runs are ordered by (created_at, id),
+-- a total order, so equal timestamps cannot both count as latest. The brand's run bookkeeping is serialised by one
+-- transaction-scoped advisory lock per brand, the key spec/db/011 admit_run takes ('admit_run:' || brand): a save waits
+-- for an admission in progress and the reverse, so the latest-run check and the write see the same runs, and two
+-- overlapping saves cannot interleave. Each call takes that one lock and no other, so the two functions cannot
+-- deadlock. Rows are keyed by brand and address (web/worker/intake.ts), so a retried save writes the same set.
+-- Returns false when this run is not the latest (nothing written).
 create or replace function public.replace_competitor_candidates(p_brand uuid, p_run uuid, p_rows jsonb)
 returns boolean language plpgsql security invoker set search_path = public as $fn$
 declare
-  v_created timestamptz;
+  v_latest uuid;
 begin
-  select created_at into v_created from public.runs where id = p_run and brand_id = p_brand and kind = 'find_competitors';
-  if v_created is null then
+  perform pg_advisory_xact_lock(hashtextextended('admit_run:' || p_brand::text, 0));
+  if not exists (select 1 from public.runs where id = p_run and brand_id = p_brand and kind = 'find_competitors') then
     raise exception 'run % is not a find_competitors run of brand %', p_run, p_brand;
   end if;
-  if exists (select 1 from public.runs where brand_id = p_brand and kind = 'find_competitors' and created_at > v_created) then
+  select id into v_latest from public.runs where brand_id = p_brand and kind = 'find_competitors'
+  order by created_at desc, id desc limit 1;
+  if v_latest <> p_run then
     return false;
   end if;
   delete from public.sources
