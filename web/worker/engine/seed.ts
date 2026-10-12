@@ -18,8 +18,9 @@ export const INGEST_URL: WorkflowSpec = {
   concurrency: 'parallel',
   retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
   steps: [
-    // maxChars keeps the step result under the 1 MiB limit (https://developers.cloudflare.com/workflows/reference/limits/).
-    { id: 'read', type: 'fetch', label: 'Reading the page', url: '$input.url', maxChars: 400000, excerptChars: 14000 },
+    // maxChars and maxBytes keep the step result under the 1 MiB limit whether it is stored as UTF-16 (2 bytes a unit)
+    // or UTF-8 (up to 3 bytes a unit for CJK text): https://developers.cloudflare.com/workflows/reference/limits/
+    { id: 'read', type: 'fetch', label: 'Reading the page', url: '$input.url', maxChars: 300000, maxBytes: 600000, excerptChars: 14000 },
     {
       id: 'extract', type: 'llm', label: 'Finding facts', prompt: 'ingest.extract_facts', json: true,
       vars: { brand_name: '$input.brandName', max_quote: '$const.MAX_QUOTE', sections: '$const.SECTIONS' },

@@ -226,6 +226,54 @@ describe('a run that cannot load still closes (PR #70 review)', () => {
   });
 });
 
+describe('round 2 review fixes (PR #70)', () => {
+  it('the read step keeps page text within the byte budget, so a large CJK page fits the 1 MiB step result', async () => {
+    const { runStep, capText } = await import('../../worker/engine/steps');
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(`<title>T</title><p>${'\u6f22'.repeat(450000)}</p>`, { headers: { 'content-type': 'text/html' } })));
+    const read = INGEST_URL.steps[0] as Parameters<typeof runStep>[0];
+    const { output } = await runStep(read, { env, run: {} as never, state: { input: { url: 'https://example.com' }, steps: {}, prompts: {} } });
+    const bytes = new TextEncoder().encode(JSON.stringify(output)).length;
+    expect(new TextEncoder().encode((output as { text: string }).text).length).toBeLessThanOrEqual(600000);
+    expect(bytes).toBeLessThan(1024 * 1024);
+    // Never splits a character: an emoji (two UTF-16 units, four UTF-8 bytes) either fits whole or is left out.
+    expect(capText('ab\u{1F600}', 3, 100)).toBe('ab');
+    expect(capText('ab\u{1F600}', 4, 5)).toBe('ab');
+    expect(capText('ab\u{1F600}', 4, 6)).toBe('ab\u{1F600}');
+  });
+
+  it('a failed run insert closes the source it prepared instead of leaving it pending', async () => {
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => (url.endsWith('/rest/v1/runs') && init?.method === 'POST' ? new Response('{}', { status: 503 }) : realFetch(url, init))));
+    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    expect(r).toEqual({ status: 500, body: { error: 'database error' } });
+    expect(db.tables.sources[0]).toMatchObject({ status: 'failed', error: 'the run could not start' });
+  });
+
+  it('a retried save writes the same evidence ids and keeps a review made in between', async () => {
+    const realFetch = globalThis.fetch;
+    let failed = false;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/rpc/record_run_step') && !failed) {
+        const b = JSON.parse(String(init?.body));
+        if (b.p_step?.step === 'save' && b.p_step.outcome === 'ok') {
+          failed = true;
+          // The rows are written and visible; the owner approves the fact before the step is retried.
+          db.tables.evidence[0].review_status = 'approved';
+          return new Response('{}', { status: 503 });
+        }
+      }
+      return realFetch(url, init);
+    }));
+    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    expect(r.status).toBe(201);
+    expect(failed).toBe(true);
+    expect(db.tables.evidence).toHaveLength(1);
+    expect(db.tables.evidence[0].id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(db.tables.evidence[0].review_status).toBe('approved');
+    expect(steps('save').map((s) => [s.attempt, s.outcome])).toEqual([[1, 'error'], [2, 'ok']]);
+  });
+});
+
 describe('durable runs', () => {
   it('a run survives a forced step failure: the step retries with backoff and the run finishes', async () => {
     pageFails = 1;

@@ -50,15 +50,20 @@ async function start(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand:
   const { executor } = config;
   checkExecutor(env, executor, spec);
   const input = await prepare(env, brand, body);
-  if (spec.concurrency === 'supersede') {
-    await db.update(env, 'runs', `${db.eq('brand_id', brand.id)}&${db.eq('kind', kind)}&status=in.(running,paused)`, { status: 'superseded', updated_at: new Date().toISOString() });
-  }
-  const [run] = await db.insert<RunRow>(env, 'runs', { brand_id: brand.id, kind, workflow_version: spec.version, executor, status: 'running', input, progress: progressAt(spec, 0), created_by: user.id });
+  // Everything after prepare() is in one cleanup path (PR #70 review): if superseding, writing the run row or handing
+  // it to the executor fails, the run (if written) and any source prepare() created are marked failed, so no pending
+  // source is left without a run to finish it. Cleanup is best effort: the database may be the thing that failed.
+  let run: RunRow | undefined;
   try {
+    if (spec.concurrency === 'supersede') {
+      await db.update(env, 'runs', `${db.eq('brand_id', brand.id)}&${db.eq('kind', kind)}&status=in.(running,paused)`, { status: 'superseded', updated_at: new Date().toISOString() });
+    }
+    [run] = await db.insert<RunRow>(env, 'runs', { brand_id: brand.id, kind, workflow_version: spec.version, executor, status: 'running', input, progress: progressAt(spec, 0), created_by: user.id });
     await launch(env, ctx, run);
   } catch (e) {
-    await db.update(env, 'runs', db.eq('id', run.id), { status: 'failed', error: 'the run could not start', error_code: 503, updated_at: new Date().toISOString() });
-    if (typeof input.sourceId === 'string') await db.update(env, 'sources', db.eq('id', input.sourceId), { status: 'failed', error: 'the run could not start' });
+    const note = 'the run could not start';
+    if (run) await db.update(env, 'runs', db.eq('id', run.id), { status: 'failed', error: note, error_code: 503, updated_at: new Date().toISOString() }).catch(() => undefined);
+    if (typeof input.sourceId === 'string') await db.update(env, 'sources', `${db.eq('id', input.sourceId)}&${db.eq('brand_id', brand.id)}`, { status: 'failed', error: note }).catch(() => undefined);
     throw e instanceof HttpError ? e : new HttpError(503, 'the run could not start, try again');
   }
   return { run, config };

@@ -6,8 +6,9 @@
 export interface RetrySpec { limit: number; delay: string; backoff: 'constant' | 'linear' | 'exponential' }
 
 interface StepBase { id: string; label: string; retries?: RetrySpec; timeout?: string }
-/** Reads one public page (ingest.ts readPage). Output: {url, title, text, excerpt}. */
-export interface FetchStep extends StepBase { type: 'fetch'; url: string; maxChars: number; excerptChars: number }
+/** Reads one public page (ingest.ts readPage). Output: {url, title, text, excerpt}. The text keeps at most maxChars
+ * UTF-16 units and maxBytes UTF-8 bytes, so the step result stays under Workflows' 1 MiB limit in either encoding. */
+export interface FetchStep extends StepBase { type: 'fetch'; url: string; maxChars: number; maxBytes: number; excerptChars: number }
 /** One call through the LLM gateway (llm.ts chat) with a versioned prompt (prompt_versions) as the system message. */
 export interface LlmStep extends StepBase { type: 'llm'; prompt: string; promptVersion?: number; vars?: Record<string, string>; user: string; userVars?: Record<string, string>; json?: boolean }
 /** A named pure function from the code registry (steps.ts CODE). */

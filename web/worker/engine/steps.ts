@@ -1,7 +1,7 @@
 // Step types (fetch, llm, code, write, map) and the registries that definitions name. Definitions are data; these are
 // the only places their steps run code. Each handler returns {output, trace}; the runner records the trace in run_steps.
 import { db } from '../db';
-import { HttpError, type Env } from '../env';
+import { HttpError, sha256Hex, type Env } from '../env';
 import { readPage } from '../ingest';
 import { isSection, SECTIONS } from '../kit';
 import { chat, parseJson } from '../llm';
@@ -38,6 +38,24 @@ const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice
 
 type Fact = { section?: string; claim?: string; quote?: string };
 
+/**
+ * The longest prefix of `s` within `maxUnits` UTF-16 units and `maxBytes` UTF-8 bytes, never splitting a character
+ * (TextEncoder.encodeInto stops before a character that does not fit and reports how many units it read).
+ */
+export function capText(s: string, maxUnits: number, maxBytes: number) {
+  let t = s.slice(0, maxUnits);
+  if (/[\uD800-\uDBFF]$/.test(t)) t = t.slice(0, -1);
+  const { read } = new TextEncoder().encodeInto(t, new Uint8Array(maxBytes));
+  return t.slice(0, read ?? t.length);
+}
+
+/** A stable UUID for a fact, from its source and content, so a retried save writes the same rows (name-based, as in
+ * RFC 9562 §5.8 UUIDv8 layout: https://www.rfc-editor.org/rfc/rfc9562#section-5.8). */
+async function factId(...parts: string[]) {
+  const h = await sha256Hex(parts.join('\u0000'));
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-${((parseInt(h[16], 16) & 3) | 8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
 /** Pure functions a 'code' step can name. */
 export const CODE: Record<string, (args: Record<string, unknown>) => unknown> = {
   /**
@@ -58,18 +76,19 @@ export const CODE: Record<string, (args: Record<string, unknown>) => unknown> = 
 /** Database writes a 'write' step (or onFailure) can name. Each is idempotent, because a step may run more than once. */
 export const WRITES: Record<string, (ctx: StepContext, args: Record<string, unknown>) => Promise<unknown>> = {
   /**
-   * Evidence for one source, then the source marked read. Re-running replaces that source's evidence, never duplicates
-   * it. Trust comes from the source type registry (issue #57): owned only when both the link and the page actually
+   * Evidence for one source, then the source marked read. Each fact's id is derived from the source and the fact, and
+   * rows already present are left alone, so a retried step (Workflows retries the whole callback) writes the same ids
+   * and never reverts a review the owner made in between (PR #70 review;
+   * https://developers.cloudflare.com/workflows/build/rules-of-workflows/). Trust comes from the source type registry (issue #57): owned only when both the link and the page actually
    * read (after redirects) are on the brand's website; anything else is a third-party 'page' whose facts wait for review.
    */
   save_source_facts: async ({ env, run }, { sourceId, facts, dropped, link, website, url, title, text }) => {
     const sid = asText(sourceId);
     const site = typeof website === 'string' ? website : null;
     const kind = urlKind(asText(link), site) === 'site' && urlKind(asText(url), site) === 'site' ? 'site' : 'page';
-    const rows = ((facts ?? []) as { section: string; claim: string; quote: string }[]).map((f) => ({ brand_id: run.brand_id, source_id: sid, section: f.section, claim: f.claim, quote: f.quote, origin: 'source', ...factTrust(kind) }));
-    const own = `${db.eq('brand_id', run.brand_id)}&${db.eq('source_id', sid)}`;
-    await db.del(env, 'evidence', own);
-    if (rows.length) await db.insert(env, 'evidence', rows);
+    const list = (facts ?? []) as { section: string; claim: string; quote: string }[];
+    const rows = await Promise.all(list.map(async (f, i) => ({ id: await factId(sid, String(i), f.section, f.claim, f.quote), brand_id: run.brand_id, source_id: sid, section: f.section, claim: f.claim, quote: f.quote, origin: 'source', ...factTrust(kind) })));
+    if (rows.length) await db.insertNew(env, 'evidence', rows, 'id');
     const page = asText(text);
     // source_text (spec/db/008) keeps the text the quotes were checked against, so any stored quote can be re-checked.
     await db.update(env, 'sources', `${db.eq('id', sid)}&${db.eq('brand_id', run.brand_id)}`, { status: 'read', kind, title: asText(title), text_excerpt: page.slice(0, 2000), source_text: page, fetched_at: new Date().toISOString(), url: asText(url).slice(0, 500), error: null });
@@ -87,7 +106,7 @@ export async function runStep(spec: Exclude<StepSpec, { type: 'map' }>, ctx: Ste
   switch (spec.type) {
     case 'fetch': {
       const page = await readPage(asText(resolve(spec.url, state)));
-      const text = page.text.slice(0, spec.maxChars);
+      const text = capText(page.text, spec.maxChars, spec.maxBytes);
       return { output: { url: page.url, title: page.title, text, excerpt: text.slice(0, spec.excerptChars) }, trace: {} };
     }
     case 'llm': {

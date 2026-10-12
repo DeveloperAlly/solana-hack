@@ -51,9 +51,10 @@ export function fakeDb(url: string, init: RequestInit = {}) {
   if (method === 'DELETE') { db.tables[path] = rows.filter((r) => !matches(r, q)); return null; }
   if (method === 'PATCH') { const hit = rows.filter((r) => matches(r, q)); hit.forEach((r) => Object.assign(r, body)); return hit; }
   const conflict = q.get('on_conflict')?.split(',');
-  return ([] as Row[]).concat(body).map((r) => {
+  const ignore = String((init.headers as Record<string, string> | undefined)?.prefer ?? '').includes('ignore-duplicates');
+  return ([] as Row[]).concat(body).flatMap((r) => {
     const prev = conflict && rows.find((x) => conflict.every((c) => x[c] === r[c]));
-    if (prev) return Object.assign(prev, r);
+    if (prev) return ignore ? [] : [Object.assign(prev, r)];
     const row = { id: uuid(), created_at: new Date().toISOString(), ...r };
     rows.push(row);
     return row;
