@@ -6,3 +6,8 @@
 -- turn it into an interview row that the next answer save deletes; Codex review on PR #96). Additive, safe to re-run.
 -- Apply before deploying the Worker that reads it (saveAnswer filters on edited_from).
 alter table public.evidence add column if not exists edited_from uuid;
+-- One correction per source fact, enforced by the database so concurrent edits cannot leave two (journey.ts editFact
+-- upserts on this column). NULLs stay distinct, so source facts and interview answers are unaffected.
+do $$ begin
+  alter table public.evidence add constraint evidence_edited_from_key unique (edited_from);
+exception when duplicate_object or duplicate_table then null; end $$;

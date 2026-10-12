@@ -119,26 +119,20 @@ export async function editFact(env: Env, brandId: string, id: string, claim: str
   const f = `${db.eq('brand_id', brandId)}&${db.eq('id', id)}`;
   const [row] = await db.select<FactRow & { edited_from?: string | null }>(env, 'evidence', f);
   if (!row) throw new HttpError(404, 'fact not found');
-  const stale = async (changed: string) => {
-    const sections = await db.select<{ section: string; citations: string[] }>(env, 'kit_sections', `${db.eq('brand_id', brandId)}&select=section,citations`);
-    return sections.filter((s) => (s.citations ?? []).includes(changed)).map((s) => s.section);
-  };
-  // Editing an edit corrects it in place: one correction per source fact, never a second approved version.
-  if (row.edited_from) {
-    const [updated] = await db.update<FactRow>(env, 'evidence', f, { claim: text });
-    return { evidence: updated, replaced: row.edited_from, stale: await stale(id) };
-  }
-  if (row.trust === 'owner_answer') throw new HttpError(409, 'this fact is your own answer; change the answer instead');
-  // Editing a source fact that already has a correction updates that correction (found by edited_from).
-  const [existing] = await db.select<FactRow>(env, 'evidence', `${db.eq('brand_id', brandId)}&${db.eq('edited_from', id)}&limit=1`);
-  if (existing) {
-    const [updated] = await db.update<FactRow>(env, 'evidence', `${db.eq('brand_id', brandId)}&${db.eq('id', existing.id)}`, { claim: text });
-    return { evidence: updated, replaced: id, stale: await stale(existing.id) };
-  }
-  await db.update(env, 'evidence', f, { review_status: 'rejected' });
-  const [edited] = await db.insert<FactRow>(env, 'evidence', {
-    brand_id: brandId, source_id: null, section: row.section, claim: text, quote: null, edited_from: id,
-    origin: 'owner_answer', trust: 'owner_answer', review_status: 'approved',
-  });
-  return { evidence: edited, replaced: id, stale: await stale(id) };
+  if (row.trust === 'owner_answer' && !row.edited_from) throw new HttpError(409, 'this fact is your own answer; change the answer instead');
+  // Editing a correction, or editing its source fact again, replaces that one correction.
+  const original = row.edited_from ?? id;
+  const [prev] = await db.select<{ id: string; section: string }>(env, 'evidence', `${db.eq('brand_id', brandId)}&${db.eq('edited_from', original)}&select=id,section&limit=1`);
+  const [source] = row.edited_from ? await db.select<FactRow>(env, 'evidence', `${db.eq('brand_id', brandId)}&${db.eq('id', original)}`) : [row];
+  if (!row.edited_from) await db.update(env, 'evidence', f, { review_status: 'rejected' });
+  // One statement, atomic: evidence.edited_from is unique (spec/db/012), so concurrent edits of one fact leave one row.
+  // Every save writes a new id, so a section citing the old wording sees a missing citation, is stale, and registerKit
+  // refuses it until it is redrafted and approved again; an approved section can never pair with changed evidence.
+  const [edited] = await db.upsert<FactRow>(env, 'evidence', {
+    id: crypto.randomUUID(), brand_id: brandId, source_id: null, section: source?.section ?? prev?.section ?? row.section, claim: text, quote: null,
+    edited_from: original, origin: 'owner_answer', trust: 'owner_answer', review_status: 'approved',
+  }, 'edited_from');
+  const changed = prev?.id ?? original;
+  const sections = await db.select<{ section: string; citations: string[] }>(env, 'kit_sections', `${db.eq('brand_id', brandId)}&select=section,citations`);
+  return { evidence: edited, replaced: original, stale: sections.filter((s) => (s.citations ?? []).includes(changed)).map((s) => s.section) };
 }

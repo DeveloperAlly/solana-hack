@@ -301,7 +301,21 @@ describe('editing a fact (J3 Edit)', () => {
     await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${f.id}`, { claim: 'Third wording' });
     const approved = tables.evidence.filter((e) => e.review_status === 'approved');
     expect(approved.map((e) => e.claim)).toEqual(['Third wording']);
-    expect(approved[0].id).toBe(editId);
+    // Each save gets a new id, so a section citing an earlier wording is stale and cannot register.
+    expect(approved[0].id).not.toBe(editId);
+  });
+  it('a section citing a correction goes stale when the correction changes, and registration refuses it', async () => {
+    const b = brandRow('p-1');
+    const f = fact(b.id, 'origin', { trust: 'third_party', review_status: 'proposed' });
+    tables.brands = [b];
+    tables.evidence = [f];
+    const first = await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${f.id}`, { claim: 'First wording' });
+    const editId = (first.body.evidence as { id: string }).id;
+    tables.kit_sections = [{ brand_id: b.id, section: 'origin', citations: [editId], status: 'approved', body: 'x' }];
+    const again = await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${editId}`, { claim: 'Second wording' });
+    expect(again.body.stale).toEqual(['origin']);
+    const live = new Set(tables.evidence.map((e) => e.id));
+    expect(live.has(editId)).toBe(false);
   });
   it('refuses an empty edit, an unknown fact and an owner answer', async () => {
     const b = brandRow('p-1');
