@@ -99,7 +99,7 @@ function upload(name: string, bytes: Uint8Array<ArrayBuffer>, e?: typeof envWith
 }
 const run = (id: unknown) => db.tables.runs.find((r) => r.id === id) as Row & { status: string; output: Record<string, unknown>; error: string | null; input: Record<string, unknown> };
 const evidence = () => db.tables.evidence as (Row & { claim: string; quote: string; trust: string; review_status: string; source_id: string; quote_start: number; quote_end: number; page_url: string | null })[];
-const source = (id: unknown) => db.tables.sources.find((s) => s.id === id) as Row & { kind: string; status: string; source_text: string; url: string | null; name: string | null; title: string };
+const source = (id: unknown) => db.tables.sources.find((s) => s.id === id) as Row & { kind: string; status: string; source_text: string; url: string; title: string };
 
 /** Every saved fact quotes its stored source text exactly, at its offsets. */
 function quotesExact() {
@@ -115,7 +115,7 @@ describe('documents: converted at upload, text stored, read into extract_facts b
     const r = await upload(name, pdf);
     expect(r.status).toBe(202);
     const src = source((r.body.source as Row).id);
-    expect(src).toMatchObject({ kind: 'document', status: 'read', url: undefined, name, title: name });
+    expect(src).toMatchObject({ kind: 'document', status: 'read', url: '', title: name });
     expect(src.source_text).toContain(PROSE);
     const done = run((r.body.run as Row).id);
     expect(done).toMatchObject({ status: 'done', kind: 'extract_facts' });
@@ -186,17 +186,25 @@ describe('documents: converted at upload, text stored, read into extract_facts b
     expect(r).toMatchObject({ status: 400, body: { error: expect.stringMatching(/"file"/) } });
   });
 
-  it('a stored source the run cannot start on is marked failed, not left pending', async () => {
+  it('a stored source the run cannot start on is removed, not left pending or half added', async () => {
     db.tables.workflow_defs = db.tables.workflow_defs.filter((d) => d.id !== 'extract_facts');
     const r = await upload('deck.pdf', pdf);
     expect(r.status).toBe(503);
-    expect(db.tables.sources).toHaveLength(1);
-    expect(db.tables.sources[0]).toMatchObject({ kind: 'document', status: 'failed' });
+    expect(db.tables.sources).toHaveLength(0);
+    expect(db.tables.runs).toHaveLength(0);
+  });
+
+  it('extract_facts on a stored reader takes only an existing source of this brand and that kind', async () => {
+    db.tables.sources.push({ id: '11111111-0000-4000-8000-000000000003', brand_id: BRAND, kind: 'site', url: 'https://jamjam.tech', source_text: PROSE });
+    expect((await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'document' })).status).toBe(400);
+    expect((await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'document', sourceId: '11111111-0000-4000-8000-000000000003' })).status).toBe(404);
+    expect((await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'competitors' })).status).toBe(400);
+    expect(db.tables.runs).toHaveLength(0);
   });
 
   it('the document reader reads only a stored document of the run\'s brand; anything else is not found', async () => {
     db.tables.sources.push({ id: '11111111-0000-4000-8000-000000000001', brand_id: BRAND, kind: 'site', url: 'https://jamjam.tech', source_text: PROSE });
-    db.tables.sources.push({ id: '11111111-0000-4000-8000-000000000002', brand_id: 'other-brand', kind: 'document', name: 'x.pdf', source_text: PROSE });
+    db.tables.sources.push({ id: '11111111-0000-4000-8000-000000000002', brand_id: 'other-brand', kind: 'document', url: '', title: 'x.pdf', source_text: PROSE });
     expect(await readStored(envWith, 'document', { sourceId: '11111111-0000-4000-8000-000000000001' })).toMatchObject({ ok: false, code: 'invalid_input' });
     expect(await readStored(envWith, 'document', { sourceId: '11111111-0000-4000-8000-000000000002', brandId: BRAND })).toMatchObject({ ok: false, code: 'invalid_input' });
     expect(await readStored(envWith, 'document', { sourceId: 'not-an-id' })).toMatchObject({ ok: false, code: 'invalid_input' });
@@ -219,7 +227,7 @@ describe('socials: the owner\'s own X and LinkedIn exports, parsed in the browse
     const r = await api('POST', `/brands/${BRAND}/sources/social`, socialPayload(parsed));
     expect(r.status).toBe(202);
     const src = source((r.body.source as Row).id);
-    expect(src).toMatchObject({ kind: 'social_export', status: 'read', name: 'X export (2 items)' });
+    expect(src).toMatchObject({ kind: 'social_export', status: 'read', url: '', title: 'X export (2 items)' });
     // The repost (someone else's words) never reached the Worker.
     expect(src.source_text).not.toContain('Sydney');
     expect(run((r.body.run as Row).id)).toMatchObject({ status: 'done', input: { reader: 'social_export', sourceId: src.id } });
@@ -238,7 +246,7 @@ describe('socials: the owner\'s own X and LinkedIn exports, parsed in the browse
     const r = await api('POST', `/brands/${BRAND}/sources/social`, socialPayload(parsed));
     expect(r.status).toBe(202);
     const src = source((r.body.source as Row).id);
-    expect(src).toMatchObject({ kind: 'social_export', name: 'LinkedIn export (3 items)' });
+    expect(src).toMatchObject({ kind: 'social_export', title: 'LinkedIn export (3 items)' });
     expect(src.source_text).not.toContain('Ada');
     expect(evidence()).toHaveLength(3);
     quotesExact();
@@ -296,7 +304,15 @@ describe('Exa search (#35): web research on the brand, third-party, never pre-ap
     expect(exaCalls[0]).toMatchObject({ url: EXA_SEARCH, body: { query: 'JamJam (jamjam.tech)', excludeDomains: ['jamjam.tech'], contents: { maxAgeHours: -1 } } });
   });
 
-  it('an Exa failure is a typed, retryable read failure with a way forward; a reply without cost records the list price with a note', async () => {
+  it('a second web search while one is listed is refused, so the same pages never become duplicate facts', async () => {
+    exaReply = () => exaOk([exaResult('https://news.example/jamjam', PROSE)]);
+    expect((await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' })).status).toBe(202);
+    const again = await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' });
+    expect(again).toMatchObject({ status: 409, body: { error: expect.stringMatching(/remove it to search again/) } });
+    expect(db.tables.sources.filter((s) => s.kind === 'search_result')).toHaveLength(1);
+  });
+
+  it('an Exa failure is a typed read failure with a way forward; a reply without cost records the list price with a note', async () => {
     exaReply = () => new Response('{"error":"x"}', { status: 429 });
     expect(await readSearch(envWith, { brandName: 'JamJam' })).toMatchObject({ ok: false, code: 'unreadable', reason: expect.stringMatching(/Exa answered HTTP 429/) });
     exaReply = () => new Response(JSON.stringify({ results: [exaResult('https://a.example/', PROSE)] }));
@@ -311,13 +327,23 @@ describe('Exa search (#35): web research on the brand, third-party, never pre-ap
     expect(r.status).toBe(202);
     const done = run((r.body.run as Row).id);
     expect(done.status).toBe('done');
-    const src = db.tables.sources.find((s) => s.kind === 'search_result') as Row & { id: string; status: string; url: string | null; name: string };
-    expect(src).toMatchObject({ status: 'read' });
-    expect(src.url ?? null).toBeNull();
+    const src = db.tables.sources.find((s) => s.kind === 'search_result') as Row & { id: string; status: string; url: string; title: string };
+    expect(src).toMatchObject({ status: 'read', url: '', title: 'Web search: JamJam' });
+    expect(done.input).toMatchObject({ reader: 'search', args: { brandName: 'JamJam', website: 'https://jamjam.tech' } });
     expect(evidence().length).toBeGreaterThan(0);
     for (const e of evidence()) expect(e).toMatchObject({ trust: 'third_party', review_status: 'proposed', source_id: src.id });
     expect(evidence().find((e) => e.claim.startsWith('Every post'))!.page_url).toBe('https://news.example/jamjam');
     quotesExact();
+  });
+});
+
+describe('migration 014 seeds exactly the find_competitors definition in seed.ts', () => {
+  it('the SQL row and FIND_COMPETITORS are the same definition', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { FIND_COMPETITORS, SEEDED_BY } = await import('../../worker/engine/seed');
+    const sql = readFileSync(new URL('../../../spec/db/014_intake_sources.sql', import.meta.url), 'utf8');
+    expect(JSON.parse(/\$spec\$([\s\S]*?)\$spec\$/.exec(sql)![1])).toEqual(FIND_COMPETITORS);
+    expect(SEEDED_BY['014_intake_sources.sql'].defs).toEqual([FIND_COMPETITORS]);
   });
 });
 
@@ -377,7 +403,7 @@ describe('composability: each reader is one registry entry over its own adapter'
   });
   it('readSource caps a stored source like any other and keeps a search\'s page offsets', async () => {
     exaReply = () => exaOk([exaResult('https://a.example/', 'Alpha text.'), exaResult('https://b.example/', 'Beta text.')]);
-    const out = await readSource(envWith, 'search', { input: { brandName: 'JamJam', website: 'https://jamjam.tech' } }, 200000, 600000);
+    const out = await readSource(envWith, 'search', { brandName: 'JamJam', website: 'https://jamjam.tech' }, 200000, 600000);
     expect(out.pages.map((p) => out.text.slice(p.start, p.end))).toEqual(['Alpha text.', 'Beta text.']);
   });
 });

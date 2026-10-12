@@ -13,7 +13,7 @@ import { clock, contentCount, type SourceResult } from './types';
 export const STORED_KINDS = ['document', 'social_export'] as const;
 export type StoredKind = (typeof STORED_KINDS)[number];
 
-interface StoredRow { id: string; brand_id: string; kind: string; name: string | null; title: string | null; source_text: string | null }
+interface StoredRow { id: string; brand_id: string; kind: string; title: string | null; source_text: string | null }
 
 export async function readStored(env: Env, kind: StoredKind, args: { sourceId?: unknown; brandId?: unknown }): Promise<SourceResult> {
   const c = clock();
@@ -22,10 +22,11 @@ export async function readStored(env: Env, kind: StoredKind, args: { sourceId?: 
   const id = typeof args.sourceId === 'string' ? args.sourceId : '';
   if (!/^[0-9a-f-]{36}$/i.test(id)) return fail('invalid_input', 'That upload was not found; add it again.');
   const brand = typeof args.brandId === 'string' && /^[0-9a-f-]{36}$/i.test(args.brandId) ? `&${db.eq('brand_id', args.brandId)}` : '';
-  const [row] = await db.select<StoredRow>(env, 'sources', `${db.eq('id', id)}&${db.eq('kind', kind)}${brand}&select=id,brand_id,kind,name,title,source_text`);
+  const [row] = await db.select<StoredRow>(env, 'sources', `${db.eq('id', id)}&${db.eq('kind', kind)}${brand}&select=id,brand_id,kind,title,source_text`);
   if (!row) return fail('invalid_input', 'That upload was not found; add it again.');
   const text = row.source_text ?? '';
   if (contentCount(text) === 0) return fail('empty', 'That upload has no text to read; add it again, or paste the key points.');
-  const name = row.name ?? undefined;
-  return { ok: true, kind, trust, name, title: row.title || name || kind, text, meta: c.meta(1, 0, 'stored') };
+  // The title is the name the source was stored under (the file name, "X export (412 items)"); the save step keeps it.
+  const title = row.title || kind;
+  return { ok: true, kind, trust, name: title, title, text, meta: c.meta(1, 0, 'stored') };
 }

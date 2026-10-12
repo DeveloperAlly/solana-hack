@@ -4,8 +4,9 @@
 // (https://developers.cloudflare.com/workflows/reference/limits/), page offsets into that text, and a failure turned
 // into an error the runner can classify (4xx stops retries; engine/runner.ts classify).
 //
-// Not registered: the document adapter (sources/document.ts). It reads uploaded bytes, and there is no upload store a
-// run could read them from yet, so a run cannot reach a document until one exists.
+// Readers registered from their own modules (registerReader): document, social_export, search and competitors
+// (intake.ts). A document is converted when it is uploaded and its text stored, so its reader reads the stored text;
+// there is no upload store.
 import { HttpError, type Env } from '../env';
 import { PASTE_MAX_CHARS, readPaste } from '../sources/paste';
 import { SOURCE_TYPES, urlKind, type SourceKind } from '../sources/registry';
@@ -44,7 +45,7 @@ export interface ReaderInput {
   sourceId?: string;
 }
 /** The brand a reader's input is checked for. */
-export interface ReaderBrand { id: string; website?: string | null }
+export interface ReaderBrand { id: string; name?: string; website?: string | null }
 /** Checks a request body for one reader; throws an HttpError (4xx) for input that reader cannot use. */
 export type ReaderInputCheck = (env: Env, brand: ReaderBrand, body: Record<string, unknown>) => Promise<ReaderInput>;
 

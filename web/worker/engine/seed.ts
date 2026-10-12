@@ -99,7 +99,27 @@ export const EXTRACT_FACTS: WorkflowSpec = {
   onFailure: { op: 'mark_source_failed', args: { sourceId: '$input.sourceId' } },
 };
 
-export const SEED_DEFS = [INGEST_URL, EXTRACT_FACTS];
+/**
+ * find_competitors v1 (issue #35; seeded by spec/db/014): competitor candidates for the positioning step. The read
+ * step reads pages similar to the brand's website through the 'competitors' reader (sources/search.ts readCompetitors,
+ * registered in intake.ts), then the save step stores each as a competitor_page source. No model step: candidates are
+ * not facts about the brand. A new run supersedes one still going for the same brand. The read is at most
+ * COMPETITOR_CANDIDATES pages of COMPETITOR_CHARS characters each, well within maxChars.
+ */
+export const FIND_COMPETITORS: WorkflowSpec = {
+  id: 'find_competitors',
+  version: 1,
+  title: 'Find competitor candidates',
+  concurrency: 'supersede',
+  retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
+  steps: [
+    { id: 'read', type: 'fetch', label: 'Looking for similar companies', reader: '$input.reader', args: '$input.args', maxChars: 20000, maxBytes: 60000 },
+    { id: 'save', type: 'write', label: 'Saving the candidates', op: 'save_competitor_candidates', args: { read: '$steps.read' } },
+  ],
+  output: '$steps.save',
+};
+
+export const SEED_DEFS = [INGEST_URL, EXTRACT_FACTS, FIND_COMPETITORS];
 export const SEED_PROMPTS = [
   { key: 'ingest.extract_facts', version: 1, body: EXTRACT_FACTS_PROMPT },
   { key: 'extract.facts', version: 1, body: EXTRACT_CHUNK_PROMPT },
@@ -124,4 +144,4 @@ export const SEED_CONFIG = [{ key: TASK_MODELS_KEY, value: EXTRACT_MODELS }];
 /** The definitions, prompts and config each migration seeds; worker-engine and worker-extract tests check them against the SQL. */
 /** Definitions each migration retires (status 'retired': no new runs; runs already started keep their version). */
 export const RETIRED_BY = { '011_fact_extraction.sql': [{ id: 'ingest_url', version: 1 }] };
-export const SEEDED_BY = { '010_workflow_engine.sql': { defs: [INGEST_URL], prompts: ['ingest.extract_facts'], config: [] }, '011_fact_extraction.sql': { defs: [EXTRACT_FACTS], prompts: ['extract.facts', 'extract.check_support'], config: SEED_CONFIG } };
+export const SEEDED_BY = { '010_workflow_engine.sql': { defs: [INGEST_URL], prompts: ['ingest.extract_facts'], config: [] }, '011_fact_extraction.sql': { defs: [EXTRACT_FACTS], prompts: ['extract.facts', 'extract.check_support'], config: SEED_CONFIG }, '014_intake_sources.sql': { defs: [FIND_COMPETITORS], prompts: [], config: [] } };
