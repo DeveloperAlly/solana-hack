@@ -31,6 +31,8 @@ export interface EvidenceRow {
   match?: string | null;
   /** The single-valued slot value, when the fact fills one (spec/db/011), so a conflict's question is worded from its live sides. */
   slot_value?: string | null;
+  /** Held because it gives a different value from the owner's own answer for the same slot (spec/db/011). */
+  contradicts_owner?: boolean | null;
   page_url?: string | null;
   page_title?: string | null;
 }
@@ -75,7 +77,8 @@ export function openConflictIds(conflicts: ConflictRow[]): Set<string> {
 
 /**
  * One stored fact as the journey shows it, or null for a rejected fact (not shown). Status:
- * - 'needs-you' while the fact is a side of an open conflict (backlog B3a: the owner decides);
+ * - 'needs-you' while the fact is a side of an open conflict (backlog B3a: the owner decides), or while it gives a
+ *   different value from the owner's own answer (contradicts_owner: the owner's word stands, ADR-011);
  * - 'found' for the owner's own answer, and for a quote that matched the source exactly and passed the support check
  *   (match 'exact' is set only by extract_facts, which saves supported facts only); a third-party fact says it waits
  *   for the owner;
@@ -87,9 +90,10 @@ export function factView(e: EvidenceRow, sources: Map<string, SourceRow>, confli
   const answer = e.trust === 'owner_answer';
   const src = e.source_id ? sources.get(e.source_id) : undefined;
   const source = answer ? undefined : sourceLabel(e.page_url ?? src?.url, e.page_title ?? src?.title ?? src?.name);
-  const status: FactStatus = conflicted.has(e.id) ? 'needs-you' : answer || e.match === 'exact' ? 'found' : 'partly';
+  const status: FactStatus = conflicted.has(e.id) || e.contradicts_owner ? 'needs-you' : answer || e.match === 'exact' ? 'found' : 'partly';
   let note: string | undefined;
-  if (status === 'needs-you') note = 'Another source says something different. You choose which is right.';
+  if (e.contradicts_owner) note = 'Your own answer says something different. It stands unless you change it.';
+  else if (status === 'needs-you') note = 'Another source says something different. You choose which is right.';
   else if (answer) note = 'Your own answer.';
   else if (e.match === 'fuzzy') note = "The model's quote was not word for word, so this is the closest passage on the page. Check it.";
   else if (!e.match) note = e.quote ? 'The quote is on the page, but whether it backs this fact has not been checked.' : 'Not quoted from any page.';

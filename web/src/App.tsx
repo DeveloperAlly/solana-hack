@@ -14,6 +14,7 @@ import { Brand } from './screens/hub/Brand';
 import { Settings } from './screens/hub/Settings';
 import { ComingSoon } from './screens/hub/ComingSoon';
 import { HowItWorks } from './screens/public/HowItWorks';
+import { GalleryIndex, GalleryScreen } from './gallery/Gallery';
 
 export function App() {
   return (
@@ -31,6 +32,8 @@ export function App() {
             : r.screen === 'verify' ? <Verify />
             : r.screen === 'ledger' ? <Ledger />
             : r.screen === 'how' ? <HowItWorks />
+            : r.screen === 'gallery' ? <GalleryIndex />
+            : r.screen === 'gallery-screen' ? <GalleryScreen />
             : r.screen === 'home' ? <RequireAuth><Home /></RequireAuth>
             : r.screen === 'brand' ? <RequireAuth><Brand /></RequireAuth>
             : r.screen === 'settings' ? <RequireAuth><Settings /></RequireAuth>

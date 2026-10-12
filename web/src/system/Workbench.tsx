@@ -8,11 +8,20 @@ import type { ContainerWidth } from '../ui/primitives/Container';
 import { routes } from '../config/routes';
 import { ThemeEditor, syncThemeOverrides } from './ThemeEditor';
 import styles from './Workbench.module.css';
+import { exampleOrder, type WorkbenchExample } from './example';
+
+// Every *.example.tsx under src/ui registers itself here (issue #46): adding a component never edits this file.
+const exampleModules = import.meta.glob<{ example?: WorkbenchExample }>('../ui/**/*.example.tsx', { eager: true });
+export const examples: WorkbenchExample[] = Object.values(exampleModules)
+  .flatMap((m) => (m.example ? [m.example] : []))
+  .sort(exampleOrder);
 
 function Entry({ id, name, children }: { id: string; name: string; children: ReactNode }) {
+  // id + name: some hand-written entries predate the inventory IDs (e.g. C1 Field vs inventory C1 Card).
+  const anchor = `wb-${`${id}-${name}`.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   return (
-    <section aria-labelledby={`wb-${id}`} className={styles.entry}>
-      <Heading level={3} size="lg" id={`wb-${id}`}>
+    <section aria-labelledby={anchor} className={styles.entry}>
+      <Heading level={3} size="lg" id={anchor}>
         {id} {name}
       </Heading>
       <div className={styles.demo}>{children}</div>
@@ -193,6 +202,14 @@ export function Workbench() {
               onLoad={(e) => syncThemeOverrides(e.currentTarget)}
             />
           </Entry>
+          {examples.map((ex) => (
+            <Entry key={`${ex.id}-${ex.name}`} id={ex.id} name={ex.name}>
+              <Stack gap={3}>
+                {ex.description && <Text variant="small" tone="secondary">{ex.description}</Text>}
+                <ex.render />
+              </Stack>
+            </Entry>
+          ))}
           <Entry id="M1" name="Route config">
             <ul className={styles.list}>
               {routes.map((r) => (
