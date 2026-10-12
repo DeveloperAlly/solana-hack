@@ -1,5 +1,5 @@
 import { factTrust } from './registry';
-import { clock, letterCount, type ConversionResult, type SourceEnv, type SourceResult } from './types';
+import { clock, contentCount, letterCount, type ConversionResult, type SourceEnv, type SourceResult } from './types';
 
 /**
  * Document adapter (issue #33; architecture §6.1 "Source ingestion", accepted 2026-10-12): PDF, DOCX and XLSX bytes
@@ -24,8 +24,6 @@ export const DOC_MAX_BYTES = 15 * 1024 * 1024;
 export const MIN_LETTERS_PER_PAGE = 40;
 export const MIN_LETTERS = 200;
 
-/** Letters and digits in any script: the characters that make a line real extracted text. */
-const contentCount = (s: string) => (s.match(/[\p{L}\p{N}]/gu) ?? []).length;
 /** A bare page number such as "3", "- 3 -" or "3/10", which a scanner can stamp on a page with no text layer. */
 const bareNumber = (line: string) => /^[\s\p{P}]*\d{1,4}(?:\s*[/|]\s*\d{1,4})?[\s\p{P}]*$/u.test(line);
 

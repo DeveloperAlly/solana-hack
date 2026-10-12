@@ -85,3 +85,6 @@ export function clock() {
 
 /** Counts letters in any script; markup, digits, punctuation and whitespace do not count. */
 export const letterCount = (s: string) => (s.match(/\p{L}/gu) ?? []).length;
+/** Letters and digits in any script: what makes text real content, so numbers-only text (an invoice table, a price
+ * list, metrics) counts (PR #71 review). Used by the paste and document adapters alike. */
+export const contentCount = (s: string) => (s.match(/[\p{L}\p{N}]/gu) ?? []).length;

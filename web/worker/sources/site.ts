@@ -40,7 +40,7 @@ const EXA_CONTENTS = 'https://api.exa.ai/contents';
 // Links asked for on the home page, and at most this many candidates checked against robots.txt (each new origin costs
 // one robots.txt fetch, so this bounds the subrequests).
 const EXA_LINKS = 100;
-const MAX_CANDIDATES = 24;
+const MAX_CANDIDATES = 12;
 // Exa pricing: contents cost $1 per 1,000 pages per content type (https://exa.ai/pricing). Used only when the response
 // carries no costDollars.
 const EXA_PER_PAGE = 0.001;
@@ -199,18 +199,31 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     return { ok: true, kind, trust: factTrust(kind).trust, url: pages[0].url, title: pages[0].title, text: pages.map((p) => p.text).join('\n\n'), pages, meta: c.meta(pages.length, cost, via) };
   };
 
-  // Which of the home page's links to read: on the same site as the home page, ranked by the key-page terms, and only
-  // those robots.txt allows, checked before any of them is requested (PR #71 review).
-  const pick = async (links: URL[]) => {
+  // One rule for every address handed to any fetcher (our own fetch, Exa, the page renderer): its redirects are
+  // followed here one hop at a time with robots.txt checked before each hop is fetched (ingest.ts fetchPage), and the
+  // fetcher is given the final address, which no longer redirects. null means it cannot be read: a hop is disallowed,
+  // or the link cannot be followed (PR #71 review).
+  const gated = async (u: URL): Promise<URL | null> => {
+    try {
+      return await resolveRedirects(u, allowedHere);
+    } catch {
+      return null;
+    }
+  };
+  const sameSite = (u: URL) => {
     const homeKind = kindOf(url.toString());
+    return kindOf(u.toString()) === homeKind && (homeKind === 'site' || hostKey(u) === hostKey(url));
+  };
+  // Which of the home page's links to read: on the same site as the home page, ranked by the key-page terms, and only
+  // those whose every redirect hop robots.txt allows, checked before any of them is requested (PR #71 review).
+  const pick = async (links: URL[]) => {
     const seen = new Set<string>([url.toString()]);
     const candidates: URL[] = [];
     for (const raw of links) {
       const l = siteUrl(raw.toString());
       if (!l || seen.has(l.toString())) continue;
       seen.add(l.toString());
-      if (kindOf(l.toString()) !== homeKind || (homeKind === 'page' && hostKey(l) !== hostKey(url))) continue;
-      candidates.push(l);
+      if (sameSite(l)) candidates.push(l);
     }
     const rank = (u: URL) => {
       const i = opts.subpageTarget.findIndex((t) => u.pathname.toLowerCase().includes(t.toLowerCase()));
@@ -218,19 +231,27 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     };
     const ranked = candidates.map((u, i) => ({ u, i, r: rank(u) })).sort((a, b) => a.r - b.r || a.i - b.i).slice(0, MAX_CANDIDATES);
     const out: URL[] = [];
+    const chosen = new Set<string>([url.toString()]);
     let blocked = 0;
     for (const { u } of ranked) {
       if (out.length >= opts.subpages) break;
-      if (await allowedHere(u)) out.push(u); else blocked++;
+      const target = await gated(u);
+      // A link that redirects off the site, or to a page already chosen, is not read.
+      if (!target) { blocked++; continue; }
+      if (!sameSite(target) || chosen.has(target.toString())) continue;
+      chosen.add(target.toString());
+      out.push(target);
     }
-    if (blocked) c.notes.push(`${blocked} linked page(s) not read: robots.txt disallows them`);
+    if (blocked) c.notes.push(`${blocked} linked page(s) not read: robots.txt disallows them, or they could not be followed`);
     return out;
   };
 
   // 1. Exa: the home page with its links, then the chosen key subpages.
   let cost = 0;
-  if (env.EXA_API_KEY) {
-    const exa = await viaExa(env.EXA_API_KEY, url, opts, pick);
+  const exaHome = env.EXA_API_KEY ? await gated(url) : null;
+  if (env.EXA_API_KEY && !exaHome) c.notes.push('Exa not used: the link redirects to an address robots.txt does not let us read, or could not be followed');
+  if (env.EXA_API_KEY && exaHome) {
+    const exa = await viaExa(env.EXA_API_KEY, exaHome, opts, pick);
     if ('pages' in exa) {
       cost = exa.cost;
       const allowed = await admit(exa.pages);
@@ -238,7 +259,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     } else {
       c.notes.push(`${exa.error}; read the home page directly instead`);
     }
-  } else {
+  } else if (!env.EXA_API_KEY) {
     c.notes.push('Exa is not configured (EXA_API_KEY), so only the home page was read');
   }
 
@@ -263,12 +284,12 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   // cannot be checked beforehand; if the browser ends on an address robots.txt disallows, its text is not used.
   let target = url;
   if (env.CF_ACCOUNT_ID && env.CF_BROWSER_TOKEN) {
-    try {
-      target = await resolveRedirects(url, allowedHere);
-    } catch (e) {
-      c.notes.push(`rendered read skipped: ${e instanceof Error ? e.message : 'the link could not be followed'}`);
+    const resolved = await gated(url);
+    if (!resolved) {
+      c.notes.push('rendered read skipped: the link redirects to an address robots.txt does not let us read, or could not be followed');
       return { ok: false, kind: kindOf(url.toString()), code: 'unreadable', reason: `We could not read ${url.hostname} (${fetchError}). Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0, cost) };
     }
+    target = resolved;
   }
   const rendered = await viaRendered(env, target);
   if ('text' in rendered) {

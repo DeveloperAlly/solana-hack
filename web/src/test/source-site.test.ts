@@ -44,6 +44,32 @@ describe('site adapter: Exa first', () => {
     // Exa's own subpage crawl is never asked for; the chosen links are named, ranked by the key-page terms.
     expect(exa[1].body).toEqual({ urls: ['https://jamjam.tech/about', 'https://jamjam.tech/pricing'], text: { maxCharacters: SITE_DEFAULTS.maxCharacters } });
   });
+  it('gives Exa only addresses whose every redirect hop robots.txt allows (PR #71 review)', async () => {
+    // The home link redirects into a disallowed path: Exa is not asked for either address.
+    const home = stub({
+      robots: () => new Response('User-agent: *\nDisallow: /private\n'),
+      page: (u) => (u === 'https://jamjam.tech/' ? new Response(null, { status: 301, headers: { location: '/private/home' } }) : html('x', LONG)),
+      exa: exaSite([{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }]),
+    });
+    await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/', { website: 'jamjam.tech' });
+    expect(home.some((c) => c.url.startsWith('https://api.exa.ai/'))).toBe(false);
+    expect(home.map((c) => c.url)).not.toContain('https://jamjam.tech/private/home');
+    // A subpage link that redirects into a disallowed path is not sent; one that redirects within the site is sent
+    // at its final address.
+    const sub = stub({
+      robots: () => new Response('User-agent: *\nDisallow: /private\n'),
+      page: (u) => (u === 'https://jamjam.tech/about' ? new Response(null, { status: 301, headers: { location: '/company/about' } })
+        : u === 'https://jamjam.tech/team' ? new Response(null, { status: 302, headers: { location: '/private/team' } })
+        : new Response('', { status: 200 })),
+      exa: exaSite([{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://jamjam.tech/company/about', title: 'About', text: 'About us.' }], 0.009, ['https://jamjam.tech/about', 'https://jamjam.tech/team']),
+    });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/', { website: 'jamjam.tech' });
+    const asked = sub.filter((c) => c.url.startsWith('https://api.exa.ai/')).map((c) => c.body as { urls: string[] });
+    expect(asked[1].urls).toEqual(['https://jamjam.tech/company/about']);
+    expect(JSON.stringify(asked)).not.toContain('/private');
+    expect(sub.map((c) => c.url)).not.toContain('https://jamjam.tech/private/team');
+    expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/company/about']);
+  });
   it('never asks Exa for a subpage robots.txt disallows, and says so (PR #71 review)', async () => {
     const calls = stub({
       robots: () => new Response('User-agent: *\nDisallow: /private\n'),
