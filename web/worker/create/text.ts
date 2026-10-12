@@ -6,15 +6,31 @@ export function words(text: string): string[] {
   return normaliseQuote(text).toLowerCase().match(/[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu) ?? [];
 }
 
+// Abbreviations a sentence does not end at, before a capitalised word ("Dr. Smith", "Mr. Lee", "No. 1"): a subset of the
+// CLDR English sentence-break suppressions (UTS #35 §9.2 Segmentation Suppressions,
+// https://unicode.org/reports/tr35/tr35-general.html), which ICU applies only under the locale key "ss" and
+// Intl.Segmenter does not expose. Kept to titles and reference words that cannot end a sentence.
+const SUPPRESS = /(?:^|[\s(])(?:Mr|Mrs|Ms|Dr|Prof|St|Mt|Gen|Lt|Col|Capt|Sgt|Sen|Rep|Gov|Rev|Hon|No|Nos|Fig|vs|approx)\.\s*$/;
+const SEGMENTER = new Intl.Segmenter('en', { granularity: 'sentence' });
+
 /**
- * Sentences: split after . ! ? (and line breaks, since social posts often end a thought with a line break and no stop).
- * A decimal point (2.5) or a dotted domain (jamjam.tech) does not end a sentence: a stop must be followed by space.
+ * Sentences, by Unicode sentence boundaries (UAX #29, https://www.unicode.org/reports/tr29/#Sentence_Boundaries) through
+ * Intl.Segmenter, which the Workers runtime provides with the rest of Intl (Web standards: Intl,
+ * https://developers.cloudflare.com/workers/runtime-apis/web-standards/; posts.ts already segments graphemes with it).
+ * UAX #29 keeps "U.S. teams", "e.g. this", "3.5x" and "jamjam.tech/docs" whole and breaks at line breaks; the
+ * suppressions above keep "Dr. Smith" whole. One segmenter for claims, review inputs and checks (PR #99 review).
  */
 export function sentences(text: string): string[] {
-  return text.normalize('NFC')
-    .split(/(?<=[.!?])\s+|\n+/)
-    .map((s) => s.trim())
-    .filter((s) => /[\p{L}\p{N}]/u.test(s));
+  const out: string[] = [];
+  let carry = '';
+  for (const { segment } of SEGMENTER.segment(text.normalize('NFC'))) {
+    const s = carry + segment;
+    if (SUPPRESS.test(s)) { carry = s; continue; }
+    carry = '';
+    out.push(s);
+  }
+  if (carry) out.push(carry);
+  return out.map((s) => s.trim()).filter((s) => /[\p{L}\p{N}]/u.test(s));
 }
 
 /**

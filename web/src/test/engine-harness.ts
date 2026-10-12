@@ -66,7 +66,7 @@ const runOrder = (a: Row, b: Row) => String(a.created_at).localeCompare(String(b
 /** The brand's latest find_competitors run whose status is 'done', by (created_at, id). */
 const latestDoneCompetitors = (brand: string) => db.tables.runs.filter((r) => r.brand_id === brand && r.kind === 'find_competitors' && r.status === 'done').sort(runOrder).at(-1);
 
-/** Same semantics as spec/db/014 save_competitor_candidates (checked against Postgres 16): insert this run's rows,
+/** Same semantics as spec/db/012 save_competitor_candidates (checked against Postgres 16): insert this run's rows,
  * keyed by id (a retry inserts nothing), then prune the rows of runs older than the brand's latest done run. */
 function saveCompetitorCandidates({ p_brand, p_run, p_rows }: { p_brand: string; p_run: string; p_rows: Row[] }) {
   if (!db.tables.runs.some((r) => r.id === p_run && r.brand_id === p_brand && r.kind === 'find_competitors')) throw new Error(`run ${p_run} is not a find_competitors run of brand ${p_brand}`);
@@ -87,13 +87,13 @@ function saveCompetitorCandidates({ p_brand, p_run, p_rows }: { p_brand: string;
   return inserted;
 }
 
-/** Same semantics as spec/db/014 competitor_candidates: the rows of the brand's latest done find_competitors run. */
+/** Same semantics as spec/db/012 competitor_candidates: the rows of the brand's latest done find_competitors run. */
 function competitorCandidates({ p_brand }: { p_brand: string }) {
   const done = latestDoneCompetitors(p_brand);
   return done ? db.tables.sources.filter((s) => s.brand_id === p_brand && s.kind === 'competitor_page' && s.run_id === done.id) : [];
 }
 
-/** Same semantics as spec/db/014 reserve_search_source and its unique index sources_one_search (checked against
+/** Same semantics as spec/db/012 reserve_search_source and its unique index sources_one_search (checked against
  * Postgres 16): a pending reservation whose run failed or was superseded, or that no run owns after two minutes, is
  * reclaimed first. */
 export const SEARCH_RESERVATION_TTL_MS = 2 * 60_000;
@@ -239,7 +239,11 @@ function resolveFactConflict({ p_brand, p_conflict, p_keep, p_by, p_answer }: { 
     changed++;
   }
   rederiveConflicts(p_brand, c.slot as string);
-  if (answer) { db.tables.evidence.push(answer); rederiveConflicts(p_brand, c.slot as string); }
+  if (answer) {
+    for (const e of db.tables.evidence) if (e.brand_id === p_brand && e.slot === c.slot && e.trust === 'owner_answer' && e.review_status !== 'rejected') Object.assign(e, { review_status: 'rejected', owner_decision: 'edited', owner_decided_by: p_by, owner_decided_at: at });
+    db.tables.evidence.push(answer);
+    rederiveConflicts(p_brand, c.slot as string);
+  }
   return { changed, answer: answer?.id ?? null };
 }
 
@@ -248,26 +252,44 @@ function resolveFactConflict({ p_brand, p_conflict, p_keep, p_by, p_answer }: { 
 const SLOT_LABELS: Record<string, string> = { founded: 'when the brand was founded or launched', headquarters: 'where the brand is based', legal_name: 'the registered company name', team_size: 'how many people work on the brand', customer_count: 'how many customers or clients it has', user_count: 'how many users it has', funding: 'how much money it has raised', price_from: 'its lowest listed price' };
 function rederiveConflicts(brand: string, slot: string): string | null {
   const conflicts = (db.tables.fact_conflicts ??= []);
-  const live = (db.tables.evidence ?? []).filter((e) => e.brand_id === brand && e.slot === slot && e.review_status !== 'rejected' && e.slot_key != null).sort((a, b) => String(a.id).localeCompare(String(b.id)));
-  const groups = new Map<string, Row[]>();
-  for (const e of live) groups.set(e.slot_key as string, [...(groups.get(e.slot_key as string) ?? []), e]);
+  const ev = () => (db.tables.evidence ?? []).filter((e) => e.brand_id === brand && e.slot === slot);
+  const owner = [...new Set(ev().filter((e) => e.trust === 'owner_answer' && e.review_status !== 'rejected' && e.slot_key != null).map((e) => e.slot_key))];
   let open = conflicts.find((c) => c.brand_id === brand && c.slot === slot && c.status === 'open');
-  if (groups.size >= 2) {
-    const sides = [...groups.values()].map((g) => ({ v: g.map((e) => String(e.slot_value).trim()).sort()[0], n: g.length })).sort((a, b) => (a.v < b.v ? -1 : a.v > b.v ? 1 : 0));
-    const question = `Your sources disagree on ${SLOT_LABELS[slot] ?? slot}: ${sides.map((x) => `"${x.v}" (${x.n} ${x.n === 1 ? 'fact' : 'facts'})`).join(' or ')}. Which is right?`;
-    const ids = live.map((e) => e.id as string);
-    if (!open) conflicts.push((open = { id: uuid(), brand_id: brand, slot, evidence_ids: ids, question, status: 'open', created_at: new Date().toISOString() }));
-    else Object.assign(open, { evidence_ids: ids, question });
-    for (const e of live) if (e.review_status === 'approved') e.review_status = 'proposed';
-    return open.id as string;
-  }
-  if (open) {
+  let release: Row[] = [];
+  const dissolve = () => {
+    if (!open) return;
     const held = open.evidence_ids as string[];
     const still = (db.tables.evidence ?? []).filter((e) => held.includes(e.id as string));
     Object.assign(open, { evidence_ids: still.map((e) => e.id as string).sort(), status: 'dissolved', resolved_at: new Date().toISOString() });
-    for (const e of still) if (e.review_status === 'proposed') e.review_status = e.trust === 'owner_answer' || (e.trust === 'owned' && e.match === 'exact') ? 'approved' : 'proposed';
+    release.push(...still);
+    open = undefined;
+  };
+  if (owner.length === 1) {
+    dissolve();
+    for (const e of ev()) {
+      if (e.trust === 'owner_answer' || e.review_status === 'rejected' || e.slot_key == null) continue;
+      if (e.slot_key !== owner[0]) { e.contradicts_owner = true; if (e.review_status === 'approved') e.review_status = 'proposed'; }
+      else if (e.contradicts_owner) { e.contradicts_owner = false; release.push(e); }
+    }
+  } else {
+    const live = ev().filter((e) => e.review_status !== 'rejected' && e.slot_key != null && (owner.length >= 2 || e.trust !== 'owner_answer')).sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const flagged = ev().filter((e) => e.contradicts_owner);
+    for (const e of flagged) e.contradicts_owner = false;
+    release.push(...flagged);
+    const groups = new Map<string, Row[]>();
+    for (const e of live) groups.set(e.slot_key as string, [...(groups.get(e.slot_key as string) ?? []), e]);
+    if (groups.size >= 2) {
+      const sides = [...groups.values()].map((g) => ({ v: g.map((e) => String(e.slot_value).trim()).sort()[0], n: g.length })).sort((a, b) => (a.v < b.v ? -1 : a.v > b.v ? 1 : 0));
+      const question = `Your sources disagree on ${SLOT_LABELS[slot] ?? slot}: ${sides.map((x) => `"${x.v}" (${x.n} ${x.n === 1 ? 'fact' : 'facts'})`).join(' or ')}. Which is right?`;
+      const ids = live.map((e) => e.id as string);
+      if (!open) conflicts.push((open = { id: uuid(), brand_id: brand, slot, evidence_ids: ids, question, status: 'open', created_at: new Date().toISOString() }));
+      else Object.assign(open, { evidence_ids: ids, question });
+      for (const e of live) if (e.review_status === 'approved') e.review_status = 'proposed';
+      release = release.filter((e) => !ids.includes(e.id as string));
+    } else dissolve();
   }
-  return null;
+  for (const e of release) if (e.review_status === 'proposed' && !e.contradicts_owner) e.review_status = e.trust === 'owner_answer' || (e.trust === 'owned' && e.match === 'exact') ? 'approved' : 'proposed';
+  return owner.length === 1 ? null : ((open?.id as string | undefined) ?? null);
 }
 const rederiveFor = (rows: Row[]) => {
   for (const key of new Set(rows.filter((r) => r.slot).map((r) => `${r.brand_id}|${r.slot}`))) rederiveConflicts(...(key.split('|') as [string, string]));
@@ -329,6 +351,7 @@ export function fakeDb(url: string, init: RequestInit = {}) {
     // Same semantics as spec/db/011 refuse_disputed_approval (a before-update trigger on evidence).
     if (path === 'evidence' && body.review_status === 'approved') {
       for (const r of hit) if (r.review_status !== 'approved' && (db.tables.fact_conflicts ?? []).some((c) => c.brand_id === r.brand_id && c.status === 'open' && (c.evidence_ids as string[]).includes(r.id as string))) throw pt(409, 'other sources disagree with this fact: resolve the disagreement first');
+      for (const r of hit) if (r.review_status !== 'approved' && r.contradicts_owner) throw pt(409, 'your own answer says otherwise: change your answer to use this fact');
     }
     const reviewed = hit.filter((r) => 'review_status' in body && r.review_status !== body.review_status);
     hit.forEach((r) => Object.assign(r, body));

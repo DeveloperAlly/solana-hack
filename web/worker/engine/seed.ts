@@ -180,7 +180,7 @@ export const DRAFT_POST: WorkflowSpec = {
 };
 
 /**
- * find_competitors v1 (issue #35; seeded by spec/db/014): competitor candidates for the positioning step. The read
+ * find_competitors v1 (issue #35; seeded by spec/db/012): competitor candidates for the positioning step. The read
  * step reads pages similar to the brand's website through the 'competitors' reader (sources/search.ts readCompetitors,
  * registered in intake.ts), then the save step stores each as a competitor_page source. No model step: candidates are
  * not facts about the brand. A new run supersedes one still going for the same brand. The read is at most
@@ -246,6 +246,6 @@ export const RETIRED_BY = { '011_fact_extraction.sql': [{ id: 'ingest_url', vers
 export const SEEDED_BY = {
   '010_workflow_engine.sql': { defs: [INGEST_URL], prompts: ['ingest.extract_facts'], config: [] },
   '011_fact_extraction.sql': { defs: [EXTRACT_FACTS], prompts: ['extract.facts', 'extract.check_support'], config: SEED_CONFIG },
+  '012_intake_sources.sql': { defs: [FIND_COMPETITORS], prompts: [], config: [] },
   '013_create_intelligence.sql': { defs: [DRAFT_POST], prompts: ['create.draft', 'create.review'], config: CREATE_CONFIG },
-  '014_intake_sources.sql': { defs: [FIND_COMPETITORS], prompts: [], config: [] },
 };

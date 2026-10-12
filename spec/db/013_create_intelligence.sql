@@ -1,6 +1,6 @@
 -- Create intelligence (issue #93; backlog T1, T1a, T1b, G2, G4, X16; architecture §6.1, §6.2, §13): the draft_post
 -- workflow, its two prompts, the models each task may use, every candidate a draft considered, and the decision history
--- of every post. Number 013: 011 is fact extraction (PR #91), 012 is #96, 014 is #100 (ledger on issue #38).
+-- of every post. Number 013: it follows 012 (the migration ledger is on issue #38).
 -- Depends on 010_workflow_engine.sql (engine_config, prompt_versions, workflow_defs, runs, run_steps) and 002_posts.sql.
 -- Must be applied before the Worker that drafts on the engine is deployed: POST /api/brands/:id/posts starts a
 -- draft_post run, which is refused (503, before any row is written) on a database without this migration, and every

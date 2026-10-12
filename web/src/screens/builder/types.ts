@@ -1,0 +1,268 @@
+// Data shapes for the Brand Builder page (issue #50). Screens, fixtures and the flow hook import from here.
+// Field sources are in each screen's "Data contract" comment, against the backend map (.agentic/what/context/backend_map.md §4).
+import type { ChoiceCardOption } from '../../ui/composites/ChoiceCards';
+import type { CoverageRow } from '../../ui/domain/BuilderCoverageMap';
+import type { DnsCheckStatus, DnsRecord } from '../../ui/domain/BuilderDnsRecord';
+import type { KitIncludeOption, KitVersion } from '../../ui/domain/BuilderKitExport';
+import type { Persona } from '../../ui/domain/BuilderPersonaCard';
+import type { RegistrationStatus } from '../../ui/domain/BuilderRegistrationResult';
+import type { StatTileProps } from '../../ui/composites/StatTile';
+import type { BoardKey } from './paths';
+
+export type { GateDecision, GateStatus } from '../../ui/domain/DecisionGate';
+export type { ChoiceCardOption, CoverageRow, DnsRecord, KitIncludeOption, KitVersion, Persona };
+
+/** A source being read, or a stage of the reading job (D12 SourceList rows, drawn with the shared StatusList). */
+export type SourceRowTone = 'done' | 'active' | 'waiting' | 'failed';
+export interface SourceRow {
+  id: string;
+  /** Link, file name or account name. */
+  name: string;
+  /** Status chip text, e.g. "Done · 2 facts found", "Reading…", "From step 1". */
+  status: string;
+  tone: SourceRowTone;
+  /** Plain reason, shown under the name on a failed row. */
+  error?: string;
+}
+
+/** An ambassador submission awaiting the brand's decision (submissions; Dashboard, note n-dash). */
+export interface AmbassadorSubmission {
+  id: string;
+  /** "LinkedIn post", "Tutorial". */
+  kind: string;
+  author: string;
+  /** "10 USDC". */
+  amount: string;
+  excerpt: string;
+  /** Check chips, e.g. "On-brand 91%", "Verified on LinkedIn". */
+  checks: string[];
+  link: { label: string; href: string };
+}
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'paid';
+
+export type GateId = 'purpose' | 'positioning' | 'voice';
+
+/** The brand being built and who is signed in (brands, profiles). */
+export interface BuilderBrand {
+  /** Demo brand id (ui/domain/demoBrands.ts), so hub screens can open on this brand. */
+  id: string;
+  name: string;
+  /** brands.domain_verified; false shows the Unverified flag (note n-ob2.2). */
+  verified: boolean;
+  /** The signed-in owner, recorded on gate decisions. */
+  approver: string;
+}
+
+/** A labelled free-text answer (interview answers; evidence "owner answer, [date]"). */
+export interface Answer {
+  id: string;
+  label: string;
+  value: string;
+  rows?: number;
+  hint?: string;
+}
+
+export interface VoicePick {
+  round1: string;
+  round2: string;
+}
+
+export interface DialValues {
+  formality: number;
+  energy: number;
+  humour: number;
+}
+
+export interface DialSpec {
+  key: keyof DialValues;
+  legend: string;
+  low: string;
+  high: string;
+}
+
+export interface SignInData {
+  email: string;
+  resendNote: string;
+  /** Shown on the code field in the error state (wrong code). */
+  codeError?: string;
+}
+
+export interface DomainData {
+  brand: BuilderBrand;
+  domain: string;
+  record: DnsRecord;
+  check: DnsCheckStatus;
+  causes: string[];
+}
+
+export interface SourcesData {
+  brand: BuilderBrand;
+  links: SourceRow[];
+  accounts: SourceRow[];
+}
+
+export interface ProfilingData {
+  brand: BuilderBrand;
+  /** 0–100, from jobs.progress. */
+  progress: number;
+  /** Status of each source by position (the names come from the Sources step in the flow, else these). */
+  sources: SourceRow[];
+  /** The job's later stages, after the sources. */
+  stages: SourceRow[];
+}
+
+export interface BasicsData {
+  brand: BuilderBrand;
+  description: string;
+  type: string;
+  typeOptions: ChoiceCardOption[];
+  /** One link per line. */
+  links: string;
+  goal: string;
+  channel: string;
+  channels: string[];
+}
+
+export interface OriginData {
+  brand: BuilderBrand;
+  /** A fact found in the sources, shown for confirmation first; absent when nothing was found. */
+  fact?: { source: string; text: string };
+  answers: Answer[];
+}
+
+export interface GoldenCircleData {
+  brand: BuilderBrand;
+  questions: Answer[];
+}
+
+export interface AlternativesData {
+  brand: BuilderBrand;
+  questions: Answer[];
+  /** Sets of three AI positioning options; "Show three different options" moves to the next set. */
+  optionSets: ChoiceCardOption[][];
+  sourcesNote: string;
+}
+
+export interface AudienceData {
+  brand: BuilderBrand;
+  opinion: string;
+  /** Up to three real people, private, never contacted. */
+  people: string[];
+  personas: Persona[];
+}
+
+export interface VoiceData {
+  brand: BuilderBrand;
+  round1: ChoiceCardOption[];
+  /** Round 2 options keyed by the round 1 pick (narrows around it). */
+  round2: Record<string, ChoiceCardOption[]>;
+  /** Template matched by each round 1 pick. */
+  templates: Record<string, string>;
+  dials: DialSpec[];
+}
+
+export interface GatePurposeData {
+  brand: BuilderBrand;
+  draft: string;
+  /** Alternative drafts for "Try another draft"; `shorter` replaces the draft on "Make it shorter". */
+  alternatives: string[];
+  shorter: string;
+  /** "Drafted from 4 sources". */
+  draftMeta: string;
+  basedOn: string[];
+}
+
+export interface GatePositioningData {
+  brand: BuilderBrand;
+  /** Drafted statement; "{brand}" is replaced with the brand name from the flow. */
+  draft: string;
+  alternative: string;
+  edge: string;
+  sourcesNote: string;
+}
+
+export interface GateVoiceData {
+  brand: BuilderBrand;
+  templates: Record<string, string>;
+  /** The five dimensions not set by the intake dials, in canvas order after Humour. */
+  otherDimensions: { name: string; value: number }[];
+  sample: string;
+  strictness: string;
+  claims: { id: string; label: string; checked: boolean }[];
+}
+
+export interface CoverageData {
+  brand: BuilderBrand;
+  /** "{brand}" is replaced with the brand name from the flow. */
+  caption: string;
+  /** Brands compared; "{brand}" is the brand being built. */
+  brands: string[];
+  rows: CoverageRow[];
+}
+
+export interface PublishedData {
+  brand: BuilderBrand;
+  status: RegistrationStatus;
+  version: string;
+  hash: string;
+  /** When the kit was approved; the approver comes from the flow (sign-in), else the brand fixture. */
+  approvedAt: string;
+  sections: string;
+  /** Transaction signature once registered. */
+  tx: string | null;
+  /** When registration was last tried (failed). */
+  lastTry?: string;
+  reason?: string;
+  errorDetails?: string;
+}
+
+export interface KitExportData {
+  /** The brand shown until the switcher picks another. */
+  defaultBrandId: string;
+  /** Per demo brand: approved versions, current first; each carries its hash, file name and files. */
+  byBrand: Record<string, { versions: KitVersion[] }>;
+  includes: KitIncludeOption[];
+}
+
+/** A submission awaiting approval; its link names a board, resolved to a theme-keeping href by the screen. */
+export type PendingSubmission = Omit<AmbassadorSubmission, 'link'> & { link: { label: string; board: BoardKey } };
+
+export interface CampaignRow {
+  id: string;
+  name: string;
+  channels: string;
+  ends: string;
+  spent: number;
+  committed: number;
+  cap: number;
+  paid: string;
+  pending: string;
+}
+
+export interface PayoutRow {
+  id: string;
+  date: string;
+  piece: string;
+  ambassador: string;
+  paid: string;
+  /** Receipt screen (the Ledger in the prototype). */
+  receiptBoard: BoardKey;
+}
+
+/** The Dashboard screen: one DashboardData per demo brand, chosen by the hub brand switcher. */
+export interface DashboardScreenData {
+  defaultBrandId: string;
+  byBrand: Record<string, DashboardData>;
+}
+
+export interface DashboardData {
+  title: string;
+  meta: string;
+  kpis: StatTileProps[];
+  pending: PendingSubmission[];
+  campaigns: CampaignRow[];
+  recent: PayoutRow[];
+  kit: { summary: string; usage?: string };
+  publicPageUrl: string;
+}

@@ -1,0 +1,2 @@
+.legend { display: inline-flex; align-items: center; gap: var(--wl-space-2); color: var(--wl-text-primary); }
+.word { margin-inline-start: var(--wl-space-1); }

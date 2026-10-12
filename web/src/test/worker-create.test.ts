@@ -353,6 +353,18 @@ describe('retrieval (X16): the allow-list applies before ranking, so nothing out
     expect(r.posts.map((p) => [p.id, p.meta?.why])).toEqual([['p2', 'topic'], ['p0', 'topic'], ['p4', 'recent'], ['p3', 'recent']]);
   });
 
+  it('one sentence segmenter (Intl.Segmenter, UAX #29) keeps abbreviations, initials, decimals and links whole', async () => {
+    const { sentences } = await import('../../worker/create/text');
+    expect(sentences('We serve U.S. teams.')).toEqual(['We serve U.S. teams.']);
+    expect(sentences('Dr. Smith uses JamJam. It works.')).toEqual(['Dr. Smith uses JamJam.', 'It works.']);
+    expect(sentences('Try it, e.g. this one.')).toEqual(['Try it, e.g. this one.']);
+    expect(sentences('We are 3.5x faster. See jamjam.tech/docs or https://jamjam.tech/a.b for more.')).toEqual(['We are 3.5x faster.', 'See jamjam.tech/docs or https://jamjam.tech/a.b for more.']);
+    expect(sentences('Line one\nLine two')).toEqual(['Line one', 'Line two']);
+    // A writer that declares the whole grammatical sentence is not refused (PR #99 review).
+    const facts = [{ id: 'f', claim: 'JamJam serves U.S. teams.', quote: null }];
+    expect(checkClaims('We serve U.S. teams.', [{ text: 'We serve U.S. teams.', fact_ids: ['f'] }], facts, '4', 'JamJam').passed).toBe(true);
+  });
+
   it('cuts source text into passages of whole paragraphs', () => {
     expect(passages('short\n\n' + 'A paragraph long enough to keep as a passage of the site.\n\nAnother paragraph that is also long enough to keep.')).toEqual(['A paragraph long enough to keep as a passage of the site. Another paragraph that is also long enough to keep.']);
   });
@@ -668,6 +680,23 @@ describe('decision history (§6.2 "Collect from day one"): edits as original and
     expect([a.status, String(a.body.error)]).toEqual([409, expect.stringContaining('Within 3,000 characters')]);
   });
 
+  it('after an edit and after a polish, the scores shown are the measured ones, never a model\'s self-grade', async () => {
+    const post = (await draft()).body.post as PostOut;
+    const e = await call('PUT', `/brands/${BRAND}/posts/${post.id}`, { rev: 0, body: 'Teams at 10 companies use JamJam.' });
+    const edited = e.body.post as PostOut & { checks: { verdict: { evaluators: Record<string, { score: number | null }> } } };
+    expect(edited.checks.voiceFit).toBe(edited.checks.verdict.evaluators.voice.score);
+    expect(typeof edited.checks.voiceFit).toBe('number');
+    expect((await call('GET', `/drafts/${post.id}/checks`)).body.score).toBe(edited.checks.voiceFit);
+    // The polish stub reports voiceFit 90 and platform 90 for itself; neither is shown.
+    polishReplies(() => 'Teams at 10 companies use JamJam, every week.');
+    const p = await call('POST', `/brands/${BRAND}/posts/${post.id}/polish`, { rev: edited.rev, action: 'beautify' });
+    const polished = p.body.post as PostOut & { checks: { verdict: { evaluators: Record<string, { score: number | null }> } } };
+    expect(polished.checks.voiceFit).toBe(polished.checks.verdict.evaluators.voice.score);
+    expect(polished.checks.platform).toBe(polished.checks.verdict.evaluators.platform.score);
+    expect([polished.checks.voiceFit, polished.checks.platform]).not.toEqual([90, 90]);
+    expect((await call('GET', `/drafts/${post.id}/checks`)).body.score).toBe(polished.checks.voiceFit);
+  });
+
   it('a person\'s edit is evaluated too (the review included, by default): its own verdict decides approval', async () => {
     const post = (await draft()).body.post as PostOut;
     const e = await call('PUT', `/brands/${BRAND}/posts/${post.id}`, { rev: 0, body: 'JamJam has 500 brands on board.' });
@@ -705,7 +734,7 @@ describe('GET /api/drafts/:id/checks: the Ambassador screen\'s DraftCheck shape 
     expect(FIXTURE_78.every(validCheck)).toBe(true);
     const ev = (pass: boolean, status = 'gate') => ({ pass, status, version: 1, score: null, reasons: [], model: null });
     const verdict = { bodyHash: 'h', passed: false, failedGates: ['slop', 'claims', 'review_claims'], reasons: [], evaluators: { slop: ev(false), claims: ev(false), review_claims: ev(false), voice: ev(false, 'tracked') }, findings: { slop: ['unlock', '\u2014', 'exclamation mark'], claims: [{ rule: 'number', text: 'We have 12 users', detail: 'no cited fact states 12' }], unsupported: ['Loved by founders'], silent: ['We ship daily.'] }, source: 'draft', generator: 'g', judge: 'j', prompt: null, at: '' } as const;
-    const out = draftChecks({ channel: 'X', checks: { voiceFit: 70, verdict: verdict as never } }, 'h');
+    const out = draftChecks({ channel: 'X', checks: { verdict: { ...verdict, evaluators: { ...verdict.evaluators, voice: { ...ev(false, 'tracked'), score: 70 } } } as never } }, 'h');
     expect(out.checks.map((c) => [c.title, c.phrase, c.blocking, c.rule.blocks])).toEqual([['Avoided term', 'unlock', true, true], ['Avoided term', '\u2014', true, true], ['Avoided term', '!', true, true], ['Unsupported claim', 'We have 12 users', true, true], ['Unsupported claim', 'Loved by founders', true, true], ['Claim not reviewed', 'We ship daily.', true, true]]);
     // A verdict for another text is not served: the checks describe the current text only.
     expect(draftChecks({ channel: 'X', checks: { verdict: verdict as never } }, 'other').checks).toEqual([]);

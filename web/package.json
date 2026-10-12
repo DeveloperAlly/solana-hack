@@ -11,11 +11,13 @@
     "typecheck": "npm run tokens && tsc --noEmit -p tsconfig.json && tsc -p worker/tsconfig.json",
     "lint:tokens": "node scripts/build-tokens.mjs && node scripts/lint-tokens.mjs",
     "test": "npm run tokens && vitest run",
-    "proof": "node scripts/proof-s0.mjs"
+    "proof": "node scripts/proof-s0.mjs",
+    "check:gallery": "node scripts/check-gallery.mjs"
   },
   "dependencies": {
     "@cloudflare/puppeteer": "1.4.0",
     "@supabase/supabase-js": "^2.117.3",
+    "fflate": "0.8.3",
     "htmlparser2": "^12.0.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -23,6 +25,7 @@
     "tough-cookie": "6.0.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",

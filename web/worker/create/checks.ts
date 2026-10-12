@@ -15,7 +15,8 @@ export interface DraftCheck { id: string; title: string; phrase?: string; label:
 
 export interface DraftChecks {
   checks: DraftCheck[];
-  /** Measured voice fit, 0-100 (create/voice.ts), or null when not measured. Tracked, not a gate: its bands are uncalibrated. */
+  /** Measured voice fit, 0-100, from the verdict for the current text (create/voice.ts; never a model's self-grade), or
+   * null when there is none. Tracked, not a gate: its bands are uncalibrated. */
   score: number | null;
   /** No score threshold gates a draft yet (architecture §13.3: a measure gates only once calibrated), so null. */
   threshold: null;
@@ -35,10 +36,10 @@ export const blocks = (v: Pick<PostVerdict, 'evaluators'>, id: string) => {
 };
 
 /** The checks for one post, from the verdict for its current text (the caller checks the hash). */
-export function draftChecks(post: { channel: string | null; checks: { verdict?: PostVerdict; voiceFit?: number | null } }, currentHash: string | null): DraftChecks {
+export function draftChecks(post: { channel: string | null; checks: { verdict?: PostVerdict } }, currentHash: string | null): DraftChecks {
   const limit = /^\s*linkedin\s*$/i.test(post.channel ?? '') ? 3000 : platformLimit(post.channel);
   const v = post.checks.verdict;
-  if (!v || (currentHash !== null && v.bodyHash !== currentHash)) return { checks: [], score: post.checks.voiceFit ?? null, threshold: null, charLimit: limit, passed: false };
+  if (!v || (currentHash !== null && v.bodyHash !== currentHash)) return { checks: [], score: null, threshold: null, charLimit: limit, passed: false };
   const out: DraftCheck[] = [];
   const phrase = (id: string, title: string, text: string, label: string, from: string, fix: { kind: 'remove-line' } | { kind: 'replace'; with: string } = { kind: 'remove-line' }) => {
     const b = blocks(v, from);
@@ -48,5 +49,6 @@ export function draftChecks(post: { channel: string | null; checks: { verdict?: 
   v.findings.claims.forEach((c, i) => phrase(`claim-${i}`, 'Unsupported claim', c.text, sentence(c.detail), 'claims'));
   v.findings.unsupported.forEach((t, i) => phrase(`review-${i}`, 'Unsupported claim', t, 'The independent reviewer found no fact that states this.', 'review_claims'));
   v.findings.silent.forEach((t, i) => phrase(`unreviewed-${i}`, 'Claim not reviewed', t, 'The independent reviewer gave no verdict on this sentence.', 'review_claims'));
-  return { checks: out, score: post.checks.voiceFit ?? null, threshold: null, charLimit: limit, passed: v.passed };
+  const voice = v.evaluators.voice as { score?: number | null } | undefined;
+  return { checks: out, score: typeof voice?.score === 'number' ? voice.score : null, threshold: null, charLimit: limit, passed: v.passed };
 }

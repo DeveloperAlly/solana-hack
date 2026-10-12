@@ -72,6 +72,9 @@ export async function changePost(env: Env, post: Post, statuses: string[], patch
   return row;
 }
 
+/** A score an evaluator measured for this verdict's text (create/evaluators.ts), or null. */
+const measuredScore = (v: PostVerdict | undefined, id: string) => { const sc = (v?.evaluators?.[id] as { score?: unknown } | undefined)?.score; return typeof sc === 'number' ? sc : null; };
+
 /** A model reply as a post, with every field type-checked: a wrong type becomes empty, never a crash. */
 export function modelPost(raw: unknown): { body: string; voiceFit: unknown; platform: unknown; notes: string[] } {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -93,7 +96,8 @@ export async function editPost(env: Env, post: Post, body: string, user?: User) 
   // The full gate set runs on the edited text (PR #99 review: no text is approvable without a passing verdict for its
   // own hash). A person wrote it, so no model family is excluded from reviewing it; the review is still required.
   const verdict = await evaluateText(env, post, text, PERSON, 'edit');
-  const checks: Checks = { ...post.checks, slop: slopCheck(text), voiceFit: null, platform: null, notes: [], source: 'edit', history: pushHistory(post), lastAction: 'edit', policy: undefined, verdict };
+  // The scores shown are the verdict's own measurements of this text (never a model's self-grade; PR #99 review).
+  const checks: Checks = { ...post.checks, slop: slopCheck(text), voiceFit: measuredScore(verdict, 'voice'), platform: measuredScore(verdict, 'platform'), notes: [], source: 'edit', history: pushHistory(post), lastAction: 'edit', policy: undefined, verdict };
   return changePostWithDecision(env, post, ['drafted', 'approved'], { body: text, checks, status: 'drafted', approved_by: null, approved_at: null }, user, { kind: 'edit', original: post.body, final: text });
 }
 
@@ -236,15 +240,16 @@ export async function polishPost(env: Env, post: Post, action: string) {
   if (action === 'shorten' && size(body) >= size(post.body)) throw new HttpError(422, 'Shorten did not make the post any shorter; try again or edit it yourself');
   // Clarify is asked for the same length or shorter; a longer result is refused rather than saved.
   if (action === 'clarify' && size(body) > size(post.body)) throw new HttpError(422, 'Clarify made the post longer, so nothing was saved; try again or edit it yourself');
-  const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
   // New AI text is held to the full gate set before it can be approved, in a family other than the polishing model's
   // (PR #99 review). Review changes no text, so the text keeps its verdict.
   const verdict = action === 'review' ? post.checks.verdict : await evaluateText(env, post, body, model, 'polish');
   const checks: Checks = {
     // Review never changes the text, so its scores stay the ones that describe that text; only its notes are new.
     ...post.checks, verdict, slop: slopCheck(body),
-    voiceFit: action === 'review' ? post.checks.voiceFit ?? null : rescored ? null : num(out.voiceFit),
-    platform: action === 'review' ? post.checks.platform ?? null : rescored ? null : num(out.platform),
+    // The scores are the verdict's measurements of the polished text, never the polishing model's self-grade (PR #99
+    // review); Review changes no text, so its scores stay.
+    voiceFit: action === 'review' ? post.checks.voiceFit ?? null : measuredScore(verdict, 'voice'),
+    platform: action === 'review' ? post.checks.platform ?? null : measuredScore(verdict, 'platform'),
     notes: rescored ? ['Styled letters were replaced with plain ones after scoring, so the scores were cleared. Run Review for notes on this text.'] : out.notes.slice(0, 4).map((n) => n.slice(0, 200)),
     history: pushHistory(post), lastAction: action,
     source: action === 'review' ? post.checks.source : 'ai', policy: undefined,
