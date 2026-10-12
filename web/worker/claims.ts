@@ -49,7 +49,8 @@ export function claimMapFrom(raw: unknown, facts: ClaimFact[], rev: number, clai
   if (!Array.isArray(list)) throw new HttpError(502, 'the claims check returned an unusable answer; try again');
   const items: ClaimItem[] = [];
   for (const c of list as { text?: unknown; opinion?: unknown; needsEvidence?: unknown; facts?: unknown }[]) {
-    if (typeof c?.text !== 'string' || !c.text.trim()) continue;
+    // A malformed entry fails the whole map: dropping it could hide an unsupported claim and understate the count.
+    if (typeof c?.text !== 'string' || !c.text.trim()) throw new HttpError(502, 'the claims check returned an unusable answer; try again');
     const kind: ClaimItem['kind'] = c.opinion === true ? 'opinion' : 'factual';
     const used = kind === 'opinion' ? [] : numbers(c.facts, facts.length).map((n) => facts[n - 1]);
     const base = { text: c.text.trim().slice(0, 500), kind, facts: used };

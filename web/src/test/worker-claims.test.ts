@@ -103,5 +103,7 @@ describe('claims on the draft (H9)', () => {
   });
   it('fails closed on an unusable reply', () => {
     expect(() => claimMapFrom({ nope: true }, [], 1, '4')).toThrow();
+    // One malformed entry fails the map rather than being dropped (which could hide an unsupported claim).
+    expect(() => claimMapFrom({ claims: [{ text: 'Fine', opinion: true, facts: [] }, { text: '  ', facts: [] }] }, [], 1, '4')).toThrow();
   });
 });
