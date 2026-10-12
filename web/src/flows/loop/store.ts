@@ -6,7 +6,6 @@
 // and sends go to the Worker (POST /api/posts/:id/approve today, web/worker/posts.ts; the rest is not built yet).
 import { createBrandScopedStore } from '../../lib/brandScopedStore';
 import { activeBrand } from '../../flows/brand/activeBrand';
-import type { Store } from '../../lib/createStore';
 import type { Approval } from '../../domain/approval';
 import type { BrainChange, RuleStatus } from '../../domain/brain';
 import type { ProposalStatus } from '../../domain/proposal';
@@ -38,7 +37,7 @@ export interface LoopState {
 
 const initial: LoopState = { rules: {}, history: [], proposals: {}, approvals: {}, outcomes: {} };
 
-export const loopStore = createBrandScopedStore<LoopState>(activeBrand, initial) as Store<LoopState>;
+export const loopStore = createBrandScopedStore<LoopState>(activeBrand, initial);
 
 /** Today's date as the canvas writes it ("13 Oct"), for decisions made in the session. */
 export const today = () => new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });

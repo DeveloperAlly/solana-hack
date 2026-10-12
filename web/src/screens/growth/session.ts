@@ -4,7 +4,6 @@
 // persisted and nothing calls the network (each write names its future endpoint in an INTEGRATION comment).
 import { createBrandScopedStore } from '../../lib/brandScopedStore';
 import { activeBrand } from '../../flows/brand/activeBrand';
-import type { Store } from '../../lib/createStore';
 import type { Approval } from '../../domain/approval';
 import type { BrandEvent, EventRole, EventStatus, EventPlanItem } from '../../domain/event';
 import type { Post } from '../../domain/post';
@@ -78,7 +77,7 @@ export const growthSession = createBrandScopedStore<GrowthSession>(activeBrand, 
   draftsAdded: [],
   myRatings: {},
   questsAdded: [],
-}) as Store<GrowthSession>;
+});
 
 /** "2026-10-13T09:41" for now, in the viewer's local time (the format the date formatter reads). */
 export function nowIso(): string {
