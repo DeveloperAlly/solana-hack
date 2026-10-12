@@ -36,7 +36,7 @@ export interface InlineFormProps {
   busy?: boolean;
   /** Submit label while busy, e.g. "Checking…". */
   busyLabel?: string;
-  /** Errors from outside (a failed request), by field name; shown under the field until client validation has its own. */
+  /** Errors from outside (a failed request), by field name; shown under the field until the person edits that field or client validation has its own. */
   errors?: Record<string, string | null | undefined>;
   /** Validates from the first render, e.g. to show that a value carried in is invalid. */
   validateOnMount?: boolean;
@@ -62,9 +62,15 @@ function FormBody({ label, fields, submitLabel, submitVariant = 'primary', onSub
     validateOnMount ? Object.fromEntries(fields.map((f) => [f.name, check(f, f.defaultValue ?? '')])) : {},
   );
   const [submitted, setSubmitted] = useState(validateOnMount);
+  // Fields edited since the outside errors arrived: their outside error is stale, so it no longer shows (Codex review
+  // on PR #80). A new `errors` object from the parent starts the record again.
+  const [edited, setEdited] = useState<{ source: typeof outside; names: Record<string, true> }>({ source: outside, names: {} });
+  const editedNames = edited.source === outside ? edited.names : {};
+  const errorFor = (name: string) => errors[name] || (editedNames[name] ? null : outside?.[name]) || null;
 
   function change(f: InlineFormField, v: string) {
     setValues((prev) => ({ ...prev, [f.name]: v }));
+    setEdited({ source: outside, names: { ...editedNames, [f.name]: true } });
     // After the first submit, errors follow the person's edits.
     if (submitted) setErrors((prev) => ({ ...prev, [f.name]: check(f, v) }));
   }
@@ -86,7 +92,7 @@ function FormBody({ label, fields, submitLabel, submitVariant = 'primary', onSub
       {fields.map((f) => (
         <div key={f.name} className={styles.field}>
           {f.multiline ? (
-            <Field label={f.label} hint={f.hint} placeholder={f.placeholder} multiline rows={f.rows ?? 2} value={values[f.name]} error={errors[f.name] ?? outside?.[f.name]} onChange={(e: { target: { value: string } }) => change(f, e.target.value)} />
+            <Field label={f.label} hint={f.hint} placeholder={f.placeholder} multiline rows={f.rows ?? 2} value={values[f.name]} error={errorFor(f.name)} onChange={(e: { target: { value: string } }) => change(f, e.target.value)} />
           ) : (
             <Field
               label={f.label}
@@ -96,7 +102,7 @@ function FormBody({ label, fields, submitLabel, submitVariant = 'primary', onSub
               inputMode={f.inputMode}
               autoComplete={f.autoComplete}
               value={values[f.name]}
-              error={errors[f.name] ?? outside?.[f.name]}
+              error={errorFor(f.name)}
               onChange={(e: { target: { value: string } }) => change(f, e.target.value)}
             />
           )}

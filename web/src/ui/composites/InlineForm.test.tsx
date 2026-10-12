@@ -54,6 +54,16 @@ describe('C30 InlineForm', () => {
     expect(screen.getByRole('form', { name: 'F' })).toHaveAttribute('aria-busy', 'true');
   });
 
+  it('drops a stale outside error once the person edits that field, and shows a new one from the parent', async () => {
+    const field = [{ name: 'email', label: 'Email', validate: (v: string) => (v.includes('@') ? null : 'Enter an email.') }];
+    const { rerender } = renderWithRouter(<InlineForm fields={field} errors={{ email: 'That email is taken.' }} submitLabel="Join" onSubmit={() => undefined} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('That email is taken.');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Email' }), 'a@b.co');
+    expect(screen.queryByRole('alert')).toBeNull();
+    rerender(<InlineForm fields={field} errors={{ email: 'Still taken.' }} submitLabel="Join" onSubmit={() => undefined} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Still taken.');
+  });
+
   it('shows outside errors, validates on mount, and renders a multiline field', () => {
     renderWithRouter(
       <InlineForm
