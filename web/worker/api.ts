@@ -7,6 +7,7 @@ import { registerKitAttestation, registrarFromSecret } from './registry';
 import { activeRun, getRun, ingestSource, startRun } from './engine/api';
 import type { WaitUntil } from './engine/executor';
 import { usableFact } from './sources/registry';
+import { resolveConflict } from './prefill/decide';
 import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
@@ -309,6 +310,9 @@ export async function reviewEvidence(env: Env, brand: Brand, id: string, decisio
   return { evidence: updated, stale: sections.filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };
 }
 
+/** The run starter as the engine's start checks see it (engine/guards.ts): the user, with their IP for per-IP caps. */
+const caller = (req: Request, user: { id: string; isAnonymous?: boolean }) => ({ ...user, ip: req.headers.get('cf-connecting-ip') });
+
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
 export async function publicLimit(req: Request, env: Env, scope: string) {
   if (!env.PUBLIC_LIMITER) return;
@@ -359,7 +363,7 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
   // POST /api/brands/:id/runs {kind, ...input} -> 202 {run}
   if (p[3] === 'runs' && p.length === 4 && m === 'POST') {
     const b = await body(req);
-    return json({ run: await startRun(env, ctx, user, brand, str(b.kind, 60), b) }, 202);
+    return json({ run: await startRun(env, ctx, caller(req, user), brand, str(b.kind, 60), b) }, 202);
   }
   if (p.length === 3 && m === 'PATCH') {
     const b = await body(req);
@@ -384,6 +388,15 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
     const b = await body(req);
     return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20)));
   }
+  // POST /api/brands/:id/conflicts/:cid/resolve {keep: factId | null} -> {conflict, kept, rejected, stale}
+  // The owner settles a disagreement between sources (backlog B3a, issue #34): every fact giving the kept fact's value
+  // is approved and the rest rejected, atomically, by spec/db/011 resolve_fact_conflict; keep null rejects every side.
+  if (p[3] === 'conflicts' && p.length === 6 && p[5] === 'resolve' && m === 'POST') {
+    if (!/^[0-9a-f-]{36}$/i.test(p[4])) throw new HttpError(404, 'conflict not found');
+    const b = await body(req);
+    if (!('keep' in b) || (b.keep !== null && (typeof b.keep !== 'string' || !/^[0-9a-f-]{36}$/i.test(b.keep)))) throw new HttpError(400, 'keep must be the id of a fact on the side you choose, or null to reject every side');
+    return json(await resolveConflict(env, user, brand, p[4], b.keep as string | null));
+  }
   if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
     // Removing a source removes the facts read from it. Sections that cited them then need redrafting before the next
     // registration (registerKit refuses stale citations); kits already registered keep their own evidence snapshot.
@@ -398,10 +411,10 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
   }
   if (p[3] === 'sources' && p.length === 4 && m === 'POST') {
     const b = await body(req);
-    const u = str(b.url, 500);
-    if (!u) throw new HttpError(400, 'a link is required');
-    // Runs as the ingest_url workflow (engine/seed.ts); same quote check and the same 201 body when it finishes in time.
-    const r = await ingestSource(env, ctx, user, brand, { url: u });
+    // Runs as the extract_facts workflow (engine/api.ts SOURCE_RUN_KIND): chunked extraction, the quote check and a
+    // separate support check; the same 201 body when it finishes in time, else 409 "still reading".
+    // The link is checked by the site reader (engine/readers.ts READER_INPUTS), never cut: a cut link is another page.
+    const r = await ingestSource(env, ctx, caller(req, user), brand, { url: b.url });
     return json(r.body, r.status);
   }
   if (p[3] === 'sections' && p[4] && isSection(p[4])) {

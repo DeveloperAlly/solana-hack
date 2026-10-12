@@ -70,8 +70,8 @@ export async function saveExtractedFacts(env: Env, run: Pick<RunRow, 'id' | 'bra
   const kind = a.read.kind as SourceKind;
   const { trust } = factTrust(kind);
   const live = () => db.selectAll<Live>(env, 'evidence', `${db.eq('brand_id', brand)}&review_status=in.(proposed,approved)&select=${LIVE_FIELDS}&order=created_at.asc,id.asc`);
-  const [before, sources] = await Promise.all([live(), db.selectAll<{ id: string; url: string }>(env, 'sources', `${db.eq('brand_id', brand)}&select=id,url&order=created_at.asc,id.asc`)]);
-  const urls = new Map(sources.map((s) => [s.id, s.url]));
+  const [before, sources] = await Promise.all([live(), db.selectAll<{ id: string; url: string | null }>(env, 'sources', `${db.eq('brand_id', brand)}&select=id,url&order=created_at.asc,id.asc`)]);
+  const urls = new Map<string, string | null>(sources.map((s) => [s.id, s.url]));
   urls.set(sid, a.read.url ?? urls.get(sid) ?? '');
   const keyOf = (id: string | null) => (id ? sourceKey({ id, url: urls.get(id) }) : 'source:none');
 

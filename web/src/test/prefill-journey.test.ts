@@ -252,6 +252,17 @@ describe('conflicts (B3a) reach the owner with both quotes, and the owner resolv
     await expect(resolveConflict(envWith, user, brand, '00000000-0000-4000-8000-999999999999', null)).rejects.toMatchObject({ status: 404 });
     expect(confirmData(await state()).conflicts).toEqual([]);
   });
+  it('the owner resolves it through POST /api/brands/:id/conflicts/:cid/resolve', async () => {
+    expect((await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, {})).status).toBe(400);
+    expect((await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { keep: 'not-an-id' })).status).toBe(400);
+    expect((await call('POST', `/brands/${BRAND}/conflicts/not-an-id/resolve`, { keep: null })).status).toBe(404);
+    // A drafted section citing the side that loses must be redrafted before the next kit.
+    db.tables.kit_sections.push({ brand_id: BRAND, section: 'origin', citations: [site2019().id] }, { brand_id: BRAND, section: 'purpose', citations: [news2020().id] });
+    const r = await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { keep: news2020().id });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ conflict: cid(), kept: [news2020().id], rejected: [site2019().id], stale: ['origin'] });
+    expect((await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { keep: null })).status).toBe(409);
+  });
   it('keep must be a fact on the conflict; keep null rejects every side', async () => {
     await expect(resolveConflict(envWith, user, brand, cid(), byClaim('Tidewater says "Fresh roast, fair price."').id)).rejects.toMatchObject({ status: 400 });
     await resolveConflict(envWith, user, brand, cid(), null);

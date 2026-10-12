@@ -11,7 +11,7 @@ const { handleApi } = await import('../../worker/api');
 const { HttpError } = await import('../../worker/env');
 const { runWorkflow } = await import('../../worker/engine/runner');
 const { localDeps } = await import('../../worker/engine/executor');
-const { EXTRACT_FACTS, EXTRACT_CHUNK_PROMPT, CHECK_SUPPORT_PROMPT, EXTRACT_MODELS, SEED_CONFIG, SEEDED_BY } = await import('../../worker/engine/seed');
+const { EXTRACT_FACTS, EXTRACT_CHUNK_PROMPT, CHECK_SUPPORT_PROMPT, EXTRACT_MODELS, RETIRED_BY, SEED_CONFIG, SEEDED_BY } = await import('../../worker/engine/seed');
 const { differentFamily, JUDGES, loadTaskModels, modelFamilies, sameModel, taskModelsError } = await import('../../worker/models');
 const { chatBody, chat, NO_PROVIDER } = await import('../../worker/llm');
 const { schemaError } = await import('../../worker/schema');
@@ -23,7 +23,11 @@ const { confidenceOf, findConflicts, numbersSupported, MAX_CLAIM, MAX_FACTS_PER_
 const { initialReviewFor, pageOf, saveExtractedFacts, MAX_PAGE_TITLE, MAX_PAGE_URL } = await import('../../worker/extract/save');
 const { conflictView, factView, journeyFacts, openConflictIds, sectionLabel, sourceLabel } = await import('../../worker/extract/journey');
 const { normaliseMapped, normalisePage, normaliseQuote, quoteOnPage, MAX_QUOTE } = await import('../../worker/quote');
-const { readSource } = await import('../../worker/engine/readers');
+const { readSource, registerReader, READERS, READER_INPUTS } = await import('../../worker/engine/readers');
+const { DEFAULT_MODEL_CALL_BUDGET, plannedModelCalls, registerStartGuard, START_GUARDS } = await import('../../worker/engine/guards');
+const { startRun } = await import('../../worker/engine/api');
+const { openRouterKeyInfo } = await import('../../worker/openrouter');
+const { KINDS, registerKind } = await import('../../worker/engine/kinds');
 
 const page = (paras: string[]) => `<html><title>JamJam</title><body>${paras.map((p) => `<p>${p}</p>`).join('')}</body></html>`;
 const SITE_PARAS = [...SITE_SENTENCES.slice(0, 3), ...filler(200).split('\n\n'), ...SITE_SENTENCES.slice(3)];
@@ -69,7 +73,7 @@ beforeEach(async () => {
       calls.push({ schema, body, user, system });
       const content = schema === 'extracted_facts' ? (extractReply ?? propose)(user) : schema === 'support_verdicts' ? judge(user) : '{}';
       const model = answerModel ? answerModel(body.models, schema) : body.models?.[0] ?? `test/${schema}`;
-      return new Response(JSON.stringify({ model, usage: { prompt_tokens: 100, completion_tokens: 20 }, choices: [{ message: { content } }] }));
+      return new Response(JSON.stringify({ model, usage: { prompt_tokens: 100, completion_tokens: 20, cost: 0 }, choices: [{ message: { content } }] }));
     }
     const html = PAGES[url];
     return html ? new Response(html, { headers: { 'content-type': 'text/html' } }) : new Response('', { status: 404 });
@@ -237,6 +241,13 @@ describe('models per task: pinned free models, and a judge never from the extrac
     expect(run.error).toMatch(/nvidia\/nemotron-3-super-120b-a12b:free, which is not configured for extract\.check_support/);
     expect(evidence()).toHaveLength(0);
   });
+  it('fails closed with a stated reason when fewer than two families are configured, or nothing is configured', async () => {
+    expect(taskModelsError({ 'extract.facts': ['nvidia/nemotron-3-super-120b-a12b:free'], 'extract.check_support': ['nvidia/nemotron-3-nano:free'] })).toBe('extract.check_support and extract.facts need models from at least two model families; only nvidia is configured');
+    db.tables.engine_config = db.tables.engine_config.filter((r) => r.key !== 'task_models');
+    const run = await extract('https://jamjam.tech');
+    expect(run).toMatchObject({ status: 'failed', error: 'model config: extract.check_support is a judge and has no models configured' });
+    expect(calls).toHaveLength(0);
+  });
   it('a run whose model config breaks the family rule fails before any model is called', async () => {
     config()['extract.check_support'].push('nvidia/other-nemotron:free');
     const run = await extract('https://jamjam.tech');
@@ -278,7 +289,7 @@ describe('LLM gateway: strict schema with providers required to honour it', () =
   });
   it('reports token usage, and says plainly when no provider supports the schema (503) instead of "busy"', async () => {
     const r = await chat(env, 's', '[]', { schema: SUPPORT_VERDICTS });
-    expect(r.usage).toEqual({ promptTokens: 100, completionTokens: 20 });
+    expect(r.usage).toEqual({ promptTokens: 100, completionTokens: 20, cost: 0 });
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 503 })));
     vi.useFakeTimers();
     const p = chat(env, 's', 'u', { schema: SUPPORT_VERDICTS }).catch((e) => e);
@@ -673,6 +684,214 @@ describe('extract_facts runs as engine steps on the source adapters', () => {
   });
 });
 
+describe('POST /api/brands/:id/sources runs extract_facts (design review on PR #91: the path users hit)', () => {
+  it('acceptance: the Your links route runs the support check, and "10 enterprise customers" is never stored', async () => {
+    step = fakeStep();
+    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://jamjam.tech' });
+    expect(db.tables.runs).toHaveLength(1);
+    const run = db.tables.runs[0] as Row & { kind: string; status: string };
+    expect(run).toMatchObject({ kind: 'extract_facts', status: 'done' });
+    // Same answer shape as before: 201 {sourceId, facts, dropped, kind, needsReview, runId}.
+    expect(r.status).toBe(201);
+    expect(r.body).toMatchObject({ sourceId: db.tables.sources[0].id, facts: 5, kind: 'site', needsReview: 1, runId: run.id });
+    expect(typeof r.body.dropped).toBe('number');
+    const support = db.tables.run_steps.filter((x) => String(x.step).startsWith('support[') && x.outcome === 'ok');
+    expect(support.length).toBeGreaterThan(0);
+    expect(support.every((x) => x.prompt_key === 'extract.check_support')).toBe(true);
+    expect(evidence().some((e) => /enterprise|customer/i.test(e.claim))).toBe(false);
+    expect(evidence().length).toBe(5);
+  });
+  it('a link is checked whole before anything is written: never cut, http(s) only', async () => {
+    for (const url of ['', 'ftp://jamjam.tech/', 'not a link', `https://jamjam.tech/${'p'.repeat(500)}`]) {
+      const r = await call('POST', `/brands/${BRAND}/sources`, { url });
+      expect(r.status).toBe(400);
+    }
+    expect(db.tables.sources).toHaveLength(0);
+    expect(db.tables.runs).toHaveLength(0);
+  });
+  it('ingest_url is retired by 011: new runs are refused with 410, and the migration says so', async () => {
+    const r = await call('POST', `/brands/${BRAND}/runs`, { kind: 'ingest_url', url: 'https://jamjam.tech' });
+    expect(r).toMatchObject({ status: 410, body: { error: 'ingest_url is retired; new runs use extract_facts' } });
+    expect(db.tables.sources).toHaveLength(0);
+    const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/011_fact_extraction.sql'), 'utf8');
+    const retired = [...sql.matchAll(/update public\.workflow_defs set status = 'retired' where id = '(\w+)' and version = (\d+)/g)].map(([, id, v]) => ({ id, version: Number(v) }));
+    expect(retired).toEqual(RETIRED_BY['011_fact_extraction.sql']);
+  });
+});
+
+describe('readers and run kinds plug in without editing the run API (engine/readers.ts, engine/kinds.ts)', () => {
+  it('extract_facts takes the reader from the request: pasted text is read, checked and saved', async () => {
+    step = fakeStep();
+    const r = await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'paste', text: SITE_SENTENCES.join('\n\n'), name: 'About us' });
+    expect(r.status).toBe(202);
+    const run = db.tables.runs[0] as Row & { status: string; input: Record<string, unknown> };
+    expect(run.status).toBe('done');
+    expect(db.tables.sources[0]).toMatchObject({ kind: 'paste', url: '', title: 'About us', status: 'read' });
+    expect(run.input).toMatchObject({ reader: 'paste', sourceId: db.tables.sources[0].id, args: { name: 'About us', sourceId: db.tables.sources[0].id } });
+    expect(evidence().length).toBeGreaterThan(0);
+    expect(evidence().every((e) => e.trust === 'owned' && e.source_id === db.tables.sources[0].id)).toBe(true);
+  });
+  it('an unknown reader or input a reader cannot use is refused before any row is written', async () => {
+    for (const body of [{ reader: 'nope', url: 'https://jamjam.tech' }, { reader: 'paste', text: '   ' }, { reader: 'paste', text: 'x'.repeat(200_001) }, { reader: 'toString', url: 'https://jamjam.tech' }]) {
+      const r = await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', ...body });
+      expect([400, 413]).toContain(r.status);
+    }
+    expect(db.tables.sources).toHaveLength(0);
+    expect(db.tables.runs).toHaveLength(0);
+  });
+  it('a new reader and a new run kind register in their own files and run through the unchanged run API', async () => {
+    const seen: Record<string, unknown>[] = [];
+    // A reader that reads text an upload route already stored on an existing source row of this brand.
+    registerReader('stored_text', async (_env, a) => {
+      seen.push(a);
+      const src = db.tables.sources.find((x) => x.id === a.sourceId) as { source_text: string };
+      return { ok: true, kind: 'document', trust: 'owned', title: 'Upload', text: src.source_text, meta: { pages: 1, cost: 0, ms: 0, notes: [] } } as never;
+    }, async (_env, brand, body) => {
+      const row = db.tables.sources.find((x) => x.id === body.sourceId && x.brand_id === brand.id && x.kind === 'document');
+      if (!row) throw new HttpError(404, 'no such upload');
+      return { args: {}, sourceId: row.id as string };
+    });
+    db.tables.sources.push({ id: 'up-1', brand_id: BRAND, url: '', kind: 'document', status: 'pending', source_text: SITE_SENTENCES.join('\n\n') });
+    step = fakeStep();
+    const r = await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'stored_text', sourceId: 'up-1' });
+    expect(r.status).toBe(202);
+    expect(seen).toEqual([{ sourceId: 'up-1' }]);
+    expect(db.tables.sources).toHaveLength(1);
+    expect((db.tables.runs[0] as Row).status).toBe('done');
+    expect(evidence().every((e) => e.source_id === 'up-1')).toBe(true);
+    // A check that names another brand's row is refused by the kind as well, whatever the reader's own check did.
+    registerReader('careless', READERS.stored_text, async () => ({ args: {}, sourceId: 'other' }));
+    db.tables.sources.push({ id: 'other', brand_id: 'someone-else', url: '', kind: 'document', status: 'pending' });
+    expect((await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'careless' })).status).toBe(404);
+    // A new kind: one registry entry plus its workflow_defs row.
+    registerKind('find_things', async (_env, brand) => ({ brandName: brand.name }));
+    expect((await call('POST', `/brands/${BRAND}/runs`, { kind: 'find_things' })).status).toBe(503);
+    db.tables.workflow_defs.push({ id: 'find_things', version: 1, status: 'active', spec: { id: 'find_things', version: 1, title: 't', concurrency: 'parallel', retries: { limit: 0, delay: '1 second', backoff: 'constant' }, steps: [{ id: 'one', type: 'code', label: 'One', fn: 'chunk_text', args: { text: '$input.brandName', target: '12000', min: '8000', max: '16000', overlap: '600', max_chunks: '1' } }], output: '$steps.one.count' } });
+    step = fakeStep();
+    expect((await call('POST', `/brands/${BRAND}/runs`, { kind: 'find_things' })).status).toBe(202);
+    expect(db.tables.runs.find((x) => x.kind === 'find_things')).toMatchObject({ status: 'done', output: 1 });
+    expect(() => registerKind('find_things', async () => ({}))).toThrow(/already registered/);
+    delete READERS.stored_text; delete READER_INPUTS.stored_text; delete READERS.careless; delete READER_INPUTS.careless; delete KINDS.find_things;
+  });
+  it('a reader check must name exactly one of a new source or an existing one, of a declared kind', async () => {
+    registerReader('both', READERS.paste, async () => ({ args: {}, sourceId: 'x', source: { url: '', kind: 'paste' } }));
+    registerReader('neither', READERS.paste, async () => ({ args: {} }));
+    registerReader('odd', READERS.paste, async () => ({ args: {}, source: { url: '', kind: 'tweet' as never } }));
+    for (const reader of ['both', 'neither', 'odd']) expect((await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader })).status).toBe(500);
+    expect(db.tables.sources).toHaveLength(0);
+    for (const n of ['both', 'neither', 'odd']) { delete READERS[n]; delete READER_INPUTS[n]; }
+  });
+});
+
+describe('metering: every step records what its external call cost (run_steps.cost_usd, spec/db/011)', () => {
+  it('a reader\'s meta.cost and each model call\'s reported cost are on the traces, so a brand\'s cost is a sum', async () => {
+    registerReader('paid_read', async (_env, a) => ({ ok: true, kind: 'paste', trust: 'owned', title: 'Paid', text: String(a.text), meta: { pages: 1, cost: 0.0042, ms: 0, notes: [] } }) as never, READER_INPUTS.paste);
+    step = fakeStep();
+    expect((await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'paid_read', text: SITE_SENTENCES.join('\n\n') })).status).toBe(202);
+    delete READERS.paid_read; delete READER_INPUTS.paid_read;
+    const read = db.tables.run_steps.find((x) => x.step === 'read');
+    expect(read).toMatchObject({ outcome: 'ok', cost_usd: 0.0042 });
+    const llm = db.tables.run_steps.filter((x) => x.type === 'llm');
+    expect(llm.length).toBeGreaterThan(1);
+    expect(llm.every((x) => x.cost_usd === 0)).toBe(true);
+    const runIds = new Set(db.tables.runs.filter((r) => r.brand_id === BRAND).map((r) => r.id));
+    const total = db.tables.run_steps.filter((x) => runIds.has(x.run_id)).reduce((a, x) => a + Number(x.cost_usd ?? 0), 0);
+    expect(total).toBeCloseTo(0.0042, 10);
+    // The site reader on free services reports 0, never null.
+    await extract('https://jamjam.tech');
+    expect(db.tables.run_steps.filter((x) => x.step === 'read').map((x) => x.cost_usd)).toEqual([0.0042, 0]);
+  });
+  it('a model reply that is refused still records the model, tokens and cost of the call made', async () => {
+    answerModel = (models, schema) => (schema === 'support_verdicts' ? 'nvidia/nemotron-3-super-120b-a12b:free' : models![0]);
+    await extract('https://jamjam.tech');
+    const refused = db.tables.run_steps.filter((x) => x.outcome === 'error' && String(x.step).startsWith('support['));
+    expect(refused.length).toBeGreaterThan(0);
+    for (const x of refused) expect(x).toMatchObject({ model: 'nvidia/nemotron-3-super-120b-a12b:free', tokens_in: 100, tokens_out: 20, cost_usd: 0, prompt_key: 'extract.check_support' });
+  });
+  it('the gateway passes on a reported cost only when it is a real non-negative number', async () => {
+    const reply = (usage: unknown) => vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ model: 'm', usage, choices: [{ message: { content: '{}' } }] }))));
+    reply({ prompt_tokens: 1, completion_tokens: 1, cost: 0.25 });
+    expect((await chat(env, 's', 'u')).usage).toEqual({ promptTokens: 1, completionTokens: 1, cost: 0.25 });
+    reply({ prompt_tokens: 1, completion_tokens: 1, cost: -1 });
+    expect((await chat(env, 's', 'u')).usage).toEqual({ promptTokens: 1, completionTokens: 1 });
+    reply({ prompt_tokens: 1, completion_tokens: 1, cost: '0.1' });
+    expect((await chat(env, 's', 'u')).usage).toEqual({ promptTokens: 1, completionTokens: 1 });
+  });
+});
+
+describe('start checks: per-brand daily model-call budget and anonymous caps, inside start() (engine/guards.ts)', () => {
+  const setBudget = (v: Record<string, number>) => db.tables.engine_config.push({ key: 'model_call_budget', value: v });
+  const owner = (extra: Record<string, unknown> = {}) => ({ id: 'u', ...extra });
+  it('plans the most model calls a run can make: 20 extraction and 40 support calls for extract_facts', () => {
+    expect(plannedModelCalls(EXTRACT_FACTS)).toBe(60);
+    expect(DEFAULT_MODEL_CALL_BUDGET).toEqual({ permanent: 300, anonymous: 120 });
+  });
+  it('refuses a run, before writing anything, when today\'s calls plus its plan pass the budget, on every route', async () => {
+    setBudget({ permanent: 62 });
+    step = fakeStep();
+    expect((await call('POST', `/brands/${BRAND}/sources`, { url: 'https://jamjam.tech' })).status).toBe(201);
+    const used = db.tables.run_steps.filter((x) => x.type === 'llm').length;
+    expect(used).toBe(3);
+    const [sources, runs] = [db.tables.sources.length, db.tables.runs.length];
+    for (const [path, body] of [['sources', { url: 'https://jamjam.tech/about' }], ['runs', { kind: 'extract_facts', url: 'https://jamjam.tech/about' }]] as const) {
+      const r = await call('POST', `/brands/${BRAND}/${path}`, body);
+      expect(r.status).toBe(429);
+      expect(r.body.error).toBe(`this brand has used its 62 AI model calls for today (${used} made, 0 reserved by runs still going, 60 needed); try again after 00:00 UTC`);
+    }
+    expect([db.tables.sources.length, db.tables.runs.length]).toEqual([sources, runs]);
+  });
+  it('counts only today\'s calls, and reserves the full plan of runs still going', async () => {
+    setBudget({ permanent: 100 });
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    // Started yesterday, finished today: only its calls made today count.
+    db.tables.runs.push({ id: 'old', brand_id: BRAND, kind: 'extract_facts', workflow_version: 1, status: 'done', created_at: yesterday, updated_at: new Date().toISOString() });
+    for (let i = 0; i < 90; i++) db.tables.run_steps.push({ id: `o${i}`, run_id: 'old', type: 'llm', created_at: yesterday });
+    step = fakeStep();
+    await startRun(envWith, undefined, owner(), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' });
+    expect(db.tables.runs.at(-1)).toMatchObject({ status: 'done' });
+    db.tables.runs.push({ id: 'going', brand_id: BRAND, kind: 'extract_facts', workflow_version: 1, status: 'running' });
+    db.tables.runs.at(-1)!.updated_at = new Date().toISOString();
+    await expect(startRun(envWith, undefined, owner(), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/60 reserved by runs still going/) });
+  });
+  it('an anonymous owner gets the smaller budget and a per-IP limit; a permanent one is not IP-limited', async () => {
+    const keys: string[] = [];
+    let allow = true;
+    const limited = { ...envWith, PUBLIC_LIMITER: { limit: async (o: { key: string }) => { keys.push(o.key); return { success: allow }; } } };
+    setBudget({ anonymous: 59 });
+    await expect(startRun(limited, undefined, owner({ isAnonymous: true, ip: '203.0.113.9' }), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/used its 59 AI model calls/) });
+    expect(keys).toEqual(['run:203.0.113.9']);
+    allow = false;
+    await expect(startRun(limited, undefined, owner({ isAnonymous: true, ip: '203.0.113.9' }), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/too many reads from your network/) });
+    // A permanent owner: no IP check, the permanent budget (default 300) applies.
+    expect((await startRun(limited, undefined, owner({ ip: '203.0.113.9' }), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).status).toBe('running');
+    expect(keys).toHaveLength(2);
+    expect(db.tables.sources).toHaveLength(1);
+  });
+  it('the route passes the caller\'s IP to the start checks', async () => {
+    const keys: string[] = [];
+    const seen = { ...envWith, PUBLIC_LIMITER: { limit: async (o: { key: string }) => { keys.push(o.key); return { success: true }; } } };
+    registerStartGuard(async (_env, caller) => { if (caller.ip) keys.push(`ip:${caller.ip}`); });
+    const req = new Request(`https://jamjam.tech/api/brands/${BRAND}/runs`, { method: 'POST', headers: { authorization: 'Bearer t', 'content-type': 'application/json', 'cf-connecting-ip': '198.51.100.7' }, body: JSON.stringify({ kind: 'extract_facts', url: 'https://jamjam.tech' }) });
+    step = fakeStep();
+    await handleApi(req, seen as never, new URL(req.url), { waitUntil: () => undefined });
+    START_GUARDS.pop();
+    expect(keys).toEqual(['ip:198.51.100.7']);
+  });
+  it('/api/health exposes only the free-model daily limit and the free-tier flag from the OpenRouter key', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toBe('https://openrouter.ai/api/v1/key');
+      expect((init!.headers as Record<string, string>).authorization).toBe('Bearer k');
+      return new Response(JSON.stringify({ data: { label: 'sk-or-v1-secret', usage: 3, is_free_tier: false, free_model_daily_requests: { limit: 1000, remaining: 990, used: 10 } } }));
+    }));
+    expect(await openRouterKeyInfo('k')).toEqual({ isFreeTier: false, freeModelDailyLimit: 1000 });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: { free_model_daily_requests: { limit: '50' } } }))));
+    expect(await openRouterKeyInfo('k')).toEqual({ isFreeTier: null, freeModelDailyLimit: null });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 401 })));
+    expect(await openRouterKeyInfo('k')).toEqual({ isFreeTier: null, freeModelDailyLimit: null });
+    expect(await openRouterKeyInfo(undefined)).toEqual({ isFreeTier: null, freeModelDailyLimit: null });
+  });
+});
+
 describe('source readers', () => {
   it('the paste reader keeps its owned trust and offsets the text it returns', async () => {
     const out = await readSource(env, 'paste', { text: 'JamJam was founded in 2020.', name: 'notes' }, 1000, 3000);
@@ -704,6 +923,8 @@ describe('consumers: the onboarding journey shape (PR #75 JourneyFact, served by
     expect(sourceLabel('javascript:alert(1)', 'x')).toEqual({ label: 'x' });
     expect(sourceLabel(null, 'Pasted text')).toEqual({ label: 'Pasted text' });
     expect(sourceLabel(null, null)).toBeUndefined();
+    // A source with no link (a search result, an upload) is labelled by its name.
+    expect(factView({ ...legacy, source_id: 'n1' }, new Map([['n1', { id: 'n1', url: null, title: null, name: 'Search: JamJam founders' }]]), new Set())!.source).toEqual({ label: 'Search: JamJam founders' });
   });
   it('every stored fact maps to a JourneyFact: found or partly, with its exact quote and the page it is on', async () => {
     await extract('https://jamjam.tech');
