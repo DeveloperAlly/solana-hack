@@ -10,7 +10,7 @@ tags: [pitch, script, colosseum]
 
 # Pitch script: JamJam
 
-Total: 462 words, about 2:53 at 160 words a minute.
+Total: 461 words, about 2:53 at 160 words a minute.
 
 ## 1. Dot points per slide
 
@@ -32,14 +32,14 @@ Total: 462 words, about 2:53 at 160 words a minute.
 - Everyone on-brand: team, partners and ambassadors write from your kit
 - Proof it's really you: approved work publicly verifiable
 
-**4. How it works** (0:45–0:59)
-- It reads everything you've made; it asks only what's missing
+**4. How it works** (0:45–0:58)
+- No blank page: your brand, built from what you already have
 - Sources: site, socials, docs, decks, repos, or a short interview
 - Found: you confirm
 - Missing: we ask
 - You sign off; your brand is ready
 
-**5. Why now** (0:59–1:15)
+**5. Why now** (0:58–1:15)
 - AI lets anyone sound like you; now you need proof it's really you
 - $3.5B US imposter losses; ~$1B from fake businesses
 - X barred apps that reward posting
@@ -50,12 +50,12 @@ Total: 462 words, about 2:53 at 160 words a minute.
 - Money: USDC tips; rewards for real content, disclosed and approved
 - Monetise your voice: agents pay per call to use your voice and brand; stablecoin plans
 
-**7. Solana integration** (1:42–1:49)
+**7. Solana integration** (1:42–1:48)
 - Today: official records on Solana; email sign-in; live verification
 - Next: verified accounts; ambassador payouts in USDC; open record
 - Later: USDC tips; voice licensing; stablecoin plans
 
-**8. Go to market** (1:49–2:02)
+**8. Go to market** (1:48–2:02)
 - First customers: web3 founders and creators; impersonation +1,400%
 - Then everyone who is their own brand
 - They pay $20–49 a month for one AI writing tool and stitch 3–4 tools
@@ -98,11 +98,11 @@ Today you have three bad options. Hire an agency you can't afford. Do it yoursel
 
 JamJam is the brand team you wanted, available around the clock. It defines your brand from everything you've published, or from scratch, every fact sourced. It writes content that sounds like you, every claim backed. It keeps your team and ambassadors on-brand. And it proves your work is really yours.
 
-**4. How it works** · 0:45–0:59 · 37 words
+**4. How it works** · 0:45–0:58 · 36 words
 
-JamJam reads before it asks: your site, socials, docs, decks and repos, or a short interview if you're starting from scratch. What it finds, you confirm. It only asks what's missing. You sign off, and it's ready.
+No blank page. JamJam builds your brand from what you already have: your site, socials, docs, decks and repos, or a short interview if you're starting from scratch. You confirm what it finds, and sign off.
 
-**5. Why now** · 0:59–1:15 · 44 words
+**5. Why now** · 0:58–1:15 · 44 words
 
 Why now? AI lets anyone sound like you, so now you need proof it's really you. Americans reported losing three and a half billion dollars to imposters last year, a billion to fake businesses. And X has barred apps that reward people for posting.
 
@@ -110,11 +110,11 @@ Why now? AI lets anyone sound like you, so now you need proof it's really you. A
 
 We don't need a blockchain to write your posts. We need one where trust and money move. Prove you own your domain and accounts once. Then your posts, ambassadors' posts and AI persona go on an open record any wallet or exchange can check, so a fake stands out. Fans tip creators in USDC, and brands reward real content, disclosed and approved. And you get paid when AI agents use your voice.
 
-**7. Solana integration** · 1:42–1:49 · 17 words
+**7. Solana integration** · 1:42–1:48 · 17 words
 
 Today your kit and posts are on Solana, with email sign-in. Next: verified accounts and USDC payouts.
 
-**8. Go to market** · 1:49–2:02 · 35 words
+**8. Go to market** · 1:48–2:02 · 35 words
 
 Our first customers are web3 founders and creators, where impersonation is up fourteen hundred percent. Then everyone who is their own brand. They already stitch together three or four paid tools. Customer zero is me.
 
