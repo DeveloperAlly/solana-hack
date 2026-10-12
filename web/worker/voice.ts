@@ -38,6 +38,25 @@ export function nearestTemplates(id: string, n = 3): VoiceTemplateId[] {
   return [...VOICE_TEMPLATES].sort((x, y) => dialDistance(t.v, x.v) - dialDistance(t.v, y.v)).slice(0, n).map((x) => x.value);
 }
 
+/**
+ * Three templates as far apart on the dials as possible (greedy farthest-point from a neutral start): round 1 of voice
+ * by example. Chosen here, not by the model, so the offer is always three valid, clearly different templates.
+ */
+export function contrastingTemplates(n = 3, start = 'plainspoken'): VoiceTemplateId[] {
+  const first = templateById(start) ?? VOICE_TEMPLATES[0];
+  const picked = [first];
+  while (picked.length < n) {
+    let best = VOICE_TEMPLATES[0], bestD = -1;
+    for (const t of VOICE_TEMPLATES) {
+      if (picked.includes(t)) continue;
+      const d = Math.min(...picked.map((p) => dialDistance(p.v, t.v)));
+      if (d > bestD) { bestD = d; best = t; }
+    }
+    picked.push(best);
+  }
+  return picked.map((t) => t.value);
+}
+
 /** The answer the Voice step saves for a template: template, its 8 dials and its claims gate (kitPolicy reads these). */
 export function voiceAnswerFor(id: string): Record<string, string> {
   const t = templateById(id);

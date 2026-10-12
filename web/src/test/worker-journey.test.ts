@@ -13,8 +13,8 @@ vi.mock('../../worker/registry', () => ({
   explorerTx: (s: string) => s,
 }));
 const { handleApi } = await import('../../worker/api');
-const { coverage, FIRST_POST_BRIEF, ANON_MAX_SOURCES } = await import('../../worker/journey');
-const { nearestTemplates, voiceAnswerFor, VOICE_TEMPLATES } = await import('../../worker/voice');
+const { coverage, FIRST_POST_BRIEF, ANON_MAX_SOURCES, samplesFrom } = await import('../../worker/journey');
+const { nearestTemplates, voiceAnswerFor, VOICE_TEMPLATES, contrastingTemplates, templateById } = await import('../../worker/voice');
 
 type Row = Record<string, unknown>;
 let tables: Record<string, Row[]>;
@@ -207,15 +207,19 @@ describe('coverage over the kit sections (J1, J3)', () => {
 
 describe('voice by example (J4)', () => {
   const sample = (t: string) => ({ template: t, text: `A paragraph about Acme in the ${t} voice.` });
-  it('round 1 returns three different templates, written only from usable facts', async () => {
+  it('round 1 offers the three most contrasting templates, written only from usable facts', async () => {
     const b = brandRow('p-1');
     tables.brands = [b];
     tables.evidence = [fact(b.id, 'purpose', { claim: 'Acme builds bridges' }), fact(b.id, 'audience', { claim: 'Secret third-party claim', trust: 'third_party', review_status: 'proposed' })];
-    llm = () => ({ samples: [sample('friendly'), sample('friendly'), sample('academic'), sample('not_a_template'), sample('playful')] });
+    const offer = contrastingTemplates(3);
+    expect(new Set(offer).size).toBe(3);
+    // Duplicates and templates that were not offered are skipped.
+    llm = () => ({ samples: [sample(offer[0]), sample(offer[0]), sample('not_a_template'), sample(offer[1]), sample(offer[2])] });
     const res = await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 });
     expect(res.status).toBe(200);
-    expect((res.body.samples as { template: string }[]).map((s) => s.template)).toEqual(['friendly', 'academic', 'playful']);
-    expect((res.body.samples as { answer: Record<string, string> }[])[0].answer).toMatchObject({ template: 'friendly', claims: '4', sample: 'A paragraph about Acme in the friendly voice.' });
+    expect((res.body.samples as { template: string }[]).map((s) => s.template)).toEqual(offer);
+    expect((res.body.samples as { answer: Record<string, string> }[])[0].answer).toMatchObject({ template: offer[0], sample: `A paragraph about Acme in the ${offer[0]} voice.` });
+    for (const id of offer) expect(prompts[0].user).toContain(id);
     expect(prompts[0].user).toContain('Acme builds bridges');
     expect(prompts[0].user).not.toContain('Secret third-party claim');
   });
@@ -245,10 +249,30 @@ describe('voice by example (J4)', () => {
     const b = brandRow('p-1');
     tables.brands = [b];
     tables.evidence = [fact(b.id, 'purpose')];
-    llm = () => ({ samples: [null, 7, 'x', sample('friendly'), sample('academic'), sample('playful')] });
+    const offer = contrastingTemplates(3);
+    llm = () => ({ samples: [null, 7, 'x', ...offer.map(sample)] });
     const res = await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 });
     expect(res.status).toBe(200);
-    expect((res.body.samples as { template: string }[]).map((s) => s.template)).toEqual(['friendly', 'academic', 'playful']);
+    expect((res.body.samples as { template: string }[]).map((s) => s.template)).toEqual(offer);
+  });
+  it('matches a sample by label or by position when the model does not echo the template id', () => {
+    const offer = contrastingTemplates(3);
+    const labels = offer.map((id) => templateById(id)!.label);
+    const byLabel = samplesFrom({ samples: labels.map((l) => ({ template: l.toUpperCase(), text: `In ${l}.` })) }, offer);
+    expect(byLabel.map((s) => s.template)).toEqual(offer);
+    const byPosition = samplesFrom({ samples: offer.map((_, i) => ({ template: `Style ${i + 1}`, text: `Paragraph ${i + 1}.` })) }, offer);
+    expect(byPosition.map((s) => s.text)).toEqual(['Paragraph 1.', 'Paragraph 2.', 'Paragraph 3.']);
+  });
+  it('retries once when the first reply is unusable', async () => {
+    const b = brandRow('p-1');
+    tables.brands = [b];
+    tables.evidence = [fact(b.id, 'purpose')];
+    const offer = contrastingTemplates(3);
+    let n = 0;
+    llm = () => (n++ === 0 ? { nothing: true } : { samples: offer.map(sample) });
+    const res = await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 });
+    expect(res.status).toBe(200);
+    expect(n).toBe(2);
   });
   it('a picked sample is kept in the voice answer but never becomes evidence', async () => {
     const b = brandRow('p-1');
