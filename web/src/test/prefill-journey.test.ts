@@ -169,6 +169,25 @@ describe('the routes return #75\'s shapes when wired to the prefill module', () 
     expect(c.deferredNote).toMatch(/11 kit sections/);
   });
 
+  it('a proposed voice fact (an owned passage matched fuzzily) is the voice item, with the owner\'s accept / reject path (PR #101 review)', async () => {
+    const src = db.tables.sources[0].id as string;
+    const voiceFact = (id: string, claim: string) => ({ id, brand_id: BRAND, source_id: src, section: 'voice', claim, quote: HOME[4], origin: 'source', trust: 'owned', review_status: 'proposed', match: 'fuzzy', confidence: 'low' });
+    db.tables.evidence.push(voiceFact('a1000000-0000-4000-8000-000000000001', 'Tidewater writes in short, plain phrases.'), voiceFact('a1000000-0000-4000-8000-000000000002', 'Tidewater pairs two short claims.'));
+    let c = confirmData(await state());
+    expect(c.voice).toMatchObject({ id: 'a1000000-0000-4000-8000-000000000001', section: 'Voice · Gate 3', status: 'partly', statement: 'Tidewater writes in short, plain phrases.', quote: HOME[4] });
+    expect(c.voice.note).toMatch(/closest passage/);
+    // The other proposed voice fact is an ordinary card, so it too can be decided.
+    expect(c.facts.map((f) => f.id)).toContain('a1000000-0000-4000-8000-000000000002');
+    // The voice item is decided through the same route as any card.
+    await decideFact(envWith, user, brand, c.voice.id, { decision: 'rejected' }, ops);
+    c = confirmData(await state());
+    expect(c.voice.id).toBe('a1000000-0000-4000-8000-000000000002');
+    expect(c.facts.some((f) => f.id === 'a1000000-0000-4000-8000-000000000002')).toBe(false);
+    await decideFact(envWith, user, brand, c.voice.id, { decision: 'rejected' }, ops);
+    // Only with no live voice fact left does the "nothing says how you sound" item appear.
+    expect(confirmData(await state()).voice).toMatchObject({ id: 'voice', status: 'needs-you' });
+  });
+
   it('the gaps: J4\'s questions for the brand, with the ranked list', async () => {
     const g: Omit<GapsVoiceData, 'voice'> = gapsData(await state(), '2026-10-13');
     expect(g).toMatchObject({ brandName: 'Tidewater', edgeQuestion: 'What can only you do?', originQuestion: 'Why does it exist?', originNote: 'Saved as evidence: "owner answer, 2026-10-13".' });

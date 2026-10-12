@@ -6,7 +6,6 @@
 import { VOICE_TEMPLATES } from '../../src/screens/build/steps';
 import { SECTIONS } from '../kit';
 import { conflictView, factView, openConflictIds, sectionLabel, sourceLabel, type ConflictRow, type EvidenceRow, type SourceRow } from '../extract/journey';
-import { usableFact } from '../sources/registry';
 import type { ConfirmData, GapsVoiceData, JourneyFact, JourneySource, ReadData, SourceStatus } from './contract';
 import { compareFacts, coverageMap, journeyCoverage, type CoverageAnswer, type CoverageFact, type CoverageMap, type GapQuestion } from './coverage';
 import { fieldById } from './fields';
@@ -102,26 +101,34 @@ export const DEFERRED_NOTE = 'The other 11 kit sections (values, visual kit, exa
  */
 export function confirmData(state: JourneyState): ConfirmDataWithConflicts {
   const b = build(state);
+  // Voice facts (any live status, quoted, not disputed). The best one is the voice item; any other that waits for the
+  // owner's review is a card, so every proposed voice fact has an accept / reject path (PR #101 review).
+  const voiceField = b.map.fields.find((f) => f.id === 'voice.template')!;
+  const voiceFacts = b.read.filter((e) => e.section === 'voice' && !!e.quote && !b.open.has(e.id));
+  const voiceItem = voiceField.answer ? undefined : voiceFacts[0];
   const cards: JourneyFact[] = [];
   const seen = new Set<string>();
   // In kit section order (kit.ts SECTIONS, the order the kit is read in), best fact first within a section.
   const order = Object.keys(SECTIONS);
   const bySection = [...b.read].sort((x, y) => order.indexOf(x.section) - order.indexOf(y.section));
   for (const e of bySection) {
-    if (b.open.has(e.id) || !e.quote || e.section === 'voice') continue;
+    if (b.open.has(e.id) || !e.quote || e.id === voiceItem?.id) continue;
     const waiting = e.review_status === 'proposed';
+    if (e.section === 'voice' && !waiting) continue;
     if (!waiting && seen.has(e.section)) continue;
     if (!waiting) seen.add(e.section);
     cards.push(view(b, e));
   }
-  const voiceField = b.map.fields.find((f) => f.id === 'voice.template')!;
-  const voiceFacts = b.read.filter((e) => e.section === 'voice' && usableFact(e) && !b.open.has(e.id));
   let voice: JourneyFact;
   if (voiceField.answer) {
     const t = VOICE_TEMPLATES.find((x) => x.value === voiceField.answer);
     voice = { id: 'voice', section: sectionLabel('voice'), status: 'found', statement: `Your voice: ${t?.label ?? voiceField.answer}.`, note: 'Picked by you.' };
-  } else if (voiceFacts.length) {
-    voice = { ...view(b, voiceFacts[0]), status: 'partly', note: "Read from your pages. You'll pick the paragraph that sounds right next." };
+  } else if (voiceItem) {
+    // The fact itself (its id, quote and page), so the owner accepts or rejects it with the same decision route as any
+    // card; partly found, because the voice is still picked by example next. A note on why it waits is kept.
+    const v = view(b, voiceItem);
+    const next = "You'll pick the paragraph that sounds right next.";
+    voice = { ...v, status: 'partly', note: v.note ? `${v.note} ${next}` : `Read from your pages. ${next}` };
   } else {
     voice = { id: 'voice', section: sectionLabel('voice'), status: 'needs-you', statement: 'Nothing in your sources says how you sound yet.', note: "You'll pick from sample paragraphs next." };
   }
