@@ -92,11 +92,13 @@ export function questGate(d: QuestDraft): { blocking: boolean; label: string } {
 
 /**
  * The quest part of a submission's gate, applied on top of the queue's own checks (domain/queue.ts gateFor). It needs the
- * full quest (Codex review on PR 102): an unknown quest blocks, a payout that is not the quest's reward blocks, and once
- * every slot is paid the budget is reached, so no further submission can be approved.
+ * full quest (Codex review on PR 102): an unknown quest blocks, a quest not yet open blocks (questState's coming-soon:
+ * paying now would spend its budget before it opens), a payout that is not the quest's reward blocks, and once every
+ * slot is paid the budget is reached, so no further submission can be approved.
  */
 export function submissionGate(queueGate: Gate, item: { id: string; payout: { amount: number; unit: string } }, quest: Quest | undefined): Gate {
   if (!quest) return { blocking: true, label: 'Quest not found.' };
+  if (quest.opens) return { blocking: true, label: `Not open yet (${quest.opens}): nothing is paid before the quest opens.` };
   if (item.payout.unit !== 'USDC' || item.payout.amount !== quest.rewardUsdc) {
     return { blocking: true, label: `The payout (${item.payout.amount} ${item.payout.unit}) is not this quest’s reward (${quest.rewardUsdc} USDC).` };
   }
