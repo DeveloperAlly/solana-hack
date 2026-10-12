@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useDisclosure } from '../hooks/useDisclosure';
 import { Alert } from '../primitives/Alert';
 import { Button } from '../primitives/Button';
 import { Field } from '../primitives/Field';
@@ -21,7 +22,6 @@ export interface VerifyReportFormProps {
   defaultOpen?: boolean;
 }
 
-type Phase = 'closed' | 'open' | 'sent';
 type Errors = Partial<Record<keyof VerifyReport, string>>;
 
 function validate(r: VerifyReport): Errors {
@@ -36,7 +36,8 @@ function validate(r: VerifyReport): Errors {
  * A disclosure: the button opens a short form that validates on submit; Cancel closes it; sending shows a confirmation.
  */
 export function VerifyReportForm({ triggerLabel, brandName = '', onSubmit, defaultOpen = false }: VerifyReportFormProps) {
-  const [phase, setPhase] = useState<Phase>(defaultOpen ? 'open' : 'closed');
+  const form = useDisclosure({ defaultOpen });
+  const [sent, setSent] = useState(false);
   const [report, setReport] = useState<VerifyReport>({ brand: brandName, where: '', details: '' });
   const [errors, setErrors] = useState<Errors>({});
   const set = (k: keyof VerifyReport) => (e: { target: { value: string } }) => setReport((r) => ({ ...r, [k]: e.target.value }));
@@ -47,11 +48,11 @@ export function VerifyReportForm({ triggerLabel, brandName = '', onSubmit, defau
     setErrors(found);
     if (Object.keys(found).length) return;
     onSubmit?.(report);
-    setPhase('sent');
+    setSent(true);
   }
 
-  if (phase === 'sent') return <Alert tone="success" title="Report sent">{report.brand}'s owner will see it. Thank you for checking.</Alert>;
-  if (phase === 'closed') return <Button variant="secondary" onClick={() => setPhase('open')}>{triggerLabel}</Button>;
+  if (sent) return <Alert tone="success" title="Report sent">{report.brand}'s owner will see it. Thank you for checking.</Alert>;
+  if (!form.open) return <Button variant="secondary" onClick={form.show}>{triggerLabel}</Button>;
   return (
     <form className={styles.form} onSubmit={submit} noValidate aria-label={triggerLabel}>
       <Field label="Which brand does it claim to be from?" value={report.brand} onChange={set('brand')} error={errors.brand} />
@@ -59,7 +60,7 @@ export function VerifyReportForm({ triggerLabel, brandName = '', onSubmit, defau
       <Field label="Anything else (optional)" multiline rows={3} value={report.details} onChange={set('details')} />
       <div className={styles.actions}>
         <Button type="submit">Send report</Button>
-        <Button variant="secondary" onClick={() => setPhase('closed')}>Cancel</Button>
+        <Button variant="secondary" onClick={form.hide}>Cancel</Button>
       </div>
     </form>
   );

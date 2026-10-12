@@ -14,9 +14,9 @@ describe('VerifyReportForm', () => {
     expect(screen.getByText('Name the brand it claims to be from.')).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
     await userEvent.type(screen.getByLabelText('Which brand does it claim to be from?'), 'aDNA');
-    await userEvent.type(screen.getByLabelText(/Where did you see it/), 'x.com/[account]');
+    await userEvent.type(screen.getByLabelText(/Where did you see it/), 'linkedin.com/company/acme');
     await userEvent.click(screen.getByRole('button', { name: 'Send report' }));
-    expect(onSubmit).toHaveBeenCalledWith({ brand: 'aDNA', where: 'x.com/[account]', details: '' });
+    expect(onSubmit).toHaveBeenCalledWith({ brand: 'aDNA', where: 'linkedin.com/company/acme', details: '' });
     expect(screen.getByText('Report sent')).toBeInTheDocument();
   });
   it('Cancel closes the form', async () => {

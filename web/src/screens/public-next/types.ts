@@ -2,6 +2,7 @@
 // Sources: wireframe canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn (boards Verify-1-Match to Verify-5-Retracted,
 // Ledger) and the backend map (.agentic/what/context/backend_map.md §4, rows "Verify-1, Verify-2, Verify-3" and "Ledger").
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
+import type { DiffSegment } from '../../ui/composites/DiffView';
 
 /** ISO date-time without a zone ("2026-10-05T16:18"), or null while the canvas brackets it ("[date]"). */
 export type IsoDateTime = string | null;
@@ -35,8 +36,8 @@ export interface ApprovedPost {
   retraction: { at: IsoDateTime; reason: string; signature: string | null } | null;
 }
 
-export type DiffKind = 'same' | 'added' | 'removed';
-export interface DiffPart { kind: DiffKind; text: string }
+/** A diff run, in the shape C23 DiffView draws. */
+export type DiffPart = DiffSegment;
 
 /** What a check found. `kind` picks the result view; each view is one component (components/Verify*Result). */
 export type VerifyOutcome =

@@ -24,10 +24,12 @@
  */
 import type { RouteTag } from '../../config/routes';
 import { VerifyInput } from '../../ui/domain/VerifyInput';
-import { VerifyCheckResult } from './components/VerifyCheckResult';
+import { VerifyCheckEmpty } from './components/VerifyCheckEmpty';
+import { VerifyOutcomeView } from './components/VerifyOutcomeView';
 import { VerifyPageFrame } from './components/VerifyPageFrame';
 import { VerifyPageHeader } from './components/VerifyPageHeader';
 import { VerifySampleLinks } from './components/VerifySampleLinks';
+import { VerifyStatusView } from './components/VerifyStatusView';
 import type { ScreenProps, VerifyCheckData } from './types';
 import { useVerifyCheck } from './useVerifyCheck';
 
@@ -42,7 +44,13 @@ export function VerifyCheckScreen({ data, state = 'success', tag }: VerifyCheckS
     <VerifyPageFrame>
       <VerifyPageHeader title="Is this official?" tag={tag} intro={data.intro} note={data.note} />
       <VerifyInput key={flow.inputKey} defaultValue={flow.query} checking={flow.status === 'checking'} error={flow.inputError} onCheck={flow.check} />
-      <VerifyCheckResult status={flow.status} outcome={flow.outcome} errorNote={data.errorNote} onRetry={flow.retry} />
+      <VerifyStatusView
+        status={flow.status}
+        idle={<VerifyCheckEmpty />}
+        done={<VerifyOutcomeView outcome={flow.outcome} />}
+        errorNote={data.errorNote}
+        onRetry={flow.retry}
+      />
       <VerifySampleLinks />
     </VerifyPageFrame>
   );
