@@ -388,3 +388,57 @@ Listed in full in each detail file. The main ones:
 - **Onboarding not publicly documented:** Hypefury (post-X), Tweet Hunter, Kleo (article bodies didn't load), BrandWell, SocialLadder, impact.com.
 - **Status:** whether Zoom's acquisition of Common Room has closed; whether Story's IP Portal is still developed; whether Galxe and Zealy paid X tasks comply with X's rules.
 - **Platform behaviour:** whether X and LinkedIn strip Encypher's invisible characters.
+
+---
+
+## 10. Addendum: what this means for onboarding and creation (checked 2026-10-12, 17:45 Melbourne)
+
+Checked against the code on `main` at commit `81ade1e` (PR #27), the live sign-in evidence on [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118522618), and the master task list [#38](https://github.com/DeveloperAlly/solana-hack/issues/38). Live status stays in [STATE.md](../../../../STATE.md).
+
+### 10.1 Where the build stands against the research
+- **Sign-in works live by the emailed link** (custom SMTP through Resend; the owner signed in 2026-10-12 05:28Z). Sign-in by code isn't exercised live yet. The live database had 1 user and 0 brands, kits and posts at 05:44Z ([issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118522618)). The spine is still unproven end to end on jamjam.tech until slice [#36](https://github.com/DeveloperAlly/solana-hack/issues/36) runs.
+- **B2 (fact kept only with its quote) is built.** Extracted facts are kept only when the quote is found on the page ([`api.ts` L83–93](https://github.com/DeveloperAlly/solana-hack/blob/81ade1e1f6447c3b3c0c19887c6315fa97535484/web/worker/api.ts#L83-L93)). Slice [#31](https://github.com/DeveloperAlly/solana-hack/issues/31) fixes the quote-normaliser and truncation gaps. No competitor in section 3 does this.
+- **B3 (coverage map, confirm instead of ask) is not built yet.** The interview asks every question in a fixed order ([`steps.ts`](https://github.com/DeveloperAlly/solana-hack/blob/81ade1e1f6447c3b3c0c19887c6315fa97535484/web/src/screens/build/steps.ts)). Facts from the brand's pages appear beside each question ([`Build.tsx` L250](https://github.com/DeveloperAlly/solana-hack/blob/81ade1e1f6447c3b3c0c19887c6315fa97535484/web/src/screens/build/Build.tsx#L250)), but no question is skipped or turned into a confirmation. **Planned in slice [#34](https://github.com/DeveloperAlly/solana-hack/issues/34)** (found / partly found / needs you; fully found steps become "confirm").
+- **B5 (recorded gates) is built.** Slice #31 adds the rule that every drafted section must be approved before the kit registers.
+
+### 10.2 Brand onboarding
+Competitor table stakes (parity, not difference):
+
+| Need | Competitor bar (section 5) | On `main` | Where it's handled |
+|---|---|---|---|
+| Several ways in | URL, upload or chat (Pomelli, Pressmaster, Canva PDF) | One URL at a time ([`api.ts` L81](https://github.com/DeveloperAlly/solana-hack/blob/81ade1e1f6447c3b3c0c19887c6315fa97535484/web/worker/api.ts#L81)) | **Slice [#33](https://github.com/DeveloperAlly/solana-hack/issues/33):** site, links, paste, PDF and DOCX through Workers AI `toMarkdown` |
+| Facts early, confirm instead of ask | Octolens and Syften in ~2 min; Branding5 pre-fills answers | Facts shown beside questions, every question still asked | **Slice [#34](https://github.com/DeveloperAlly/solana-hack/issues/34)** |
+| Competitor research at positioning | Branding5, Agorapulse | None | **Slice [#35](https://github.com/DeveloperAlly/solana-hack/issues/35)** (Exa, 3 candidates with sources) |
+| Voice chosen by example | Jasper with/without preview; Supergrow and Taplio learn from real writing | Template, 8 dials, a claims-gate choice, one optional sample sentence ([`Build.tsx` L267–279](https://github.com/DeveloperAlly/solana-hack/blob/81ade1e1f6447c3b3c0c19887c6315fa97535484/web/src/screens/build/Build.tsx#L267-L279)) | **No slice.** "Pick 1 of 3 paragraphs, twice" is decided ([architecture §5](../brand_builder_architecture.md#5-minimum-viable-intake-zero-presence-brand-15-min) step 6) but not in #38 |
+| Readiness signal | Pressmaster Twin IQ | None | Coverage states in #34; readiness score queued in [#37](https://github.com/DeveloperAlly/solana-hack/issues/37) |
+| Import past posts | Taplio, Hootsuite | None | X and LinkedIn export import queued in #37 |
+
+Where JamJam wins, provided #34 ships: coverage plus confirm-mode with the quote one click away (B3). No product in section 3 shows which brand facts are evidenced and which are inferred. That is the demo moment for "infer first".
+
+### 10.3 Content creation
+
+| Need | Competitor bar | On `main` | Gap |
+|---|---|---|---|
+| Draft in voice | Everyone | Built | Parity |
+| Anti-slop | Outerview: banned patterns, voice-match score | Built: banned list, one automatic rewrite, failing text hidden ([`posts.ts`](https://github.com/DeveloperAlly/solana-hack/blob/81ade1e1f6447c3b3c0c19887c6315fa97535484/web/worker/posts.ts)) | Ahead |
+| Voice-fit and platform scores | Outerview scores against the user's own posts | **Scored by the same model call that writes the draft** ([`posts.ts` L81](https://github.com/DeveloperAlly/solana-hack/blob/81ade1e1f6447c3b3c0c19887c6315fa97535484/web/worker/posts.ts#L81)) | **Weakest point, no slice.** The measurable dimensions in [research 06](./06_voice_templates.md) and the platform checklist in [research 03](./03_platform_performance.md) are decided but not built |
+| Claims against the brand's evidence | No competitor does this | Built, enforced at approval ([`Create.tsx` L153](https://github.com/DeveloperAlly/solana-hack/blob/81ade1e1f6447c3b3c0c19887c6315fa97535484/web/src/screens/create/Create.tsx#L153)) | Ahead. Showing it on the draft before approval (D3 ChecksPanel, [component inventory](../component_inventory.md)) is not in a slice |
+| Polish | LinkedIn native, Typefully | Built, with undo | Ahead |
+| Publish | Every competitor auto-publishes | Copy text, paste the link back, register ([`Create.tsx` L176](https://github.com/DeveloperAlly/solana-hack/blob/81ade1e1f6447c3b3c0c19887c6315fa97535484/web/src/screens/create/Create.tsx#L176)) | Fine for the demo; OAuth is cut until after the submission (ADR-008, proposed) |
+| Habit loop | Edgar weekly, Kleo challenge | None | N2, after the submission |
+
+### 10.4 Other areas
+- **Verify:** the strongest Prove claim against Encypher is that pasting the text works even after formatting is stripped. Built (exact match plus diff). Slice #36 puts real entries on it. N4 ("retracted") is cheap later.
+- **Pitch:** slide 9 should name Pressmaster and Encypher (section 8). Slide 10's blank price can sit in the $29–49 solo and $79–149 brand bands (section 6).
+- **Pay:** no change; cut until after the submission (ADR-008, proposed).
+
+### 10.5 Critical path by value, mapped to #38
+1. ~~Sign-in email~~: done by link. Exercise sign-in by code once.
+2. The prefill path in #38 order: #31 integrity, #39 model pool, #32 workflow engine, #33 sources, #34 prefill and confirm, #35 competitor research. #34 is the highest-value onboarding slice; #33 feeds it.
+3. #36: JamJam's own build live (owner run, Tue ~3pm Melbourne), giving real Ledger and Verify entries and a measured owner time.
+4. **Not covered by any slice (proposed for the owner to add or defer):**
+   - (a) voice by example, architecture §5 step 6;
+   - (b) measurable voice-fit and platform checks from research 06 and 03, replacing the self-graded scores;
+   - (c) claims shown on the draft before approval (D3).
+
+   (a) is onboarding; (b) and (c) are creation.
