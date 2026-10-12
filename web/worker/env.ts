@@ -1,3 +1,5 @@
+import type { SourceEnv } from './sources/types';
+
 export interface Env {
   ASSETS: { fetch(req: Request): Promise<Response> };
   REGISTRAR_KEY: string; // secret: 64-byte devnet keypair as a JSON array
@@ -9,6 +11,10 @@ export interface Env {
   OPENROUTER_API_KEY: string; // secret
   OPENROUTER_MODEL?: string; // optional model slug; default openrouter/free (free models only)
   PUBLIC_LIMITER?: { limit(o: { key: string }): Promise<{ success: boolean }> }; // Workers rate limiting binding
+  // Source adapters (worker/sources, issue #33). All optional: each adapter says what it did without them.
+  EXA_API_KEY?: string; // secret: Exa contents for the site adapter; without it the site adapter reads the home page directly
+  AI?: SourceEnv['AI']; // Workers AI binding (wrangler.jsonc "ai"), for document conversion
+  BROWSER?: SourceEnv['BROWSER']; // Browser Run binding (wrangler.jsonc "browser"), for script-only sites in the site adapter
 }
 
 export const json = (body: unknown, status = 200) =>

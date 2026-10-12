@@ -15,10 +15,13 @@
     "check:gallery": "node scripts/check-gallery.mjs"
   },
   "dependencies": {
+    "@cloudflare/puppeteer": "1.4.0",
     "@supabase/supabase-js": "^2.117.3",
+    "htmlparser2": "^12.0.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-router": "^8.4.0"
+    "react-router": "^8.4.0",
+    "tough-cookie": "6.0.2"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

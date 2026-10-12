@@ -15,7 +15,7 @@ vi.mock('../../worker/registry', () => ({
 }));
 const { registerKit, saveAnswer, patchBrand, ingest, KIT_PENDING_TIMEOUT_MS, staleSections, unapprovedSections } = await import('../../worker/api');
 const { normaliseQuote, normalisePage, quoteOnPage, MAX_QUOTE } = await import('../../worker/quote');
-const { decode } = await import('../../worker/ingest');
+const { pageText } = await import('../../worker/ingest');
 
 const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k', REGISTRAR_KEY: '[1]', RPC_URL: 'https://rpc.test', OPENROUTER_API_KEY: 'k' } as Env;
 const brand = { id: 'b', owner_id: 'u', name: 'JamJam', type: 'company', description: null, website: null, goal: null, channel: null };
@@ -253,7 +253,7 @@ describe('quote normaliser', () => {
     expect(quoteOnPage(hay, '  ')).toBe(false);
   });
   it('decodes typographic, hex and nested entities in one pass', () => {
-    expect(decode('It&rsquo;s &#x2014; &amp;lt; &shy;x &#8217;')).toBe('It\u2019s \u2014 &lt; \u00ADx \u2019');
+    expect(pageText('<p>It&rsquo;s &#x2014; &amp;lt; &shy;x &#8217;</p>').text).toBe('It\u2019s \u2014 &lt; \u00ADx \u2019');
   });
 });
 
