@@ -5,7 +5,7 @@ import type { ArtboardName } from '../config/artboards';
 import type { ShellId } from '../config/nav';
 
 /**
- * Canvas pages, in canvas order, from the wireframe canvas v22 (canvas.json `pages`, version 1791817328-4e15; canvas
+ * Canvas pages, in canvas order, from the wireframe canvas v24 (canvas.json `pages`, version 1791818793-e756; canvas
  * link in issue #45). v21 and later organise the pages by the loop of ADR-012 (PR #86): Start here, Journey, the six steps,
  * then the utilities. The Archive page ("licensee") holds boards that are not in the product (issue #45, owner
  * decision 2026-10-12); its boards are not artboards (config/artboards.ts). `issue` is where the page's screens are

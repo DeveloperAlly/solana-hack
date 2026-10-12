@@ -1,29 +1,43 @@
-// A small in-memory store a page's flows share (session state for the browser tab). Nothing is persisted and nothing
-// calls the network. Same body as ui/51-coming-soon's page-local createStore.ts, lifted here so pages share one copy
-// (issue #82; the README rule "nothing is repeated").
+// The one in-memory store primitive every page flow uses (issues #51, #82; the README rule "nothing is repeated").
+// It lives for the browser session only: nothing is persisted and nothing calls the network. Brand-scoped stores
+// (lib/brandScopedStore.ts) and every page session build on it.
 import { useSyncExternalStore } from 'react';
 
-export function createStore<T extends object>(initial: T) {
+export interface Store<T> {
+  read: () => T;
+  /** Merges a patch into the state. */
+  set: (patch: Partial<T>) => void;
+  /** Back to the initial state (tests, and starting over). */
+  reset: () => void;
+  /** Subscribes to changes; returns the unsubscribe. */
+  subscribe: (listener: () => void) => () => void;
+  /** The current state (re-renders on change) and the setter. */
+  use: () => [T, (patch: Partial<T>) => void];
+}
+
+export function createStore<T extends object>(initial: T): Store<T> {
   let state = initial;
   const listeners = new Set<() => void>();
+  const emit = () => listeners.forEach((l) => l());
   const subscribe = (l: () => void) => {
     listeners.add(l);
-    return () => listeners.delete(l);
+    return () => {
+      listeners.delete(l);
+    };
   };
   const read = () => state;
   const set = (patch: Partial<T>) => {
     state = { ...state, ...patch };
-    listeners.forEach((l) => l());
+    emit();
   };
   return {
     read,
     set,
-    /** Back to the initial state (tests, and starting over). */
     reset: () => {
       state = initial;
-      listeners.forEach((l) => l());
+      emit();
     },
-    /** The current state and a stable setter that merges a patch. */
-    use: (): [T, (patch: Partial<T>) => void] => [useSyncExternalStore(subscribe, read, read), set],
+    subscribe,
+    use: () => [useSyncExternalStore(subscribe, read, read), set],
   };
 }

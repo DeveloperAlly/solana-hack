@@ -42,7 +42,7 @@ export function sampleDraft(seed: DraftSeed): Post {
     provenance: { kitVersion: sampleKitVersion, brainVersion: sampleBrainVersion, evidenceIds: [], ruleIds: [], voice: '[voice]', prompt: { id: '[prompt]', version: '[version]' }, model: '[model]' },
     checks: { slop: 'passed', claims: { backed: 1, total: 1 }, disclosure: 'n/a' },
     lifecycle: {
-      drafted: { voiceLabel: '[voice]', summary: seed.name },
+      drafted: { voiceLabel: '[voice]' },
       published: seed.published ? [{ platform: seed.platform, version: 'Original', status: 'published', detail: 'Published', registered: true }] : [],
       amplified: [],
       results: { status: 'not-started', detail: 'Not started' },

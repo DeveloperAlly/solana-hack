@@ -8,7 +8,7 @@ import { GalleryModeContext } from '../ui/hooks/galleryMode';
 import { artboardPages, artboards } from './artboards';
 import { homeForArtboard, homeForPage, loopSteps, mobileTabFor, mobileTabs, shells, stageById, stages, tabById, type HomeId, type ShellId } from './nav';
 
-// The one navigation (ADR-012 decision 2, PR #86; issue #90 contracts), checked against canvas v22.
+// The one navigation (ADR-012 decision 2, PR #86; issue #90 contracts), checked against canvas v24.
 vi.mock('../lib/supabase', () => ({ supabase: null }));
 const homeIds = new Set<HomeId>([...stages.map((s) => s.id), 'first-run']);
 

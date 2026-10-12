@@ -49,7 +49,8 @@ export interface PostChecks {
 }
 
 export interface PostLifecycle {
-  drafted: { voiceLabel: string; summary: string };
+  /** The voice as people read it, e.g. "Founder voice". */
+  drafted: { voiceLabel: string };
   approval?: Approval;
   published: PlatformRun[];
   /** Registration of the original on Solana: a hash and ids, never the text. */
@@ -107,6 +108,7 @@ const approvedDetail: Record<ApprovalState, (a?: Approval) => string> = {
   valid: (a) => `by ${a?.by} · ${a?.at}`,
 };
 
+const count = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const label: Record<LifecycleStepId, string> = { drafted: 'Drafted', approved: 'Approved', published: 'Published', verified: 'Verified', amplified: 'Amplified', results: 'Results' };
 
 /** The six lifecycle steps of a post, each done, current, failed, blocked (stale) or to do, under the current Brain. */
@@ -118,7 +120,7 @@ export function lifecycleSteps(post: Post, brainVersion: string): LifecycleStep[
   const failed = runs.filter((r) => r.status === 'failed');
   const verifiedAmb = lc.amplified.filter((a) => a.status !== 'checking').length;
   const raw: Omit<LifecycleStep, 'state'>[] = [
-    { id: 'drafted', label: label.drafted, detail: `Kit v${post.provenance.kitVersion} · ${lc.drafted.voiceLabel} · ${lc.drafted.summary}` },
+    { id: 'drafted', label: label.drafted, detail: `Kit v${post.provenance.kitVersion} · ${lc.drafted.voiceLabel} · ${count(post.provenance.evidenceIds.length, 'fact')}, ${count(post.provenance.ruleIds.length, 'rule')}` },
     { id: 'approved', label: label.approved, detail: approvedDetail[approval](lc.approval) },
     { id: 'published', label: label.published, detail: runs.length ? `${live.length} of ${runs.length} platforms${failed.length ? ` · ${failed.map((r) => r.platform).join(', ')} failed` : ''}` : 'Not planned yet' },
     { id: 'verified', label: label.verified, detail: lc.verified ? `Registered on Solana · ${lc.verified.at}` : 'Not registered yet' },

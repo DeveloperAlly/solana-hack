@@ -122,7 +122,7 @@ export const artboardPages = {
 
 export type ArtboardName = keyof typeof artboardPages;
 
-/** All 112 artboard names, in name order. */
+/** All 113 artboard names, in name order. */
 export const artboards = Object.keys(artboardPages) as ArtboardName[];
 
 export function isArtboardName(name: string): name is ArtboardName {
