@@ -256,6 +256,48 @@ Know JamJam data types (M6). Grouped by area.
 | D57 | EvidenceChip | Found (solid) / Partly found (grey) / Needs you (dashed) | n/a | J1-Read, J3-Confirm, Hub-Home |
 | D58 | Placeholder | local SVG stand-in image; aspect ratio square / landscape / portrait / wide; alt text required | n/a | every screen with an image until real media exists (issue #45, "Rules") |
 
+### 6.9 Built in the shared consolidation ([issue #46](https://github.com/DeveloperAlly/solana-hack/issues/46))
+Six page branches (`ui/50-builder`, `ui/51-coming-soon`, `ui/52-superhub`, `ui/53-ambassador`) built the same components under page prefixes. Each group below is now one shared component under the inventory ID it already had; pages migrate with the table in [`web/src/screens/README.md`](../../../web/src/screens/README.md#shared-components-use-these-dont-re-create). Every one has a CSS module on semantic tokens, a test (render, behaviour, axe at 0) and a workbench example.
+
+| ID | Component (path under `web/src/ui/`) | Variants and props | States | Replaces |
+|---|---|---|---|---|
+| P13 | Select (`primitives/Select.tsx`) | `options` as strings or `{ value, label, disabled }`; `hint`, `error`; `layout` stacked / inline; native `onChange` plus `onValueChange(value)`; frame shared with P17 Field (`primitives/FieldFrame.tsx`) | error, disabled | BuilderSelect, AmbSelect, SelectField (+ FieldFrame) |
+| P24 | ProgressBar (`composites/ProgressBar.tsx`) | `segments [{ value, label, tone primary / secondary }]`, `marker`, `caption`, `size` sm / md, `decorative`; one segment is a `progressbar`, several are one labelled image | empty, full | BuilderProgressBar, AmbBar |
+| P25 | Meter (`composites/Meter.tsx`) | `value`, `min`, `max`, `threshold` marker, `valueText`, `summary` and `hint` slots, `size` | below / at or above threshold (`data-below`) | the bar in AmbOnBrandMeter (D4 VoiceFitMeter stays a preset on P25) |
+| C6 | Scale (`composites/Scale.tsx`) | `legend`, `startLabel`, `endLabel`, `steps`, `layout` inline / stacked | selected, locked (`disabled`) | BuilderScale, HubDial |
+| C13 | CopyButton (`composites/CopyButton.tsx`) | `value`, `label`, `variant`, `feedback` status / label, `messages`, `resultLabels`, `onCopy` | idle, copied, failed | BuilderCopyButton, SoonCopyButton |
+| C22 | BarList (`composites/BarList.tsx`) | `items [{ label, value, display }]`, `max`, `hideLabels`, `size` | empty (renders nothing) | HubBarList |
+| D25 | BudgetBar (`domain/BudgetBar.tsx`) | P24 preset: `budget { spent, committed, cap, unit }`, `caption`, `label`; `budgetLevel()` | empty, ok, near cap (warns under 20%), full | AmbBudgetBar |
+| D51 | CoverageBadge (`domain/CoverageBadge.tsx`) | `status` evidenced / inferred / missing; `display` letter / word / legend; styles from D57 EvidenceChip (which gains `children`) | n/a | BuilderCoverageBadge, HubCoverageBadge |
+| C30 | InlineForm (`composites/InlineForm.tsx`), new | `fields [{ name, label, hint, type, placeholder, defaultValue, inputMode, validate }]`, `submitLabel`, `submitVariant`, `onSubmit(values)`, `onCancel`, `busy`, `layout` stacked / row, `surface` plain / card, `resetOnSubmit`, `triggerLabel` (opens in place) | idle, invalid (errors per field, then live as the person fixes them), busy, collapsed | SoonInlineForm, SoonAddForm, AmbInlineForm, BuilderLinkAdder |
+| C31 | ListRow + List (`composites/ListRow.tsx`), new | `lead`, `title`, `detail`, `aside`, `status { label, tone }`, `actions`, `onSelect`, `as` li / div; List: labelled ul | selected, unread, muted, failed (announced) | SoonStatusRow + SoonStatusList, HubItemRow; the row for D12 SourceList (BuilderSourceList) |
+| D1 | ApprovalItem (`domain/ApprovalItem.tsx`) | slots `meta`, `incoming`, `media`, `note`, `draft`, `checks`, `status`, children (in-place panel), `actions`, `outcome`; `blocked`; `surface` card / row; `as` | default, held, blocked, done (outcome replaces actions) | HubApprovalCard; the frame of BuilderApprovalItem (its approve / reject / pay state stays in the page and fills the slots) |
+| L5 | PageHeader (`layouts/PageHeader.tsx`) | `title`, `level`, `size`, `back`, `badges` (pass D56 ComingSoonFlag here), `actions`, `intro`, `meta` | n/a | SoonPageHeader |
+| L9 | Columns (`layouts/Columns.tsx`) | `start`, main (children), `end`; `startWidth` rail / fluid; `ratio` (main : end) 2-1 / 1-1 / 7-5 / 6-5 / 5-7; `gap` 5 / 6 / 7; `stackBelow` md / lg (side by side above it, stacked in source order below) | n/a | HubColumns, AmbColumns, JourneySplit |
+| L11 | AppFrame (`layouts/AppFrame.tsx`), new | `homeHref`, `back`, `title`, `context`, `flags`, `nav { label, items, current, placement header / tabs }`, `actions`, `subnav`, `pinned`, `footer`, `width` app / phone, `bodyPadding`, `preview` | desktop, phone (tab bar), preview | BuilderShell, AmbShell, AmbDesktopShell, AmbMobileShell, AmbTabBar (L4 MobileTabBar is AppFrame's `placement: 'tabs'`). The footer and tab bar share one sticky bottom region. L1 AppShell is now the hub preset of AppFrame |
+
+| C7 | ChoiceCards (`composites/ChoiceCards.tsx`) | `legend`, `legendSize` md / lg, `options [{ value, title, tag, body, meta, disabled }]`, `layout` row / stack; radio mode, or checkbox mode with `multiple` | selected, disabled | BuilderChoiceCards, JourneyChoiceCards |
+| C14 | FilePicker (`composites/FilePicker.tsx`) | `label`, `accept`, `multiple`, `onFiles(files)`, `hint`, `variant`, `disabled`; the label wears P8 Button's classes | disabled | BuilderFilePicker, JourneyFileButton |
+| C9 | StatusTimeline (`composites/StatusTimeline.tsx`) | `steps [{ label, state done / current / failed / todo, note, action }]`, `orientation`, `label` | per step | AmbStatusTimeline (D29 PayoutStatus is a preset) |
+| C18 | Sheet (`composites/Sheet.tsx`) | `open`, `onClose`, `title`, `footer`, `closeLabel`; focus trap, Escape, focus return | open | AmbSheet |
+| C32 | StatusList (`composites/StatusList.tsx`), new | `label`, `rows [{ id, label, detail, status, solid, href, tone }]`, `title`, `surface` plain / card, `actions(row)`; built on C31 | per row | JourneyStatusList; the data form of SoonStatusList and BuilderSourceList |
+| C33 | CollapsibleText (`composites/CollapsibleText.tsx`), new | `text`, `collapsible`, `lines` 2 / 3 / 4, `moreLabel`, `lessLabel` | collapsed, expanded | AmbCollapsibleText |
+| C34 | ToggleButton (`composites/ToggleButton.tsx`), new | `pressed`, `onToggle`, `label`, `pressedLabel`, `context` (screen-reader suffix), `disabled` | off, on, disabled | AmbNotifyButton |
+| D6 | PolishBar (`domain/PolishBar.tsx`) | `actions [{ id, label }]`, `applied`, `onApply`, `onUndo`, `busy`, `failure { id, reason, onRetry, onDismiss }`, `accessibleMode`, `note` | applied, failed, busy | Superhub `parts/PolishBar`, JourneyPolishBar |
+| D17 | DecisionGate (`domain/DecisionGate.tsx`) | `variant` full / compact; `subject`, `decision`, `onDecide`, `approver`, draft as children, `gate`, `title`, `draftLabel`, `draftMeta`, `builtFrom`, `evidence`, `whyLabel`, `actions`, `approveDisabled`, `back`, `nextHref` | pending, changes requested, deferred, approved | BuilderDecisionGate, JourneyGateCard |
+
+Also extended for the Journey page (`ui/48-journey`): C13 CopyButton (`resetAfter`, `feedback="both"`), C30 InlineForm (`multiline`, `rows`, `autoComplete`, `busyLabel`, `errors`, `validateOnMount`), P24 ProgressBar (`showLabel`, `grow`; the accessible summary reads the same cumulatively placed shares the bar draws, and names any overflow), L9 Columns (`ratio` 2-1 / 1-1 / 7-5 / 6-5 / 5-7, `stackBelow` md / lg, `gap` 7). L1 AppShell has one prop set for every page (slots `brandSlot`, `subnav`; `nav`, `navHref`, `activePath`, `preview`). L10 PublicShell takes `navHref` and `actions` (the `ui/48-journey` file). P17 Field, FieldFrame and P13 Select take `hideLabel` (the `ui/52-superhub` Field). Link targets are typed: `config/artboards.ts` (`ArtboardName`, generated from the canvas) for `screenPath`, `useScreenHref`, `ScreenLink` and `ScreenEntry.artboard`.
+
+| C35 | StateView (`composites/StateView.tsx`), new | `state`; `views` lookup per state, or `loading` / `error` / `empty` copy (C29 StatePanel, C3 EmptyState); children = success | per state | Superhub and Coming soon `StateView` |
+
+C8 Stepper and L6 WizardLayout take `done` (explicit done marks), so a deep link into a wizard never shows unfinished steps as done. The Campaign v2 wizard is one module, `web/src/flows/campaign/` (`steps.ts`, `draft.ts`, `useCampaignFlow.ts`, `CampaignStepFrame.tsx`), shared by Superhub (steps 1 and 3) and Coming soon (steps 2, 4, 5, 6).
+
+Gallery mode: `ui/hooks/galleryMode.ts` (`GalleryModeContext`, `useGalleryMode`). GalleryScreen provides it; L1 AppShell makes Sign out inert in it (no Supabase call), so every page frame built on AppShell or AppFrame is safe in the gallery (Codex review on PR #79). `src/gallery/links.test.tsx` fails when any link between screens targets an artboard that is not registered.
+
+Kept page-specific (not duplicates of each other or of the foundation): SoonHubFrame (AppShell + D48 BrandSwitcher + L5, a page composition), HubSideNav (L8 SideRail, one page so far; lift it when a second page needs it), AmbAccountChip, and the D4 VoiceFitMeter preset (AmbOnBrandMeter, drawn with P25).
+
+Layer notes: C30, C31 and L11 are new IDs (the next free in their layers). P24 and P25 keep their P IDs but live in `composites/` because they share one drawn bar (`composites/BarTrack.tsx`, internal, hidden from assistive tech) with C22. D51 stays in `domain/`: it is a JamJam data type and composes D57, and a composite may not import a domain pattern (§1, "Layers depend downwards only").
+
 ## 7. Shared config and data modules
 Not visual, but they are what keeps the UI DRY.
 
