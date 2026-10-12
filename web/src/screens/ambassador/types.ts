@@ -57,6 +57,8 @@ export interface PieceFormat {
   id: string;
   /** "LinkedIn post", "Blog post", "Tutorial". */
   name: string;
+  /** The name mid-sentence: "LinkedIn post", "blog post", "tutorial". */
+  noun: string;
   where: string;
   channel: Channel;
   /** "10 USDC". */
@@ -144,7 +146,8 @@ export interface PublishData {
   piece: PieceFormat;
   draft: string;
   review: DraftReview;
-  connectedAs: string;
+  /** The connected LinkedIn account; null when not connected (Post for me then asks to connect first). */
+  connectedAs: string | null;
   routes: PublishRoute[];
   notes: string[];
 }
@@ -176,6 +179,8 @@ export interface PostStatusData {
   /** Defaults until the flow hands over the real campaign, piece, route and link (canvas Amb-5*). */
   campaign: CampaignRef;
   piece: PieceFormat;
+  /** The campaign's pieces, to say what is done and what is left once this one is paid. */
+  formats: PieceFormat[];
   route: PublishRouteId;
   submittedUrl?: string;
   outcome: PostOutcome;
@@ -187,9 +192,6 @@ export interface PostStatusData {
     receiptLink: string;
     postLink: string;
     balance: string;
-    progress: string;
-    /** The next piece's button label, mobile and desktop. */
-    nextLabel: { desktop: string; mobile: string };
   };
   failure?: { chip: string; title: string; reasons: string[]; held: string; recoveries: Recovery[] };
   budget?: { chip: string; budget: AmbBudget; caption: string; optInLabel: string; optedInLabel: string };

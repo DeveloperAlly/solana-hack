@@ -1,12 +1,16 @@
 // Local draft rules for Generate (canvas note n-a3; issue #53): flag detection, one-click fixes, the score and the single
-// publish gate. INTEGRATION: GET /api/drafts/:id/checks returns the real checks and score; the gate keeps the same shape.
+// publish gate, all from one checks function. INTEGRATION: GET /api/drafts/:id/checks returns the real checks and score; the gate keeps the same shape.
+import type { AmbCheck } from '../../ui/domain/AmbChecksList';
 import type { DraftCheck, GenerateData } from './types';
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+/** A whole-token pattern: not preceded by a word character or '#', not followed by a word character. */
+const tokenRe = (token: string, flags: string) => new RegExp(`(^|[^\\w#])${escape(token)}(?!\\w)`, flags);
+
 /** True when `token` appears as a whole token: "#ad" matches "#ad" and "#ad." but not "#adventure" or "x#ad". */
 export function hasToken(text: string, token: string): boolean {
-  return new RegExp(`(^|[^\\w#])${escape(token)}(?!\\w)`, 'i').test(text);
+  return tokenRe(token, 'i').test(text);
 }
 
 /** True while the check still applies to the text: the phrase is present, or no disclosure form is. */
@@ -67,46 +71,69 @@ export function scoreFor(openCount: number, data: Pick<GenerateData, 'score' | '
   return Math.round(data.scoreWhenClean - (openCount * (data.scoreWhenClean - data.score)) / total);
 }
 
+/** One check on the draft as shown: the list, the badges and the publish gate all read these. */
+export interface DraftCheckResult extends AmbCheck {
+  blocking: boolean;
+  label: string;
+}
+
+export interface ChecksInput {
+  text: string;
+  /** The rule-based flags (banned claim, avoided term, missing disclosure). */
+  rules: DraftCheck[];
+  score: number;
+  threshold: number;
+  charLimit: number;
+  /** The chosen piece was already written for this campaign (canvas Amb-3: "(done)"; Amb-2: one per channel). */
+  pieceDone: boolean;
+}
+
+/** True when the text, with every disclosure form taken out, still has a letter or a digit: "#ad." alone is not a post. */
+function hasBody(text: string, rules: DraftCheck[]): boolean {
+  return /[\p{L}\p{N}]/u.test(withoutDisclosure(text, rules));
+}
+
+function withoutDisclosure(text: string, rules: DraftCheck[]): string {
+  return rules
+    .flatMap((c) => (c.rule.kind === 'missing' ? c.rule.anyOf : []))
+    .reduce((t, form) => t.replace(tokenRe(form, 'gi'), '$1'), text)
+    .trim();
+}
+
+/**
+ * Every check on the draft, in one place (canvas note n-a3): the piece is not one already written, there is a post,
+ * it is within the channel's character limit, each brand rule (banned claim, avoided term, disclosure) and the on-brand
+ * score. Each returns { blocking, label }; the checks list and its badges render these, and publishing is open only
+ * when none is blocking.
+ */
+export function draftChecks({ text, rules, score, threshold, charLimit, pieceDone }: ChecksInput): DraftCheckResult[] {
+  const out: DraftCheckResult[] = [];
+  if (pieceDone) out.push({ id: 'piece-done', title: 'Piece already written', label: 'You already wrote this piece for this campaign. Pick another format.', blocking: true });
+  if (!hasBody(text, rules)) out.push({ id: 'empty', title: 'No post yet', label: 'Write your post first.', blocking: true });
+  if (text.length > charLimit) {
+    out.push({ id: 'limit', title: 'Over the limit', label: `Over the ${charLimit}-character limit by ${text.length - charLimit}.`, blocking: true });
+  }
+  for (const c of rules) {
+    if (isOpen(c, text)) out.push({ id: c.id, title: c.title, phrase: c.phrase, label: c.label, fixLabel: c.fixLabel, shortFixLabel: c.shortFixLabel, blocking: c.rule.blocks });
+  }
+  if (score < threshold) out.push({ id: 'score', title: 'Below the on-brand line', label: `On-brand is ${score}%; publishing unlocks at ${threshold}%.`, blocking: true });
+  return out;
+}
+
 export interface PublishGate {
   ok: boolean;
   /** Why publishing is locked, shown next to both Publish buttons (aria-describedby); null when open. */
   reason: string | null;
 }
 
-export interface GateInput {
-  text: string;
-  open: DraftCheck[];
-  checks: DraftCheck[];
-  score: number;
-  threshold: number;
-  charLimit: number;
-  generating: boolean;
-  /** The chosen piece was already written for this campaign (canvas Amb-3: "(done)"; Amb-2: one per channel). */
-  pieceDone: boolean;
-}
-
-/** The text left once every disclosure form is taken out, to tell a real post from a bare "#ad". */
-function body(text: string, checks: DraftCheck[]): string {
-  return checks
-    .flatMap((c) => (c.rule.kind === 'missing' ? c.rule.anyOf : []))
-    .reduce((t, form) => t.replace(new RegExp(`(^|[^\\w#])${escape(form)}(?!\\w)`, 'gi'), '$1'), text)
-    .trim();
-}
-
 /**
- * The one publish gate (canvas note n-a3): publishing unlocks only when the piece is not one already written, a draft
- * exists and is not generating, it is
- * within the channel's character limit, no blocking flag is open (banned claim, missing disclosure) and the score is at
- * least the threshold. Desktop Continue and mobile Publish both read this and nothing else.
+ * The publish gate is only "no check is blocking" (plus: not while a draft is generating). Desktop Continue and mobile
+ * Publish both read this and nothing else.
  */
-export function publishGate({ text, open, checks, score, threshold, charLimit, generating, pieceDone }: GateInput): PublishGate {
-  const blocked = (reason: string): PublishGate => ({ ok: false, reason });
-  if (generating) return blocked('Wait for the draft to finish generating.');
-  if (pieceDone) return blocked('You already wrote this piece for this campaign. Pick another format.');
-  if (body(text, checks) === '') return blocked('Write your post first.');
-  if (text.length > charLimit) return blocked(`Over the ${charLimit}-character limit by ${text.length - charLimit}.`);
-  const blocking = open.filter((c) => c.rule.blocks);
-  if (blocking.length) return blocked(`Fix first: ${blocking.map((c) => c.title.toLowerCase()).join(', ')}.`);
-  if (score < threshold) return blocked(`On-brand is ${score}%; publishing unlocks at ${threshold}%.`);
-  return { ok: true, reason: null };
+export function gateFor(checks: DraftCheckResult[], generating: boolean): PublishGate {
+  if (generating) return { ok: false, reason: 'Wait for the draft to finish generating.' };
+  const blocking = checks.filter((c) => c.blocking);
+  if (blocking.length === 0) return { ok: true, reason: null };
+  if (blocking.length === 1) return { ok: false, reason: blocking[0].label };
+  return { ok: false, reason: `Fix first: ${blocking.map((c) => c.title.toLowerCase()).join(', ')}.` };
 }

@@ -81,6 +81,11 @@ describe('D3 AmbChecksList', () => {
     expect(onFix).toHaveBeenCalledWith('banned');
     await expectNoAxeViolations(container);
   });
+  it('badges a blocking check and shows no fix button for a check without a fix', () => {
+    renderWithRouter(<AmbChecksList checks={[{ id: 'limit', title: 'Over the limit', label: 'Over by 12.', blocking: true }, sampleChecks[1]]} onFix={() => undefined} />);
+    expect(screen.getAllByText('Blocks publishing')).toHaveLength(1);
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+  });
   it('is compact on mobile and says when nothing is flagged', () => {
     const { unmount } = renderWithRouter(<AmbChecksList compact checks={sampleChecks} onFix={() => undefined} />);
     expect(screen.getByRole('button', { name: 'Remove: Banned claim' })).toBeInTheDocument();

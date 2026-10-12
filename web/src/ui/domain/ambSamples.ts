@@ -34,9 +34,9 @@ export const sampleBudget: AmbBudget = { spent: 135, committed: 60, cap: 500, un
 
 /** Board Amb-3-Generate flags. */
 export const sampleChecks: AmbCheck[] = [
-  { id: 'banned', title: 'Banned claim', phrase: "10x your team's output", detail: "aDNA doesn't allow productivity numbers without a source.", fixLabel: 'Remove line', shortFixLabel: 'Remove' },
-  { id: 'avoided', title: 'Avoided term', phrase: 'memory dump', detail: 'aDNA says "project context".', fixLabel: 'Replace' },
-  { id: 'disclosure', title: 'Missing disclosure', detail: 'Add "Sponsored by aDNA" or #ad.', fixLabel: 'Add at end', shortFixLabel: 'Add' },
+  { id: 'banned', title: 'Banned claim', phrase: "10x your team's output", label: "aDNA doesn't allow productivity numbers without a source.", fixLabel: 'Remove line', shortFixLabel: 'Remove' },
+  { id: 'avoided', title: 'Avoided term', phrase: 'memory dump', label: 'aDNA says "project context".', fixLabel: 'Replace' },
+  { id: 'disclosure', title: 'Missing disclosure', label: 'Add "Sponsored by aDNA" or #ad.', fixLabel: 'Add at end', shortFixLabel: 'Add' },
 ];
 
 /** Board Amb-3-Generate draft, lines 4 and 5. */

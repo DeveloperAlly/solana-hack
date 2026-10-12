@@ -70,9 +70,9 @@ const stepBuilders: Record<PostOutcome, (d: PostStatusData) => AmbTimelineStep[]
 export const statusSteps = (d: PostStatusData) => stepBuilders[d.outcome](d);
 
 /** Amb-5d headline and body, for the brand and piece of this submission. */
-export const budgetTitle = (d: PostStatusData, cap: string) => `${d.campaign.brand}'s ${cap} cap was used up before your ${d.piece.name.toLowerCase()} was approved`;
+export const budgetTitle = (d: PostStatusData, cap: string) => `${d.campaign.brand}'s ${cap} cap was used up before your ${d.piece.noun} was approved`;
 export const budgetBody = (d: PostStatusData) =>
-  `Your ${d.piece.name.toLowerCase()} is still verified and shows as brand-approved on the public check. It just can't be paid from this campaign.`;
+  `Your ${d.piece.noun} is still verified and shows as brand-approved on the public check. It just can't be paid from this campaign.`;
 
 /** Receipt sheet rows: amount, time and receipt link (canvas note n-a5b). */
 export const receiptRows = (d: PostStatusData) => [
@@ -80,3 +80,14 @@ export const receiptRows = (d: PostStatusData) => [
   { label: 'Time', value: d.times.paid ?? '' },
   { label: 'Receipt', value: d.paid?.receiptLink ?? '' },
 ];
+
+/** What is done in this campaign once this piece is paid, and the next piece still open (canvas Amb-5b: "2 of 3 pieces done"). */
+export function campaignProgress(d: PostStatusData): { text: string; next?: PieceFormat } {
+  const done = d.formats.filter((f) => f.done || f.id === d.piece.id);
+  const next = d.formats.find((f) => !done.includes(f));
+  const count = `${done.length} of ${d.formats.length} pieces done.`;
+  return { text: next ? `${count} ${next.name} (${next.payout}) still open.` : `${count} Nothing left to write here.`, next };
+}
+
+/** The next-piece button: "Write another piece" on desktop, "Write the tutorial (50 USDC)" on mobile (canvas Amb-5b, M-5). */
+export const nextPieceLabel = (next: PieceFormat, desktop: boolean) => (desktop ? 'Write another piece' : `Write the ${next.noun} (${next.payout})`);

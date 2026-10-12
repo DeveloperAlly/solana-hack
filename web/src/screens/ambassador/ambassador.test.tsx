@@ -6,7 +6,11 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { GalleryScreen } from '../../gallery/Gallery';
 import { applyFix, isOpen, scoreFor } from './useDraft';
-import { hasToken, publishGate, removeFlagged } from './draftRules';
+import { draftChecks, gateFor, hasToken, removeFlagged } from './draftRules';
+import { AmbGenerate } from './AmbGenerate';
+import { AmbPublish } from './AmbPublish';
+import { adnaFormats, publishData, statusPaid } from './fixtures';
+import { campaignProgress } from './copy';
 import { ambSession } from './session';
 import { generateData } from './fixtures';
 import { validateCode, validateLinkedInPostUrl, validatePageUrl, X_NOT_PAID } from './validators';
@@ -240,7 +244,8 @@ describe('mobile flow (390 px artboards)', () => {
     await joinWithCode(u);
     await h1('Write your piece');
     expect(screen.getByRole('button', { name: 'Publish' })).toBeDisabled();
-    await u.click(screen.getByRole('button', { name: '3 flags' }));
+    // The sheet lists every check, the score included (draftChecks): 3 brand flags plus the on-brand line.
+    await u.click(screen.getByRole('button', { name: '4 flags' }));
     const sheet = screen.getByRole('dialog', { name: 'Flags' });
     await u.click(within(sheet).getByRole('button', { name: /^Remove/ }));
     await u.click(within(sheet).getByRole('button', { name: /^Replace/ }));
@@ -344,10 +349,11 @@ describe('no dead or dishonest controls (review rules, issue #45)', () => {
 
 describe('draft rules and the one publish gate (Codex review on PR #78)', () => {
   const [banned, , disclosure] = generateData.checks;
-  const gateFor = (text: string, generating = false) => {
+  const checksOf = (text: string, threshold = generateData.threshold, pieceDone = false) => {
     const open = generateData.checks.filter((c) => isOpen(c, text));
-    return publishGate({ text, open, checks: generateData.checks, score: scoreFor(open.length, generateData), threshold: generateData.threshold, charLimit: generateData.charLimit, generating, pieceDone: false });
+    return draftChecks({ text, rules: generateData.checks, score: scoreFor(open.length, generateData), threshold, charLimit: generateData.charLimit, pieceDone });
   };
+  const gateOf = (text: string, generating = false) => gateFor(checksOf(text), generating);
 
   it('a disclosure counts only as a whole token: #adventure is not #ad', () => {
     expect(isOpen(disclosure, 'Great week #adventure')).toBe(true);
@@ -370,12 +376,12 @@ describe('draft rules and the one publish gate (Codex review on PR #78)', () => 
 
   it('the gate checks every condition, in order, and says why', () => {
     const clean = applyFix(disclosure, applyFix(banned, generateData.draft.replace('memory dump', 'project context')));
-    expect(gateFor(clean)).toEqual({ ok: true, reason: null });
-    expect(gateFor(clean, true).reason).toBe('Wait for the draft to finish generating.');
-    expect(gateFor('#ad').reason).toBe('Write your post first.');
-    expect(gateFor(`${clean} ${'x'.repeat(3000)}`).reason).toMatch(/^Over the 3000-character limit by \d+\.$/);
-    expect(gateFor(generateData.draft).reason).toBe('Fix first: banned claim, missing disclosure.');
-    expect(gateFor(applyFix(banned, generateData.draft)).reason).toBe('Fix first: missing disclosure.');
+    expect(gateOf(clean)).toEqual({ ok: true, reason: null });
+    expect(gateOf(clean, true).reason).toBe('Wait for the draft to finish generating.');
+    expect(gateOf('#ad').reason).toBe('Write your post first.');
+    expect(gateOf(`${clean} ${'x'.repeat(3000)}`).reason).toMatch(/^Over the 3000-character limit by \d+\.$/);
+    expect(gateOf(generateData.draft).reason).toBe('Fix first: banned claim, missing disclosure, below the on-brand line.');
+    expect(gateOf(applyFix(banned, generateData.draft)).reason).toBe('Add "Sponsored by aDNA" or #ad.');
   });
 
   it('an over-limit draft locks desktop Continue, with the reason as its description', async () => {
@@ -395,7 +401,7 @@ describe('draft rules and the one publish gate (Codex review on PR #78)', () => 
     at('/screens/M-3-Generate');
     await h1('Write your piece');
     const publish = screen.getByRole('button', { name: 'Publish' });
-    expect(publish).toHaveAccessibleDescription('Fix first: banned claim, missing disclosure.');
+    expect(publish).toHaveAccessibleDescription('Fix first: banned claim, missing disclosure, below the on-brand line.');
     const clean = applyFix(disclosure, applyFix(banned, generateData.draft));
     fireEvent.change(screen.getByRole('textbox', { name: 'Draft' }), { target: { value: clean } });
     expect(publish).toBeEnabled();
@@ -472,7 +478,7 @@ describe('choices flow to every later screen (session.ts), desktop and mobile', 
     at('/screens/Amb-3-Generate');
     await h1('Write your piece');
     await u.selectOptions(screen.getByLabelText('Format'), 'blog');
-    expect(screen.getByRole('button', { name: 'Continue to publish' })).toHaveAccessibleDescription('You already wrote this piece for this campaign. Pick another format.');
+    expect(screen.getByRole('button', { name: 'Continue to publish' })).toHaveAccessibleDescription(/^Fix first: piece already written/);
   });
 
   it('history entries keep unique ids after undo and new fixes', async () => {
@@ -487,5 +493,72 @@ describe('choices flow to every later screen (session.ts), desktop and mobile', 
     expect(within(screen.getByRole('list', { name: 'Earlier versions' })).getAllByRole('listitem')).toHaveLength(2);
     await u.click(screen.getByRole('button', { name: 'Restore version 2' }));
     expect((screen.getByRole('textbox', { name: 'Draft' }) as HTMLTextAreaElement).value).toContain('memory dump');
+  });
+});
+
+describe('one checks function drives the list, the badges and both Publish buttons', () => {
+  const [banned, avoided, disclosure] = generateData.checks;
+  const withDisclosure = (t: string) => applyFix(disclosure, t);
+  const noAvoided = (t: string) => applyFix(avoided, t);
+  const cases: { name: string; text: string; threshold?: number; label: RegExp }[] = [
+    { name: 'missing disclosure', text: noAvoided(applyFix(banned, generateData.draft)), label: /^Add "Sponsored by aDNA" or #ad\.$/ },
+    { name: 'banned claim', text: withDisclosure(noAvoided(generateData.draft)), label: /^aDNA doesn't allow productivity numbers/ },
+    { name: 'character limit', text: withDisclosure(noAvoided(applyFix(banned, generateData.draft))) + ' ' + 'x'.repeat(3000), label: /^Over the 3000-character limit/ },
+    // The avoided term alone does not block; with a stricter threshold the score check alone does.
+    { name: 'on-brand score', text: withDisclosure(applyFix(banned, generateData.draft)), threshold: 95, label: /^On-brand is 85%; publishing unlocks at 95%\.$/ },
+  ];
+  for (const device of ['desktop', 'mobile'] as const) {
+    for (const c of cases) {
+      it(`${device}: ${c.name} alone blocks publishing, with its badge and reason`, () => {
+        render(<MemoryRouter><AmbGenerate data={{ ...generateData, threshold: c.threshold ?? generateData.threshold }} device={device} /></MemoryRouter>);
+        fireEvent.change(screen.getByRole('textbox', { name: 'Draft' }), { target: { value: c.text } });
+        const button = screen.getByRole('button', { name: device === 'desktop' ? 'Continue to publish' : 'Publish' });
+        expect(button).toBeDisabled();
+        expect(button).toHaveAccessibleDescription(c.label);
+        if (device === 'desktop') expect(screen.getAllByText('Blocks publishing')).toHaveLength(1);
+      });
+    }
+  }
+  it('with no blocking check, both buttons are enabled and no badge shows', () => {
+    const clean = withDisclosure(noAvoided(applyFix(banned, generateData.draft)));
+    render(<MemoryRouter><AmbGenerate data={generateData} device="desktop" /></MemoryRouter>);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Draft' }), { target: { value: clean } });
+    expect(screen.getByRole('button', { name: 'Continue to publish' })).toBeEnabled();
+    expect(screen.queryByText('Blocks publishing')).not.toBeInTheDocument();
+  });
+});
+
+describe('Codex review round 2 on PR #78', () => {
+  it('a disclosure with only punctuation left is not a post', () => {
+    for (const text of ['#ad.', 'Sponsored by aDNA.', '  #ad !  ']) {
+      const open = generateData.checks.filter((c) => isOpen(c, text));
+      const checks = draftChecks({ text, rules: generateData.checks, score: scoreFor(open.length, generateData), threshold: 0, charLimit: 3000, pieceDone: false });
+      expect(checks.find((c) => c.id === 'empty')?.blocking).toBe(true);
+      expect(gateFor(checks, false).ok).toBe(false);
+    }
+  });
+
+  for (const device of ['desktop', 'mobile'] as const) {
+    it(`${device}: Post now needs a connected LinkedIn account`, () => {
+      render(<MemoryRouter><AmbPublish data={{ ...publishData, connectedAs: null }} device={device} /></MemoryRouter>);
+      const post = screen.getByRole('button', { name: 'Post now' });
+      expect(post).toBeDisabled();
+      expect(post).toHaveAccessibleDescription(/not connected/);
+      expect(screen.getByRole('link', { name: 'Connect LinkedIn' })).toHaveAttribute('href', '/settings');
+    });
+  }
+
+  it('paid progress and the next piece follow the piece that was paid', async () => {
+    const tutorial = adnaFormats[2];
+    expect(campaignProgress({ ...statusPaid, piece: tutorial }).text).toBe('2 of 3 pieces done. LinkedIn post (10 USDC) still open.');
+    expect(campaignProgress(statusPaid).text).toBe('2 of 3 pieces done. Tutorial (50 USDC) still open.');
+    ambSession.update({ piece: tutorial });
+    const u = user();
+    at('/screens/M-5-Status');
+    await h1('Paid 50 USDC');
+    expect(screen.getByText('2 of 3 pieces done. LinkedIn post (10 USDC) still open.')).toBeInTheDocument();
+    await u.click(screen.getByRole('link', { name: 'Write the LinkedIn post (10 USDC)' }));
+    await h1('Write your piece');
+    expect(ambSession.get().piece?.id).toBe('linkedin');
   });
 });

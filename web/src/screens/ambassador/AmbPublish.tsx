@@ -8,7 +8,7 @@
  * | piece                     | the format chosen on Generate (session.ts; drafts.format)               | default: canvas LinkedIn post  |
  * | draft → preview, length   | the draft as edited on Generate (session.ts; drafts.body)               | default: canvas Amb-4 preview  |
  * | review → chips            | that draft's checks: score, open flags, disclosure (drafts checks)      | default: 91%, no flags         |
- * | connectedAs               | connections (LinkedIn account name)                                     | not connected: Change → connect|
+ * | connectedAs               | connections (LinkedIn account name)                                     | null: Connect LinkedIn; Post now off |
  * | routes[]                  | product rule: post on your behalf, paste your URL, submit a page URL     | never; no X route (ADR-002)    |
  * | notes[]                   | copy: why X is not paid; the fingerprint recorded with the payment      | never                          |
  *

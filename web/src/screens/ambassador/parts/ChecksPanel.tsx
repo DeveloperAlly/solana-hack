@@ -16,8 +16,8 @@ export interface ChecksPanelProps {
 export function ChecksPanel({ draft, threshold, generating, actions }: ChecksPanelProps) {
   return (
     <InfoCard title="On-brand">
-      <AmbOnBrandMeter score={draft.score} threshold={threshold} hint={`Publishing unlocks at ${threshold}% with no banned claims and the disclosure added.`} />
-      <AmbChecksList checks={draft.open} onFix={draft.fix} disabled={generating} />
+      <AmbOnBrandMeter score={draft.score} threshold={threshold} below={draft.scoreBlocks} hint={`Publishing unlocks at ${threshold}% with no banned claims and the disclosure added.`} />
+      <AmbChecksList checks={draft.checks} onFix={draft.fix} disabled={generating} />
       {actions}
     </InfoCard>
   );

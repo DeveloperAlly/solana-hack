@@ -1,13 +1,13 @@
-import { Button, Link, Text } from '../../../ui/primitives';
 import { AmbInlineForm } from '../../../ui/domain/AmbInlineForm';
 import { AmbPublishRouteCard } from '../../../ui/domain/AmbPublishRouteCard';
 import { validateLinkedInPostUrl, validatePageUrl } from '../validators';
 import type { PublishRoute as Route, PublishRouteId } from '../types';
+import { PostForMe } from './PostForMe';
 
 export interface PublishRouteProps {
   route: Route;
   mobile: boolean;
-  connectedAs: string;
+  connectedAs: string | null;
   settingsHref: string;
   /** The recommended route for this piece, drawn selected (canvas Amb-4: "Fastest · for this post"). */
   selected: boolean;
@@ -31,14 +31,7 @@ export function PublishRoute({ route, mobile, connectedAs, settingsHref, selecte
       {route.field && validate ? (
         <AmbInlineForm label={route.field.label} type="url" placeholder={route.field.placeholder} submitLabel={route.submitLabel} variant="secondary" validate={validate} onSubmit={onSubmit} />
       ) : (
-        <>
-          {!mobile && (
-            <Text variant="small">
-              LinkedIn: <strong>Connected as {connectedAs}</strong> <Link href={settingsHref}>Change</Link>
-            </Text>
-          )}
-          <Button onClick={() => onSubmit()}>{route.submitLabel}</Button>
-        </>
+        <PostForMe connectedAs={connectedAs} settingsHref={settingsHref} submitLabel={route.submitLabel} onSubmit={() => onSubmit()} />
       )}
     </AmbPublishRouteCard>
   );

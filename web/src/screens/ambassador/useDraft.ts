@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { applyFix, isOpen, publishGate, scoreFor } from './draftRules';
+import { applyFix, draftChecks, gateFor, isOpen, scoreFor } from './draftRules';
 import { pieceLabel } from './copy';
 import { ambSession } from './session';
 import type { GenerateData } from './types';
@@ -8,8 +8,8 @@ export { applyFix, isOpen, scoreFor };
 
 /**
  * Draft editing state for Generate (canvas note n-a3): the text, angle and format; open flags and the score update as
- * you type; one-click fixes; Regenerate keeps the angle; Undo and History keep earlier versions. `gate` (draftRules.ts
- * publishGate) is the only thing that decides whether the draft can be published.
+ * you type; one-click fixes; Regenerate keeps the angle; Undo and History keep earlier versions. `checks` (draftRules.ts
+ * draftChecks) is every check shown, and `gate` is only "none of them is blocking".
  */
 export function useDraft(data: GenerateData, { generating = false }: { generating?: boolean } = {}) {
   // Start from what this tab already chose (a draft edited earlier, the piece picked); the fixture is only the default.
@@ -25,7 +25,9 @@ export function useDraft(data: GenerateData, { generating = false }: { generatin
 
   const open = useMemo(() => data.checks.filter((c) => isOpen(c, text)), [data.checks, text]);
   const score = scoreFor(open.length, data);
-  const gate = publishGate({ text, open, checks: data.checks, score, threshold: data.threshold, charLimit: data.charLimit, generating, pieceDone: Boolean(piece.done) });
+  // Every check shown (list, badges) and the gate come from this one function (draftRules.ts).
+  const checks = draftChecks({ text, rules: data.checks, score, threshold: data.threshold, charLimit: data.charLimit, pieceDone: Boolean(piece.done) });
+  const gate = gateFor(checks, generating);
   const disclosed = !open.some((c) => c.rule.kind === 'missing');
 
   // Hand the piece, the draft and its review to Publish and Status (session.ts), on every change.
@@ -52,6 +54,9 @@ export function useDraft(data: GenerateData, { generating = false }: { generatin
     formatLabel: pieceLabel(piece),
     note,
     open,
+    checks,
+    /** The meter's chip reads the same score check the list and the gate use. */
+    scoreBlocks: checks.some((c) => c.id === 'score'),
     highlights: open.flatMap((c) => (c.phrase ? [c.phrase] : [])),
     score,
     gate,

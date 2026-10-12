@@ -11,8 +11,8 @@
  * | outcome, times           | submissions status, published_at, verified_at, approved_at; payouts paid_at | later steps: "to do", no time  |
  * | title, context, steps    | built from the fields above (copy.ts), never a fixed string               | never                            |
  * | paid (receiptLink,       | payouts tx signature → receipt link (bracketed until wired);              | outcome is not paid              |
- * |   postLink, balance,     | submissions platform_url; GET /api/me/earnings balance; pieces left in     |                                  |
- * |   progress, nextLabel)   | the campaign (memberships)                                                |                                  |
+ * |   postLink, balance)     | submissions platform_url; GET /api/me/earnings balance                    |                                  |
+ * | formats → progress, next | the campaign's pieces (memberships); done = marked done or just paid      | all done: no next-piece button   |
  * | failure (reasons,        | verify_submission result: text difference, author mismatch; slot hold     | outcome is not failed            |
  * |   held, recoveries)      | until the campaign deadline                                               |                                  |
  * | budget (cap, caption)    | campaigns cap and payouts sum                                             | outcome is not budget            |

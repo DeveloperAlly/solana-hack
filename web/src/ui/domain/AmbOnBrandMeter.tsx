@@ -14,11 +14,12 @@ export interface AmbOnBrandMeterProps {
   hint?: string;
   /** Extra control on the summary line (the mobile "3 flags" button). */
   action?: ReactNode;
+  /** Whether the score blocks publishing, when the caller's checks decide it; defaults to score below threshold. */
+  below?: boolean;
 }
 
 /** D4 VoiceFitMeter: the on-brand score as a labelled meter with the publish threshold marked. States: below (Drifting), at or above (On brand). */
-export function AmbOnBrandMeter({ score, threshold, layout = 'panel', hint, action }: AmbOnBrandMeterProps) {
-  const below = score < threshold;
+export function AmbOnBrandMeter({ score, threshold, layout = 'panel', hint, action, below = score < threshold }: AmbOnBrandMeterProps) {
   const chip = <Badge tone={below ? 'neutral' : 'solid'}>{below ? 'Drifting' : 'On brand'}</Badge>;
   return (
     <div className={`${styles.root} ${styles[layout]}`}>

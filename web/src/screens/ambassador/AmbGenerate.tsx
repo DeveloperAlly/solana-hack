@@ -68,21 +68,21 @@ export function AmbGenerate({ data, device, state = 'success' }: AmbGenerateProp
     );
   }
 
-  const flagCount = `${draft.open.length} ${draft.open.length === 1 ? 'flag' : 'flags'}`;
+  const flagCount = `${draft.checks.length} ${draft.checks.length === 1 ? 'flag' : 'flags'}`;
   return (
     <AmbShell
       {...flow.shell}
       account={data.account}
       back={{ href: flow.back('generate'), label: 'Back to the campaign' }}
       title={draft.formatLabel}
-      pinned={<AmbOnBrandMeter layout="bar" score={draft.score} threshold={data.threshold} action={<Button variant="secondary" onClick={flags.show} aria-haspopup="dialog">{flagCount}</Button>} />}
+      pinned={<AmbOnBrandMeter layout="bar" score={draft.score} threshold={data.threshold} below={draft.scoreBlocks} action={<Button variant="secondary" onClick={flags.show} aria-haspopup="dialog">{flagCount}</Button>} />}
       footer={actions('row', 'Publish')}
     >
       <PageTitle title="Write your piece" context={data.pieceLabel} />
       <AngleField draft={draft} multiline={false} />
       {editor}
       <AmbSheet open={flags.open} onClose={flags.hide} title="Flags">
-        <AmbChecksList compact checks={draft.open} onFix={draft.fix} disabled={generating} />
+        <AmbChecksList compact checks={draft.checks} onFix={draft.fix} disabled={generating} />
       </AmbSheet>
     </AmbShell>
   );

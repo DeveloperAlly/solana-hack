@@ -10,9 +10,9 @@ export const mai: Account = { name: 'Mai T.', balance: '15 USDC' };
 
 /** Board Amb-2-Detail "What you can make" (Blog post 5, LinkedIn post 10, Tutorial 50 USDC); Amb-3 marks the blog post done. */
 export const adnaFormats: PieceFormat[] = [
-  { id: 'blog', name: 'Blog post', where: 'Your blog', channel: 'blog', payout: '5 USDC', done: true },
-  { id: 'linkedin', name: 'LinkedIn post', where: 'LinkedIn', channel: 'linkedin', payout: '10 USDC' },
-  { id: 'tutorial', name: 'Tutorial', where: 'Your blog', channel: 'blog', payout: '50 USDC' },
+  { id: 'blog', name: 'Blog post', noun: 'blog post', where: 'Your blog', channel: 'blog', payout: '5 USDC', done: true },
+  { id: 'linkedin', name: 'LinkedIn post', noun: 'LinkedIn post', where: 'LinkedIn', channel: 'linkedin', payout: '10 USDC' },
+  { id: 'tutorial', name: 'Tutorial', noun: 'tutorial', where: 'Your blog', channel: 'blog', payout: '50 USDC' },
 ];
 const [, linkedinPost, tutorial] = adnaFormats;
 
@@ -123,7 +123,7 @@ export const generateData: GenerateData = {
       id: 'banned',
       title: 'Banned claim',
       phrase: "10x your team's output",
-      detail: "aDNA doesn't allow productivity numbers without a source.",
+      label: "aDNA doesn't allow productivity numbers without a source.",
       fixLabel: 'Remove line',
       shortFixLabel: 'Remove',
       rule: { kind: 'phrase', phrase: "10x your team's output", blocks: true, fix: { kind: 'remove-line' } },
@@ -132,14 +132,14 @@ export const generateData: GenerateData = {
       id: 'avoided',
       title: 'Avoided term',
       phrase: 'memory dump',
-      detail: 'aDNA says "project context".',
+      label: 'aDNA says "project context".',
       fixLabel: 'Replace',
       rule: { kind: 'phrase', phrase: 'memory dump', blocks: false, fix: { kind: 'replace', with: 'project context' } },
     },
     {
       id: 'disclosure',
       title: 'Missing disclosure',
-      detail: 'Add "Sponsored by aDNA" or #ad.',
+      label: 'Add "Sponsored by aDNA" or #ad.',
       fixLabel: 'Add at end',
       shortFixLabel: 'Add',
       rule: { kind: 'missing', anyOf: ['Sponsored by aDNA', '#ad'], append: 'Sponsored by aDNA', blocks: true },
@@ -169,7 +169,7 @@ export const publishData: PublishData = {
       title: 'Post to LinkedIn for me',
       badge: 'Fastest · for this post',
       description: 'We publish from your LinkedIn account, so the post is verified the moment it goes live.',
-      mobileDescription: 'Verified instantly. Connected as Mai T.',
+      mobileDescription: 'Verified instantly.',
       submitLabel: 'Post now',
     },
     {
@@ -196,7 +196,7 @@ export const publishData: PublishData = {
 };
 
 /** Shared by the status boards: who, what and how it was published (boards Amb-5a to Amb-5c). */
-const statusBase = { account: mai, campaign: adnaRef, piece: linkedinPost, route: 'on-behalf' as const };
+const statusBase = { account: mai, campaign: adnaRef, piece: linkedinPost, formats: adnaFormats, route: 'on-behalf' as const };
 
 /** Board Amb-5a-Verifying (loading). */
 export const statusVerifying: PostStatusData = { ...statusBase, outcome: 'verifying', times: { published: '16:21' } };
@@ -211,8 +211,6 @@ export const statusPaid: PostStatusData = {
     receiptLink: '[onchain receipt link]',
     postLink: '[LinkedIn post link]',
     balance: '25 USDC',
-    progress: '2 of 3 pieces done. Tutorial (50 USDC) still open.',
-    nextLabel: { desktop: 'Write another piece', mobile: 'Write the tutorial (50 USDC)' },
   },
 };
 
