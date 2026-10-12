@@ -67,7 +67,7 @@ export interface FlowState {
 
 const initial: FlowState = {
   gates: { purpose: { status: 'pending' }, positioning: { status: 'pending' }, voice: { status: 'pending' } },
-  positioningOption: 'A',
+  positioningOption: '',
   voice: { round1: 'B', round2: 'C' },
   dials: { formality: 2, energy: 3, humour: 2 },
 };

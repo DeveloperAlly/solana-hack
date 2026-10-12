@@ -40,10 +40,8 @@ export function Onboard3Sources({ data, state = 'success' }: { data: SourcesData
       title="What should we read?"
       intro="Every fact we find keeps its source. Nothing is used until you confirm it."
       footer={
-        <BuilderStepFooter back={back} skip={skip ? { href: skip, label: 'Skip, nothing to read' } : undefined}>
-          {/* INTEGRATION: POST /api/brands/:id/ingest (backend map §4, row "Onboard-3b-Profiling, Ingest-Error"). */}
-          {links.length ? <Button href={next ?? ''}>Read my sources</Button> : <Button disabled>Read my sources</Button>}
-        </BuilderStepFooter>
+        // INTEGRATION: POST /api/brands/:id/ingest (backend map §4, row "Onboard-3b-Profiling, Ingest-Error").
+        <BuilderStepFooter back={back} skip={skip} skipLabel="Skip, nothing to read" next={{ label: 'Read my sources', href: next, blockedReason: links.length ? null : 'Add a link or a file first, or skip.' }} />
       }
     >
       <Card as="section" header={<Heading level={2} size="lg">Links</Heading>}>
@@ -61,7 +59,7 @@ export function Onboard3Sources({ data, state = 'success' }: { data: SourcesData
         <BuilderSourceList
           label="Connected accounts"
           rows={accounts}
-          actions={(a) => <Button variant="secondary" disabled={connected.includes(a.id)} onClick={() => setConnected((c) => [...c, a.id])} aria-label={`Connect ${a.name} for publishing`}>Connect for publishing</Button>}
+          actions={(a) => <Button variant="secondary" disabled={connected.includes(a.id)} onClick={() => setConnected((c) => [...c, a.id])} aria-label={`Connect for publishing: ${a.name}`}>Connect for publishing</Button>}
         />
       </Card>
     </BuilderStep>

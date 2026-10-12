@@ -12,7 +12,7 @@
  * States: success. Edit, Remove and Mark validated work locally on the persona cards.
  */
 import { useState } from 'react';
-import { Button, Field, Grid, Stack, Text } from '../../ui/primitives';
+import { Field, Grid, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { BuilderPersonaCard } from '../../ui/domain/BuilderPersonaCard';
 import { BuilderSection } from './BuilderSection';
@@ -34,7 +34,7 @@ export function BB5Audience({ data }: { data: AudienceData }) {
       tag="FALLBACK"
       title="Who it's for"
       estimate="About 2 minutes · about 5 left"
-      footer={<BuilderStepFooter back={back} skip={skip ? { href: skip, label: 'Skip for now' } : undefined}><Button href={next ?? ''}>Continue</Button></BuilderStepFooter>}
+      footer={<BuilderStepFooter back={back} skip={skip} next={{ label: 'Continue', href: next }} />}
     >
       <Field label="Whose opinion do you care about most?" multiline rows={2} defaultValue={data.opinion} />
       <Card as="div">

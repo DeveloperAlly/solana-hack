@@ -5,14 +5,14 @@ import { BuilderKitExport } from './BuilderKitExport';
 export const example: WorkbenchExample = {
   id: 'D49',
   name: 'BuilderKitExport',
-  description: 'Tree preview, version, include options, hash and Download .zip (preparing on click).',
+  description: 'The chosen version drives tree, hash and file name; Download prepares that file.',
   render: () => (
     <BuilderKitExport
-      tree={'jamjam-kit-v1/\n  MANIFEST.md\n  what/\n    brand/\n    decisions/\n  how/\n    templates/'}
-      versions={['v[n] (current) · [date]', 'v1 · [date]']}
+      versions={[
+        { label: 'v[n] (current) · [date]', hash: '[sha256 of v[n]]', fileName: 'jamjam-kit-v[n].zip', tree: 'jamjam-kit-v[n]/\n  MANIFEST.md\n  what/\n  how/' },
+        { label: 'v1 · [date]', hash: '[sha256 of kit v1]', fileName: 'jamjam-kit-v1.zip', tree: 'jamjam-kit-v1/\n  MANIFEST.md\n  what/\n  how/' },
+      ]}
       includes={[{ id: 'sources', label: 'Source list', checked: true }, { id: 'missing', label: 'Missing sections as empty files', checked: false }]}
-      hash="[sha256]"
-      fileName="jamjam-kit-v1.zip"
     />
   ),
 };

@@ -82,6 +82,11 @@ describe('Brand Builder: onboarding and wizard, end to end', () => {
 describe('Brand Builder: screen interactions', () => {
   it('sign-in checks the code on the client', async () => {
     at(builderPaths.signIn);
+    await userEvent.type(screen.getByLabelText('Enter the code we sent'), '12345678');
+    await click('Continue');
+    expect(screen.getByRole('alert')).toHaveTextContent('Send a code to your email first.');
+    await click('Send code');
+    await userEvent.clear(screen.getByLabelText('Enter the code we sent'));
     await userEvent.type(screen.getByLabelText('Enter the code we sent'), '123');
     await click('Continue');
     expect(screen.getByRole('alert')).toHaveTextContent('6 to 10 digits');
@@ -111,7 +116,7 @@ describe('Brand Builder: screen interactions', () => {
     await userEvent.type(screen.getByLabelText('Add a link'), 'docs.jamjam.tech');
     await click('Add link');
     expect(screen.getByText('docs.jamjam.tech')).toBeInTheDocument();
-    await click('Connect X for publishing');
+    await click('Connect for publishing: X');
     expect(screen.getByText('Connected for publishing')).toBeInTheDocument();
   });
 
@@ -145,7 +150,9 @@ describe('Brand Builder: screen interactions', () => {
 
   it('coverage: Approve kit v1 is disabled while gates are open, with links to them', async () => {
     at(builderPaths.coverage);
-    expect(await screen.findByRole('button', { name: 'Approve kit v1' })).toBeDisabled();
+    const approve = await screen.findByRole('button', { name: 'Approve kit v1' });
+    expect(approve).toBeDisabled();
+    expect(approve).toHaveAccessibleDescription('Approve the three gates first.');
     expect(screen.getByRole('alert')).toHaveTextContent('Approve the three gates first');
     expect(screen.getByRole('table')).toHaveTextContent('E 0 · I 2 · M 15');
     await click('purpose', 'link');
@@ -161,11 +168,25 @@ describe('Brand Builder: screen interactions', () => {
     await h1('Download your kit');
   });
 
-  it('options: Show three different options swaps the set', async () => {
+  it('options: nothing is chosen for the owner; Continue waits for a pick; a new set clears the pick', async () => {
     at(builderPaths.alternatives);
+    const blocked = await screen.findByRole('button', { name: 'Continue' });
+    expect(blocked).toBeDisabled();
+    expect(blocked).toHaveAccessibleDescription('Pick one of the three options first.');
+    await userEvent.click(screen.getByRole('radio', { name: /Option C/ }));
+    expect(screen.getByRole('link', { name: 'Continue with option C' })).toBeInTheDocument();
     await click('Show three different options');
-    expect(screen.getByRole('radio', { name: /Option D/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /Option D/ })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('radio', { name: /Option D/ }));
     expect(screen.getByRole('link', { name: 'Continue with option D' })).toBeInTheDocument();
+  });
+
+  it('options loading: Continue is disabled until drafting is done, and says why', async () => {
+    at(`${builderPaths.alternatives}?state=loading`);
+    const blocked = await screen.findByRole('button', { name: 'Continue' });
+    expect(blocked).toBeDisabled();
+    expect(blocked).toHaveAccessibleDescription('Wait for the three options to finish drafting.');
   });
 
   it('dashboard: approve then pay; the empty variant offers one action per module', async () => {

@@ -42,9 +42,8 @@ export function Onboard2Domain({ data }: { data: DomainData }) {
       flag={waiting && <Badge>Optional for now</Badge>}
       intro={waiting && 'A verified domain lets people check that posts and claims really come from you. You can skip this and verify later.'}
       footer={
-        <BuilderStepFooter back={back}>
+        <BuilderStepFooter back={back} next={waiting ? { label: 'Continue (when verified)', blockedReason: 'Verify the domain first, or skip.' } : undefined}>
           <Button href={skip ?? ''} variant="secondary">Skip, continue unverified</Button>
-          {waiting && <Button disabled>Continue (when verified)</Button>}
         </BuilderStepFooter>
       }
     >

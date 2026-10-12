@@ -3,7 +3,7 @@
 import type { ChoiceCardOption } from '../../ui/domain/BuilderChoiceCards';
 import type { CoverageRow } from '../../ui/domain/BuilderCoverageMap';
 import type { DnsCheckStatus, DnsRecord } from '../../ui/domain/BuilderDnsRecord';
-import type { KitIncludeOption } from '../../ui/domain/BuilderKitExport';
+import type { KitIncludeOption, KitVersion } from '../../ui/domain/BuilderKitExport';
 import type { Persona } from '../../ui/domain/BuilderPersonaCard';
 import type { RegistrationStatus } from '../../ui/domain/BuilderRegistrationResult';
 import type { SourceRow } from '../../ui/domain/BuilderSourceList';
@@ -184,11 +184,9 @@ export interface PublishedData {
 
 export interface KitExportData {
   brandId: string;
-  tree: string;
-  versions: string[];
+  /** Approved versions, current first; each carries its hash, file name and tree. */
+  versions: KitVersion[];
   includes: KitIncludeOption[];
-  hash: string;
-  fileName: string;
 }
 
 export interface CampaignRow {

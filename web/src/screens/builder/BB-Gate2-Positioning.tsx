@@ -27,7 +27,7 @@ export function BBGate2Positioning({ data }: { data: GatePositioningData }) {
       gate="positioning"
       brand={data.brand}
       title="Approve your positioning"
-      draftLabel={`AI draft from option ${positioningOption} · confirm`}
+      draftLabel={positioningOption ? `AI draft from option ${positioningOption} · confirm` : 'AI draft · confirm'}
       whyLabel="Why this position? (optional, saved with the decision)"
       backLabel="Back to options"
     >

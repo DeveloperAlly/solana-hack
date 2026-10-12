@@ -12,7 +12,7 @@
  *
  * States: success. Picks and dials are kept in the flow, so Gate 3 shows the voice they make.
  */
-import { Button, Text } from '../../ui/primitives';
+import { Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { BuilderChoiceCards } from '../../ui/domain/BuilderChoiceCards';
 import { BuilderScale } from '../../ui/domain/BuilderScale';
@@ -33,7 +33,7 @@ export function BB6Voice({ data }: { data: VoiceData }) {
       title="Pick the one that sounds like you"
       intro="Same message, three ways. Choose by ear, not by adjective."
       estimate="About 3 minutes · then Gate 3: Voice"
-      footer={<BuilderStepFooter back={back} skip={skip ? { href: skip, label: 'Skip, use the template as is' } : undefined}><Button href={next ?? ''}>Continue</Button></BuilderStepFooter>}
+      footer={<BuilderStepFooter back={back} skip={skip} skipLabel="Skip, use the template as is" next={{ label: 'Continue', href: next }} />}
     >
       <BuilderChoiceCards legend="Round 1 of 2" options={data.round1} value={voice.round1} onChange={(r1) => pickVoice({ round1: r1, round2: data.round2[r1]?.[0]?.value ?? '' })} />
       <BuilderChoiceCards legend="Round 2 of 2 (closer to your first pick)" options={round2} value={voice.round2} onChange={(r2) => pickVoice({ ...voice, round2: r2 })} />

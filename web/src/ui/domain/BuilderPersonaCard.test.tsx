@@ -9,6 +9,9 @@ describe('BuilderPersonaCard', () => {
   it('edits, validates and removes a persona, with no axe violations', async () => {
     const { container } = renderWithRouter(example.render());
     expect(screen.getByText('Assumption')).toBeInTheDocument();
+    // WCAG 2.5.3 label in name (axe label-content-name-mismatch, experimental, so not in the jsdom axe run):
+    // every action's accessible name starts with its visible text.
+    for (const b of screen.getAllByRole('button')) expect(b.getAttribute('aria-label') ?? b.textContent).toMatch(new RegExp(`^${b.textContent}`));
     await userEvent.click(screen.getByRole('button', { name: 'Edit [Persona 1 name]' }));
     const pain = screen.getByLabelText('Pain ([Persona 1 name])');
     await userEvent.clear(pain);
@@ -16,7 +19,7 @@ describe('BuilderPersonaCard', () => {
     await expectNoAxeViolations(container);
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(screen.getByText('Pain: Loses context')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Mark [Persona 1 name] validated' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Mark validated: [Persona 1 name]' }));
     expect(screen.getByText('Validated')).toBeInTheDocument();
     expect(screen.queryByText('Assumption')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Remove [Persona 1 name]' }));

@@ -56,7 +56,7 @@ export function BuilderPersonaCard({ persona, onChange, onRemove }: BuilderPerso
       <div className={styles.actions}>
         <Button variant="secondary" onClick={() => setDraft(persona)} aria-label={`Edit ${persona.name}`}>Edit</Button>
         <Button variant="secondary" onClick={() => onRemove(persona.id)} aria-label={`Remove ${persona.name}`}>Remove</Button>
-        {!persona.validated && <Button variant="secondary" onClick={() => onChange({ ...persona, validated: true })} aria-label={`Mark ${persona.name} validated`}>Mark validated</Button>}
+        {!persona.validated && <Button variant="secondary" onClick={() => onChange({ ...persona, validated: true })} aria-label={`Mark validated: ${persona.name}`}>Mark validated</Button>}
       </div>
     </Card>
   );

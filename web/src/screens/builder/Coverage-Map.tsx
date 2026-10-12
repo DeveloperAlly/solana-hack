@@ -36,10 +36,9 @@ export function CoverageMap({ data }: { data: CoverageData }) {
       intro="Every kit has the same 17 sections. Here's where yours stands, next to a brand with a public history."
       flag={<SampleFlag />}
       footer={
-        <BuilderStepFooter back={back}>
+        // INTEGRATION: POST /api/brands/:id/kit/approve (backend map §4, row "Onboard-6-Published, Kit-RegisterFailed").
+        <BuilderStepFooter back={back} next={{ label: 'Approve kit v1', href: next, blockedReason: allGatesApproved ? null : 'Approve the three gates first.' }}>
           <Button href={otherPaths.brandBuild} variant="secondary">Review sections first</Button>
-          {/* INTEGRATION: POST /api/brands/:id/kit/approve (backend map §4, row "Onboard-6-Published, Kit-RegisterFailed"). */}
-          {allGatesApproved ? <Button href={next ?? ''}>Approve kit v1</Button> : <Button disabled>Approve kit v1</Button>}
         </BuilderStepFooter>
       }
     >

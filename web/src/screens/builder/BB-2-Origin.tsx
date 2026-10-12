@@ -12,7 +12,7 @@
  * States: success. "Record voice" needs speech-to-text (backend map G-VOICE-INPUT), so it says typing is the way for now.
  */
 import { useState } from 'react';
-import { Alert, Button, Stack } from '../../ui/primitives';
+import { Alert, Stack } from '../../ui/primitives';
 import { ToggleGroup } from '../../ui/composites/ToggleGroup';
 import { BuilderFactConfirm } from '../../ui/domain/BuilderFactConfirm';
 import { BuilderAnswers } from './BuilderAnswers';
@@ -34,7 +34,7 @@ export function BB2Origin({ data }: { data: OriginData }) {
       title="How it started"
       intro="Talk or type. Short answers are fine; we draft from them and you approve."
       estimate="About 3 minutes for this step · about 12 left"
-      footer={<BuilderStepFooter back={back} skip={skip ? { href: skip, label: 'Skip for now' } : undefined}><Button href={next ?? ''}>Continue</Button></BuilderStepFooter>}
+      footer={<BuilderStepFooter back={back} skip={skip} next={{ label: 'Continue', href: next }} />}
     >
       <Stack gap={3}>
         <ToggleGroup label="Answer mode" options={modes} value={mode} onChange={setMode} />

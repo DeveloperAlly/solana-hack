@@ -16,7 +16,7 @@
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Button, Field, Grid } from '../../ui/primitives';
+import { Field, Grid } from '../../ui/primitives';
 import { BuilderChoiceCards } from '../../ui/domain/BuilderChoiceCards';
 import { BuilderSelect } from '../../ui/domain/BuilderSelect';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
@@ -51,7 +51,7 @@ export function BB1Basics({ data, state = 'success' }: { data: BasicsData; state
       title="The basics"
       intro="We read anything public you link, so we only ask about what's missing."
       estimate="About 15 minutes in all · about 2 minutes for this step · saved as you go"
-      footer={<BuilderStepFooter back={back} skip={skip ? { href: skip, label: 'Skip for now' } : undefined}><Button onClick={submit}>Continue: read my links</Button></BuilderStepFooter>}
+      footer={<BuilderStepFooter back={back} skip={skip} next={{ label: 'Continue: read my links', onClick: submit }} />}
     >
       <Grid min="sm" gap={4}>
         <Field label="Name" defaultValue={data.brand.name} />

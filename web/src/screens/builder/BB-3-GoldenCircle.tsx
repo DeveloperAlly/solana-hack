@@ -10,7 +10,6 @@
  * States: success. Outside in, "why" emphasised; "Draft my purpose" leads to Gate 1 (note n-bb3.2), where
  * POST …/draft-section drafts the purpose.
  */
-import { Button } from '../../ui/primitives';
 import { BuilderAnswers } from './BuilderAnswers';
 import { BuilderStep } from './BuilderStep';
 import { BuilderStepFooter } from './BuilderStepFooter';
@@ -28,9 +27,7 @@ export function BB3GoldenCircle({ data }: { data: GoldenCircleData }) {
       intro="Start from the outside in. One or two sentences each."
       estimate="About 2 minutes · then Gate 1: Purpose"
       footer={
-        <BuilderStepFooter back={back} skip={skip ? { href: skip, label: "Skip, draft from what you've told us" } : undefined}>
-          <Button href={next ?? ''}>Draft my purpose</Button>
-        </BuilderStepFooter>
+        <BuilderStepFooter back={back} skip={skip} skipLabel="Skip, draft from what you've told us" next={{ label: 'Draft my purpose', href: next }} />
       }
     >
       <BuilderAnswers answers={data.questions} layout="grid" />

@@ -33,6 +33,7 @@ export function Onboard1SignIn({ data, state = 'success' }: { data: SignInData; 
           defaultEmail={data.email}
           resendNote={data.resendNote}
           phase={phaseFor[state] ?? 'ready'}
+          initialSentTo={state === 'error' ? data.email : undefined}
           initialCodeError={state === 'error' ? data.codeError : undefined}
           onVerified={() => next && navigate(next)}
         />

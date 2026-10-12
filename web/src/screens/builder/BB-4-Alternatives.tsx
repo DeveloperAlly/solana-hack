@@ -10,8 +10,8 @@
  * | optionSets  | POST …/draft-section (three positioning options, each with sources)            | loading while drafting     |
  * | sourcesNote | Sources behind the options (owner answers, public competitor pages)            | n/a                        |
  *
- * States: success; loading (option cards drafting; the note marks it [not drawn]). The pick is kept in the flow and
- * Gate 2 drafts from it. "Show three different options" moves to the next set.
+ * States: success; loading (option cards drafting; the note marks it [not drawn]). Nothing is pre-selected; Continue
+ * waits for drafting and a pick. The pick is kept in the flow and Gate 2 drafts from it. "Show three different options" moves to the next set.
  */
 import { useState } from 'react';
 import { Button, Text } from '../../ui/primitives';
@@ -25,16 +25,23 @@ import { BuilderStepFooter } from './BuilderStepFooter';
 import { useBuilderFlow } from './useBuilderFlow';
 import type { AlternativesData } from './types';
 
+/** Continue waits for drafting to finish and for an option the owner picked (nothing is chosen for them). */
+function blockReason(drafting: boolean, selected: string): string | null {
+  if (drafting) return 'Wait for the three options to finish drafting.';
+  if (!selected) return 'Pick one of the three options first.';
+  return null;
+}
+
 export function BB4Alternatives({ data, state = 'success' }: { data: AlternativesData; state?: ScreenState }) {
   const { back, next, skip, positioningOption, choosePositioning } = useBuilderFlow('alternatives');
   const [setIndex, setSetIndex] = useState(0);
   const options = data.optionSets[setIndex];
-  const selected = options.some((o) => o.value === positioningOption) ? positioningOption : options[0].value;
+  const selected = options.some((o) => o.value === positioningOption) ? positioningOption : '';
   function moreOptions() {
     // INTEGRATION: POST /api/brands/:id/draft-section (positioning, three more) (backend map §4, row "BB-2 to BB-6").
     const i = (setIndex + 1) % data.optionSets.length;
     setSetIndex(i);
-    choosePositioning(data.optionSets[i][0].value);
+    choosePositioning('');
   }
   return (
     <BuilderStep
@@ -44,9 +51,7 @@ export function BB4Alternatives({ data, state = 'success' }: { data: Alternative
       title="Alternatives and your edge"
       estimate="About 3 minutes · then Gate 2: Positioning"
       footer={
-        <BuilderStepFooter back={back} skip={skip ? { href: skip, label: 'Skip for now' } : undefined}>
-          <Button href={next ?? ''} onClick={() => choosePositioning(selected)}>Continue with option {selected}</Button>
-        </BuilderStepFooter>
+        <BuilderStepFooter back={back} skip={skip} next={{ label: selected ? `Continue with option ${selected}` : 'Continue', href: next, blockedReason: blockReason(state === 'loading', selected) }} />
       }
     >
       <BuilderAnswers answers={data.questions} />

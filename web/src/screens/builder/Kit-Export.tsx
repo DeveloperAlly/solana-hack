@@ -5,11 +5,9 @@
  * | Field    | Source                                                                       | Empty                        |
  * |----------|------------------------------------------------------------------------------|------------------------------|
  * | brandId  | The active brand (brand switcher)                                            | never                        |
- * | tree     | aDNA folder layout (architecture §8, aDNA export)                            | n/a                          |
- * | versions | kit_versions (version, approved date), current first                         | v1 only                      |
+ * | versions | kit_versions, current first: label (version, approved date), hash (matches the | v1 only                      |
+ * |          | onchain registration), file name "<brand>-kit-<version>.zip", aDNA folder tree |                              |
  * | includes | Client options: source list, decisions, missing sections as empty files      | n/a                          |
- * | hash     | kit_versions.hash of the chosen version (matches the onchain registration)   | n/a                          |
- * | fileName | "<brand>-kit-<version>.zip"                                                  | n/a                          |
  *
  * States: success (ready), loading (preparing the zip), error (could not build it). THIN: one zip of Markdown; no import
  * back yet (note n-kex).
@@ -31,7 +29,7 @@ export function KitExport({ data, state = 'success' }: { data: KitExportData; st
       tag="HACKATHON (THIN)"
       intro="Your kit is yours. Take it as a folder of plain Markdown files you can read, edit or load into any AI tool."
     >
-      <BuilderKitExport key={state} tree={data.tree} versions={data.versions} includes={data.includes} hash={data.hash} fileName={data.fileName} status={statusFor[state] ?? 'ready'} />
+      <BuilderKitExport key={state} versions={data.versions} includes={data.includes} status={statusFor[state] ?? 'ready'} />
     </BuilderHubPage>
   );
 }
