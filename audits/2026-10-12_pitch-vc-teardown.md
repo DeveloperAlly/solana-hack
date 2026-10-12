@@ -78,7 +78,7 @@ That is backlog phases 2 to 4 (slide 11). Competitors meter by seats or credits;
 
 **Finding.** "'Build, run, prove' doesn't say what the customer gets."
 
-**Answer.** The cover now leads with the outcome, "Your brand team, in one app", and keeps "Build your brand. Run it. Prove it." as the product line. A time-to-value number ("a brand kit in under 10 minutes", the phase 1 goal in the backlog) goes on the cover once it is measured.
+**Answer.** The cover now leads with the outcome, "Your brand team, in one app. Every post provably yours.", and keeps "Build your brand. Run it. Prove it." as the product line. A time-to-value number ("a brand kit in under 10 minutes", the phase 1 goal in the backlog) goes on the cover once it is measured.
 
 ## 8. The model is test numbers
 
