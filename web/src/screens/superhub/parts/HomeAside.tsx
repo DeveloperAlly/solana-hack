@@ -1,7 +1,7 @@
 import { Button, Heading, Link, Stack, Text } from '../../../ui/primitives';
 import { Card } from '../../../ui/composites/Card';
 import { SampleFlag } from '../../../ui/composites/SampleFlag';
-import { HubBarList } from '../../../ui/domain/HubBarList';
+import { BarList } from '../../../ui/composites/BarList';
 import { useHubLinks } from '../paths';
 import type { HubHomeData } from '../types';
 
@@ -13,7 +13,7 @@ export function HomeAside({ data }: { data: HubHomeData }) {
     <Stack as="aside" gap={4} aria-label="Campaign, brand pack and this week">
       <Card labelledBy="hub-campaign" header={<Heading level={2} size="lg" id="hub-campaign">{campaign.name}</Heading>}>
         <Text variant="small">{campaign.goal}</Text>
-        <HubBarList label="Campaign progress" hideLabels max={campaign.target} items={[{ label: 'Verified posts', value: campaign.done, display: `${campaign.done} of ${campaign.target}` }]} />
+        <BarList label="Campaign progress" hideLabels max={campaign.target} items={[{ label: 'Verified posts', value: campaign.done, display: `${campaign.done} of ${campaign.target}` }]} />
         <Text variant="small" tone="secondary">{campaign.caption}</Text>
         <Text variant="small"><Link href={links.campaignMeasure}>Campaign details</Link></Text>
       </Card>

@@ -17,7 +17,8 @@ import { Button, Field, Grid, Heading, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { DataTable } from '../../ui/composites/DataTable';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { StatusNote } from './parts/StatusNote';
 import { useLeads } from './hooks/useLeads';
 import { useHubLinks } from './paths';
@@ -31,7 +32,7 @@ export function Leads({ data }: { data: LeadsData }) {
   return (
     <HubPage section="grow" sub="leads">
       <Text variant="small" tone="secondary">{data.banner}</Text>
-      <PageHeader title="Find your customers" tag="EXPERIMENTAL" intro={data.intro} />
+      <PageHeader badges={<ComingSoonFlag tag="EXPERIMENTAL" />} title="Find your customers" intro={data.intro} />
       <Card as="div">
         <Grid min="sm" gap={3}>
           {fields.map(([k, label]) => (

@@ -16,14 +16,16 @@
  * to load, Retry.
  */
 import { Badge } from '../../ui/primitives/Badge';
-import { Button, Heading, Stack, Text } from '../../ui/primitives';
+import { Button, Heading, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { HubItemRow } from '../../ui/domain/HubItemRow';
+import { List, ListRow } from '../../ui/composites/ListRow';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
-import { StateView } from './parts/StateView';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+
+
+import { StateView } from '../../ui/composites/StateView';
 import { TemplateGallery } from './parts/TemplateGallery';
 import { PresetMatrix } from './parts/PresetMatrix';
 import { useHubLinks } from './paths';
@@ -51,13 +53,11 @@ export function VoiceTemplates({ data, state = 'success' }: { data: VoiceTemplat
         actions={<Button href={links.voiceEditor}>New voice</Button>}
       />
       <Card labelledBy="voices-kit" header={<Heading level={2} size="lg" id="voices-kit">{brand.name} voices in kit {data.kitVersion}</Heading>}>
-        <Stack as="ul" gap={0}>
+        <List label="Voices in this kit">
           {data.voices.map((v) => (
-            <HubItemRow key={v.id} as="li" aside={<Badge>{v.status}</Badge>} actions={<Button variant="secondary" href={links.voiceEditor}>Edit</Button>}>
-              <Text><strong>{v.name}</strong> · {v.detail}</Text>
-            </HubItemRow>
+            <ListRow key={v.id} title={v.name} detail={v.detail} aside={<Badge>{v.status}</Badge>} actions={<Button variant="secondary" href={links.voiceEditor}>Edit</Button>} />
           ))}
-        </Stack>
+        </List>
       </Card>
       {templates}
       <Text variant="small" tone="secondary">{data.flirtyNote}</Text>

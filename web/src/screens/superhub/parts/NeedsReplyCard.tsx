@@ -1,7 +1,7 @@
 import { Badge } from '../../../ui/primitives/Badge';
 import { useNavigate } from 'react-router';
 import { Button, Text } from '../../../ui/primitives';
-import { HubApprovalCard } from '../../../ui/domain/HubApprovalCard';
+import { ApprovalItem } from '../../../ui/domain/ApprovalItem';
 import { useHubLinks } from '../paths';
 import type { NeedsReplyItem } from '../types';
 
@@ -15,7 +15,7 @@ export function NeedsReplyCard({ item, onAct }: NeedsReplyCardProps) {
   const links = useHubLinks();
   const navigate = useNavigate();
   return (
-    <HubApprovalCard
+    <ApprovalItem
       meta={<><Badge tone={item.overdue ? 'warning' : 'neutral'}>{item.due}</Badge><Badge>{item.source}</Badge><strong>{item.from}</strong>{item.label && <span>· {item.label}</span>}</>}
       incoming={`"${item.quote}"`}
       note={<Text variant="small" tone="secondary">{item.why}</Text>}

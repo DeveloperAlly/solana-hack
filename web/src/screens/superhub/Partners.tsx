@@ -13,11 +13,12 @@
  * Empty: no partners yet (the table says so). States drawn: success only.
  */
 import { Badge } from '../../ui/primitives/Badge';
-import { Button, Field, Grid, Heading, SelectField, Text } from '../../ui/primitives';
+import { Button, Field, Grid, Heading, Select, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { DataTable } from '../../ui/composites/DataTable';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { StatusNote } from './parts/StatusNote';
 import { usePartnerInvite } from './hooks/usePartnerInvite';
 import type { PartnersData } from './types';
@@ -26,12 +27,12 @@ export function Partners({ data }: { data: PartnersData }) {
   const form = usePartnerInvite(data);
   return (
     <HubPage section="grow" sub="partners">
-      <PageHeader title="Partners" tag="ROADMAP" intro={data.intro} />
+      <PageHeader badges={<ComingSoonFlag tag="ROADMAP" />} title="Partners" intro={data.intro} />
       <Card labelledBy="partner-invite" header={<Heading level={2} size="lg" id="partner-invite">Invite a partner</Heading>}>
         <Grid min="sm" gap={3}>
           <Field label="Email" type="email" value={form.email} error={form.error} onChange={(e) => form.setEmail(e.target.value)} />
-          <SelectField label="Voices they can use" placeholder="Choose voices" options={data.voiceOptions} value={form.voices} onChange={(e) => form.setVoices(e.target.value)} />
-          <SelectField label="Approval" placeholder="Choose how drafts are approved" options={data.approvalOptions} value={form.approval} onChange={(e) => form.setApproval(e.target.value)} />
+          <Select label="Voices they can use" options={[{ value: '', label: 'Choose voices', disabled: true }, ...data.voiceOptions]} value={form.voices} onChange={(e) => form.setVoices(e.target.value)} />
+          <Select label="Approval" options={[{ value: '', label: 'Choose how drafts are approved', disabled: true }, ...data.approvalOptions]} value={form.approval} onChange={(e) => form.setApproval(e.target.value)} />
         </Grid>
         <Button onClick={form.invite} disabled={!form.ready}>Send invite (uses 1 of {data.seatsTotal} seats)</Button>
         {form.seatsFull && <Text variant="small" tone="secondary">All {data.seatsTotal} seats are in use.</Text>}

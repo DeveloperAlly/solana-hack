@@ -3,7 +3,7 @@ import { useHubLinks } from '../paths';
 import { Card } from '../../../ui/composites/Card';
 import { StatePanel } from '../../../ui/composites/StatePanel';
 import type { ScreenState } from '../../../ui/composites/DemoStateSwitcher';
-import { HubItemRow } from '../../../ui/domain/HubItemRow';
+import { List, ListRow } from '../../../ui/composites/ListRow';
 import { useConnections } from '../hooks/useConnections';
 import type { AnalyticsData } from '../types';
 import { ConnectionBanner } from './ConnectionBanner';
@@ -25,13 +25,11 @@ export function AnalyticsConnect({ connect, state }: AnalyticsConnectProps) {
     <Stack gap={4}>
       <Card labelledBy="analytics-connect" header={<Heading level={2} size="lg" id="analytics-connect">Connect your accounts to see performance</Heading>}>
         <Text tone="secondary">{connect.intro}</Text>
-        <Stack as="ul" gap={0}>
+        <List label="Accounts">
           {rows.map((s) => (
-            <HubItemRow key={s.id} as="li" aside={s.note && <Text as="span" variant="small" tone="secondary">{s.note}</Text>} actions={s.status === 'not-connected' ? <Button variant="secondary" onClick={() => link(s.id)}>Connect {s.name}</Button> : <ConnectionStatus status={s.status} />}>
-              <Text>{s.name}</Text>
-            </HubItemRow>
+            <ListRow key={s.id} title={s.name} detail={s.note} actions={s.status === 'not-connected' ? <Button variant="secondary" onClick={() => link(s.id)}>Connect {s.name}</Button> : <ConnectionStatus status={s.status} />} />
           ))}
-        </Stack>
+        </List>
       </Card>
       {state === 'loading' && <StatePanel kind="loading" title="Collecting your first numbers" body="New connections show numbers after about 24 hours." />}
       {/* INTEGRATION: reconnect re-runs the provider OAuth (row "Settings › Connections"); the metrics cron backfills. */}

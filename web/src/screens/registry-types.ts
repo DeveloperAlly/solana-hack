@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import type { RouteTag } from '../config/routes';
 import type { ScreenState } from '../ui/composites/DemoStateSwitcher';
+import type { ArtboardName } from '../config/artboards';
 
 /**
  * Canvas pages, in canvas order, from the wireframe canvas (canvas.json `pages`; canvas link in issue #45).
@@ -21,7 +22,7 @@ export type CanvasPageId = (typeof canvasPages)[number]['id'];
 /** One canvas artboard, built as a screen and registered in its page's `src/screens/<folder>/registry.ts`. */
 export interface ScreenEntry {
   /** Canvas artboard name: the file name without `.dc.html`, e.g. "Verify-2-NoMatch". It is the gallery URL. */
-  artboard: string;
+  artboard: ArtboardName;
   page: CanvasPageId;
   /** Canvas title without the tag prefix, e.g. "Verify: not found". */
   title: string;

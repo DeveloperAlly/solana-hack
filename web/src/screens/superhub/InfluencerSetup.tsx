@@ -15,13 +15,14 @@
  *
  * States drawn: success only (a new persona starts from these defaults).
  */
-import { Button, Field, Grid, Heading, SelectField, Stack, Text } from '../../ui/primitives';
+import { Button, Field, Grid, Heading, Select, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { CheckboxRow } from '../../ui/composites/CheckboxRow';
-import { HubColumns } from '../../ui/domain/HubColumns';
+import { Columns } from '../../ui/layouts/Columns';
 import { HubWatermarkMedia } from '../../ui/domain/HubWatermarkMedia';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { StatusNote } from './parts/StatusNote';
 import { usePersonaSetup } from './hooks/usePersonaSetup';
 import type { InfluencerSetupData } from './types';
@@ -38,13 +39,13 @@ export function InfluencerSetup({ data }: { data: InfluencerSetupData }) {
   return (
     <HubPage section="grow" sub="influencer">
       <Text variant="small" tone="secondary">{data.banner}</Text>
-      <PageHeader title="Create your influencer" tag="EXPERIMENTAL" />
-      <HubColumns end={preview}>
+      <PageHeader badges={<ComingSoonFlag tag="EXPERIMENTAL" />} title="Create your influencer" />
+      <Columns end={preview}>
         <Card labelledBy="persona-fields" header={<Heading level={2} size="lg" id="persona-fields">Persona</Heading>}>
           <Grid min="sm" gap={3}>
             <Field label="Name" value={p.name} error={p.error} onChange={(e) => p.setName(e.target.value)} />
-            <SelectField label="Represents" placeholder="Choose a brand" options={data.brandOptions} value={p.brand} onChange={(e) => p.setBrand(e.target.value)} />
-            <SelectField label="Voice" placeholder="Choose a voice" options={data.voiceOptions} value={p.voice} onChange={(e) => p.setVoice(e.target.value)} />
+            <Select label="Represents" options={[{ value: '', label: 'Choose a brand', disabled: true }, ...data.brandOptions]} value={p.brand} onChange={(e) => p.setBrand(e.target.value)} />
+            <Select label="Voice" options={[{ value: '', label: 'Choose a voice', disabled: true }, ...data.voiceOptions]} value={p.voice} onChange={(e) => p.setVoice(e.target.value)} />
             <Field label="Content pillars" value={p.pillars} onChange={(e) => p.setPillars(e.target.value)} />
           </Grid>
         </Card>
@@ -60,7 +61,7 @@ export function InfluencerSetup({ data }: { data: InfluencerSetupData }) {
         </Card>
         <StatusNote>{p.saved && 'Draft saved.'}</StatusNote>
         <Stack direction="row" gap={3} justify="end"><Button variant="secondary" onClick={p.save}>Save draft</Button><Button onClick={p.create} disabled={!p.ready}>Create persona</Button></Stack>
-      </HubColumns>
+      </Columns>
     </HubPage>
   );
 }

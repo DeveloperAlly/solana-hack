@@ -3,7 +3,7 @@ import { Card } from '../../../ui/composites/Card';
 import { StatePanel } from '../../../ui/composites/StatePanel';
 import type { ScreenState } from '../../../ui/composites/DemoStateSwitcher';
 import { useHubLinks } from '../paths';
-import { StateView } from './StateView';
+import { StateView } from '../../../ui/composites/StateView';
 
 export interface VoicePreviewProps {
   note: string;

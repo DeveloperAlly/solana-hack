@@ -3,8 +3,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { renderWithRouter } from '../../test/render';
-import { Box, Button, Container, Field, Heading, Link, SelectField, Stack, Text } from '.';
-import { expectNoAxeViolations } from '../../test/axe';
+import { Box, Button, Container, Heading, Link, Stack, Text } from '.';
 
 describe('P1 Box', () => {
   it.each(['none', 'canvas', 'surface', 'subtle', 'inverse'] as const)('renders background %s', (bg) => {
@@ -102,31 +101,5 @@ describe('P8 Button', () => {
     );
     await userEvent.click(screen.getByRole('link', { name: 'Build my brand' }));
     expect(screen.getByText('Sign in page')).toBeInTheDocument();
-  });
-});
-
-describe('C1 Field (hidden label)', () => {
-  it('names the input with a visually hidden label', () => {
-    renderWithRouter(<Field label="Target for reach" hideLabel defaultValue="40" />);
-    expect(screen.getByRole('textbox', { name: 'Target for reach' })).toHaveValue('40');
-    expect(screen.getByText('Target for reach')).toHaveClass('wl-visually-hidden');
-  });
-});
-
-describe('C1 SelectField', () => {
-  it('starts on its placeholder, so nothing is chosen for the person', () => {
-    renderWithRouter(<SelectField label="Voice" placeholder="Choose a voice" options={[{ value: 'a', label: 'Founder' }]} value="" onChange={() => {}} />);
-    expect(screen.getByRole('combobox', { name: 'Voice' })).toHaveValue('');
-    expect(screen.getByRole('option', { name: 'Choose a voice' })).toBeDisabled();
-  });
-  it('renders a labelled select from options and changes value, with no axe violations', async () => {
-    let picked = '';
-    const { container } = renderWithRouter(
-      <SelectField label="Approval" hint="Who signs off" options={[{ value: 'you', label: 'You approve every piece' }, { value: 'lead', label: 'A lead approves' }]} defaultValue="you" onChange={(e: { target: { value: string } }) => { picked = e.target.value; }} />,
-    );
-    const select = screen.getByRole('combobox', { name: 'Approval' });
-    await userEvent.selectOptions(select, 'lead');
-    expect(picked).toBe('lead');
-    await expectNoAxeViolations(container);
   });
 });

@@ -14,7 +14,8 @@
  */
 import { Button, Grid, Text } from '../../ui/primitives';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { InfluencerPostCard } from './parts/InfluencerPostCard';
 import { useReviewQueue } from './hooks/useReviewQueue';
 import { useOutcomes } from './hooks/useOutcomes';
@@ -32,7 +33,7 @@ export function InfluencerQueue({ data }: { data: InfluencerQueueData }) {
   return (
     <HubPage section="grow" sub="influencer">
       <Text variant="small" tone="secondary">{data.banner}</Text>
-      <PageHeader title={title} tag="EXPERIMENTAL" intro={subtitle} actions={<Button variant="secondary" href={links.influencerSetup}>Persona settings</Button>} />
+      <PageHeader badges={<ComingSoonFlag tag="EXPERIMENTAL" />} title={title} intro={subtitle} actions={<Button variant="secondary" href={links.influencerSetup}>Persona settings</Button>} />
       <Grid min="md" gap={4}>
         {data.posts.map((post) => (
           <InfluencerPostCard key={post.id} post={post} stamped={post.stamped || !!restamped.outcomeOf(post.id)} onRestamp={() => restamped.set(post.id, 'stamped')} queue={queue} />

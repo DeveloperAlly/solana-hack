@@ -3,9 +3,9 @@
  * `Data contract` comment says where every field comes from (backend map rows, .agentic/what/context/backend_map.md §4).
  */
 import type { HubThreadMessage } from '../../ui/domain/HubThread';
-import type { CoverageStatus } from '../../ui/domain/HubCoverageBadge';
-import type { HubBarItem } from '../../ui/domain/HubBarList';
-import type { SelectOption as FieldOption } from '../../ui/primitives/SelectField';
+import type { CoverageStatus } from '../../ui/domain/CoverageBadge';
+import type { BarListItem } from '../../ui/composites/BarList';
+import type { SelectOption as FieldOption } from '../../ui/primitives/Select';
 import type { HubLink } from './paths';
 
 /** A KPI tile (C12 StatTile). */
@@ -217,14 +217,21 @@ export interface DraftCheck {
   result: string;
 }
 
-export interface DraftReviewData {
-  /** The content-dashboard draft shown when none is passed in router state. */
-  draftId: string;
+/** One draft's own content (Draft-Review shows the draft whose id it was opened with). */
+export interface DraftContent {
   title: string;
   context: string;
-  charLimit: number;
+  /** Channel name; X has a hard limit counted as X weights it (lib/xLength). */
+  channel: string;
   versions: DraftVersion[];
   slopFixes: { removed: string; added?: string }[];
+}
+
+export interface DraftReviewData {
+  /** The draft shown when none is passed in router state. */
+  draftId: string;
+  /** Every draft's content by id (the content dashboard's draft ids). */
+  drafts: Record<string, DraftContent>;
   slopPhrases: string[];
   approvedNumbers: string[];
   polishResults: Record<PolishAction, string>;
@@ -249,19 +256,6 @@ export interface CampaignMetric {
   source: string;
   /** False when the platform does not share the number: no target input. */
   measurable: boolean;
-}
-
-/** Everything a person enters across the campaign wizard steps. */
-export interface CampaignValues {
-  name: string;
-  dates: string;
-  purpose: string;
-  customPurpose: string;
-  platforms: string[];
-  poster: string;
-  mainMetric: string;
-  supporting: string[];
-  targets: Record<string, string>;
 }
 
 export interface CampaignData {
@@ -381,8 +375,8 @@ export interface InfluencerQueueData {
 /** The numbers for one date range. */
 export interface AnalyticsRange {
   kpis: Kpi[];
-  byVoice: HubBarItem[];
-  byFormat: HubBarItem[];
+  byVoice: BarListItem[];
+  byFormat: BarListItem[];
   top: { id: string; post: string; rate: string }[];
   notWorking: { id: string; what: string; rate: string; posts: string }[];
 }

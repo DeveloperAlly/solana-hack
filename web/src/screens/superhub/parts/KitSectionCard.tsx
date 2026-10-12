@@ -1,7 +1,7 @@
 import { Badge } from '../../../ui/primitives/Badge';
 import { Box, Button, Field, Heading, Stack, Text } from '../../../ui/primitives';
 import { Card } from '../../../ui/composites/Card';
-import { HubCoverageBadge } from '../../../ui/domain/HubCoverageBadge';
+import { CoverageBadge } from '../../../ui/domain/CoverageBadge';
 import type { KitState } from '../hooks/useKitSections';
 import type { KitSection } from '../types';
 
@@ -20,7 +20,7 @@ export function KitSectionCard({ section: s, kit }: KitSectionCardProps) {
         <Stack direction="row" gap={2} align="center" wrap>
           <Heading level={2} size="lg" id={headingId}>{s.num}. {s.title}</Heading>
           {s.gate && <Badge>{s.gate}</Badge>}
-          <HubCoverageBadge status={s.status} showWord />
+          <CoverageBadge status={s.status} display="word" />
         </Stack>
         {s.body ? (
           <Text>{drafted && <><Badge>Drafted, confirm</Badge>{' '}</>}{s.body}</Text>

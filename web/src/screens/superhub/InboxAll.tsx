@@ -17,10 +17,11 @@
  * Empty: no sources connected, so the inbox is Inbox-Connect. A filter with no matches shows an empty message.
  * States drawn: success only.
  */
-import { HubColumns } from '../../ui/domain/HubColumns';
+import { Columns } from '../../ui/layouts/Columns';
 import { HubSideNav } from '../../ui/domain/HubSideNav';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { MessageList } from './parts/MessageList';
 import { ReadingPane } from './parts/ReadingPane';
 import { StatusNote } from './parts/StatusNote';
@@ -33,15 +34,15 @@ export function InboxAll({ data }: { data: InboxData }) {
   const inbox = useInbox(data);
   return (
     <HubPage section="inbox">
-      <PageHeader title="Inbox" tag="STRETCH" />
+      <PageHeader badges={<ComingSoonFlag tag="STRETCH" />} title="Inbox" />
       <StatusNote onUndo={inbox.last ? inbox.undoLast : undefined}>{inbox.last && lastText[inbox.last.outcome]}</StatusNote>
-      <HubColumns
+      <Columns
         start={<HubSideNav label="Inbox folders, sources and labels" sections={inbox.rail} current={inbox.filter} onSelect={inbox.select} />}
         end={inbox.open && <ReadingPane inbox={inbox} message={inbox.open} data={data} />}
-        endWidth="equal"
+        ratio="1-1"
       >
         <MessageList inbox={inbox} />
-      </HubColumns>
+      </Columns>
     </HubPage>
   );
 }

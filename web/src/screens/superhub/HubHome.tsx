@@ -16,14 +16,16 @@
  *
  * Empty: a new brand has no queues; the first-run hub is Journey J8 (page #48). States drawn: success only.
  */
-import { Button, Grid, Heading, Link, Stack, Text } from '../../ui/primitives';
+import { Button, Grid, Heading, Link } from '../../ui/primitives';
 import { Badge } from '../../ui/primitives/Badge';
 import { Card } from '../../ui/composites/Card';
 import { StatTile } from '../../ui/composites/StatTile';
-import { HubItemRow } from '../../ui/domain/HubItemRow';
-import { HubColumns } from '../../ui/domain/HubColumns';
+import { List, ListRow } from '../../ui/composites/ListRow';
+import { Columns } from '../../ui/layouts/Columns';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+
+
 import { HomeAside } from './parts/HomeAside';
 import { useActiveBrand } from './hooks/useHubSession';
 import { useHubLinks } from './paths';
@@ -38,17 +40,15 @@ export function HubHome({ data }: { data: HubHomeData }) {
       <Grid min="sm" gap={4}>
         {data.kpis.map((k) => <StatTile key={k.label} {...k} href={k.href && links[k.href]} />)}
       </Grid>
-      <HubColumns end={<HomeAside data={data} />}>
+      <Columns end={<HomeAside data={data} />}>
         <Card labelledBy="hub-needs" header={<><Heading level={2} size="lg" id="hub-needs">Needs you next</Heading><Link href={links.content}>All</Link></>}>
-          <Stack as="ul" gap={0}>
+          <List label="Needs you next">
             {data.needs.map((n) => (
-              <HubItemRow key={n.id} as="li" lead={<Badge>{n.chip}</Badge>} actions={<Button variant="secondary" href={links[n.href]}>Review</Button>}>
-                <Text>{n.text}</Text>
-              </HubItemRow>
+              <ListRow key={n.id} lead={<Badge>{n.chip}</Badge>} title={n.text} actions={<Button variant="secondary" href={links[n.href]}>Review</Button>} />
             ))}
-          </Stack>
+          </List>
         </Card>
-      </HubColumns>
+      </Columns>
     </HubPage>
   );
 }

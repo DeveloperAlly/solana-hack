@@ -1,0 +1,96 @@
+// The campaign draft every step reads and writes, and its fixture defaults (issue #46). In memory for the browser
+// session only: no network, nothing persisted (INTEGRATION: POST /api/campaigns, then PATCH /api/campaigns/:id per
+// step; backend map rows "Campaign-v2-1" to "Campaign-v2-6").
+import { useSyncExternalStore } from 'react';
+import { stepIndex, type CampaignStepId } from './steps';
+
+export interface CampaignDraft {
+  /** `customPurpose` describes a Custom purpose (Superhub step 1, issue #52). */
+  goal: { purpose: string; customPurpose?: string; name: string; dates: string; platforms: string[]; poster: string };
+  /** Audience segment ids from the kit. */
+  audience: string[];
+  success: { mainMetric: string; supporting: string[]; targets: Record<string, string> };
+  /** Content plan item ids the person removed. */
+  plan: { removed: string[] };
+  /** Payout per format, and the spending cap. */
+  budget: { payouts: Record<string, string>; cap: string };
+  /** The review step's approval of the spending cap. */
+  approval: { capApproved: boolean };
+}
+
+/**
+ * Fixture defaults. Bracketed values are placeholders, not a real brand's campaign. Choices a person must make
+ * (purpose, platforms, who posts, main metric, cap approval) start empty, so nothing is chosen for them.
+ */
+export const campaignDraftFixture: CampaignDraft = {
+  goal: { purpose: '', name: '', dates: '', platforms: [], poster: '' },
+  audience: [],
+  success: { mainMetric: '', supporting: [], targets: {} },
+  plan: { removed: [] },
+  budget: { payouts: { linkedin: '10', tutorial: '40' }, cap: '500' },
+  approval: { capApproved: false },
+};
+
+interface FlowState {
+  draft: CampaignDraft;
+  /** Steps whose Continue passed in this session. */
+  completed: Partial<Record<CampaignStepId, true>>;
+}
+
+/** The step that owns each draft section. */
+const sectionStep: Record<keyof CampaignDraft, CampaignStepId> = {
+  goal: 'goal',
+  audience: 'audience',
+  success: 'success',
+  plan: 'plan',
+  budget: 'budget',
+  approval: 'launch',
+};
+
+/** The completion marks of the steps before `step` only. */
+function completedBefore(completed: FlowState['completed'], step: CampaignStepId): FlowState['completed'] {
+  const cut = stepIndex(step);
+  return Object.fromEntries(Object.entries(completed).filter(([id]) => stepIndex(id as CampaignStepId) < cut));
+}
+
+const initialState = (): FlowState => ({ draft: structuredClone(campaignDraftFixture), completed: {} });
+let state = initialState();
+const listeners = new Set<() => void>();
+const emit = () => listeners.forEach((l) => l());
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
+};
+const read = () => state;
+
+export const campaignStore = {
+  read,
+  /**
+   * Replaces one section of the draft, e.g. set('audience', ['devs']) or set('goal', { ...draft.goal, name }).
+   * Changing a section un-completes the step that owns it and every later step (they were completed on the old
+   * data), so an edited earlier step can never be skipped past (Codex review on PR #80).
+   */
+  set<K extends keyof CampaignDraft>(key: K, value: CampaignDraft[K]) {
+    state = { ...state, draft: { ...state.draft, [key]: value }, completed: completedBefore(state.completed, sectionStep[key]) };
+    emit();
+  },
+  /** Un-completes this step and every later one (its input became incomplete). */
+  invalidate(step: CampaignStepId) {
+    const completed = completedBefore(state.completed, step);
+    if (Object.keys(completed).length === Object.keys(state.completed).length) return;
+    state = { ...state, completed };
+    emit();
+  },
+  complete(step: CampaignStepId) {
+    state = { ...state, completed: { ...state.completed, [step]: true } };
+    emit();
+  },
+  /** Starts a new campaign (and resets between tests). */
+  reset() {
+    state = initialState();
+    emit();
+  },
+  use: (): FlowState => useSyncExternalStore(subscribe, read, read),
+};

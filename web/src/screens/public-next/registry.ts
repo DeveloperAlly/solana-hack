@@ -14,7 +14,7 @@ import type { RouteTag } from '../../config/routes';
 // them to UI-3). Titles and tags are the canvas board titles (canvas.json). The live /verify and /ledger stay as they are.
 // Every screen remounts per artboard and state (the key), so each demo state starts fresh.
 
-function checkEntry(artboard: string, page: ScreenEntry['page'], title: string, tag: RouteTag, data: VerifyCheckData): ScreenEntry {
+function checkEntry(artboard: ScreenEntry['artboard'], page: ScreenEntry['page'], title: string, tag: RouteTag, data: VerifyCheckData): ScreenEntry {
   return {
     artboard,
     page,

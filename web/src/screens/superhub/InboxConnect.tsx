@@ -19,7 +19,8 @@ import { Card } from '../../ui/composites/Card';
 import { DataTable } from '../../ui/composites/DataTable';
 import { Menu } from '../../ui/composites/Menu';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { ConnectionBanner } from './parts/ConnectionBanner';
 import { ConnectionStatus } from './parts/ConnectionStatus';
 import { useConnections } from './hooks/useConnections';
@@ -36,7 +37,7 @@ export function InboxConnect({ data }: { data: InboxConnectData }) {
   };
   return (
     <HubPage section="inbox">
-      <PageHeader title="Bring your messages into one inbox" tag="STRETCH" intro="Connect each place people message you. We show exactly what each connection can see." />
+      <PageHeader badges={<ComingSoonFlag tag="STRETCH" />} title="Bring your messages into one inbox" intro="Connect each place people message you. We show exactly what each connection can see." />
       <ConnectionBanner message={banner} onReconnect={reconnectFailed} />
       <Card as="div">
         <DataTable

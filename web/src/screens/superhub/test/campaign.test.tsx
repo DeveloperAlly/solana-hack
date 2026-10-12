@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
+import { campaignStore } from '../../../flows/campaign/draft';
 import userEvent from '@testing-library/user-event';
 import { renderScreen } from './renderScreen';
 
@@ -47,6 +48,8 @@ describe('Campaign v2 wizard (n-c1, n-c2)', () => {
 
   it('the stepper marks done and current steps from the same order as Next and Back', () => {
     renderScreen('Campaign-v2-2-Measure');
+    // Done marks come from completion (the shared flow), not position: steps 1 and 2 finished earlier.
+    act(() => { campaignStore.complete('goal'); campaignStore.complete('audience'); });
     const steps = screen.getByRole('list', { name: 'Step 3 of 6' });
     const items = Array.from(steps.querySelectorAll('li'));
     expect(items.map((li) => li.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
@@ -58,8 +61,15 @@ describe('Campaign v2 wizard (n-c1, n-c2)', () => {
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/screens/Campaign-v2-3-Audience');
   });
 
+  it('Measure: Next waits for the earlier steps and links to the first one missing', () => {
+    renderScreen('Campaign-v2-2-Measure');
+    expect(screen.getByRole('button', { name: 'Next: content plan' })).toBeDisabled();
+    expect(screen.getByRole('link', { name: 'step 1: Goal and platforms' })).toHaveAttribute('href', '/screens/Campaign-v2-1-Goal');
+  });
+
   it('Measure: Next waits for a main goal and its target, caps supporting numbers at 3, then goes to the content plan', async () => {
     renderScreen('Campaign-v2-2-Measure');
+    act(() => { campaignStore.complete('goal'); campaignStore.complete('audience'); });
     const next = screen.getByRole('button', { name: 'Next: content plan' });
     expect(next).toBeDisabled();
     await userEvent.click(screen.getByRole('radio', { name: 'Main goal: Verified ambassador posts' }));

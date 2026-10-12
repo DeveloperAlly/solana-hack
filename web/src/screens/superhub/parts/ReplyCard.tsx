@@ -1,6 +1,6 @@
 import { Badge } from '../../../ui/primitives/Badge';
 import { Button, Text } from '../../../ui/primitives';
-import { HubApprovalCard } from '../../../ui/domain/HubApprovalCard';
+import { ApprovalItem } from '../../../ui/domain/ApprovalItem';
 import type { ReviewQueue } from '../hooks/useReviewQueue';
 import type { ReplyItem } from '../types';
 import { InlineEditor } from './InlineEditor';
@@ -23,7 +23,7 @@ export function ReplyCard({ item, queue }: ReplyCardProps) {
   const outcome = queue.outcomeOf(item.id);
   const editing = queue.editing === item.id;
   return (
-    <HubApprovalCard
+    <ApprovalItem
       meta={<><Badge>{item.channel}</Badge><strong>{item.author}</strong><span>· {item.ago}</span></>}
       incoming={`"${item.incoming}"`}
       note={<Text variant="small" tone="secondary">{item.note}</Text>}

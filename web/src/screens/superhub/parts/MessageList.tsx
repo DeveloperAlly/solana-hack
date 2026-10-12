@@ -2,7 +2,7 @@ import { Badge } from '../../../ui/primitives/Badge';
 import { Button, Field, Stack, Text } from '../../../ui/primitives';
 import { Menu } from '../../../ui/composites/Menu';
 import { EmptyState } from '../../../ui/composites/EmptyState';
-import { HubItemRow } from '../../../ui/domain/HubItemRow';
+import { List, ListRow } from '../../../ui/composites/ListRow';
 import type { InboxState } from '../hooks/useInbox';
 
 /** Inbox-All middle column: search, the Filters menu, bulk Done for checked rows, and the message rows (D38). */
@@ -20,22 +20,20 @@ export function MessageList({ inbox }: { inbox: InboxState }) {
         </Stack>
       )}
       {inbox.visible.length === 0 && <EmptyState title="No messages here" body="Nothing matches this view. Try another source or clear the search." />}
-      <Stack as="ul" gap={0}>
+      <List label="Message list">
         {inbox.visible.map((m) => (
-          <HubItemRow
+          <ListRow
             key={m.id}
-            as="li"
+            title={m.from}
+            detail={m.preview}
             selected={m.id === inbox.open?.id}
             unread={m.unread}
             lead={<><input type="checkbox" aria-label={`Select ${m.from}`} checked={inbox.checked.includes(m.id)} onChange={() => inbox.toggleChecked(m.id)} /><Badge>{m.sourceLabel}</Badge></>}
             aside={<Text variant="small">{inbox.outcomeOf(m.id) === 'sent' ? 'Replied' : m.time}</Text>}
             onSelect={() => inbox.openThread(m.id)}
-          >
-            <Text as="span" variant="label" truncate>{m.from}</Text>
-            <Text as="span" variant="small" tone="secondary" truncate>{m.preview}</Text>
-          </HubItemRow>
+          />
         ))}
-      </Stack>
+      </List>
     </Stack>
   );
 }

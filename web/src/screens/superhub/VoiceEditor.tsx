@@ -18,10 +18,11 @@
 import { Button, Heading, Stack } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { HubColumns } from '../../ui/domain/HubColumns';
-import { HubDial } from '../../ui/domain/HubDial';
+import { Columns } from '../../ui/layouts/Columns';
+import { Scale } from '../../ui/composites/Scale';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { SampleFlag } from '../../ui/composites/SampleFlag';
 import { ClaimsGateFieldset } from './parts/ClaimsGateFieldset';
 import { OverridesTable } from './parts/OverridesTable';
 import { VoicePreview } from './parts/VoicePreview';
@@ -34,16 +35,16 @@ export function VoiceEditor({ data, state = 'success' }: { data: VoiceEditorData
   const voice = useVoiceEditor(data);
   return (
     <HubPage section="brand" sub="voices">
-      <PageHeader title={data.name} intro={data.intro} back={{ href: links.voiceTemplates, label: 'Back to voices' }} sample />
-      <HubColumns end={<VoicePreview note={data.previewNote} sample={voice.sample} rules={voice.rules} state={state} onAnother={voice.nextSample} />}>
+      <PageHeader badges={<SampleFlag />} title={data.name} intro={data.intro} back={{ href: links.voiceTemplates, label: 'Back to voices' }} />
+      <Columns end={<VoicePreview note={data.previewNote} sample={voice.sample} rules={voice.rules} state={state} onAnother={voice.nextSample} />}>
         <Card labelledBy="voice-dims" header={<Heading level={2} size="lg" id="voice-dims">Dimensions</Heading>}>
           {data.dimensions.map((d) => (
-            <HubDial key={d.id} legend={d.legend} start={d.start} end={d.end} value={voice.values[d.id]} onChange={(v) => voice.setValue(d.id, v)} />
+            <Scale key={d.id} legend={d.legend} startLabel={d.start} endLabel={d.end} layout="stacked" value={voice.values[d.id]} onChange={(v) => voice.setValue(d.id, v)} />
           ))}
         </Card>
         <ClaimsGateFieldset level={data.claimsLevel} rules={data.claimsRules} checked={voice.checked} onToggle={voice.toggleRule} />
         <OverridesTable rows={data.overrides} />
-      </HubColumns>
+      </Columns>
       <Stack direction="row" gap={3} justify="end" wrap>
         <Button variant="secondary" onClick={voice.reset} disabled={!voice.changed}>Reset to {data.basedOn}</Button>
         <Button variant="secondary" href={links.voiceTemplates}>Cancel</Button>

@@ -21,14 +21,15 @@
 import { Button, Stack, Text } from '../../ui/primitives';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { HubColumns } from '../../ui/domain/HubColumns';
+import { Columns } from '../../ui/layouts/Columns';
 import { HubSideNav } from '../../ui/domain/HubSideNav';
-import { HubCoverageBadge } from '../../ui/domain/HubCoverageBadge';
+import { CoverageBadge } from '../../ui/domain/CoverageBadge';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { KitHeader } from './parts/KitHeader';
 import { KitSectionCard } from './parts/KitSectionCard';
-import { StateView } from './parts/StateView';
+import { StateView } from '../../ui/composites/StateView';
 import { useKitSections } from './hooks/useKitSections';
 import { useActiveBrand } from './hooks/useHubSession';
 import { useHubLinks } from './paths';
@@ -38,11 +39,11 @@ export function BrandBuild({ data, state = 'success' }: { data: BrandBuildData; 
   const links = useHubLinks();
   const kit = useKitSections(data.sections);
   const brand = useActiveBrand();
-  const toc = kit.sections.map((s) => ({ id: s.id, label: `${s.num} ${s.title}`, href: `#${s.id}`, badge: <HubCoverageBadge status={s.status} /> }));
+  const toc = kit.sections.map((s) => ({ id: s.id, label: `${s.num} ${s.title}`, href: `#${s.id}`, badge: <CoverageBadge status={s.status} /> }));
   const body = (
     <Stack gap={5}>
       <KitHeader kit={data.kit} counts={kit.counts} />
-      <HubColumns start={<HubSideNav label="Kit sections" sections={[{ items: toc }]} />}>
+      <Columns start={<HubSideNav label="Kit sections" sections={[{ items: toc }]} />}>
         {kit.sections.map((s) => <KitSectionCard key={s.id} section={s} kit={kit} />)}
         <Stack direction="row" gap={3} justify="end" wrap>
           {/* INTEGRATION: POST /api/brands/:id/ingest re-reads the sources; progress is Onboard-3b-Profiling. */}
@@ -50,12 +51,12 @@ export function BrandBuild({ data, state = 'success' }: { data: BrandBuildData; 
           {kit.unconfirmed > 0 && <Text variant="small" tone="secondary">Confirm the {kit.unconfirmed} drafted sections to approve.</Text>}
           {kit.unconfirmed > 0 ? <Button disabled>Approve as kit v[n+1]</Button> : <Button href={links.kitPublished}>Approve as kit v[n+1]</Button>}
         </Stack>
-      </HubColumns>
+      </Columns>
     </Stack>
   );
   return (
     <HubPage section="brand" sub="kit">
-      <PageHeader title={`${brand.name} brand kit`} tag="HACKATHON (THIN)" intro={data.intro} />
+      <PageHeader badges={<ComingSoonFlag tag="HACKATHON (THIN)" />} title={`${brand.name} brand kit`} intro={data.intro} />
       <StateView
         state={state}
         views={{

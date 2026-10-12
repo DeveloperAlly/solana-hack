@@ -1,6 +1,6 @@
 import { Badge } from '../../../ui/primitives/Badge';
 import { Button, Text } from '../../../ui/primitives';
-import { HubApprovalCard } from '../../../ui/domain/HubApprovalCard';
+import { ApprovalItem } from '../../../ui/domain/ApprovalItem';
 import { HubWatermarkMedia } from '../../../ui/domain/HubWatermarkMedia';
 import type { ReviewQueue } from '../hooks/useReviewQueue';
 import type { InfluencerPost } from '../types';
@@ -19,7 +19,7 @@ export function InfluencerPostCard({ post, stamped, onRestamp, queue }: Influenc
   const caption = queue.textOf(post.id, post.caption);
   const editing = queue.editing === post.id;
   return (
-    <HubApprovalCard
+    <ApprovalItem
       blocked={!stamped}
       media={<HubWatermarkMedia label={post.image} stamped={stamped} />}
       meta={<><Badge>{post.channel}</Badge><span>{post.when}</span></>}

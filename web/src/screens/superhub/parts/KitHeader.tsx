@@ -1,7 +1,7 @@
 import { Link, Stack, Text } from '../../../ui/primitives';
 import { Card } from '../../../ui/composites/Card';
 import { SampleFlag } from '../../../ui/composites/SampleFlag';
-import { HubCoverageBadge, coverageStatuses, coverageWord, type CoverageStatus } from '../../../ui/domain/HubCoverageBadge';
+import { CoverageBadge, coverageStatuses, coverageWord, type CoverageStatus } from '../../../ui/domain/CoverageBadge';
 import { useHubLinks } from '../paths';
 import type { BrandBuildData } from '../types';
 
@@ -28,7 +28,7 @@ export function KitHeader({ kit, counts }: KitHeaderProps) {
       </Card>
       <Stack direction="row" gap={4} align="center" wrap>
         {coverageStatuses.map((s) => (
-          <Text key={s} as="span" variant="small"><HubCoverageBadge status={s} /> {coverageWord(s)}: {legend[s]}</Text>
+          <Text key={s} as="span" variant="small"><CoverageBadge status={s} /> {coverageWord(s)}: {legend[s]}</Text>
         ))}
         <SampleFlag />
         <Text as="span" variant="small">E {counts.evidenced} · I {counts.inferred} · M {counts.missing}</Text>

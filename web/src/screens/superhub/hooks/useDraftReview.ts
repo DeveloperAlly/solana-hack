@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import { useHubSession } from './useHubSession';
-import type { DraftReviewData, DraftStatus, PolishAction } from '../types';
-import { evaluateDraftChecks } from './draftChecks';
+import type { DraftContent, DraftReviewData, DraftStatus, PolishAction } from '../types';
+import { draftLength, evaluateDraftChecks } from './draftChecks';
 
 export const polishLabels: Record<PolishAction, string> = { review: 'Review', shorten: 'Shorten', clarify: 'Clarify', beautify: 'Beautify' };
 
@@ -22,14 +22,17 @@ function movedTo(d: Decision | null, route: string): DraftStatus | undefined {
   return route === 'schedule' ? 'scheduled' : 'posted';
 }
 
-export function useDraftReview(data: DraftReviewData, busy = false) {
-  // The draft opened from the content dashboard (router state), else the fixture's.
-  const draftId = (useLocation().state as { draftId?: string } | null)?.draftId ?? data.draftId;
+/** Which draft to show: the id passed in router state from the content dashboard, else the fixture's default. */
+export function useSelectedDraftId(data: DraftReviewData): string {
+  return (useLocation().state as { draftId?: string } | null)?.draftId ?? data.draftId;
+}
+
+export function useDraftReview(data: DraftReviewData, draftId: string, draft: DraftContent, busy = false) {
   const [, update] = useHubSession();
-  const [versions, setVersions] = useState(data.versions);
+  const [versions, setVersions] = useState(draft.versions);
   // Version numbers only go up, so an undo followed by a new polish never reuses a version id.
-  const lastVersion = useRef(data.versions.length);
-  const [text, setTextState] = useState(data.versions.at(-1)?.text ?? '');
+  const lastVersion = useRef(draft.versions.length);
+  const [text, setTextState] = useState(draft.versions.at(-1)?.text ?? '');
   const [failed, setFailed] = useState<PolishAction | undefined>(data.failedAction);
   const [accessible, setAccessible] = useState(true);
   const [showOriginal, setShowOriginal] = useState(false);
@@ -55,9 +58,10 @@ export function useDraftReview(data: DraftReviewData, busy = false) {
   const last = versions.at(-1);
   const beautified = last?.action === 'beautify' ? { before: versions.at(-2)?.text ?? '', after: last.text } : undefined;
   // One evaluation feeds both the badges and the Approve gate (draftChecks.ts).
-  const checks = evaluateDraftChecks(text, data);
+  const checks = evaluateDraftChecks(text, data, draft);
   const blockers = checks.filter((c) => c.blocking).map((c) => c.reason ?? c.label);
-  const overLimit = text.length > data.charLimit;
+  const length = draftLength(text, draft.channel);
+  const overLimit = length.limit !== null && length.size > length.limit;
   const canApprove = !busy && blockers.length === 0 && publish !== '';
 
   function polish(action: PolishAction) {
@@ -84,7 +88,7 @@ export function useDraftReview(data: DraftReviewData, busy = false) {
   }
 
   return {
-    text, setText: changeText, locked, versions, beautified, checks, blockers, overLimit, canApprove,
+    draft, length, text, setText: changeText, locked, versions, beautified, checks, blockers, overLimit, canApprove,
     failed, retry: () => failed && polish(failed), dismiss: () => setFailed(undefined), polish, undo,
     accessible, setAccessible, showOriginal, toggleOriginal: () => setShowOriginal((s) => !s),
     publish, setPublish, decision,

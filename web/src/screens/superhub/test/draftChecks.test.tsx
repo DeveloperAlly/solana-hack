@@ -19,15 +19,17 @@ const cases: { check: string; text: string; badge: RegExp }[] = [
 describe('Draft checks: one mapping feeds the badges and the Approve gate', () => {
   it('the drawn drafts of all three artboards have no blocking check', () => {
     for (const data of [draftReview, draftBeautified, draftPolishError]) {
-      expect(evaluateDraftChecks(data.versions.at(-1)!.text, data).filter((c) => c.blocking)).toEqual([]);
+      for (const draft of Object.values(data.drafts)) {
+        expect(evaluateDraftChecks(draft.versions.at(-1)!.text, data, draft).filter((c) => c.blocking)).toEqual([]);
+      }
     }
   });
 
   it('an empty post blocks', () => {
-    expect(evaluateDraftChecks('  ', draftReview).find((c) => c.label === 'Length')).toMatchObject({ blocking: true, value: 'Empty' });
+    expect(evaluateDraftChecks('  ', draftReview, draftReview.drafts.d1).find((c) => c.label === 'Length')).toMatchObject({ blocking: true, value: 'Empty' });
   });
 
-  for (const artboard of ['Draft-Review', 'Draft-Review-PolishError']) {
+  for (const artboard of ['Draft-Review', 'Draft-Review-PolishError'] as const) {
     for (const c of cases) {
       it(`${artboard}: ${c.check} alone disables Approve`, async () => {
         renderScreen(artboard, artboard === 'Draft-Review' ? undefined : 'error');

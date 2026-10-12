@@ -18,9 +18,10 @@ import { Button, Heading, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { EmptyState } from '../../ui/composites/EmptyState';
 import { Tabs } from '../../ui/composites/Tabs';
-import { HubColumns } from '../../ui/domain/HubColumns';
+import { Columns } from '../../ui/layouts/Columns';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { ReplyCard, type ReplyOutcome } from './parts/ReplyCard';
 import { WorthEngaging } from './parts/WorthEngaging';
 import { StatusNote } from './parts/StatusNote';
@@ -47,8 +48,8 @@ export function EngageQueue({ data }: { data: EngageQueueData }) {
     items.length ? <Stack gap={4}>{items.map((q) => <ReplyCard key={q.id} item={q} queue={queue} />)}</Stack> : <EmptyState level={3} title={empty} />;
   return (
     <HubPage section="grow" sub="engagement">
-      <PageHeader title="Engagement" tag="STRETCH" intro={data.intro} actions={<Button variant="secondary" href={links.engageRules}>Rules, lists and auto-replies</Button>} />
-      <HubColumns
+      <PageHeader badges={<ComingSoonFlag tag="STRETCH" />} title="Engagement" intro={data.intro} actions={<Button variant="secondary" href={links.engageRules}>Rules, lists and auto-replies</Button>} />
+      <Columns
         end={
           <Stack as="aside" gap={4} aria-label="Suggestions and limits">
             <WorthEngaging {...worth} />
@@ -69,7 +70,7 @@ export function EngageQueue({ data }: { data: EngageQueueData }) {
             { id: 'sent', label: 'Sent', count: sent.length, panel: list(sent, 'Nothing sent yet') },
           ]}
         />
-      </HubColumns>
+      </Columns>
     </HubPage>
   );
 }

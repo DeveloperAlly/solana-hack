@@ -21,9 +21,11 @@ import { Button, Stack, Text } from '../../ui/primitives';
 import { Tabs } from '../../ui/composites/Tabs';
 import { ToggleGroup } from '../../ui/composites/ToggleGroup';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { HubColumns } from '../../ui/domain/HubColumns';
+import { Columns } from '../../ui/layouts/Columns';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+
+
 import { ContentTabPanel } from './parts/ContentTabPanel';
 import { CalendarRail } from './parts/CalendarRail';
 import { useContentDashboard } from './hooks/useContentDashboard';
@@ -64,10 +66,10 @@ export function ContentDashboard({ data, state = 'success' }: { data: ContentDas
   return (
     <HubPage section="create" sub="content">
       <PageHeader title="Content" intro={pipeline} actions={<Button href={links.draftReview}>+ New draft</Button>} />
-      <HubColumns end={<CalendarRail slots={data.calendar} note={data.calendarNote} />}>
+      <Columns end={<CalendarRail slots={data.calendar} note={data.calendarNote} />}>
         <ToggleGroup label="Filter by channel" options={data.channels} value={[view.channel]} onChange={(v) => view.setChannel(v[0])} />
         {tabs}
-      </HubColumns>
+      </Columns>
     </HubPage>
   );
 }

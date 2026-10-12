@@ -1,7 +1,7 @@
 import { Button, Grid, Heading, Stack, Text } from '../../../ui/primitives';
 import { Card } from '../../../ui/composites/Card';
 import { DataTable } from '../../../ui/composites/DataTable';
-import { HubBarList } from '../../../ui/domain/HubBarList';
+import { BarList } from '../../../ui/composites/BarList';
 import { useOutcomes } from '../hooks/useOutcomes';
 import { useHubLinks } from '../paths';
 import type { AnalyticsData, AnalyticsRange } from '../types';
@@ -24,8 +24,8 @@ export function AnalyticsBreakdowns({ numbers, suggestions, note }: AnalyticsBre
   return (
     <Stack gap={5}>
       <Grid min="md" gap={4}>
-        <Card labelledBy="an-voice" header={<Heading level={2} size="lg" id="an-voice">Engagement by voice</Heading>}><HubBarList label="Engagement by voice" items={numbers.byVoice} />{numbers.byVoice.length === 0 && <Text tone="secondary">{none}</Text>}</Card>
-        <Card labelledBy="an-format" header={<Heading level={2} size="lg" id="an-format">Engagement by format</Heading>}><HubBarList label="Engagement by format" items={numbers.byFormat} />{numbers.byFormat.length === 0 && <Text tone="secondary">{none}</Text>}</Card>
+        <Card labelledBy="an-voice" header={<Heading level={2} size="lg" id="an-voice">Engagement by voice</Heading>}><BarList label="Engagement by voice" items={numbers.byVoice} />{numbers.byVoice.length === 0 && <Text tone="secondary">{none}</Text>}</Card>
+        <Card labelledBy="an-format" header={<Heading level={2} size="lg" id="an-format">Engagement by format</Heading>}><BarList label="Engagement by format" items={numbers.byFormat} />{numbers.byFormat.length === 0 && <Text tone="secondary">{none}</Text>}</Card>
       </Grid>
       <Grid min="md" gap={4}>
         <Card labelledBy="an-top" header={<Heading level={2} size="lg" id="an-top">Top posts</Heading>}>

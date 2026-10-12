@@ -2,19 +2,19 @@ import { useId } from 'react';
 import { Badge } from '../../../ui/primitives/Badge';
 import { Field, Stack, Text } from '../../../ui/primitives';
 import { DataTable } from '../../../ui/composites/DataTable';
-import type { CampaignFlow } from '../hooks/useCampaignFlow';
+import type { MeasureStep } from '../hooks/useMeasureStep';
 import type { CampaignMetric } from '../types';
 
 export interface MetricPickerProps {
   metrics: CampaignMetric[];
-  flow: CampaignFlow;
+  step: MeasureStep;
 }
 
 /**
  * D27 MetricPicker (n-c2 1–2): one main goal (radio) and up to three supporting numbers (checkboxes), a target for
  * each measurable metric, and where each number comes from. Numbers a platform does not share have no target input.
  */
-export function MetricPicker({ metrics, flow }: MetricPickerProps) {
+export function MetricPicker({ metrics, step: flow }: MetricPickerProps) {
   const name = useId();
   return (
     <Stack gap={2}>

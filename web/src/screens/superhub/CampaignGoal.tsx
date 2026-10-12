@@ -16,34 +16,38 @@
 import { Alert } from '../../ui/primitives/Alert';
 import { Box, Choice, Field, Grid, Stack, Text } from '../../ui/primitives';
 import { CheckboxRow } from '../../ui/composites/CheckboxRow';
-import { CampaignStepFrame } from './parts/CampaignStepFrame';
+import { CampaignStepFrame } from '../../flows/campaign/CampaignStepFrame';
+import { HubPage } from './parts/HubPage';
 import { PurposeOptions } from './parts/PurposeOptions';
-import { useCampaignFlow } from './hooks/useCampaignFlow';
+import { useGoalStep } from './hooks/useGoalStep';
 import type { CampaignData } from './types';
 
 export function CampaignGoal({ data }: { data: CampaignData }) {
-  const flow = useCampaignFlow('goal', data);
+  const step = useGoalStep();
+  const { goal } = step;
   return (
-    <CampaignStepFrame flow={flow} title="What's this campaign for?">
+    <HubPage section="create" sub="campaigns" width="wizard">
+    <CampaignStepFrame flow={step.flow} title="What's this campaign for?" missing={step.missing}>
       <Stack gap={5}>
-        <PurposeOptions options={data.purposes} value={flow.purpose} onChange={flow.setPurpose} />
-        {flow.purpose === 'custom' && <Field label="Describe it" value={flow.customPurpose} onChange={(e) => flow.setCustomPurpose(e.target.value)} />}
+        <PurposeOptions options={data.purposes} value={goal.purpose} onChange={step.setPurpose} />
+        {goal.purpose === 'custom' && <Field label="Describe it" value={goal.customPurpose ?? ''} onChange={(e) => step.setCustomPurpose(e.target.value)} />}
         <Grid min="sm" gap={4}>
-          <Field label="Campaign name" value={flow.name} placeholder={flow.examples.name} onChange={(e) => flow.setName(e.target.value)} />
-          <Field label="Dates" value={flow.dates} placeholder={flow.examples.dates} onChange={(e) => flow.setDates(e.target.value)} />
+          <Field label="Campaign name" value={goal.name} placeholder={data.name} onChange={(e) => step.setName(e.target.value)} />
+          <Field label="Dates" value={goal.dates} placeholder={data.dates} onChange={(e) => step.setDates(e.target.value)} />
         </Grid>
         <Box as="fieldset" padding={5} border="default" radius="box">
           <Text as="legend" variant="label">Platforms</Text>
           <Grid min="sm" gap={2}>
             {data.platforms.map((p) => (
-              <CheckboxRow key={p.id} label={p.detail ? `${p.label} · ${p.detail}` : p.label} checked={flow.platforms.includes(p.id)} onChange={() => flow.togglePlatform(p.id)} />
+              <CheckboxRow key={p.id} label={p.detail ? `${p.label} · ${p.detail}` : p.label} checked={goal.platforms.includes(p.id)} onChange={() => step.togglePlatform(p.id)} />
             ))}
           </Grid>
           <Text variant="small" tone="secondary">{data.mediaNote}</Text>
         </Box>
-        <Choice legend="Who posts" options={data.posterOptions} value={flow.poster} onChange={flow.setPoster} />
-        {flow.xWarning && <Alert tone="info">X is for your brand's own posts only; it is never a paid ambassador format.</Alert>}
+        <Choice legend="Who posts" options={data.posterOptions} value={goal.poster} onChange={step.setPoster} />
+        {step.xWarning && <Alert tone="info">X is for your brand's own posts only; it is never a paid ambassador format.</Alert>}
       </Stack>
     </CampaignStepFrame>
+    </HubPage>
   );
 }

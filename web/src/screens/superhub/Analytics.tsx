@@ -17,12 +17,14 @@
  * disconnected (n-ane). Analytics-Empty is the same screen in its empty, loading and error states.
  */
 import { useState } from 'react';
-import { Grid, Link, SelectField, Text } from '../../ui/primitives';
+import { Grid, Link, Select, Text } from '../../ui/primitives';
 import { StatTile } from '../../ui/composites/StatTile';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
-import { StateView } from './parts/StateView';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
+import { SampleFlag } from '../../ui/composites/SampleFlag';
+import { StateView } from '../../ui/composites/StateView';
 import { AnalyticsConnect } from './parts/AnalyticsConnect';
 import { AnalyticsBreakdowns } from './parts/AnalyticsBreakdowns';
 import { useHubLinks } from './paths';
@@ -37,11 +39,10 @@ export function Analytics({ data, state = 'success' }: { data: AnalyticsData; st
   return (
     <HubPage section="analytics">
       <PageHeader
+        badges={<><ComingSoonFlag tag="ROADMAP" />{state === 'success' && <SampleFlag />}</>}
         title="What's working"
-        tag="ROADMAP"
-        sample={state === 'success'}
         intro={state === 'success' ? `${rangeLabel} · all platforms` : undefined}
-        actions={state === 'success' && <SelectField label="Range" options={data.ranges} value={range} onChange={(e) => setRange(e.target.value)} />}
+        actions={state === 'success' && <Select label="Range" options={data.ranges} value={range} onChange={(e) => setRange(e.target.value)} />}
       />
       <StateView
         state={state}

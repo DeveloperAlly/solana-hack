@@ -140,3 +140,49 @@ describe('Review round 2 (Codex on PR #81)', () => {
     expect(screen.getByRole('tab', { name: 'Reply queue (3)' })).toBeInTheDocument();
   });
 });
+
+describe('Review round 3 (Codex on PR #81)', () => {
+  it('Review on d2 shows d2, and approving it moves d2 (not d1) on the dashboard', async () => {
+    renderScreen('Content-Dashboard');
+    await userEvent.click(screen.getByRole('button', { name: /^Review Blog/ }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Blog · Technical voice' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Post (editable)' })).toHaveValue('"Why agents need shared project context"');
+    const publish = screen.getByRole('region', { name: 'Publish' });
+    await userEvent.click(within(publish).getByRole('radio', { name: /Schedule/ }));
+    await userEvent.click(within(publish).getByRole('button', { name: 'Approve' }));
+    await userEvent.click(screen.getByRole('link', { name: 'Back to drafts awaiting approval' }));
+    expect(screen.queryByRole('button', { name: /^Review Blog/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Review X post/ })).toBeInTheDocument();
+  });
+
+  it('an unknown draft id shows "Draft not found" and no decisions', async () => {
+    const { draftReview } = await import('../DraftReview.fixtures');
+    const { render } = await import('@testing-library/react');
+    const { MemoryRouter } = await import('react-router');
+    const { DraftReview } = await import('../DraftReview');
+    render(<MemoryRouter initialEntries={[{ pathname: '/screens/Draft-Review', state: { draftId: 'gone' } }]}><DraftReview data={draftReview} /></MemoryRouter>);
+    expect(screen.getByRole('heading', { level: 1, name: 'Draft not found' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+  });
+
+  it('state is kept per brand: another brand does not see this brand\'s rules or decisions', async () => {
+    renderScreen('Engage-Rules');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Rule on: A question in #help' }));
+    await userEvent.click(screen.getByRole('button', { name: 'aDNA, switch brand' }));
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /film\.fun/ }));
+    expect(screen.getByRole('checkbox', { name: 'Rule on: A question in #help' })).toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: 'film.fun, switch brand' }));
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
+    expect(screen.getByRole('checkbox', { name: 'Rule on: A question in #help' })).not.toBeChecked();
+  });
+
+  it('the X length is weighted as X counts it, for the count and the gate', async () => {
+    renderScreen('Draft-Review');
+    const post = screen.getByRole('textbox', { name: 'Post (editable)' });
+    await userEvent.clear(post);
+    await userEvent.click(post);
+    await userEvent.paste('日'.repeat(141));
+    expect(screen.getByText(/282 \/ 280 characters \(as X counts them\)/)).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Checks' })).getByText(/282 \/ 280 · over the limit/)).toBeInTheDocument();
+  });
+});

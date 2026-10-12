@@ -16,7 +16,8 @@ import { Button, Heading, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { DataTable } from '../../ui/composites/DataTable';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { RuleTable } from './parts/RuleTable';
 import { AutoReplyCard } from './parts/AutoReplyCard';
 import { useEngageRules } from './hooks/useEngageRules';
@@ -28,7 +29,7 @@ export function EngageRules({ data }: { data: EngageRulesData }) {
   const state = useEngageRules(data);
   return (
     <HubPage section="grow" sub="engagement">
-      <PageHeader title="Rules, lists and auto-replies" tag="ROADMAP" back={{ href: links.engageQueue, label: '← Reply queue' }} />
+      <PageHeader badges={<ComingSoonFlag tag="ROADMAP" />} title="Rules, lists and auto-replies" back={{ href: links.engageQueue, label: '← Reply queue' }} />
       <RuleTable state={state} />
       <AutoReplyCard autoReply={data.autoReply} state={state} />
       <Card labelledBy="rules-lists" header={<Heading level={2} size="lg" id="rules-lists">Suggested lists</Heading>}>

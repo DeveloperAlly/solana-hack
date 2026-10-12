@@ -1,25 +1,36 @@
-// Route paths for the "Verify + ledger" page (issue #49). Every link between these screens comes from here.
-// Each artboard opens at its gallery route /screens/<Artboard> (issue #45); the live /verify and /ledger stay unchanged.
-const screen = (artboard: string) => `/screens/${artboard}`;
+// Link targets for the "Verify + ledger" page (issue #49). Paths come from the gallery's shared screenPath /
+// useScreenHref (web/src/gallery/screenPath.ts), which keeps ?theme=; this file only names the artboards and adds the
+// two page params. The live /verify and /ledger stay unchanged.
+import { useScreenHref } from '../../gallery/screenPath';
 
-export const verifyPaths = {
-  match: screen('Verify-1-Match'),
-  noMatch: screen('Verify-2-NoMatch'),
-  edited: screen('Verify-3-Edited'),
-  lookup: screen('Verify-4-Kit-Account-Claim'),
-  retracted: screen('Verify-5-Retracted'),
-  ledger: screen('Ledger'),
+export const verifyArtboards = {
+  match: 'Verify-1-Match',
+  noMatch: 'Verify-2-NoMatch',
+  edited: 'Verify-3-Edited',
+  lookup: 'Verify-4-Kit-Account-Claim',
+  retracted: 'Verify-5-Retracted',
+  ledger: 'Ledger',
 } as const;
 
 /** Query keys these screens read: `q` preloads the Verify box, `brand` picks the Ledger brand. */
 export const verifyParams = { query: 'q', brand: 'brand' } as const;
 
-/** Verify with this text already checked (Ledger "Check it", Verify-3 "View the original"). */
-export function checkHref(text: string): string {
-  return `${verifyPaths.match}?${verifyParams.query}=${encodeURIComponent(text)}`;
+function withParam(path: string, key: string, value: string): string {
+  return `${path}${path.includes('?') ? '&' : '?'}${key}=${encodeURIComponent(value)}`;
 }
 
-/** The Ledger opened on one brand (Verify-1 "See aDNA's public ledger"). */
-export function ledgerHref(brandId: string): string {
-  return `${verifyPaths.ledger}?${verifyParams.brand}=${encodeURIComponent(brandId)}`;
+export interface VerifyLinks {
+  /** Verify with this text already checked (Ledger "Check it", Verify-3 "View the original"). */
+  check: (text: string) => string;
+  /** The Ledger opened on one brand (Verify-1 "See aDNA's public ledger"). */
+  ledger: (brandId: string) => string;
+}
+
+/** Links that carry a page param as well as the gallery theme. Plain screen links use the gallery's ScreenLink. */
+export function useVerifyLinks(): VerifyLinks {
+  const href = useScreenHref();
+  return {
+    check: (text) => withParam(href(verifyArtboards.match), verifyParams.query, text),
+    ledger: (brandId) => withParam(href(verifyArtboards.ledger), verifyParams.brand, brandId),
+  };
 }

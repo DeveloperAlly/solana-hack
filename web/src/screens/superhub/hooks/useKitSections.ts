@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CoverageStatus } from '../../../ui/domain/HubCoverageBadge';
+import type { CoverageStatus } from '../../../ui/domain/CoverageBadge';
 import type { KitSection } from '../types';
 
 /**

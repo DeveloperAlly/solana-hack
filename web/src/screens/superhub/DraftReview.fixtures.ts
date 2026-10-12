@@ -4,20 +4,33 @@
 // self-graded today, posts.ts L81 per n-dr 3). Backend map row "Draft-Review" (.agentic/what/context/backend_map.md §4).
 // slopPhrases and avoidTerms are short samples of what the no-AI-slop pass and the kit's vocabulary block, so the live
 // checks can be tried here; the real lists come from the slop rules and the kit (Brand-Build section 11).
-import type { DraftReviewData } from './types';
+import type { DraftContent, DraftReviewData } from './types';
+import { contentDashboard } from './ContentDashboard.fixtures';
 
 const draft = '[Draft post in the core voice, about 220 characters, written from the brief and the approved messaging]';
 
+/** The two drawn versions of a draft: the first draft and the slop check's automatic fixes. */
+const drawnVersions = (text: string) => [
+  { id: 'v1', label: 'v1 · first draft', text: '[First draft, before the slop check]' },
+  { id: 'v2', label: 'v2 · slop check fixes (automatic)', text, action: 'slop' as const },
+];
+
+/** Bracketed placeholder fixes, as many as the content dashboard says the slop check made. */
+const fixes = (slop: string) => Array.from({ length: Number(/(\d+) fix/.exec(slop)?.[1] ?? 0) }, (_, i) => ({ removed: `[slop phrase ${i + 1}]` }));
+
+/** d1 is the drawn Draft-Review board; the others take their text from the content dashboard rows. */
+const drafts: Record<string, DraftContent> = Object.fromEntries(
+  contentDashboard.drafts.map((d) => [
+    d.id,
+    d.id === 'd1'
+      ? { title: 'X post · Core voice', context: 'aDNA · first post after kit v[n] · drafted from your brief', channel: 'X', versions: drawnVersions(draft), slopFixes: [{ removed: '[generic opener]' }, { removed: '[hype adjective]', added: '[plain word]' }] }
+      : { title: `${d.format} · ${d.meta.split(' · ')[0]}`, context: d.meta, channel: d.channel, versions: drawnVersions(d.title), slopFixes: fixes(d.slop) },
+  ]),
+);
+
 export const draftReview: DraftReviewData = {
   draftId: 'd1',
-  title: 'X post · Core voice',
-  context: 'aDNA · first post after kit v[n] · drafted from your brief',
-  charLimit: 280,
-  versions: [
-    { id: 'v1', label: 'v1 · first draft', text: '[First draft, before the slop check]' },
-    { id: 'v2', label: 'v2 · slop check fixes (automatic)', text: draft, action: 'slop' },
-  ],
-  slopFixes: [{ removed: '[generic opener]' }, { removed: '[hype adjective]', added: '[plain word]' }],
+  drafts,
   slopPhrases: ['game-changer', 'revolutionary', 'unlock the power', 'delve'],
   approvedNumbers: [],
   polishResults: {
@@ -48,7 +61,10 @@ export const draftReview: DraftReviewData = {
 /** Draft-Review-Beautified (n-drb): v3 Beautify (accessible mode) on top of v2 slop fixes. */
 export const draftBeautified: DraftReviewData = {
   ...draftReview,
-  versions: [...draftReview.versions, { id: 'v3', label: 'v3 · Beautify (accessible mode)', text: draftReview.polishResults.beautify, action: 'beautify' }],
+  drafts: {
+    ...drafts,
+    d1: { ...drafts.d1, versions: [...drafts.d1.versions, { id: 'v3', label: 'v3 · Beautify (accessible mode)', text: draftReview.polishResults.beautify, action: 'beautify' }] },
+  },
 };
 
 /** Draft-Review-PolishError (n-dre): Shorten failed; the draft is unchanged. */

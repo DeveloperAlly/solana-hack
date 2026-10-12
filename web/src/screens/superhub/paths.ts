@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useScreenHref } from '../../gallery/screenPath';
+import type { ArtboardName } from '../../config/artboards';
 
 /**
  * Every screen the Superhub screens link to, in one map: link key → canvas artboard (issue #52). Screens and fixtures
@@ -45,7 +46,7 @@ export const artboards = {
   campaignPlan: 'Campaign-v2-4-Plan',
   campaignBudget: 'Campaign-v2-5-Budget',
   campaignLaunch: 'Campaign-v2-6-Launch',
-} as const;
+} as const satisfies Record<string, ArtboardName>;
 
 /** A link key: an artboard above, or the calendar anchor on the content dashboard. */
 export type HubLink = keyof typeof artboards | 'contentCalendar';

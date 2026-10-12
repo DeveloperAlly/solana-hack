@@ -7,10 +7,9 @@
  *
  * | Field             | Source                                                                                      |
  * |-------------------|---------------------------------------------------------------------------------------------|
- * | title, context    | drafts: channel, voice, brief                                                               |
- * | charLimit         | Channel registry (M2): X = 280                                                              |
- * | versions[]        | drafts polish history (v1 first draft, v2 slop fixes, then each polish action)              |
- * | slopFixes         | drafts slop fixes from the no-AI-slop pass                                                  |
+ * | draftId           | The draft opened (router state from the content dashboard), else the default                |
+ * | drafts[id]        | That draft's title, context, channel, polish history (v1, v2 slop fixes, then each polish   |
+ * |                   | action) and slop fixes; X length is weighted as the Worker counts it (lib/xLength)          |
  * | slopPhrases       | The no-AI-slop rules, run again on edits (sample list here)                                 |
  * | avoidTerms        | kit vocabulary: terms to avoid (Brand-Build section 11; sample list here)                   |
  * | approvedNumbers   | claims (approved) that the claims gate allows                                               |
@@ -22,49 +21,26 @@
  * States (n-dr): success = editing; loading = "Writing…" skeleton in the editor; error = a polish action failed
  * (Draft-Review-PolishError); empty = nothing to review (Content-Dashboard-Empty). Beautified = success after Beautify.
  */
-import { Button, Link, Text } from '../../ui/primitives';
+import { Button } from '../../ui/primitives';
 import { EmptyState } from '../../ui/composites/EmptyState';
-import { StatePanel } from '../../ui/composites/StatePanel';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { HubColumns } from '../../ui/domain/HubColumns';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
-import { DraftEditor } from './parts/DraftEditor';
-import { SlopAndHistory } from './parts/SlopAndHistory';
-import { ChecksAndPublish } from './parts/ChecksAndPublish';
-import { StateView } from './parts/StateView';
-import { useDraftReview } from './hooks/useDraftReview';
+import { DraftReviewBody } from './parts/DraftReviewBody';
+import { useSelectedDraftId } from './hooks/useDraftReview';
 import { useHubLinks } from './paths';
 import type { DraftReviewData } from './types';
 
 export function DraftReview({ data, state = 'success' }: { data: DraftReviewData; state?: ScreenState }) {
   const links = useHubLinks();
-  const review = useDraftReview(data, state === 'loading');
-  const editor = (
-    <StateView
-      state={state}
-      views={{
-        success: <DraftEditor review={review} data={data} />,
-        loading: <StatePanel kind="loading" title="Writing…" body="The writer is drafting from your brief; the slop check runs before you see it." />,
-      }}
-    />
-  );
+  const draftId = useSelectedDraftId(data);
+  const draft = data.drafts[draftId];
+  const toContent = <Button href={links.contentEmpty}>Go to content</Button>;
+  if (state === 'empty') return <HubPage section="create" sub="content"><EmptyState level={1} title="Nothing to review" body="Drafts land here after the brand and slop checks." actions={toContent} /></HubPage>;
+  // No content for this id: say so, with no editor or decisions, rather than show another draft.
+  if (!draft) return <HubPage section="create" sub="content"><EmptyState level={1} title="Draft not found" body="This draft is not in your drafts any more." actions={<Button href={links.content}>Back to content</Button>} /></HubPage>;
   return (
     <HubPage section="create" sub="content">
-      <PageHeader title={data.title} intro={data.context} back={{ href: links.content, label: 'Back to drafts awaiting approval' }} sample />
-      <StateView
-        state={state}
-        views={{
-          success: (
-            <HubColumns end={<ChecksAndPublish review={review} data={data} />}>
-              {editor}
-              <Text variant="small" tone="secondary">Prototype states: <Link href={links.draftBeautified}>after Beautify</Link> · <Link href={links.draftPolishError}>a polish action fails</Link></Text>
-              <SlopAndHistory review={review} data={data} />
-            </HubColumns>
-          ),
-          empty: <EmptyState title="Nothing to review" body="Drafts land here after the brand and slop checks." actions={<Button href={links.contentEmpty}>Go to content</Button>} />,
-        }}
-      />
+      <DraftReviewBody key={draftId} data={data} draftId={draftId} draft={draft} state={state} />
     </HubPage>
   );
 }

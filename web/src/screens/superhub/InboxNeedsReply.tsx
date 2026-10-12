@@ -18,10 +18,11 @@ import { Button, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { EmptyState } from '../../ui/composites/EmptyState';
 import { KeyValueList } from '../../ui/composites/KeyValueList';
-import { HubColumns } from '../../ui/domain/HubColumns';
+import { Columns } from '../../ui/layouts/Columns';
 import { HubSideNav } from '../../ui/domain/HubSideNav';
 import { HubPage } from './parts/HubPage';
-import { PageHeader } from './parts/PageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { NeedsReplyCard } from './parts/NeedsReplyCard';
 import { StatusNote } from './parts/StatusNote';
 import { useHubSession } from './hooks/useHubSession';
@@ -50,10 +51,10 @@ export function InboxNeedsReply({ data }: { data: NeedsReplyData }) {
   );
   return (
     <HubPage section="inbox">
-      <HubColumns start={rail}>
-        <PageHeader
+      <Columns start={rail}>
+        <PageHeader badges={<ComingSoonFlag tag="STRETCH" />}
           title="Needs reply"
-          tag="STRETCH"
+         
           intro="Messages that ask you something or are waiting on you, oldest risk first. Replies are drafted; you send them."
           actions={<Button variant="secondary" onClick={() => setDrafted(true)} disabled={drafted}>Draft all ({open.length})</Button>}
         />
@@ -74,7 +75,7 @@ export function InboxNeedsReply({ data }: { data: NeedsReplyData }) {
           <StatusNote key={i.id} onUndo={() => clear(i.threadId)}>{`${i.from}: ${outcomeLabel[outcomeOf(i) ?? 'done']}.`}</StatusNote>
         ))}
         <Text variant="small" tone="secondary">{data.footnote}</Text>
-      </HubColumns>
+      </Columns>
     </HubPage>
   );
 }
