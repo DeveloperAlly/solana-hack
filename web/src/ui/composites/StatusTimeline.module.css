@@ -1,0 +1,21 @@
+/* Canvas ".tl": a top rule per step (left rule when vertical); done and current are ink, current dashed, failed thick. */
+.list { display: grid; gap: var(--wl-space-2); margin: 0; padding: 0; list-style: none; }
+.horizontal { grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--wl-space-12) * 3)), 1fr)); }
+.vertical { grid-template-columns: 1fr; gap: 0; }
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wl-space-half);
+  padding-top: var(--wl-space-2-5);
+  border-top: var(--wl-border-width-indicator) solid var(--wl-border-subtle);
+  color: var(--wl-text-secondary);
+}
+.vertical .step { border-top: 0; border-left: var(--wl-border-width-indicator) solid var(--wl-border-subtle); padding: var(--wl-space-1) 0 var(--wl-space-3) var(--wl-space-3); }
+.done, .current, .failed { border-color: var(--wl-border-strong); color: var(--wl-text-primary); }
+.current { border-top-style: dashed; }
+.vertical .current { border-top: 0; border-left-style: dashed; }
+.failed { border-top-width: calc(var(--wl-border-width-indicator) * 2); }
+.vertical .failed { border-top: 0; border-left-width: calc(var(--wl-border-width-indicator) * 2); }
+.label { display: inline-flex; align-items: center; gap: var(--wl-space-1); font-weight: var(--wl-font-weight-bold); }
+.todo .label { font-weight: var(--wl-font-weight-semibold); }
+.note { font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }

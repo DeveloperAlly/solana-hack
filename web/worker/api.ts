@@ -282,7 +282,11 @@ export async function saveAnswer(env: Env, brand: Brand, step: string, data: Rec
   // Interview rows only: an owner's edit of a source fact (journey.ts editFact, edited_from set) is not an answer.
   const evFilter = `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}&edited_from=is.null`;
   const existing = await db.select<{ id: string; claim: string }>(env, 'evidence', `${evFilter}&select=id,claim`);
-  const wanted = skipped ? [] : Object.entries(data).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`);
+  // The voice sample is a style example (typed, or a generated paragraph the owner picked in journey J4), never a fact
+  // about the brand: it stays in the answer for drafting the voice section, but never becomes approved evidence that
+  // could back a claim.
+  const NOT_EVIDENCE = step === 'voice' ? ['sample'] : [];
+  const wanted = skipped ? [] : Object.entries(data).filter(([k, v]) => v && !NOT_EVIDENCE.includes(k)).map(([k, v]) => `${k}: ${v}`);
   const kept = new Set<string>();
   const removed: string[] = [];
   for (const e of existing) {
@@ -340,7 +344,7 @@ export async function reviewEvidence(env: Env, brand: Brand, id: string, decisio
   const [row] = await db.select<Evidence>(env, 'evidence', f);
   if (!row) throw new HttpError(404, 'fact not found');
   if (!REVIEWABLE.includes(row.trust ?? '')) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
-  // Read before the update: the database trigger (spec/db/012) deletes the correction as part of approving the source.
+  // Read before the update: the database trigger (spec/db/010) deletes the correction as part of approving the source.
   const [correction] = decision === 'approved' ? await db.select<{ id: string }>(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('edited_from', id)}&select=id&limit=1`) : [];
   const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision });
   const sections = () => db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);

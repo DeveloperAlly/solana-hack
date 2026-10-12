@@ -1,7 +1,27 @@
 // M1: route and nav config. Shells and nav read from here; no nav markup is hand-written.
-export type RouteTag = 'HACKATHON' | 'HACKATHON (THIN)' | 'COMING SOON' | 'EXPERIMENTAL' | 'ROADMAP';
+// Every tag the wireframe canvas puts on a board title (canvas.json, 2026-10-12). Canvas spellings map to one tag each:
+// "HACK" and "JOURNEY" boards are HACKATHON; "EXP" is EXPERIMENTAL; "STRETCH (H8, ADR-008)" is STRETCH;
+// "FALLBACK (if H5 slips)" is FALLBACK. PARKED and ARCHIVED boards are on the Archive page, which is not built (issue #45).
+export const routeTags = ['HACKATHON', 'HACKATHON (THIN)', 'STRETCH', 'FALLBACK', 'COMING SOON', 'EXPERIMENTAL', 'ROADMAP', 'PARKED', 'ARCHIVED'] as const;
+export type RouteTag = (typeof routeTags)[number];
+
+/**
+ * The one tag-to-label record. `label` is the chip text (ComingSoonFlag); `flag` says whether screens with this tag
+ * carry a chip at all (hackathon screens do not); `short` is the hub nav suffix (AppShell), where one is shown.
+ */
+export const routeTagLabels: Record<RouteTag, { label: string; flag: boolean; short?: string }> = {
+  HACKATHON: { label: 'Hackathon', flag: false },
+  'HACKATHON (THIN)': { label: 'Thin', flag: true },
+  STRETCH: { label: 'Stretch', flag: true },
+  FALLBACK: { label: 'Fallback', flag: true },
+  'COMING SOON': { label: 'Coming soon', flag: true, short: 'soon' },
+  EXPERIMENTAL: { label: 'Experimental', flag: true, short: 'beta' },
+  ROADMAP: { label: 'Roadmap', flag: true, short: 'roadmap' },
+  PARKED: { label: 'Parked', flag: true },
+  ARCHIVED: { label: 'Archived', flag: true },
+};
 export type RouteSection = 'public' | 'onboarding' | 'system' | 'hub';
-export type ScreenId = 'landing' | 'workbench' | 'placeholder' | 'signin' | 'build' | 'create' | 'verify' | 'ledger' | 'home' | 'brand' | 'settings' | 'soon' | 'how';
+export type ScreenId = 'landing' | 'workbench' | 'placeholder' | 'signin' | 'build' | 'create' | 'verify' | 'ledger' | 'home' | 'brand' | 'settings' | 'soon' | 'how' | 'gallery' | 'gallery-screen';
 
 export interface RouteDef {
   path: string;
@@ -26,6 +46,9 @@ export const routes: RouteDef[] = [
   { path: '/sign-in', label: 'Sign in', section: 'onboarding', tag: 'HACKATHON', screen: 'signin' },
   { path: '/build/*', label: 'Build your brand', section: 'onboarding', tag: 'HACKATHON', screen: 'build' },
   { path: '/system', label: 'Workbench', section: 'system', tag: 'HACKATHON', screen: 'workbench' },
+  // Screen gallery (issue #46): every canvas artboard with sample data; public, read-only, no network calls.
+  { path: '/screens', label: 'Screens', section: 'system', tag: 'HACKATHON', screen: 'gallery' },
+  { path: '/screens/:artboard', label: 'Screen', section: 'system', tag: 'HACKATHON', screen: 'gallery-screen' },
 ];
 
 export interface NavItem {

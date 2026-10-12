@@ -238,6 +238,13 @@ describe('voice by example (J4)', () => {
     llm = () => ({ samples: [sample('friendly')] });
     expect((await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 })).status).toBe(502);
   });
+  it('a picked sample is kept in the voice answer but never becomes evidence', async () => {
+    const b = brandRow('p-1');
+    tables.brands = [b];
+    await call('perm', 'PUT', `/api/brands/${b.id}/answers/voice`, { data: { ...voiceAnswerFor('friendly'), sample: 'Acme serves 10,000 towns.' }, skipped: false });
+    expect((tables.answers[0].data as Record<string, string>).sample).toBe('Acme serves 10,000 towns.');
+    expect(tables.evidence.some((e) => String(e.claim).includes('10,000'))).toBe(false);
+  });
   it('a pick saves as the Voice answer the kit policy reads (template, dials, claims gate)', () => {
     const a = voiceAnswerFor('efficient');
     expect(a).toMatchObject({ template: 'efficient', claims: '4', formality: '3', sentence_length: '1' });
@@ -339,7 +346,7 @@ describe('editing a fact (J3 Edit)', () => {
     const first = await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${f.id}`, { claim: 'Owner wording' });
     const editId = (first.body.evidence as { id: string }).id;
     tables.kit_sections = [{ brand_id: b.id, section: 'origin', citations: [editId], status: 'approved', body: 'x' }];
-    // Stand in for the database trigger (spec/db/012): approving the source deletes its correction in the same update.
+    // Stand in for the database trigger (spec/db/010): approving the source deletes its correction in the same update.
     const realFetch = globalThis.fetch;
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       const res = await realFetch(url, init);

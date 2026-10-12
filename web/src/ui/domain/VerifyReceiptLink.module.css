@@ -1,0 +1,6 @@
+/* Pending receipt: the bracketed placeholder, in the mono face the canvas uses for ids. */
+.pending {
+  color: var(--wl-text-secondary);
+  font-family: var(--wl-font-mono);
+  font-size: var(--wl-font-size-mono);
+}
