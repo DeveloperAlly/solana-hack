@@ -36,6 +36,7 @@ function brandCase(seed: number) {
       quote: r() < 0.85 ? `quote ${i}` : null, origin: owner ? 'owner_answer' : trust === 'assumption' ? 'assumption' : 'source', trust,
       review_status: pick(REVIEWS), match: pick(MATCH), confidence: pick(CONFIDENCE),
       slot: r() < 0.3 ? 'founded' : null, slot_value: String(2018 + Math.floor(r() * 3)), edited_from: owner && r() < 0.5 ? 'x' : null,
+      owner_decision: r() < 0.25 ? pick(['confirmed', 'rejected', 'edited']) : null,
     };
   });
   const slotted = evidence.filter((e) => e.slot && e.review_status !== 'rejected');
@@ -58,13 +59,15 @@ describe('properties over generated brands (PR #101 review)', () => {
       expect(readData(s).coverage, `seed ${seed}`).toEqual({ found, partly, needsYou: 6 - found - partly, percent: Math.round((100 * (found + partly / 2)) / 6) });
     }
   });
-  it('no card or voice item is ever a fact the review route would refuse; conflict sides are live facts on their conflict', () => {
+  it('no card or voice item is ever a fact the review route would refuse, every card is undecided by the owner, and conflict sides are live facts on their conflict', () => {
     for (let seed = 1; seed <= CASES; seed++) {
       const s = brandCase(seed);
       const byId = new Map((s.evidence as CoverageFact[]).map((e) => [e.id, e]));
       const c = confirmData(s);
       const shown = [...c.facts, c.voice].map((f) => f.id).filter((id) => byId.has(id));
       for (const id of shown) expect(reviewable(byId.get(id)!), `seed ${seed} ${id}`).toBe(true);
+      // The card queue holds only facts the owner has not decided.
+      for (const f of c.facts) if (byId.has(f.id)) expect(byId.get(f.id)!.owner_decision ?? null, `seed ${seed} ${f.id}`).toBeNull();
       // Sides are decided through the conflict route (resolve_fact_conflict), which takes any live fact on the conflict.
       for (const x of c.conflicts) for (const side of x.sides) {
         expect(s.conflicts.find((k) => k.id === x.question.id)!.evidence_ids, `seed ${seed}`).toContain(side.id);

@@ -296,13 +296,17 @@ export async function patchBrand(env: Env, brand: Brand, patch: Record<string, s
  * only once approved; any reviewable fact can be rejected. Returns the sections citing the fact when it stops being
  * usable, since registration now refuses them until redrafted or the fact is approved again.
  */
-export async function reviewEvidence(env: Env, brand: Brand, id: string, decision: string) {
+export async function reviewEvidence(env: Env, brand: Brand, id: string, decision: string, by?: { id: string }) {
   if (decision !== 'approved' && decision !== 'rejected') throw new HttpError(400, 'review_status must be approved or rejected');
   const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
   const [row] = await db.select<Evidence>(env, 'evidence', f);
   if (!row) throw new HttpError(404, 'fact not found');
   if (!reviewable(row)) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
-  const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision });
+  // Only the owner calls this route, so it also records the owner's own decision (spec/db/011 owner_decision), kept
+  // apart from review_status, which the system sets too: an owned, exactly quoted fact is saved approved, and the
+  // owner's confirming it must still be recorded (PR #101 review).
+  const owner = by ? { owner_decision: decision === 'approved' ? 'confirmed' : 'rejected', owner_decided_by: by.id, owner_decided_at: new Date().toISOString() } : {};
+  const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision, ...owner });
   if (decision === 'approved') return { evidence: updated, stale: [] as string[] };
   const sections = await db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
   return { evidence: updated, stale: sections.filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };
@@ -384,7 +388,7 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
   if (p[3] === 'evidence' && p.length === 5 && m === 'PATCH') {
     if (!/^[0-9a-f-]{36}$/i.test(p[4])) throw new HttpError(404, 'fact not found');
     const b = await body(req);
-    return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20)));
+    return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20), user));
   }
   // POST /api/brands/:id/conflicts/:cid/resolve {keep: factId | null} or {answer: {claim, value}}
   //   -> {conflict, kept, rejected, answer, stale}

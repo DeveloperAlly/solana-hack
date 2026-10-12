@@ -105,14 +105,16 @@ export function confirmData(state: JourneyState): ConfirmDataWithConflicts {
   // owner's review is a card, so every proposed voice fact has an accept / reject path (PR #101 review).
   const voiceField = b.map.fields.find((f) => f.id === 'voice.template')!;
   const voiceFacts = b.read.filter((e) => e.section === 'voice' && !!e.quote && !b.open.has(e.id));
-  const voiceItem = voiceField.answer ? undefined : voiceFacts[0];
+  // The voice item: the best voice fact the owner has not decided yet, else the best one they confirmed.
+  const voiceItem = voiceField.answer ? undefined : voiceFacts.find((e) => !e.owner_decision) ?? voiceFacts[0];
   const cards: JourneyFact[] = [];
   const seen = new Set<string>();
   // In kit section order (kit.ts SECTIONS, the order the kit is read in), best fact first within a section.
   const order = Object.keys(SECTIONS);
   const bySection = [...b.read].sort((x, y) => order.indexOf(x.section) - order.indexOf(y.section));
   for (const e of bySection) {
-    if (b.open.has(e.id) || !e.quote || e.id === voiceItem?.id) continue;
+    // The queue holds only facts the owner has not decided (owner_decision, spec/db/011): a confirmed card never comes back.
+    if (b.open.has(e.id) || !e.quote || e.id === voiceItem?.id || e.owner_decision) continue;
     const waiting = e.review_status === 'proposed';
     if (e.section === 'voice' && !waiting) continue;
     if (!waiting && seen.has(e.section)) continue;
@@ -128,7 +130,9 @@ export function confirmData(state: JourneyState): ConfirmDataWithConflicts {
     // card; partly found, because the voice is still picked by example next. A note on why it waits is kept.
     const v = view(b, voiceItem);
     const next = "You'll pick the paragraph that sounds right next.";
-    voice = { ...v, status: 'partly', note: v.note ? `${v.note} ${next}` : `Read from your pages. ${next}` };
+    voice = voiceItem.owner_decision
+      ? { ...v, status: 'found', note: `Confirmed by you. ${next}` }
+      : { ...v, status: 'partly', note: v.note ? `${v.note} ${next}` : `Read from your pages. ${next}` };
   } else {
     voice = { id: 'voice', section: sectionLabel('voice'), status: 'needs-you', statement: 'Nothing in your sources says how you sound yet.', note: "You'll pick from sample paragraphs next." };
   }

@@ -255,6 +255,21 @@ describe('the owner decides each fact (FactRecord) through the review path', () 
     expect(parseRecord({ decision: 'edited', edit: 'Founded in 2018.', value: ' 2018 ' })).toEqual({ decision: 'edited', edit: 'Founded in 2018.', value: '2018' });
     expect(() => parseRecord({ decision: 'edited', edit: 'x', value: 'y'.repeat(121) })).toThrow(/under 120/);
   });
+  it('accepting an auto-approved fact is recorded as the owner\'s: on reload no card for it, and its questions are found (PR #101 review)', async () => {
+    const e = byClaim('Tidewater started because roasters lost a third of their margin to middlemen.');
+    expect(e.review_status).toBe('approved');
+    expect(confirmData(await state()).facts.some((f) => f.id === e.id)).toBe(true);
+    const r = await call('PATCH', `/brands/${BRAND}/evidence/${e.id}`, { review_status: 'approved' });
+    expect(r.status).toBe(200);
+    expect(byClaim(e.claim)).toMatchObject({ review_status: 'approved', owner_decision: 'confirmed', owner_decided_by: 'u' });
+    const s = await state();
+    expect(confirmData(s).facts.some((f) => f.id === e.id)).toBe(false);
+    // The owner's confirmation is their answer (§12.3 rule 1): the questions it answers are found.
+    const m = coverageMap(s);
+    expect(m.fields.find((f) => f.id === 'origin.why')).toMatchObject({ status: 'found', basis: 'evidence' });
+    // The next fact of the section takes its place in the queue.
+    expect(confirmData(s).facts.some((f) => f.section === 'Origin story')).toBe(true);
+  });
   it('accepted: approved through reviewEvidence', async () => {
     const e = byClaim('Tidewater helps small coffee roasters sell direct to cafes.');
     e.review_status = 'proposed';

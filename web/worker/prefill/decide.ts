@@ -1,6 +1,6 @@
 // The owner's decisions on facts (J3-Confirm's FactRecord, PR #75 types.ts) and on conflicts (backlog B3a), as
 // operations the routes call (issue #34). There is one review path: accept and reject go through api.ts
-// reviewEvidence (ADR-011), an edit through PR #96's editFact (the source fact is rejected and the owner's wording
+// reviewEvidence (ADR-011), which also records the owner's own decision (owner_decision), an edit through PR #96's editFact (the source fact is rejected and the owner's wording
 // becomes an approved owner statement, linked by edited_from), and every conflict decision through #91's one call,
 // extract/conflicts.ts resolveFactConflict (spec/db/011 resolve_fact_conflict), which checks and changes everything in
 // one transaction: a refused call changes nothing, and its 404, 409 and 400 reach the caller through db.ts dbError.
@@ -15,7 +15,7 @@ import type { FactRecord } from './contract';
 
 /** The review operations a decision runs through: api.ts reviewEvidence, and PR #96's journey.ts editFact. */
 export interface DecisionOps {
-  review(env: Env, brand: { id: string }, id: string, status: 'approved' | 'rejected'): Promise<{ evidence: unknown; stale: string[] }>;
+  review(env: Env, brand: { id: string }, id: string, status: 'approved' | 'rejected', by: { id: string }): Promise<{ evidence: unknown; stale: string[] }>;
   edit(env: Env, brandId: string, id: string, text: string): Promise<{ evidence: unknown; stale: string[]; replaced?: string }>;
 }
 
@@ -105,15 +105,20 @@ export async function resolveConflict(env: Env, user: { id: string }, brand: { i
 export async function decideFact(env: Env, user: { id: string }, brand: { id: string }, id: string, record: Decision, ops: DecisionOps) {
   const conflict = record.decision === 'rejected' ? undefined : await openConflictOf(env, brand.id, id);
   if (record.decision === 'accepted') {
-    if (!conflict) return ops.review(env, brand, id, 'approved');
+    if (!conflict) return ops.review(env, brand, id, 'approved', user);
     const resolved = await resolveConflict(env, user, brand, conflict.id, { keep: id });
     return { evidence: { id, review_status: 'approved' }, stale: resolved.stale, resolved };
   }
   if (record.decision === 'edited') {
-    if (!conflict) return ops.edit(env, brand.id, id, record.edit);
+    if (!conflict) {
+      const out = await ops.edit(env, brand.id, id, record.edit);
+      // The owner's decision on the fact they reworded (spec/db/011 owner_decision), beside #96's rejection of it.
+      await db.update(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`, { owner_decision: 'edited', owner_decided_by: user.id, owner_decided_at: new Date().toISOString() });
+      return out;
+    }
     if (!record.value) throw new HttpError(400, 'this fact is part of a disagreement: give the value in your own words (for example the year) with your wording');
     const resolved = await resolveConflict(env, user, brand, conflict.id, { answer: { claim: record.edit, value: record.value, editedFrom: id } });
     return { evidence: { id: resolved.answer }, replaced: id, stale: resolved.stale, resolved };
   }
-  return ops.review(env, brand, id, 'rejected');
+  return ops.review(env, brand, id, 'rejected', user);
 }

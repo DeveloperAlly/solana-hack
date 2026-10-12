@@ -30,6 +30,8 @@ export interface CoverageFact {
   slot_key?: string | null;
   /** The fact an owner statement rewords (PR #96, spec/db/012 there). */
   edited_from?: string | null;
+  /** The owner's own decision on the fact (spec/db/011): confirmed, rejected or edited; null while undecided. */
+  owner_decision?: string | null;
 }
 /** An answers row (spec/db/001): one per interview step. */
 export interface CoverageAnswer { step: string; data: Record<string, string>; skipped: boolean }
@@ -116,11 +118,12 @@ const rank = (c: string | null | undefined) => CONFIDENCE_RANK[c ?? ''] ?? 0;
 const isOwnerRow = (f: CoverageFact) => f.trust === 'owner_answer' || f.origin === 'owner_answer';
 
 /**
- * Whether the owner has approved this fact themselves. Visible where the system never approves on its own: a
- * third-party fact always starts proposed (ADR-011, sources/registry.ts initialReview), and so does a fuzzily located
- * owned fact (extract/save.ts initialReviewFor).
+ * Whether the owner has approved this fact themselves: recorded as owner_decision 'confirmed' (spec/db/011), and also
+ * visible where the system never approves on its own, for rows decided before that field: a third-party fact always
+ * starts proposed (ADR-011, sources/registry.ts initialReview), and so does a fuzzily located owned fact
+ * (extract/save.ts initialReviewFor). The owner's confirmation is their answer, so it is Evidenced (§12.3 rule 1).
  */
-export const ownerApproved = (f: CoverageFact) => f.review_status === 'approved' && (f.trust === 'third_party' || (f.trust === 'owned' && f.match === 'fuzzy'));
+export const ownerApproved = (f: CoverageFact) => f.review_status === 'approved' && (f.owner_decision === 'confirmed' || f.trust === 'third_party' || (f.trust === 'owned' && f.match === 'fuzzy'));
 
 /**
  * A fact that makes its section Evidenced under architecture §12.3 rule 1 (proposed): "at least one high-confidence
