@@ -1,0 +1,37 @@
+{
+  "observedAt": "2026-10-12T23:44:44.052Z",
+  "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+  "runId": "723bc04d-4cdd-41c7-b611-5242b994b8d1",
+  "afterURL": "https://jamjam.tech/journey/save",
+  "observedScriptURLs": [
+    "https://jamjam.tech/assets/index-DuDs_NjJ.js"
+  ],
+  "beforeHas12Facts": true,
+  "afterHas12Facts": true,
+  "screenshotGitBlob": "f6b15a27ca112e58fd3b70d89943dd5fa6df451c",
+  "responses": [
+    {
+      "url": "https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/runs?kind=extract_facts",
+      "status": 200,
+      "runs": []
+    },
+    {
+      "url": "https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268",
+      "status": 200,
+      "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+      "factCount": 12
+    },
+    {
+      "url": "https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/runs?kind=extract_facts",
+      "status": 200,
+      "runs": []
+    },
+    {
+      "url": "https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268",
+      "status": 200,
+      "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+      "factCount": 12
+    }
+  ],
+  "scope": "Actual refresh and Continue on new deployment; same screenshot bytes as published earlier Save frame. No auth/current-owner-session/automatic-zero-transition claim."
+}
