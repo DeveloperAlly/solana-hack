@@ -214,17 +214,20 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
       return null;
     }
   };
+  // The home page as it actually landed. A link that redirects (an old domain, a short link) is scoped from where it
+  // ends, not from what was typed, so a redirect onto the brand's own site still gets its key subpages (PR #71 review).
+  let home = url;
   const sameSite = (u: URL) => {
-    const homeKind = kindOf(url.toString());
-    return kindOf(u.toString()) === homeKind && (homeKind === 'site' || hostKey(u) === hostKey(url));
+    const homeKind = kindOf(home.toString());
+    return kindOf(u.toString()) === homeKind && (homeKind === 'site' || hostKey(u) === hostKey(home));
   };
   // The home page's links worth reading: on the same site as the home page, ranked by the key-page terms. Nothing is
   // fetched here.
   const candidatesOf = (links: URL[]): URL[] => {
     // A third-party page is read on its own. Its host can be shared by unrelated tenants (github.com/acme and
     // github.com/rival), so its links are not followed (PR #71 review; registry urlKind path scoping).
-    if (kindOf(url.toString()) === 'page') return [];
-    const seen = new Set<string>([url.toString()]);
+    if (kindOf(home.toString()) === 'page') return [];
+    const seen = new Set<string>([url.toString(), home.toString()]);
     const candidates: URL[] = [];
     for (const raw of links) {
       const l = siteUrl(raw.toString());
@@ -242,7 +245,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   // them is requested (PR #71 review).
   const pick = async (links: URL[]) => {
     const out: URL[] = [];
-    const chosen = new Set<string>([url.toString()]);
+    const chosen = new Set<string>([url.toString(), home.toString()]);
     let blocked = 0;
     for (const u of candidatesOf(links)) {
       if (out.length >= opts.subpages) break;
@@ -284,6 +287,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   const exaHome = env.EXA_API_KEY ? await gated(url) : null;
   if (env.EXA_API_KEY && !exaHome) c.notes.push('Exa not used: the link redirects to an address robots.txt does not let us read, or could not be followed');
   if (env.EXA_API_KEY && exaHome) {
+    home = exaHome;
     const exa = await viaExa(env.EXA_API_KEY, exaHome, opts, pick);
     if ('pages' in exa) {
       cost = exa.cost;
@@ -297,7 +301,9 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
         c.notes.push('Exa returned no links for the home page; the key subpages were found with our own reader');
         let ownLinks: string[] = [];
         try {
-          ownLinks = (await readPage(url.toString(), allowedHere)).links;
+          const own = await readPage(url.toString(), allowedHere);
+          home = new URL(own.url);
+          ownLinks = own.links;
         } catch {
           // the home page cannot be read directly; keep what Exa gave
         }
@@ -318,6 +324,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     // readPage follows redirects one hop at a time and checks each address's robots.txt before fetching it (ingest.ts
     // fetchPage), so a disallowed destination is never requested (PR #71 review).
     const page = await readPage(url.toString(), allowedHere);
+    home = new URL(page.url);
     const pages: SourcePage[] = [{ url: page.url, title: page.title, text: page.text }];
     if (opts.subpages > 0) pages.push(...(await readOwnSubpages(page.links, new Set([page.url, url.toString()]))));
     const kept = await admit(pages);

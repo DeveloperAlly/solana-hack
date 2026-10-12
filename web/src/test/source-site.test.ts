@@ -68,6 +68,25 @@ describe('site adapter: Exa first', () => {
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/about']);
     expect(r.meta.notes.join(' ')).toMatch(/Exa returned no links/);
   });
+  it('scopes subpages from where the link landed, so a redirect onto the brand site keeps its subpages (PR #71 review)', async () => {
+    const home = `<html><title>JamJam</title><body><p>${LONG}</p><a href="/about">About</a></body></html>`;
+    stub({
+      page: (u) => (u === 'https://old-name.test/' ? new Response(null, { status: 301, headers: { location: 'https://jamjam.tech/' } })
+        : u === 'https://jamjam.tech/' ? new Response(home, { headers: { 'content-type': 'text/html' } })
+        : html('About', 'JamJam was started in Melbourne to help brands prove what they say.')),
+    });
+    const r = await readSite({}, 'https://old-name.test/', { website: 'jamjam.tech' });
+    expect(r).toMatchObject({ ok: true, kind: 'site', url: 'https://jamjam.tech/' });
+    expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/about']);
+  });
+  it('ignores link-shaped text in scripts, styles and comments (PR #71 review)', async () => {
+    const home = `<html><title>JamJam</title><body><p>${LONG}</p><script>const t = '<a href="/script-route">x</a>';</script><!-- <a href="/commented">old</a> --><a href="/about">About</a></body></html>`;
+    const calls = stub({ page: (u) => (u === 'https://jamjam.tech/' ? new Response(home, { headers: { 'content-type': 'text/html' } }) : html('About', LONG)) });
+    const r = await readSite({}, 'https://jamjam.tech/', { website: 'jamjam.tech' });
+    expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/about']);
+    expect(calls.map((c) => c.url)).not.toContain('https://jamjam.tech/script-route');
+    expect(calls.map((c) => c.url)).not.toContain('https://jamjam.tech/commented');
+  });
   it('without Exa, reads the home page and its key subpages from its own links (PR #71 review)', async () => {
     const home = `<html><title>JamJam</title><body><p>${LONG}</p><a href=/about>About</a> <a href='/private/x'>x</a> <a href="https://elsewhere.test/">e</a> <a href="#top">top</a></body></html>`;
     const calls = stub({
