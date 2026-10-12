@@ -15,7 +15,7 @@ export const facts = {
     section: 'Positioning',
     status: 'found',
     statement: 'JamJam builds a brand kit, then drafts posts in that voice.',
-    quote: 'Build your brand. Then start creating.',
+    quote: 'Build your voice. Launch your brand.',
     source: home,
   },
   purpose: {

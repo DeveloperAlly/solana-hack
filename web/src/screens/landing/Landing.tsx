@@ -23,7 +23,7 @@ export function Landing() {
         <Stack gap={10}>
           <Grid min="lg" gap={8}>
             <Stack gap={5} align="start" justify="center">
-              <Heading level={1} size="4xl">Build your brand. Then start creating.</Heading>
+              <Heading level={1} size="4xl">Build your voice. Launch your brand.</Heading>
               <Text>Answer a few questions and link what you already have. You get a brand kit: purpose, positioning, audience and voice. Then draft posts in that voice, checked before you see them, and approve what goes out.</Text>
               <Button href="/sign-in">Build my brand</Button>
               {/* Each claim is backed by the product: the step config sets the minutes, Basics needs only a name, and the
