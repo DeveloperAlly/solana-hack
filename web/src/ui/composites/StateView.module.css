@@ -1,0 +1,1 @@
+.root { display: flex; flex-direction: column; gap: var(--wl-space-4); min-width: 0; }

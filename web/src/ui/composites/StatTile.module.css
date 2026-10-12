@@ -1,0 +1,4 @@
+.label { font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
+.value { font-family: var(--wl-font-display); font-size: var(--wl-font-size-xl); font-weight: var(--wl-font-weight-bold); line-height: var(--wl-font-lineHeight-heading); color: var(--wl-text-primary); }
+.sub { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-2); font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
+.skeleton { display: block; width: 40%; height: var(--wl-font-size-xl); border-radius: var(--wl-radius-control); background: var(--wl-border-subtle); }

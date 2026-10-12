@@ -1,0 +1,15 @@
+.steps { display: flex; gap: var(--wl-space-2); margin: 0; padding: 0; list-style: none; }
+.horizontal { flex-wrap: wrap; align-items: flex-end; }
+.vertical { flex-direction: column; }
+.step {
+  flex: 1 1 calc(var(--wl-space-12) * 2);
+  padding: var(--wl-space-2) var(--wl-space-half) 0;
+  border-top: var(--wl-border-width-indicator) solid var(--wl-border-subtle);
+  font-size: var(--wl-font-size-sm);
+  color: var(--wl-text-secondary);
+}
+.vertical .step { flex: none; border-top: 0; border-left: var(--wl-border-width-indicator) solid var(--wl-border-subtle); padding: var(--wl-space-1) var(--wl-space-3); }
+.done { border-color: var(--wl-border-input); color: var(--wl-text-primary); }
+.current { border-color: var(--wl-border-strong); color: var(--wl-text-primary); font-weight: var(--wl-font-weight-bold); }
+.num { font-variant-numeric: tabular-nums; }
+.link { color: var(--wl-text-link); }

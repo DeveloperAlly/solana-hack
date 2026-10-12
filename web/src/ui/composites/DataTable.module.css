@@ -1,0 +1,42 @@
+.root { display: flex; flex-direction: column; gap: var(--wl-space-3); }
+.scroll { overflow-x: auto; max-width: 100%; }
+/* Sticky header: overflow-x auto makes this box the header's scroll container, so the box itself must scroll
+   vertically (bounded height from a token) for the header to stick (Codex review on PR #66). */
+.scrollSticky { overflow: auto; max-height: var(--wl-layout-table-maxHeight); }
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wl-space-1);
+  min-height: var(--wl-control-target-min);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.sort:hover { text-decoration: underline; }
+.arrow { font-size: var(--wl-font-size-xs); }
+.scroll:focus-visible { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); outline-offset: var(--wl-space-half); }
+.table { width: 100%; border-collapse: collapse; font-size: var(--wl-font-size-md); }
+.caption { text-align: left; font-weight: var(--wl-font-weight-semibold); padding-bottom: var(--wl-space-2); }
+.table th, .table td {
+  padding: var(--wl-space-2-5) var(--wl-space-2);
+  border-bottom: var(--wl-border-width-default) solid var(--wl-border-rule);
+  text-align: left;
+  vertical-align: top;
+}
+.table thead th { color: var(--wl-text-secondary); font-size: var(--wl-font-size-sm); font-weight: var(--wl-font-weight-semibold); background: var(--wl-bg-surface); }
+.rowHeader { font-weight: var(--wl-font-weight-semibold); }
+.sticky thead th { position: sticky; top: 0; z-index: var(--wl-z-sticky); }
+.end { text-align: right; }
+.table td.end, .table th.end { text-align: right; }
+.actions { white-space: nowrap; text-align: right; }
+.table td.actions { text-align: right; }
+.message { padding: var(--wl-space-5) var(--wl-space-2); }
+.skeleton {
+  display: block;
+  height: var(--wl-font-size-md);
+  border-radius: var(--wl-radius-control);
+  background: var(--wl-bg-subtle);
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import axe from 'axe-core';
 import { screen } from '@testing-library/react';
 import { renderWithRouter } from '../../test/render';
+import { expectNoAxeViolations } from '../../test/axe';
 import { App } from '../../App';
 import { kitMarkdown } from '../hub/Brand';
 import type { BrandState } from '../build/Build';
@@ -11,12 +11,10 @@ describe('public pages', () => {
     it(`${path} renders its heading with no axe violations`, async () => {
       const { container } = renderWithRouter(<App />, path);
       expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
-      // jsdom cannot message iframes; the deployed Playwright axe run covers the /system preview frame.
-      const r = await axe.run(container, { iframes: false, rules: { 'color-contrast': { enabled: false } } });
-      if (r.violations.length) console.error(JSON.stringify(r.violations, null, 2));
-      expect(r.violations).toHaveLength(0);
-      // An axe run over the /system workbench took 5.3 s on a CI runner (PR #41, run 38217890143), past vitest's 5 s
-      // default, and the timed-out run then blocked the next page's run ("Axe is already running").
+      // jsdom cannot message iframes; the deployed Playwright axe run covers the /system preview frame (see the helper).
+      // /system is every workbench example on one page: gallery.test.tsx runs each example through every rule, so here
+      // only the page-level rules run (landmarks, headings, ids), and the test no longer slows as the workbench grows.
+      await expectNoAxeViolations(container, path === '/system' ? { scope: 'page' } : undefined);
     }, 30_000);
   }
 });
