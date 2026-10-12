@@ -65,6 +65,8 @@ let answeredBy: Partial<Record<string, string>> = {};
 let reviewStatus = 200;
 /** Database writes matching this fail with a 500, as a failing statement would. */
 let failWrites: RegExp | null = null;
+/** When set, every drafting call answers 429, as OpenRouter does once the free allowance is used up. */
+let draftRateLimited = false;
 
 const goodReview = (post: string) => ({
   // The judge answers every sentence it was asked about (the evidence-bearing ones), as the prompt requires.
@@ -97,7 +99,7 @@ beforeEach(async () => {
     posts: [{ id: 'dddddddd-0000-4000-8000-000000000001', brand_id: BRAND, status: 'registered', body: 'We ship small. Every post we approve goes on Solana.', channel: 'LinkedIn', approved_at: '2026-10-11T00:00:00Z', checks: {} }],
     post_candidates: [], post_decisions: [],
   });
-  calls = []; answeredBy = {}; reviewStatus = 200; failWrites = null; runOnCreate = true; step = fakeStep();
+  calls = []; answeredBy = {}; reviewStatus = 200; failWrites = null; draftRateLimited = false; runOnCreate = true; step = fakeStep();
   drafts = { 1: GOOD, 2: UPGRADED, 3: SLOPPY };
   review = goodReview;
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
@@ -112,6 +114,7 @@ beforeEach(async () => {
       const [system, user] = body.messages.map((m) => m.content);
       calls.push({ schema, models: body.models, system, user });
       if (schema === 'review_findings' && reviewStatus !== 200) return new Response('{}', { status: reviewStatus });
+      if (schema === 'draft_candidate' && draftRateLimited) return new Response('{}', { status: 429 });
       let content = '{}';
       if (schema === 'draft_candidate') content = JSON.stringify(drafts[Number(/candidate (\d) of 3/.exec(system)![1])]);
       if (schema === 'review_findings') content = JSON.stringify(review((JSON.parse(user) as { post: string }).post));
@@ -203,6 +206,17 @@ describe('draft_post on the engine (T1, T1b): best of 3, every candidate and ver
     expect(r.status).toBe(201);
     expect(db.tables.runs[0]).toMatchObject({ executor: 'inline', status: 'done' });
   });
+
+  it('inline, a draft that runs out of model allowance ends failed with when to try again; it never parks', async () => {
+    db.tables.engine_config.push({ key: 'executor', value: 'inline' });
+    draftRateLimited = true;
+    const r = await draft();
+    expect(r.status).toBe(429);
+    expect(String(r.body.error)).toMatch(/free daily allowance is used up, so this run stopped\. Start it again after \d\d:\d\d UTC/);
+    // Failed, not paused: a screen following it stops (followRun.ts TERMINAL), and it holds no capacity.
+    expect(db.tables.runs.map((x) => x.status)).toEqual(['failed']);
+    expect((await call('GET', `/brands/${BRAND}/runs?kind=draft_post`)).body.runs).toEqual([]);
+  }, 30000);
 
   it('on Workflows, answers 202 with the run id when the run outlasts draft_wait_ms, for the screen to follow', async () => {
     runOnCreate = false;

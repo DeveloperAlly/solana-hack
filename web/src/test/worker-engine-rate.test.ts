@@ -17,7 +17,7 @@ vi.mock('../../worker/llm', async (actual) => {
   };
 });
 const { runWorkflow, nextUtcMidnight, RATE_LIMIT_DELAY_MS, MAX_PAUSES } = await import('../../worker/engine/runner');
-const { localDeps } = await import('../../worker/engine/executor');
+const { inlineStep, localDeps } = await import('../../worker/engine/executor');
 const { progressAt } = await import('../../worker/engine/runner');
 const { INGEST_URL } = await import('../../worker/engine/seed');
 
@@ -53,6 +53,24 @@ describe('model rate limits in a run', () => {
     expect(step.sleeps).toEqual([{ step: 'wait:extract:1', until: nextUtcMidnight(before) }]);
     expect(step.ran).toContain('extract~1');
     expect(run()).toMatchObject({ status: 'done', resume_at: null });
+  });
+
+  it('inline: a limit that outlasts the retries ends the run with when to try again, never parked (PR #99 review)', async () => {
+    llm.busyFor = 100;
+    run().executor = 'inline';
+    run().metered_planned = 1;
+    const before = Date.now();
+    // The inline step API with no real waiting: its retry delays above INLINE_MAX_WAIT_MS end the attempt at once.
+    await runWorkflow(env, 'r1', inlineStep(async () => undefined), localDeps);
+    const at = new Date(nextUtcMidnight(before)).toISOString().slice(11, 16);
+    expect(run()).toMatchObject({ status: 'failed', resume_at: null, error: `The AI model's free daily allowance is used up, so this run stopped. Start it again after ${at} UTC.`, error_code: 429 });
+    expect(db.tables.sources[0]).toMatchObject({ status: 'failed' });
+    // A failed run holds nothing: the next admission counts no reservation for it.
+    const { admit } = await import('../../worker/engine/api');
+    db.tables.engine_config.push({ key: 'metered_call_budget', value: { permanent: 1 } });
+    db.tables.run_steps = [];
+    db.tables.workflow_defs.find((d) => d.id === 'ingest_url')!.status = 'active';
+    await expect(admit({ ...env, RUN_WORKFLOW: { create: async () => ({ id: 'x' }), get: async () => ({ status: async () => ({ status: 'complete' }) }) } } as never, { brand: db.tables.brands[0] as never, kind: 'ingest_url', actor: { id: 'u' } })).resolves.toMatchObject({ kind: 'ingest_url' });
   });
 
   it('records paused, resume_at and the message while it waits', async () => {

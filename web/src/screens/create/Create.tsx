@@ -92,17 +92,25 @@ export function Create() {
     }
   }
 
+  /**
+   * The one path for every call that starts a draft run (the form and Draft again; PR #99 review): a draft that outlasts
+   * the request comes back as a run to follow (202, no post yet), followed with the current effect's controller, and the
+   * list reloads when it ends; a finished draft reloads the list at once.
+   */
+  async function startAndFollow(body: { brief: string; channel: string }) {
+    const r = await api<{ post: Post | null; runId?: string }>(`/brands/${brandId}/posts`, { body, signal: ctrl.current?.signal });
+    if (!r.post && r.runId) void follow(r.runId);
+    else await load();
+  }
+
   async function draft(e: FormEvent) {
     e.preventDefault();
     if (!brief.trim()) return setError('Say what the post is about.');
     setBusy(true);
     setError(null);
     try {
-      const r = await api<{ post: Post | null; runId?: string }>(`/brands/${brandId}/posts`, { body: { brief, channel } });
+      await startAndFollow({ brief, channel });
       setBrief('');
-      // A draft that outlasts the request comes back as a run to follow (202, no post yet); the list reloads once it ends.
-      if (!r.post && r.runId) void follow(r.runId);
-      else await load();
     } catch (err) {
       setError(msg(err));
     } finally {
@@ -130,7 +138,7 @@ export function Create() {
           )}
           {Object.entries(drafting).map(([id, text]) => <Alert key={id} tone="info">{text}</Alert>)}
           {posts.map((p) => (
-            <PostCard key={p.id} post={p} brandId={brandId!} onChange={() => load()} />
+            <PostCard key={p.id} post={p} brandId={brandId!} onChange={() => load()} redraft={() => startAndFollow({ brief: p.brief, channel: p.channel ?? '' })} />
           ))}
           {more && (
             <Button variant="secondary" onClick={() => { const n = Math.min(shown + 20, 500); setShown(n); load(brandId, n).catch((e) => setError(msg(e))); }}>Show older posts</Button>
@@ -142,7 +150,7 @@ export function Create() {
   );
 }
 
-function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; onChange: () => Promise<void> }) {
+function PostCard({ post, brandId, onChange, redraft }: { post: Post; brandId: string; onChange: () => Promise<void>; redraft: () => Promise<void> }) {
   const [text, setText] = useState(post.body);
   const [url, setUrl] = useState(post.published_url ?? '');
   const [busy, setBusy] = useState<string | null>(null);
@@ -232,7 +240,7 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
         {error && <Alert tone="danger">{error}</Alert>}
         <Stack direction="row" gap={3} wrap>
           {post.status !== 'registered' && dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('save', () => api(base, { method: 'PUT', body: { body: text, rev: post.rev } }))}>Save edits</Button>}
-          {hiddenAi && <Button disabled={!!busy} onClick={() => run('redraft', () => api(`/brands/${brandId}/posts`, { body: { brief: post.brief, channel: post.channel ?? '' } }))}>{busy === 'redraft' ? 'Drafting…' : 'Draft again'}</Button>}
+          {hiddenAi && <Button disabled={!!busy} onClick={() => run('redraft', redraft)}>{busy === 'redraft' ? 'Drafting…' : 'Draft again'}</Button>}
           {post.status === 'drafted' && !hiddenAi && !dirty && <Button disabled={!!busy || !slop?.passed} onClick={() => run('approve', () => api(`${base}/approve`, { body: { rev: post.rev } }))}>{busy === 'approve' ? 'Approving…' : 'Approve'}</Button>}
           {post.status === 'registering' && (
             // A send whose outcome was unknown: the server checks Solana and finishes or reopens it.

@@ -7,6 +7,7 @@ import { HttpError, safeError, type Env } from '../env';
 import { runStep, resolve, WRITES, type RunState, type StepContext } from './steps';
 import { loadTaskModels, type TaskModels } from '../models';
 import { MeteredFailure } from '../metering';
+import { meteredCalls } from './guards';
 import type { Progress, RetrySpec, RunRow, StepProgress, StepSpec, StepTrace, WorkflowSpec } from './types';
 
 /** The subset of the Workflows step API the runner uses (https://developers.cloudflare.com/workflows/build/workers-api/#step). */
@@ -133,7 +134,7 @@ export async function runWorkflow(env: Env, runId: string, step: StepApi, deps: 
         const args = Object.fromEntries(Object.entries(spec.onFailure.args).map(([k, ref]) => [k, resolve(ref, state)]));
         await op?.(ctx, { ...args, error: err.message });
       }
-      await record(env, run.id, null, { status: 'failed', error: err.message, error_code: err.code, progress: progressAt(spec, at, 'failed', err.message) });
+      await record(env, run.id, null, { status: 'failed', error: err.message, error_code: err.code, resume_at: null, progress: progressAt(spec, at, 'failed', err.message) });
       return null;
     });
   }
@@ -203,7 +204,7 @@ async function attempt(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepConte
       const t0 = Date.now();
       try {
         const r = await runStep(inner, ctx, item);
-        const live = await record(env, ctx.run.id, { step: traceId, attempt: sctx.attempt, type: inner.type, outcome: 'ok', duration_ms: Date.now() - t0, ...r.trace }, last ? { progress: progressAt(spec, i + 1) } : {});
+        const live = await record(env, ctx.run.id, { step: traceId, attempt: sctx.attempt, type: inner.type, outcome: 'ok', duration_ms: Date.now() - t0, metered_calls: meteredCalls(inner), ...r.trace }, last ? { progress: progressAt(spec, i + 1) } : {});
         if (!live) throw deps.nonRetryable(encodeError(409, 'superseded', 'run superseded'));
         return r.output ?? null;
       } catch (e) {
@@ -214,7 +215,7 @@ async function attempt(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepConte
         // A failure after money was spent (metering.ts MeteredFailure: a refused model reply, a paid read that returned
         // nothing usable) keeps its cost and the call's trace on the error record, so spend and admission count it.
         const made = e instanceof MeteredFailure ? { ...(e.trace ?? {}), cost_usd: e.cost } : {};
-        await record(env, ctx.run.id, { ...made, step: traceId, attempt: sctx.attempt, type: inner.type, outcome: 'error', duration_ms: Date.now() - t0, error: d.message.slice(0, 300) }, { progress: progressAt(spec, i, 'running', waiting) }).catch(() => undefined);
+        await record(env, ctx.run.id, { ...made, metered_calls: meteredCalls(inner), step: traceId, attempt: sctx.attempt, type: inner.type, outcome: 'error', duration_ms: Date.now() - t0, error: d.message.slice(0, 300) }, { progress: progressAt(spec, i, 'running', waiting) }).catch(() => undefined);
         throw err;
       }
     });

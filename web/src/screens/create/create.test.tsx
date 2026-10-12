@@ -86,4 +86,26 @@ describe('Create follows a draft that outlasts the request', () => {
     expect(await screen.findByDisplayValue('Teams at 10 companies use JamJam.', {}, { timeout: 8000 })).toBeInTheDocument();
     expect(order.slice(0, 2)).toEqual(['runs', 'list']);
   }, 10000);
+
+  it('Draft again goes through the same path: a 202 is followed and the new draft appears', async () => {
+    // A drafted post whose slop check failed is hidden, with Draft again in its place (Create.tsx hiddenAi).
+    const hidden = { ...done, id: '44444444-4444-4444-4444-444444444444', body: 'We unlock it.', checks: { ...done.checks, slop: { passed: false, hits: ['unlock'] } } };
+    let state: 'none' | 'running' | 'done' = 'none';
+    const seen: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      seen.push(`${init?.method ?? 'GET'} ${url}`);
+      let body: unknown = {};
+      let status = 200;
+      if (url === '/api/me') body = { user: { email: 'o@example.com' }, brands: [brand] };
+      else if (url === `/api/brands/${brand.id}/runs?kind=draft_post`) body = { runs: [] };
+      else if (/\/posts\?limit=\d+$/.test(url)) body = { posts: state === 'done' ? [done, hidden] : [hidden], more: false };
+      else if (url.endsWith('/posts') && init?.method === 'POST') { state = 'running'; status = 202; body = { post: null, runId: 'run-1', status: 'running' }; }
+      else if (url === '/api/runs/run-1') { body = { run: { id: 'run-1', status: state === 'running' ? 'done' : state, error: null, resume_at: null }, steps: [] }; state = 'done'; }
+      return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+    }));
+    renderWithRouter(<Create />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Draft again' }));
+    expect(await screen.findByDisplayValue('Teams at 10 companies use JamJam.', {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(seen).toContain('GET /api/runs/run-1');
+  }, 10000);
 });

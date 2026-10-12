@@ -98,6 +98,9 @@ export interface StepTrace {
   /** What the step's external call cost in US dollars: a reader's meta.cost, or the model call's reported cost (0 for
    * free models); null when not reported. A brand's cost is the sum over its runs' steps (spec/db/011). */
   cost_usd?: number | null;
+  /** Metered calls this attempt made (its step's `metered` count, StepBase), failed attempts included; counted by the
+   * admission budget whatever the cost (spec/db/011). */
+  metered_calls?: number | null;
   duration_ms: number;
   error?: string | null;
 }
