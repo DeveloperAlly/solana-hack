@@ -46,8 +46,10 @@ These timings are copied from the existing script, not a new pitch.
 
 [JamJam logo PNG](./jamjam-logo.png) is an exact 4× capture of the current deployed header mark, **368 × 72**, on white. It is a usable existing-brand graphic for portal preparation; it does not invent new branding. It was visually opened and checked. The source uses a wireframe box and the JamJam wordmark.
 
-## Tool evidence and fallback
+## Captured export evidence
 
-The named Playwright CLI session opened jamjam.tech and captured the mark; that session was explicitly closed. `ffmpeg` is installed for video export, and Playwright is available for screen capture. Read-only MCP browser access showed the actual deck; subsequent mark extraction hit a closed MCP transport. The independent CLI browser could open the product, but its attempt at the Claude artifact showed “Page not found.” Therefore capture the original deck through the working artifact viewer when that session is restored, or use the account holder's existing browser. Do not recreate or change the pitch to bypass access.
+The original read-only deck was captured through a headed Playwright session. The public viewer's Download control was disabled, so the capture uses its rendered source slide surface without changing content. That named browser session was explicitly closed.
 
-No narration, finished MP4, uploaded video URL or portal receipt is claimed by this cue sheet. Codex owns the preparation and accessible execution; narration and authenticated controls are handed to the account holder only where connected access cannot perform them.
+An actual [MP4 review export](./jamjam-pitch-synthetic-review.mp4) now combines the 12 original main slides with the exact 441-word approved script. Its narration is the standard synthetic Karen (en_AU) voice, not Alison's voice. Duration, source revision, codecs, hashes and slide timings are in the [export proof](./pitch_export_proof.md). The pitch deck, mirror, script and appendix remain unchanged.
+
+The orchestrator independently checks playback and audio before choosing the upload. Public video URLs and portal receipt still need actual acceptance evidence; they are not inferred from this local export.

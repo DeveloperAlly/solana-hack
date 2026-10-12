@@ -36,7 +36,7 @@ This is the artifact acceptance record for [#114](https://github.com/DeveloperAl
 |---|---|---|---|
 | Use the existing approved pitch unchanged | Codex asset preparation; approved source | [Current read-only 24-slide artifact](https://claude.ai/artifact/4QPRrRAXx8VF4PsKf5qZ8d), title “JamJam: build, create, prove”; Playwright browser snapshot showed 24 slide options and cover mark. [Recording cue sheet](./submission-assets/recording_cues.md) references the existing 441-word script | Orchestrator independently opens Present mode and checks captured source; no pitch or appendix edits |
 | Supply an actual logo graphic | Codex; existing deployed identity | [PNG](./submission-assets/jamjam-logo.png), captured from the `img` with accessible name `JamJam` at [jamjam.tech](https://jamjam.tech), 4× device scale; `sips -g pixelWidth -g pixelHeight` → 368 × 72; SHA-256 `9d12d84170266cdeddbee63efc3f3a3dd72bf76ffbe150d3f55120395a5082fa` | Orchestrator independently opens the PNG and supplies it to the portal; replace only with another existing approved asset if appropriate |
-| Prepare timed recordings | Codex capture/edit preparation; Ally narration | [Cue sheet](./submission-assets/recording_cues.md), existing pitch script (2:45 target), revised demo runbook (2:50 target); installed Playwright and ffmpeg identified | Capture original deck and rehearsed release; record narration; export MP4 and inspect actual duration/playback |
+| Prepare timed recordings | Codex capture/edit preparation; Ally narration | [Cue sheet](./submission-assets/recording_cues.md), existing pitch script (2:45 target), revised demo runbook (2:50 target); installed Playwright and ffmpeg identified | Independently review the [original-source pitch MP4](./submission-assets/jamjam-pitch-synthetic-review.mp4) and [2:45.72 export proof](./submission-assets/pitch_export_proof.md); capture the rehearsed demo next |
 | Complete form copy and business inputs | Codex portal preparation; confirmed owner/account fields | Ready-to-paste product/stack/links below; existing GTM §3–9 supplies business and team content | Inspect the authenticated portal, fill from recorded sources, isolate only genuinely missing account/identity fields |
 | Prove real core before recording | Codex orchestrator; cloud configuration and integration | Journey commits and targeted tests are code evidence; actual deployed transaction evidence belongs on #114 | Complete browser core rehearsal, record release SHA and kit/post transactions |
 | Upload and submit | Codex execution where connected access allows; account holder for inaccessible authenticated controls | Public video URLs and portal confirmation are not yet recorded here | Test links signed out, submit through the portal and retain confirmation URL/time |
@@ -57,7 +57,7 @@ This is the artifact acceptance record for [#114](https://github.com/DeveloperAl
 
 ## Repository artifact check
 
-The tracked-file inventory of [PR #69's asset revision `791d01b`](https://github.com/DeveloperAlly/solana-hack/tree/791d01b) contains no MP4, MOV or WebM recording and no standalone logo SVG, PNG, JPEG, PDF or PPTX. Its image files are product proof screenshots under `web/proof/`. This package now adds an exact deployed wordmark capture, linked above. The script's Claude deck URL is a presentation reference, not an uploaded presentation-video URL. No final public video links are recorded in this package. This check covers repository files; owner-held files and the portal need separate confirmation.
+The tracked-file inventory of [PR #69's asset revision `791d01b`](https://github.com/DeveloperAlly/solana-hack/tree/791d01b) contains no MP4, MOV or WebM recording and no standalone logo SVG, PNG, JPEG, PDF or PPTX. Its image files are product proof screenshots under `web/proof/`. This package now adds an exact deployed wordmark capture, linked above. The script's Claude deck URL is a presentation reference, not an uploaded presentation-video URL. The package now contains the [local original-source pitch MP4](./submission-assets/jamjam-pitch-synthetic-review.mp4) with disclosed synthetic narration and [export proof](./submission-assets/pitch_export_proof.md). No final public video links are recorded in this package. This check covers repository files; owner-held files and the portal need separate confirmation.
 
 ## Remaining acceptance evidence
 
@@ -80,7 +80,7 @@ Fill these only when evidence exists; do not replace blanks with assumptions.
 |---|---|
 | Release SHA / deploy run | Pending release handoff |
 | Kit / post devnet transactions | Pending real-core rehearsal |
-| Pitch URL / exported duration | Pending recording export and upload evidence |
+| Pitch URL / exported duration | Local original-source MP4 2:45.72 prepared; public upload unverified |
 | Demo URL / exported duration | Pending recording export and upload evidence |
 | Logo selected / portal upload | Exact deployed wordmark PNG prepared; portal upload unverified |
 | Portal submission confirmation / time | Pending authenticated submission evidence |
