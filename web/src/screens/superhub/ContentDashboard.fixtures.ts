@@ -15,7 +15,7 @@ const base: Omit<ContentDashboardData, 'drafts' | 'tabs'> = {
   ],
   calendarNote: 'Nothing posts until you approve it.',
   starts: [
-    { id: 'draft', title: 'Draft one post', body: 'Pick a channel and voice, give us an angle.', action: 'New draft', href: 'draftReview' },
+    { id: 'draft', title: 'Draft one post', body: 'Pick a channel and voice, give us an angle.', action: 'New draft', draftId: 'new' },
     { id: 'campaign', title: 'Plan a campaign', body: 'We draft a week of posts toward one goal.', action: 'Start a campaign', href: 'campaignGoal' },
     { id: 'replies', title: 'Draft replies', body: 'Connect an account and we draft replies to mentions for you to approve.', action: 'Set up replies', href: 'engageRules' },
   ],
@@ -26,6 +26,7 @@ export const contentDashboard: ContentDashboardData = {
   tabs: [
     { id: 'approval', label: 'Needs approval', count: 6, status: 'approval' },
     { id: 'scheduled', label: 'Scheduled', count: 5, status: 'scheduled' },
+    { id: 'awaiting', label: 'Awaiting URL', status: 'awaiting-url' },
     { id: 'posted', label: 'Posted', status: 'posted' },
     { id: 'replies', label: 'Replies', count: 4, href: 'engageQueue' },
     { id: 'rejected', label: 'Rejected', status: 'rejected' },

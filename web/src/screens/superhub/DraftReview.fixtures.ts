@@ -18,7 +18,7 @@ const drawnVersions = (text: string) => [
 /** Bracketed placeholder fixes, as many as the content dashboard says the slop check made. */
 const fixes = (slop: string) => Array.from({ length: Number(/(\d+) fix/.exec(slop)?.[1] ?? 0) }, (_, i) => ({ removed: `[slop phrase ${i + 1}]` }));
 
-/** d1 is the drawn Draft-Review board; the others take their text from the content dashboard rows. */
+/** d1 is the drawn Draft-Review board; the others take their text from the content dashboard rows; `new` is blank. */
 const drafts: Record<string, DraftContent> = Object.fromEntries(
   contentDashboard.drafts.map((d) => [
     d.id,
@@ -27,9 +27,9 @@ const drafts: Record<string, DraftContent> = Object.fromEntries(
       : { title: `${d.format} · ${d.meta.split(' · ')[0]}`, context: d.meta, channel: d.channel, versions: drawnVersions(d.title), slopFixes: fixes(d.slop) },
   ]),
 );
+drafts.new = { title: 'New draft', context: 'Write the post, or ask the writer for one from a brief', channel: 'X', versions: [{ id: 'v1', label: 'v1 · blank', text: '' }], slopFixes: [] };
 
 export const draftReview: DraftReviewData = {
-  draftId: 'd1',
   drafts,
   slopPhrases: ['game-changer', 'revolutionary', 'unlock the power', 'delve'],
   approvedNumbers: [],

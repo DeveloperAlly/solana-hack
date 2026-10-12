@@ -155,6 +155,31 @@ describe('Review round 3 (Codex on PR #81)', () => {
     expect(screen.getByRole('button', { name: /^Review X post/ })).toBeInTheDocument();
   });
 
+  it('manual route: an approved draft waits for its URL (not Posted) and is Posted once a valid URL is pasted back', async () => {
+    renderScreen('Content-Dashboard');
+    await userEvent.click(screen.getAllByRole('button', { name: /^Review X thread/ })[0]);
+    const publish = screen.getByRole('region', { name: 'Publish' });
+    await userEvent.click(within(publish).getByRole('radio', { name: /post it yourself/ }));
+    await userEvent.click(within(publish).getByRole('button', { name: 'Approve' }));
+    expect(within(publish).getByText('Awaiting the post URL')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('link', { name: 'Back to drafts awaiting approval' }));
+    expect(screen.getByRole('tab', { name: 'Posted' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: 'Awaiting URL (1)' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Review X thread/ }));
+    const card = screen.getByRole('region', { name: 'Publish' });
+    await userEvent.type(within(card).getByRole('textbox', { name: 'Post URL' }), 'not a link');
+    await userEvent.click(within(card).getByRole('button', { name: 'Save the post URL' }));
+    expect(within(card).getByText('Paste the full https link to the post.')).toBeInTheDocument();
+    const field = within(card).getByRole('textbox', { name: 'Post URL' });
+    await userEvent.clear(field);
+    await userEvent.type(field, 'https://x.com/[handle]/status/1');
+    await userEvent.click(within(card).getByRole('button', { name: 'Save the post URL' }));
+    expect(within(card).getByText('Posted')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('link', { name: 'Back to drafts awaiting approval' }));
+    expect(screen.getByRole('tab', { name: 'Posted (1)' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Awaiting URL' })).toBeInTheDocument();
+  });
+
   it('an unknown draft id shows "Draft not found" and no decisions', async () => {
     const { draftReview } = await import('../DraftReview.fixtures');
     const { render } = await import('@testing-library/react');

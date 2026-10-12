@@ -16,6 +16,12 @@ export interface Kpi {
   href?: HubLink;
 }
 
+/**
+ * Where an action goes: a hub screen, or Draft-Review on one named draft. Draft-Review has no default draft, so a
+ * target either names a screen or names the draft (Codex review on PR #81); TargetButton follows it.
+ */
+export type HubTarget = { href: HubLink; draftId?: never } | { draftId: string; href?: never };
+
 /** A labelled option with a count (rails, tabs, filters). */
 export interface CountedOption {
   id: string;
@@ -24,12 +30,8 @@ export interface CountedOption {
 }
 
 // Hub-Home ------------------------------------------------------------------------------------------------------
-export interface NeedsItem {
-  id: string;
-  chip: string;
-  text: string;
-  href: HubLink;
-}
+/** A Needs-you-next item; Review goes to its target (a draft item opens Draft-Review on that draft). */
+export type NeedsItem = { id: string; chip: string; text: string } & HubTarget;
 
 export interface HubHomeData {
   weekday: string;
@@ -179,7 +181,7 @@ export interface VoiceEditorData {
 }
 
 // Create --------------------------------------------------------------------------------------------------------
-export type DraftStatus = 'approval' | 'scheduled' | 'posted' | 'rejected';
+export type DraftStatus = 'approval' | 'scheduled' | 'awaiting-url' | 'posted' | 'rejected';
 
 export interface DraftSummary {
   id: string;
@@ -200,7 +202,8 @@ export interface ContentDashboardData {
   drafts: DraftSummary[];
   calendar: { day: string; text: string; note?: string }[];
   calendarNote: string;
-  starts: { id: string; title: string; body: string; action: string; href: HubLink }[];
+  /** The three ways to start; New draft opens Draft-Review on the blank draft. */
+  starts: ({ id: string; title: string; body: string; action: string } & HubTarget)[];
 }
 
 export type PolishAction = 'review' | 'shorten' | 'clarify' | 'beautify';
@@ -228,8 +231,6 @@ export interface DraftContent {
 }
 
 export interface DraftReviewData {
-  /** The draft shown when none is passed in router state. */
-  draftId: string;
   /** Every draft's content by id (the content dashboard's draft ids). */
   drafts: Record<string, DraftContent>;
   slopPhrases: string[];
@@ -275,8 +276,8 @@ export interface CampaignData {
 // Grow ----------------------------------------------------------------------------------------------------------
 export interface ReplyItem {
   id: string;
-  /** The engagement rule that routed this item into the queue (Engage-Rules). */
-  rule: string;
+  /** The engagement rule that routed this item into the queue (Engage-Rules); absent when you drafted it from Worth engaging. */
+  rule?: string;
   channel: string;
   author: string;
   ago: string;
@@ -288,7 +289,8 @@ export interface ReplyItem {
 export interface EngageQueueData {
   intro: string;
   queue: ReplyItem[];
-  suggestions: { id: string; who: string; what: string }[];
+  /** Worth engaging: a public post, and the reply drafted when you choose Draft a reply (it joins the queue). */
+  suggestions: { id: string; who: string; what: string; channel: string; draft: string }[];
   suggestionsNote: string;
   listsCount: number;
   never: string;

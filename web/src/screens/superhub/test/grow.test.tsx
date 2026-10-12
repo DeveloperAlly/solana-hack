@@ -20,10 +20,23 @@ describe('Grow (n-eq, n-er, n-pa, n-le, n-is, n-iq)', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Sent');
   });
 
-  it('Engage-Queue: Draft a reply on a suggestion says it joined the queue', async () => {
+  it('Engage-Queue: Draft a reply adds an editable reply to the queue; the count goes up by one and it can be sent', async () => {
     renderScreen('Engage-Queue');
+    expect(screen.getByRole('tab', { name: 'Reply queue (3)' })).toBeInTheDocument();
     await userEvent.click(screen.getAllByRole('button', { name: 'Draft a reply' })[0]);
-    expect(screen.getByText('Reply drafted. It waits in your reply queue.')).toBeInTheDocument();
+    expect(screen.getAllByText('Reply drafted. It waits in your reply queue.').length).toBeGreaterThan(0);
+    expect(screen.getByRole('tab', { name: 'Reply queue (4)' })).toBeInTheDocument();
+    expect(within(screen.getByRole('tabpanel')).getByText(/posted about agents losing context mid-task/)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Approve and send' })).toHaveLength(3);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0]);
+    const editor = screen.getByRole('textbox', { name: 'Reply to @[account]' });
+    await userEvent.clear(editor);
+    await userEvent.type(editor, 'Edited reply.');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByText('Edited reply.')).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole('button', { name: 'Approve and send' })[0]);
+    expect(screen.getByRole('tab', { name: 'Reply queue (3)' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Sent (1)' })).toBeInTheDocument();
   });
 
   it('Engage-Rules: rules toggle, a new rule is validated and added, and edited wording needs approval again', async () => {

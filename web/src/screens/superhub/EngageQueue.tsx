@@ -7,7 +7,8 @@
  * |-----------------|------------------------------------------------------------------------------------------------|
  * | queue[]         | Mentions, comments and community questions with drafted replies (drafts, kind reply)           |
  * | queue[].draft   | Drafted reply in the Replies voice after the slop check; absent = held, low confidence (n-eq 2) |
- * | suggestions     | "Worth engaging": public conversations matching the content pillars; you choose (n-eq 3)       |
+ * | suggestions     | "Worth engaging": public conversations matching the content pillars; you choose (n-eq 3);      |
+ * |                 | Draft a reply adds the suggestion's drafted reply to the queue as an editable item             |
  * | listsCount      | Suggested lists (Engage-Rules)                                                                 |
  * | never           | Product promise: no follow, unfollow or like automation (n-eq 4)                               |
  *
@@ -22,29 +23,18 @@ import { Columns } from '../../ui/layouts/Columns';
 import { HubPage } from './parts/HubPage';
 import { PageHeader } from '../../ui/layouts/PageHeader';
 import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
-import { ReplyCard, type ReplyOutcome } from './parts/ReplyCard';
+import { ReplyCard } from './parts/ReplyCard';
 import { WorthEngaging } from './parts/WorthEngaging';
 import { StatusNote } from './parts/StatusNote';
-import { useReviewQueue } from './hooks/useReviewQueue';
+import { useEngageQueue } from './hooks/useEngageQueue';
 import { useHubLinks } from './paths';
-import { useOutcomes } from './hooks/useOutcomes';
-import { useHubSession } from './hooks/useHubSession';
-import type { EngageQueueData } from './types';
+import type { EngageQueueData, ReplyItem } from './types';
 
 export function EngageQueue({ data }: { data: EngageQueueData }) {
   const links = useHubLinks();
-  const queue = useReviewQueue<ReplyOutcome>();
   const [tab, setTab] = useState('queue');
-  const drafted = useOutcomes<'drafted'>();
-  const worth = { suggestions: data.suggestions, note: data.suggestionsNote, isDrafted: (id: string) => !!drafted.outcomeOf(id), onDraft: (id: string) => drafted.set(id, 'drafted') };
-  const [session] = useHubSession();
-  // Items routed by a rule that was switched off on Engage-Rules leave the queue.
-  const routed = data.queue.filter((q) => !session.rulesOff.includes(q.rule));
-  const hidden = data.queue.length - routed.length;
-  const sent = routed.filter((q) => queue.outcomeOf(q.id) === 'sent');
-  const waiting = routed.filter((q) => !queue.outcomeOf(q.id));
-  const skipped = routed.filter((q) => queue.outcomeOf(q.id) === 'skipped');
-  const list = (items: typeof data.queue, empty: string) =>
+  const { queue, hidden, waiting, sent, skipped, worth } = useEngageQueue(data);
+  const list = (items: ReplyItem[], empty: string) =>
     items.length ? <Stack gap={4}>{items.map((q) => <ReplyCard key={q.id} item={q} queue={queue} />)}</Stack> : <EmptyState level={3} title={empty} />;
   return (
     <HubPage section="grow" sub="engagement">

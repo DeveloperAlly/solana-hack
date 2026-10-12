@@ -7,7 +7,7 @@
  *
  * | Field             | Source                                                                                      |
  * |-------------------|---------------------------------------------------------------------------------------------|
- * | draftId           | The draft opened (router state from the content dashboard), else the default                |
+ * | draftId           | The draft opened (useOpenDraft passes it; the gallery board opens its drawn draft, d1)      |
  * | drafts[id]        | That draft's title, context, channel, polish history (v1, v2 slop fixes, then each polish   |
  * |                   | action) and slop fixes; X length is weighted as the Worker counts it (lib/xLength)          |
  * | slopPhrases       | The no-AI-slop rules, run again on edits (sample list here)                                 |
@@ -30,17 +30,24 @@ import { useSelectedDraftId } from './hooks/useDraftReview';
 import { useHubLinks } from './paths';
 import type { DraftReviewData } from './types';
 
-export function DraftReview({ data, state = 'success' }: { data: DraftReviewData; state?: ScreenState }) {
+export interface DraftReviewProps {
+  data: DraftReviewData;
+  state?: ScreenState;
+  /** The draft the gallery board opens (its drawn draft); in the app, links pass the id (useOpenDraft). */
+  boardDraftId?: string;
+}
+
+export function DraftReview({ data, state = 'success', boardDraftId }: DraftReviewProps) {
   const links = useHubLinks();
-  const draftId = useSelectedDraftId(data);
-  const draft = data.drafts[draftId];
+  const draftId = useSelectedDraftId(boardDraftId);
+  const draft = draftId === undefined ? undefined : data.drafts[draftId];
   const toContent = <Button href={links.contentEmpty}>Go to content</Button>;
   if (state === 'empty') return <HubPage section="create" sub="content"><EmptyState level={1} title="Nothing to review" body="Drafts land here after the brand and slop checks." actions={toContent} /></HubPage>;
   // No content for this id: say so, with no editor or decisions, rather than show another draft.
-  if (!draft) return <HubPage section="create" sub="content"><EmptyState level={1} title="Draft not found" body="This draft is not in your drafts any more." actions={<Button href={links.content}>Back to content</Button>} /></HubPage>;
+  if (!draft || draftId === undefined) return <HubPage section="create" sub="content"><EmptyState level={1} title="Draft not found" body="This draft is not in your drafts any more." actions={<Button href={links.content}>Back to content</Button>} /></HubPage>;
   return (
     <HubPage section="create" sub="content">
-      <DraftReviewBody key={draftId} data={data} draftId={draftId} draft={draft} state={state} />
+      <DraftReviewBody key={draftId} data={data} draftId={draftId} draft={draft} state={state} drawnDraft={draftId === boardDraftId} />
     </HubPage>
   );
 }

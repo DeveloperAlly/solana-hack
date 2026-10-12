@@ -15,10 +15,10 @@ export const hubHome: HubHomeData = {
   ],
   needs: [
     { id: 'n1', chip: 'Inbox · 2 overdue', text: 'A likely lead on LinkedIn and a journalist on X are waiting on you · replies drafted', href: 'inboxNeedsReply' },
-    { id: 'n2', chip: 'X post', text: '"Your agent didn\'t forget. It was never told. Here\'s the fix." · Founder voice · launch week', href: 'draftReview' },
+    { id: 'n2', chip: 'X post', text: '"Your agent didn\'t forget. It was never told. Here\'s the fix." · Founder voice · launch week', draftId: 'd1' },
     { id: 'n3', chip: 'Reply · X', text: '@[handle] asked whether aDNA works with [agent tool] · reply drafted in Replies voice', href: 'engageQueue' },
     { id: 'n4', chip: 'LinkedIn · ambassador', text: "Mai T.'s post is verified and waiting · 10 USDC on approval", href: 'ambassadors' },
-    { id: 'n5', chip: 'Blog', text: '"Why agents need shared project context" · Technical voice · 1,100 words', href: 'draftReview' },
+    { id: 'n5', chip: 'Blog', text: '"Why agents need shared project context" · Technical voice · 1,100 words', draftId: 'd2' },
   ],
   campaign: { name: 'aDNA launch week', goal: 'Goal: 40 verified posts · 15 so far', done: 15, target: 40, caption: '6 days left · 305 of 500 USDC left' },
   brandPack: { title: 'Brand pack 80% complete', missing: 'Missing: proof points, tone for replies' },

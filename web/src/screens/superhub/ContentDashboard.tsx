@@ -29,11 +29,11 @@ import { PageHeader } from '../../ui/layouts/PageHeader';
 import { ContentTabPanel } from './parts/ContentTabPanel';
 import { CalendarRail } from './parts/CalendarRail';
 import { useContentDashboard } from './hooks/useContentDashboard';
-import { useHubLinks } from './paths';
+import { useOpenDraft } from './hooks/useOpenDraft';
 import type { ContentDashboardData } from './types';
 
 export function ContentDashboard({ data, state = 'success' }: { data: ContentDashboardData; state?: ScreenState }) {
-  const links = useHubLinks();
+  const openDraft = useOpenDraft();
   const view = useContentDashboard(data);
   const empty = state === 'empty' || data.drafts.length === 0;
   const pipeline = (
@@ -65,7 +65,7 @@ export function ContentDashboard({ data, state = 'success' }: { data: ContentDas
   }
   return (
     <HubPage section="create" sub="content">
-      <PageHeader title="Content" intro={pipeline} actions={<Button href={links.draftReview}>+ New draft</Button>} />
+      <PageHeader title="Content" intro={pipeline} actions={<Button onClick={() => openDraft('new')}>+ New draft</Button>} />
       <Columns end={<CalendarRail slots={data.calendar} note={data.calendarNote} />}>
         <ToggleGroup label="Filter by channel" options={data.channels} value={[view.channel]} onChange={(v) => view.setChannel(v[0])} />
         {tabs}

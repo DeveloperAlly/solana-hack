@@ -28,6 +28,7 @@ import { PageHeader } from '../../ui/layouts/PageHeader';
 
 import { HomeAside } from './parts/HomeAside';
 import { useActiveBrand } from './hooks/useHubSession';
+import { TargetButton } from './parts/TargetButton';
 import { useHubLinks } from './paths';
 import type { HubHomeData } from './types';
 
@@ -44,7 +45,7 @@ export function HubHome({ data }: { data: HubHomeData }) {
         <Card labelledBy="hub-needs" header={<><Heading level={2} size="lg" id="hub-needs">Needs you next</Heading><Link href={links.content}>All</Link></>}>
           <List label="Needs you next">
             {data.needs.map((n) => (
-              <ListRow key={n.id} lead={<Badge>{n.chip}</Badge>} title={n.text} actions={<Button variant="secondary" href={links[n.href]}>Review</Button>} />
+              <ListRow key={n.id} lead={<Badge>{n.chip}</Badge>} title={n.text} actions={<TargetButton target={n}>Review</TargetButton>} />
             ))}
           </List>
         </Card>

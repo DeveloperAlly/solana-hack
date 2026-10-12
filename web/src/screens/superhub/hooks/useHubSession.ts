@@ -1,14 +1,14 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import { demoBrands } from '../../../ui/domain/demoBrands';
 import { campaignStore } from '../../../flows/campaign/draft';
-import type { DraftStatus } from '../types';
+import type { DraftRecord } from './draftStatus';
 
 /** What a person changes on one Superhub screen that later screens must show, for one brand. */
 export interface BrandScoped {
   /** Inbox threads that were replied to, snoozed or marked done, by thread id. */
   inbox: Record<string, 'sent' | 'snoozed' | 'done'>;
-  /** Drafts moved by a decision in Draft-Review, by draft id. */
-  drafts: Record<string, DraftStatus>;
+  /** Decisions taken in Draft-Review, by draft id; their status comes from draftStatusOf. */
+  drafts: Record<string, DraftRecord>;
   /** Engagement rules switched off (their items leave the reply queue). */
   rulesOff: string[];
   /** The persona created in Influencer-Setup. */

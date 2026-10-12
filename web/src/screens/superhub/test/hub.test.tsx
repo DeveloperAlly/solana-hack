@@ -30,6 +30,23 @@ describe('Hub navigation, home, content and analytics', () => {
     expect(screen.getByRole('heading', { level: 1, name: /Needs reply/ })).toBeInTheDocument();
   });
 
+  it('Hub-Home: Review on the Blog item opens the Blog draft, not another one', async () => {
+    renderScreen('Hub-Home');
+    const blog = screen.getByText(/Why agents need shared project context/).closest('li') as HTMLElement;
+    await userEvent.click(within(blog).getByRole('button', { name: 'Review' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Blog · Technical voice' })).toBeInTheDocument();
+  });
+
+  it('Draft-Review opened without a draft id says the draft was not found (no default draft)', async () => {
+    const { draftReview } = await import('../DraftReview.fixtures');
+    const { render } = await import('@testing-library/react');
+    const { MemoryRouter } = await import('react-router');
+    const { DraftReview } = await import('../DraftReview');
+    render(<MemoryRouter><DraftReview data={draftReview} /></MemoryRouter>);
+    expect(screen.getByRole('heading', { level: 1, name: 'Draft not found' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+  });
+
   it('the brand switcher changes the brand shown in the header', async () => {
     renderScreen('Hub-Home');
     await userEvent.click(screen.getByRole('button', { name: 'aDNA, switch brand' }));

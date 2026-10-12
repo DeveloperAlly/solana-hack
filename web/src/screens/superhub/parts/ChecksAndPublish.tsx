@@ -25,7 +25,7 @@ export function ChecksAndPublish({ review, data }: ChecksAndPublishProps) {
       </Card>
       <Card as="section" labelledBy="draft-publish" header={<Heading level={2} size="lg" id="draft-publish">Publish</Heading>}>
         {review.decision ? (
-          <DraftDecision decision={review.decision} route={data.publishOptions.find((o) => o.value === review.publish)?.label ?? ''} onRegister={review.register} onReopen={review.reopen} />
+          <DraftDecision review={review} route={data.publishOptions.find((o) => o.value === review.publish)?.label ?? ''} />
         ) : (
           <Stack gap={3}>
             <Choice legend="Where it goes" options={data.publishOptions} value={review.publish} onChange={review.setPublish} />

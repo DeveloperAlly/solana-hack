@@ -14,8 +14,8 @@ export const engageQueue: EngageQueueData = {
     { id: 'q3', rule: 'r2', channel: 'Discord · #help', author: '[member]', ago: '3 h ago', incoming: 'Is there a template for monorepos?', note: 'No confident answer found in your sources. Draft held for you to write.' },
   ],
   suggestions: [
-    { id: 's1', who: '@[account]', what: 'posted about agents losing context mid-task · 2 h ago · 40 replies' },
-    { id: 's2', who: '[Newsletter]', what: 'wrote about agent memory formats · yesterday' },
+    { id: 's1', who: '@[account]', what: 'posted about agents losing context mid-task · 2 h ago · 40 replies', channel: 'X · public post', draft: 'This is the problem aDNA exists for: the context lives in a file in the repo, so every session starts with it.' },
+    { id: 's2', who: '[Newsletter]', what: 'wrote about agent memory formats · yesterday', channel: 'LinkedIn · article', draft: 'Good roundup. One format to add: aDNA keeps project context versioned with the code, readable by any agent.' },
   ],
   suggestionsNote: 'Picked from public posts about your content pillars. Nothing is sent without you.',
   listsCount: 2,
