@@ -28,6 +28,17 @@ describe('C13 CopyButton', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('resets the feedback when the value changes', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    const { rerender } = renderWithRouter(<CopyButton value="first" label="Copy endpoint" feedback="label" />);
+    await user.click(screen.getByRole('button', { name: 'Copy endpoint' }));
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument();
+    rerender(<CopyButton value="second" label="Copy endpoint" feedback="label" />);
+    expect(screen.getByRole('button', { name: 'Copy endpoint' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
   it('says when copying fails', async () => {
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'));

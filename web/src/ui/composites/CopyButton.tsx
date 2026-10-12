@@ -33,16 +33,19 @@ const defaultResultLabels = { copied: 'Copied', failed: 'Copy failed' } as const
  * the person to copy by hand. Replaces BuilderCopyButton and SoonCopyButton (issue #46, shared consolidation).
  */
 export function CopyButton({ value, label, variant = 'secondary', feedback = 'status', messages, resultLabels, onCopy }: CopyButtonProps) {
-  const [state, setState] = useState<CopyState>('idle');
+  // The result is kept with the value it was for, so feedback resets to idle as soon as `value` changes.
+  const [last, setLast] = useState<{ value: string; status: Exclude<CopyState, 'idle'> } | null>(null);
+  const state: CopyState = last && last.value === value ? last.status : 'idle';
   async function copy() {
+    const copied = value;
     let result: Exclude<CopyState, 'idle'>;
     try {
-      await navigator.clipboard.writeText(value);
+      await navigator.clipboard.writeText(copied);
       result = 'copied';
     } catch {
       result = 'failed';
     }
-    setState(result);
+    setLast({ value: copied, status: result });
     onCopy?.(result);
   }
   const message = state === 'idle' ? '' : (messages?.[state] ?? defaultMessages[state]);
