@@ -38,6 +38,7 @@ The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [A
 | [.agentic/what/decisions/adr_009_rename_jamjam.md](./.agentic/what/decisions/adr_009_rename_jamjam.md) | accepted | ADR-009: rename to JamJam (jamjam.tech); wireframe brand |
 | [.agentic/what/decisions/adr_010_component_list_and_plan_tiers.md](./.agentic/what/decisions/adr_010_component_list_and_plan_tiers.md) | accepted | ADR-010: one component list, launch plan tiers, voice ladder, 9 voice dimensions |
 | [.agentic/what/decisions/adr_014_referral_and_launch_promotions.md](./.agentic/what/decisions/adr_014_referral_and_launch_promotions.md) | proposed | ADR-014: refer-a-friend offer and launch promotions (owner to ratify) |
+| [.agentic/what/decisions/adr_015_launch_prices.md](./.agentic/what/decisions/adr_015_launch_prices.md) | proposed | ADR-015: launch prices for Free, Solo, Team and the payments fee (owner to ratify) |
 | [.agentic/what/decisions/adr_008_submission_critical_path.md](./.agentic/what/decisions/adr_008_submission_critical_path.md) | proposed | ADR-008: submission critical path |
 | [.agentic/what/context/component_inventory.md](./.agentic/what/context/component_inventory.md) | proposed | UI component inventory, first slice per component, screen-to-component map |
 | [.agentic/what/context/compendium_2026_10_06.md](./.agentic/what/context/compendium_2026_10_06.md) | active | Decision compendium 2026-10-06 (v2); source for the PRD rewrite |

@@ -12,7 +12,7 @@ tags: [pitch, script, colosseum]
 
 **How to read it (owner direction, 2026-10-12, [teardown](../../../audits/2026-10-12_pitch-vc-teardown.md#owner-direction-2026-10-12-after-the-teardown)):** the pitch is for the judges and sells the product as it will be built, in plain words about what a founder gets. The demo video shows what runs today; live status is in STATE.md; the appendix talking points carry the detail for Q&A.
 
-Total: 439 words, about 2:45 at 160 words a minute.
+Total: 441 words, about 2:45 at 160 words a minute.
 
 **Chosen option (2026-10-13):** option A, "before and after", of three drafted for the owner; the owner asked the agent to finish it. **Source for "six months" (slide 1):** agency guides put a brand built from scratch at 3 to 6 months. Snapper Studio says its average brand project takes 6 months, and that "the brand itself (strategy, identity, launch) takes 4 to 6 months" ([Snapper Studio](https://www.snapper.studio/blog/how-long-branding-process-take)). Clay puts a new brand from scratch at 3 to 4 months, and a full rebrand at 5 to 9 ([Clay](https://clay.global/blog/top-branding-agencies/how-long-is-the-branding-process)). Both are agency estimates, not a survey; checked 2026-10-13.
 
@@ -89,14 +89,14 @@ Problem (a founder needs a brand team; every option hurts) → solution (JamJam 
 - Others build, create, prove or pay; JamJam is built for all four, pay next
 - Works with your tools: export your kit to any AI agent
 
-**10. Business model** (2:05–2:19)
+**10. Business model** (2:05–2:20)
 - Free: build your voice and brand kit
-- Solo $39 and Team $199 a month (launch prices)
+- Solo $39 and Team $199 a month (launch prices, proposed in ADR-015)
 - 3% on tips and rewards paid through JamJam
 - Every check runs on a public JamJam Verify page
 - Refer a friend: you both get 2 months free (proposed, ADR-014)
 
-**11. Roadmap** (2:19–2:30)
+**11. Roadmap** (2:20–2:30)
 - Now: your brand kit
 - Next: content you approve unedited
 - Then: publish direct; tips and fan rewards
@@ -145,11 +145,11 @@ I'm starting with people like me: web3 founders and creators. In crypto, imperso
 
 I looked at fifty-nine products. The best do two of the four jobs. None builds my voice, launches my brand, proves it and pays my community in one place. JamJam does.
 
-**10. Business model** · 2:05–2:19 · 36 words
+**10. Business model** · 2:05–2:20 · 38 words
 
-My brand kit is free. Once it's running, it's thirty-nine dollars a month, or one ninety-nine for a team, plus three percent on tips and rewards. Every fan who checks one of my posts discovers JamJam.
+My brand kit is free. Once it's running, launch pricing is thirty-nine dollars a month, or one ninety-nine for a team, plus three percent on tips and rewards. Every fan who checks one of my posts discovers JamJam.
 
-**11. Roadmap** · 2:19–2:30 · 29 words
+**11. Roadmap** · 2:20–2:30 · 29 words
 
 Next, I approve posts without touching them, publish to X, LinkedIn, Bluesky and Threads from one place, reward my fans, and get paid when AI agents use my voice.
 
