@@ -1,4 +1,6 @@
-import { requireUser, type User } from './auth';
+import { requirePermanent, requireUser, type User } from './auth';
+import { claimMap } from './claims';
+import { assertCanAddSource, assertCanCreateBrand, claimAnonymous, coverage, editFact, FIRST_POST_BRIEF, voiceSamples } from './journey';
 import { db } from './db';
 import { HttpError, json, safeError, sha256Hex, type Env } from './env';
 import { readPage } from './ingest';
@@ -48,7 +50,7 @@ async function brandState(env: Env, brand: Brand) {
     db.select<Gate>(env, 'gates', f),
     db.select<Kit>(env, 'kits', `${f}&select=id,version,hash,status,signature,attestation,created_at,error,payload&order=version.desc`),
   ]);
-  return { brand, answers, sources, evidence, sections, gates, kits };
+  return { brand, answers, sources, evidence, sections, gates, kits, coverage: coverage(evidence) };
 }
 
 function answerText(answers: Answer[], steps: readonly string[]) {
@@ -277,9 +279,14 @@ export async function saveAnswer(env: Env, brand: Brand, step: string, data: Rec
   const [row] = await db.upsert(env, 'answers', { brand_id: brand.id, step, data, skipped, updated_at: new Date().toISOString() }, 'brand_id,step');
   // Owner answers are evidence, dated (P2: "owner answer, date"). One row per filled field; an unchanged field keeps
   // its row (and its id and date), a changed or cleared field's row is removed, and a new value gets a new row.
-  const evFilter = `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}`;
+  // Interview rows only: an owner's edit of a source fact (journey.ts editFact, edited_from set) is not an answer.
+  const evFilter = `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}&edited_from=is.null`;
   const existing = await db.select<{ id: string; claim: string }>(env, 'evidence', `${evFilter}&select=id,claim`);
-  const wanted = skipped ? [] : Object.entries(data).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`);
+  // The voice sample is a style example (typed, or a generated paragraph the owner picked in journey J4), never a fact
+  // about the brand: it stays in the answer for drafting the voice section, but never becomes approved evidence that
+  // could back a claim.
+  const NOT_EVIDENCE = step === 'voice' ? ['sample'] : [];
+  const wanted = skipped ? [] : Object.entries(data).filter(([k, v]) => v && !NOT_EVIDENCE.includes(k)).map(([k, v]) => `${k}: ${v}`);
   const kept = new Set<string>();
   const removed: string[] = [];
   for (const e of existing) {
@@ -337,10 +344,18 @@ export async function reviewEvidence(env: Env, brand: Brand, id: string, decisio
   const [row] = await db.select<Evidence>(env, 'evidence', f);
   if (!row) throw new HttpError(404, 'fact not found');
   if (!REVIEWABLE.includes(row.trust ?? '')) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
+  // Read before the update: the database trigger (spec/db/010) deletes the correction as part of approving the source.
+  const [correction] = decision === 'approved' ? await db.select<{ id: string }>(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('edited_from', id)}&select=id&limit=1`) : [];
   const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision });
-  if (decision === 'approved') return { evidence: updated, stale: [] as string[] };
-  const sections = await db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
-  return { evidence: updated, stale: sections.filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };
+  const sections = () => db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
+  if (decision === 'approved') {
+    // Restoring a source fact the owner had reworded retires the rewording (journey.ts editFact), so a kit never holds
+    // both versions; sections that cited the rewording are stale and must be redrafted.
+    if (!correction) return { evidence: updated, stale: [] as string[] };
+    await db.del(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('id', correction.id)}`);
+    return { evidence: updated, stale: (await sections()).filter((s) => (s.citations ?? []).includes(correction.id)).map((s) => s.section) };
+  }
+  return { evidence: updated, stale: (await sections()).filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };
 }
 
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
@@ -372,10 +387,17 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const brands = await db.select<Brand>(env, 'brands', `${db.eq('owner_id', user.id)}&order=created_at`);
     return json({ user, brands });
   }
+  // POST /api/me/claim {anonymousToken}: brands read before sign-in move to the account signed in to (journey J2).
+  if (p[1] === 'me' && p[2] === 'claim' && p.length === 3 && m === 'POST') {
+    const b = await body(req);
+    return json(await claimAnonymous(env, user, str(b.anonymousToken, 4000)));
+  }
   if (p[1] === 'brands' && p.length === 2 && m === 'POST') {
     const b = await body(req);
     const name = str(b.name, 120);
     if (!name) throw new HttpError(400, 'a brand name is required');
+    if (user.isAnonymous) await publicLimit(req, env, 'brand');
+    await assertCanCreateBrand(env, user);
     const type = ['company', 'person', 'founder_linked'].includes(str(b.type)) ? str(b.type) : 'company';
     const [brand] = await db.insert<Brand>(env, 'brands', { owner_id: user.id, name, type, description: str(b.description, 300) || null, website: str(b.website, 300) || null, goal: str(b.goal, 300) || null, channel: str(b.channel, 60) || null });
     return json({ brand }, 201);
@@ -402,12 +424,17 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     return json(await saveAnswer(env, brand, step, data, b.skipped === true));
   }
   // PATCH /api/brands/:id/evidence/:eid  {review_status: 'approved' | 'rejected'} -> {evidence, stale}
+  //                                      {claim} -> the owner's rewording (journey J3 Edit) -> {evidence, replaced, stale}
   if (p[3] === 'evidence' && p.length === 5 && m === 'PATCH') {
     if (!/^[0-9a-f-]{36}$/i.test(p[4])) throw new HttpError(404, 'fact not found');
     const b = await body(req);
+    if (typeof b.claim === 'string') return json(await editFact(env, brand.id, p[4], b.claim));
     return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20)));
   }
   if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
+    // The anonymous source cap counts the rows that exist, so removing a source needs the saved account: otherwise
+    // delete and re-add would read sources (and call the model) without bound (Codex review on PR #96).
+    requirePermanent(user);
     // Removing a source removes the facts read from it. Sections that cited them then need redrafting before the next
     // registration (registerKit refuses stale citations); kits already registered keep their own evidence snapshot.
     const id = p[4];
@@ -423,11 +450,17 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const b = await body(req);
     const u = str(b.url, 500);
     if (!u) throw new HttpError(400, 'a link is required');
+    if (user.isAnonymous) {
+      // Reading before sign-in (D1): per-IP limit and a source cap, so an anonymous visitor's use stays bounded.
+      await publicLimit(req, env, 'read');
+      await assertCanAddSource(env, user, brand.id);
+    }
     return json(await ingest(env, brand, u), 201);
   }
   if (p[3] === 'sections' && p[4] && isSection(p[4])) {
     const section = p[4];
-    if (p[5] === 'draft' && m === 'POST') return json({ section: await draftSection(env, brand, section) });
+    // Drafting calls the model; it starts after the brand is saved (journey J2 before J3), so anonymous use stays bounded.
+    if (p[5] === 'draft' && m === 'POST') { requirePermanent(user); return json({ section: await draftSection(env, brand, section) }); }
     if (p.length === 5 && m === 'PUT') {
       const b = await body(req);
       const text = str(b.body, 6000);
@@ -447,7 +480,13 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
       return json({ section: row });
     }
   }
-  if (p[3] === 'kit' && p[4] === 'register' && m === 'POST') return json(await registerKit(env, user, brand), 201);
+  // POST /api/brands/:id/voice/samples {round: 1 | 2, near?} -> {samples: [{template, label, text}] x3} (journey J4)
+  if (p[3] === 'voice' && p[4] === 'samples' && p.length === 5 && m === 'POST') {
+    requirePermanent(user);
+    const b = await body(req);
+    return json({ samples: await voiceSamples(env, brand, b.round === 2 ? 2 : 1, str(b.near, 40) || undefined) });
+  }
+  if (p[3] === 'kit' && p[4] === 'register' && m === 'POST') { requirePermanent(user); return json(await registerKit(env, user, brand), 201); }
   // S5 Create: posts in the brand voice; human approval before registration (R8).
   if (p[3] === 'posts') {
     if (p.length === 4 && m === 'GET') {
@@ -460,8 +499,14 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     }
     if (p.length === 4 && m === 'POST') {
       const b = await body(req);
-      const brief = str(b.brief, 1000);
-      if (!brief) throw new HttpError(400, 'say what the post is about');
+      // No brief: only the brand's first post is written from the kit (journey J6, "no blank brief"); any later post
+      // still needs one, as the Create screen asks.
+      let brief = str(b.brief, 1000);
+      if (!brief) {
+        const [any] = await db.select<{ id: string }>(env, 'posts', `${db.eq('brand_id', brand.id)}&select=id&limit=1`);
+        if (any) throw new HttpError(400, 'say what the post is about');
+        brief = FIRST_POST_BRIEF;
+      }
       return json({ post: await draftPost(env, brand, brief, str(b.channel, 40)) }, 201);
     }
     const [post] = p[4] && /^[0-9a-f-]{36}$/.test(p[4]) ? await db.select<Post>(env, 'posts', `${db.eq('id', p[4])}&${db.eq('brand_id', brand.id)}`) : [];
@@ -471,9 +516,12 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     if (b.rev !== post.rev) throw new HttpError(409, 'this post changed since you loaded it; reload to see the latest version');
     if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str(b.body, 4000)) });
     if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
+    // POST .../posts/:pid/claims {rev} -> {claimMap}: each claim with the facts it rests on, or unsupported (H9, #62).
+    if (p[5] === 'claims' && m === 'POST') return json({ claimMap: await claimMap(env, post) });
     if (p[5] === 'polish' && m === 'POST') return json({ post: await polishPost(env, post, str(b.action, 40)) });
     if (p[5] === 'undo' && m === 'POST') return json({ post: await undoPost(env, post) });
     if (p[5] === 'register' && m === 'POST') {
+      requirePermanent(user);
       // Refused, not cut: a truncated link would be stored, and shown on Verify, as a different address.
       if (typeof b.publishedUrl === 'string' && b.publishedUrl.trim().length > 500) throw new HttpError(400, 'that link is longer than 500 characters; use the post\'s short link');
       return json(await registerPost(env, user, post, str(b.publishedUrl, 500)), 201);

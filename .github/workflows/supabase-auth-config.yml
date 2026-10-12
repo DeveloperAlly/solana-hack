@@ -1,7 +1,10 @@
 name: supabase-auth-config
 # One-click email setup for sign-in. Safe to re-run; each run does what it can and says what is missing.
 #   1. Supabase URL Configuration: Site URL https://jamjam.tech, redirect allow list https://jamjam.tech/**
-#      (without this the emailed link lands on the default http://localhost:3000).
+#      (without this the emailed link lands on the default http://localhost:3000). Also anonymous sign-ins and manual
+#      identity linking, so a visitor can read their site before signing in and keep it when they save with an email
+#      (decision D1; https://supabase.com/docs/guides/auth/auth-anonymous). Supabase limits anonymous sign-ins to 30 an
+#      hour per IP by default.
 #   2. Resend sending domain jamjam.tech: created if absent, verification requested, and the DNS
 #      records posted to an issue so they can be added in Cloudflare (DNS values are public by design).
 #   3. Once Resend reports the domain verified: Supabase custom SMTP through Resend, sender "JamJam",
@@ -14,7 +17,7 @@ name: supabase-auth-config
 # Sources, checked 2026-10-12:
 #   Supabase Management API PATCH/GET /v1/projects/{ref}/config/auth, schema UpdateAuthConfigBody
 #     (https://github.com/supabase/supabase/blob/master/apps/docs/spec/api_v1_openapi.json):
-#     site_url, uri_allow_list, smtp_admin_email, smtp_host, smtp_port (string), smtp_user, smtp_pass,
+#     site_url, uri_allow_list, external_anonymous_users_enabled, security_manual_linking_enabled, smtp_admin_email, smtp_host, smtp_port (string), smtp_user, smtp_pass,
 #     smtp_sender_name, mailer_subjects_*/mailer_templates_*_content. The GET response schema
 #     (AuthConfigResponse_Output) can include smtp_pass, so every GET below is piped straight into a jq
 #     projection of named non-secret fields; never print or save the full response.
@@ -62,11 +65,11 @@ jobs:
         run: |
           set -euo pipefail
           api="https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth"
-          jq -n --arg s "$SITE_URL" --arg a "$ALLOW_LIST" '{site_url:$s, uri_allow_list:$a}' |
+          jq -n --arg s "$SITE_URL" --arg a "$ALLOW_LIST" '{site_url:$s, uri_allow_list:$a, external_anonymous_users_enabled:true, security_manual_linking_enabled:true}' |
             curl -sS --fail-with-body -o /dev/null -w 'PATCH urls: HTTP %{http_code}\n' -X PATCH "$api" \
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @-
           curl -sS --fail-with-body "$api" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" |
-            jq -e --arg s "$SITE_URL" --arg a "$ALLOW_LIST" '{site_url, uri_allow_list} | ., (.site_url == $s and .uri_allow_list == $a)' ||
+            jq -e --arg s "$SITE_URL" --arg a "$ALLOW_LIST" '{site_url, uri_allow_list, external_anonymous_users_enabled, security_manual_linking_enabled} | ., (.site_url == $s and .uri_allow_list == $a and .external_anonymous_users_enabled == true and .security_manual_linking_enabled == true)' ||
             { echo "::error::URL Configuration did not read back as set"; exit 1; }
 
       - name: Resend sending domain
