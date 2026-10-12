@@ -4,7 +4,8 @@ import { ComingSoonFlag } from '../ui/domain/ComingSoonFlag';
 import { canvasPages } from '../screens/registry-types';
 import { allScreens } from './registry';
 import { GalleryToolbar } from './GalleryToolbar';
-import { useGalleryTheme, useThemeQuery } from './useGalleryTheme';
+import { ScreenLink } from './ScreenLink';
+import { useGalleryTheme } from './useGalleryTheme';
 import styles from './Gallery.module.css';
 
 const repo = 'https://github.com/DeveloperAlly/solana-hack';
@@ -12,7 +13,6 @@ const repo = 'https://github.com/DeveloperAlly/solana-hack';
 /** /screens: every registered screen, grouped by canvas page. Public, read-only, no network calls (issue #46). */
 export function GalleryIndex() {
   const theme = useGalleryTheme();
-  const q = useThemeQuery();
   return (
     <div className={styles.page}>
       <GalleryToolbar title="Screen gallery" theme={theme} />
@@ -41,7 +41,7 @@ export function GalleryIndex() {
                   <ul className={styles.list}>
                     {screens.map((s) => (
                       <li key={s.artboard} className={styles.row}>
-                        <Link href={`/screens/${s.artboard}${q}`}>{s.artboard}</Link>
+                        <ScreenLink artboard={s.artboard}>{s.artboard}</ScreenLink>
                         <Text as="span" variant="small" tone="secondary">{s.title}</Text>
                         <ComingSoonFlag tag={s.tag} />
                       </li>
