@@ -1,82 +1,131 @@
 name: supabase-auth-config
-# Sets the Supabase project's auth config so email sign-in sends a 6-digit code:
-# the Magic Link template carries {{ .Token }}, and the Site URL and redirect allow list point at jamjam.tech.
+# One-click email setup for sign-in. Safe to re-run; each run does what it can and says what is missing.
+#   1. Supabase URL Configuration: Site URL https://jamjam.tech, redirect allow list https://jamjam.tech/**
+#      (without this the emailed link lands on the default http://localhost:3000).
+#   2. Resend sending domain auth.jamjam.tech: created if absent, verification requested, and the DNS
+#      records posted to an issue so they can be added in Cloudflare (DNS values are public by design).
+#   3. Once Resend reports the domain verified: Supabase custom SMTP through Resend, sender "JamJam",
+#      and branded sign-in emails carrying both the link and the 6-digit code.
 #
-# API: PATCH / GET https://api.supabase.com/v1/projects/{ref}/config/auth
-#   (operationIds v1-update-auth-service-config / v1-get-auth-service-config).
-# Field names verified 2026-10-12 against Supabase's Management API OpenAPI spec
-#   (https://api.supabase.com/api/v1, source file
-#   https://github.com/supabase/supabase/blob/master/apps/docs/spec/api_v1_openapi.json,
-#   schema UpdateAuthConfigBody): site_url (string, no commas), uri_allow_list (string),
-#   mailer_subjects_magic_link (string), mailer_templates_magic_link_content (string).
-# Template fields and the curl pattern: https://supabase.com/docs/guides/auth/auth-email-templates
-# OTP needs {{ .Token }} in the Magic Link template: https://supabase.com/docs/guides/auth/auth-email-passwordless
-# ** wildcard in redirect URLs: https://supabase.com/docs/guides/auth/redirect-urls
+# Secrets: SUPABASE_ACCESS_TOKEN (personal access token, https://supabase.com/dashboard/account/tokens)
+#          RESEND_API_KEY (Resend API key with Full access, needed to create the domain)
+# Variable: SUPABASE_URL (shared with the deploy workflow)
+#
+# Sources, checked 2026-10-12:
+#   Supabase Management API PATCH/GET /v1/projects/{ref}/config/auth, schema UpdateAuthConfigBody
+#     (https://github.com/supabase/supabase/blob/master/apps/docs/spec/api_v1_openapi.json):
+#     site_url, uri_allow_list, smtp_admin_email, smtp_host, smtp_port (string), smtp_user, smtp_pass,
+#     smtp_sender_name, mailer_subjects_*/mailer_templates_*_content. GET does not return smtp_pass.
+#   Custom SMTP: https://supabase.com/docs/guides/auth/auth-smtp
+#   Resend SMTP for Supabase (host smtp.resend.com, port 465, user "resend", password = API key):
+#     https://resend.com/docs/send-with-supabase-smtp
+#   Resend domains API: POST /domains, POST /domains/{id}/verify, GET /domains, GET /domains/{id}
+#     (https://resend.com/docs/api-reference/domains/create-domain)
+#   Redirect URL wildcards: https://supabase.com/docs/guides/auth/redirect-urls
 on:
   workflow_dispatch:
 permissions:
   contents: read
+  issues: write # post the DNS records to the email-setup issue
 jobs:
   configure:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       SITE_URL: https://jamjam.tech
+      ALLOW_LIST: https://jamjam.tech/**
+      MAIL_DOMAIN: auth.jamjam.tech
+      MAIL_FROM: no-reply@auth.jamjam.tech
+      SENDER_NAME: JamJam
+      ISSUE_TITLE: "Email setup: DNS records for auth.jamjam.tech"
     steps:
       - name: Check inputs
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
         run: |
           set -euo pipefail
-          test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo "::error::MISSING secret SUPABASE_ACCESS_TOKEN. Add a Supabase personal access token (https://supabase.com/dashboard/account/tokens) as a repo Actions secret."; exit 1; }
-          test -n "${SUPABASE_URL:-}" || { echo "::error::MISSING variable SUPABASE_URL (the deploy workflow uses it)."; exit 1; }
-          # The project ref is the subdomain of the project API URL, https://<ref>.supabase.co
+          test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo "::error::MISSING secret SUPABASE_ACCESS_TOKEN (https://supabase.com/dashboard/account/tokens)."; exit 1; }
+          test -n "${SUPABASE_URL:-}" || { echo "::error::MISSING variable SUPABASE_URL."; exit 1; }
           # Accept only the exact project URL (optional trailing slash); anything else is refused, never reduced.
           [[ "$SUPABASE_URL" =~ ^https://([a-z0-9]{20})\.supabase\.co/?$ ]] || { echo "::error::SUPABASE_URL is not exactly https://<ref>.supabase.co"; exit 1; }
-          ref="${BASH_REMATCH[1]}"
-          echo "PROJECT_REF=$ref" >> "$GITHUB_ENV"
+          echo "PROJECT_REF=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+          if [ -n "${RESEND_API_KEY:-}" ]; then echo "HAVE_RESEND=1" >> "$GITHUB_ENV"; else
+            echo "::warning::No RESEND_API_KEY secret yet: setting URL Configuration only. Add it and re-run for custom SMTP."; fi
 
-      - name: Write the config body
-        run: |
-          set -euo pipefail
-          # Quoted heredoc: the shell expands nothing, so {{ .Token }} reaches Supabase literally.
-          cat > "$RUNNER_TEMP/auth-config.json" <<'JSON'
-          {
-            "site_url": "https://jamjam.tech",
-            "uri_allow_list": "https://jamjam.tech/**",
-            "mailer_subjects_magic_link": "Your JamJam sign-in code",
-            "mailer_templates_magic_link_content": "<h2>Your JamJam sign-in code</h2><p>Enter this code to sign in: <strong>{{ .Token }}</strong></p><p>It expires shortly and works once. If you did not ask for it, ignore this email.</p>"
-          }
-          JSON
-          jq -e '.mailer_templates_magic_link_content | contains("{{ .Token }}")' "$RUNNER_TEMP/auth-config.json" > /dev/null
-
-      - name: Update the auth config
+      - name: Supabase URL Configuration
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
-          curl -sS --fail-with-body -o /dev/null -w 'PATCH config/auth: HTTP %{http_code}\n' \
-            -X PATCH "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-            -H "Content-Type: application/json" \
-            --data @"$RUNNER_TEMP/auth-config.json"
+          api="https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth"
+          jq -n --arg s "$SITE_URL" --arg a "$ALLOW_LIST" '{site_url:$s, uri_allow_list:$a}' |
+            curl -sS --fail-with-body -o /dev/null -w 'PATCH urls: HTTP %{http_code}\n' -X PATCH "$api" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @-
+          curl -sS --fail-with-body "$api" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" |
+            jq -e --arg s "$SITE_URL" --arg a "$ALLOW_LIST" '{site_url, uri_allow_list} | ., (.site_url == $s and .uri_allow_list == $a)' ||
+            { echo "::error::URL Configuration did not read back as set"; exit 1; }
 
-      - name: Read back and check
+      - name: Resend sending domain
+        if: env.HAVE_RESEND == '1'
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          out="$RUNNER_TEMP/auth-config-live.json"
-          trap 'rm -f "$out"' EXIT
-          curl -sS --fail-with-body -o "$out" \
-            "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
-          # Print only the four checked values, never the full config.
-          jq '{site_url, uri_allow_list, mailer_subjects_magic_link,
-               template_has_token: ((.mailer_templates_magic_link_content // "") | contains("{{ .Token }}"))}' "$out"
-          jq -e --arg site "$SITE_URL" '.site_url == $site' "$out" > /dev/null || { echo "::error::site_url is not $SITE_URL"; exit 1; }
-          jq -e '(.mailer_templates_magic_link_content // "") | contains("{{ .Token }}")' "$out" > /dev/null || { echo "::error::Magic Link template has no {{ .Token }}"; exit 1; }
-          jq -e '.uri_allow_list == "https://jamjam.tech/**"' "$out" > /dev/null || { echo "::error::uri_allow_list was not saved as expected"; exit 1; }
-          jq -e '.mailer_subjects_magic_link == "Your JamJam sign-in code"' "$out" > /dev/null || { echo "::error::Magic Link subject was not saved as expected"; exit 1; }
-          echo "Auth config OK"
+          r() { curl -sS --fail-with-body -H "Authorization: Bearer $RESEND_API_KEY" -H "Content-Type: application/json" "$@"; }
+          id=$(r https://api.resend.com/domains | jq -r --arg n "$MAIL_DOMAIN" '(.data // [])[] | select(.name == $n) | .id' | head -1)
+          if [ -z "$id" ]; then
+            id=$(jq -n --arg n "$MAIL_DOMAIN" '{name:$n}' | r -X POST https://api.resend.com/domains --data @- | jq -r .id)
+            echo "Created Resend domain $MAIL_DOMAIN"
+          fi
+          test -n "$id" && [ "$id" != null ] || { echo "::error::Could not find or create the Resend domain (is the key Full access?)"; exit 1; }
+          r -X POST "https://api.resend.com/domains/$id/verify" -o /dev/null
+          d=$(r "https://api.resend.com/domains/$id")
+          status=$(jq -r .status <<<"$d")
+          echo "Resend domain status: $status"
+          table=$(jq -r '"| Type | Name (in jamjam.tech zone) | Value | Priority | Status |\n|---|---|---|---|---|",
+                          (.records[] | "| \(.type) | `\(.name)` | `\(.value)` | \(.priority // "") | \(.status) |")' <<<"$d")
+          { echo "### Resend DNS records for $MAIL_DOMAIN (status: $status)"; echo; echo "$table"; } >> "$GITHUB_STEP_SUMMARY"
+          body=$(printf 'Resend domain `%s`, status `%s` (run %s).\n\nAdd these records to the jamjam.tech zone in Cloudflare (DNS only, not proxied), then re-run the workflow.\n\n%s\n' \
+                 "$MAIL_DOMAIN" "$status" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" "$table")
+          n=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$ISSUE_TITLE\" in:title" --json number,title --jq "map(select(.title == \"$ISSUE_TITLE\"))[0].number // empty" 2>/dev/null || true)
+          if [ -z "$n" ]; then gh issue create -R "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" --body "$body" >/dev/null
+          else gh issue comment "$n" -R "$GITHUB_REPOSITORY" --body "$body" >/dev/null; fi
+          [ "$status" = verified ] && echo "MAIL_VERIFIED=1" >> "$GITHUB_ENV" ||
+            echo "::notice::$MAIL_DOMAIN is $status. Add the DNS records (see the issue or this run's summary) and re-run."
+
+      - name: Supabase custom SMTP and sign-in emails
+        if: env.MAIL_VERIFIED == '1'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          set -euo pipefail
+          api="https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth"
+          # Quoted heredoc: {{ .ConfirmationURL }} and {{ .Token }} reach Supabase literally.
+          read -r -d '' TEMPLATE <<'HTML' || true
+          <h2>Sign in to JamJam</h2>
+          <p><a href="{{ .ConfirmationURL }}">Sign in to JamJam</a></p>
+          <p>Or enter this code on the sign-in page: <strong>{{ .Token }}</strong></p>
+          <p>The link and the code work once and expire soon. If you did not ask to sign in, ignore this email.</p>
+          HTML
+          jq -n --arg from "$MAIL_FROM" --arg name "$SENDER_NAME" --arg pass "$RESEND_API_KEY" --arg t "$TEMPLATE" '{
+              smtp_admin_email: $from, smtp_sender_name: $name,
+              smtp_host: "smtp.resend.com", smtp_port: "465", smtp_user: "resend", smtp_pass: $pass,
+              mailer_subjects_magic_link: "Your JamJam sign-in link", mailer_templates_magic_link_content: $t,
+              mailer_subjects_confirmation: "Your JamJam sign-in link", mailer_templates_confirmation_content: $t
+            }' > "$RUNNER_TEMP/smtp.json"
+          chmod 600 "$RUNNER_TEMP/smtp.json"; trap 'rm -f "$RUNNER_TEMP/smtp.json"' EXIT
+          curl -sS --fail-with-body -o /dev/null -w 'PATCH smtp+templates: HTTP %{http_code}\n' -X PATCH "$api" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @"$RUNNER_TEMP/smtp.json"
+          # Print only non-secret fields; GET never returns smtp_pass.
+          curl -sS --fail-with-body "$api" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" | jq -e --arg from "$MAIL_FROM" --arg name "$SENDER_NAME" '
+              {smtp_host, smtp_port, smtp_user, smtp_admin_email, smtp_sender_name, mailer_subjects_magic_link,
+               link_has_token: ((.mailer_templates_magic_link_content // "") | contains("{{ .Token }}")),
+               confirm_has_token: ((.mailer_templates_confirmation_content // "") | contains("{{ .Token }}"))}
+              | ., (.smtp_host == "smtp.resend.com" and .smtp_admin_email == $from and .smtp_sender_name == $name
+                    and .link_has_token and .confirm_has_token)' ||
+            { echo "::error::SMTP or templates did not read back as set"; exit 1; }
+          echo "Email setup complete: sign-in mail now comes from $SENDER_NAME <$MAIL_FROM>."
