@@ -180,7 +180,7 @@ Route `/grow (coming soon), then /` · depends on NO DEPENDENCY · placeholder: 
 
 | Priority | Need | Why, and the check |
 |---|---|---|
-| P0 | Migration 009 applied | Build is broken live until `spec/db/009_evidence_trust.sql` is applied: ingest writes `sources.kind`, which 009 creates ([CPO audit](https://github.com/DeveloperAlly/solana-hack/pull/94), 2026-10-13). Apply it, then run the full path once. |
+| P0 | Migration 009 applied | Build is broken live until `spec/db/009_evidence_trust.sql` (on main since [PR #63](https://github.com/DeveloperAlly/solana-hack/pull/63); this branch predates it) is applied: ingest on main writes `sources.kind` (`web/worker/api.ts`), which 009 creates ([CPO audit](https://github.com/DeveloperAlly/solana-hack/pull/94), 2026-10-13). Apply it, then run the full path once. |
 | P0 | AI model live | Every draft step returns 503 without `OPENROUTER_API_KEY` (`web/worker/llm.ts`); `aiConfigured` is not confirmed in STATE.md. Check `/api/health`. |
 | P0 | Show the quote under each fact | Your links shows only the claim, and "Where this came from" shows the claim and its page link, so the core promise (a fact stays only with its quote) is not visible. The quote is stored; render it. Fallback VO if it does not ship: "JamJam reads the page and saves only facts it can quote from it." |
 | P0 | Claims block rehearsed | Under Strict, adding "Used by 10,000 brands." must return "Blocked by your claims gate". The gate is an LLM call (`posts.ts` policyCheck); test it live first. |

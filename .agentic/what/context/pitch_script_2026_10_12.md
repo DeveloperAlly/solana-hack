@@ -10,7 +10,7 @@ tags: [pitch, script, colosseum]
 
 # Pitch script: JamJam
 
-Total: 444 words, about 2:46 at 160 words a minute.
+Total: 445 words, about 2:47 at 160 words a minute.
 
 ## 1. The story in one line per slide
 
@@ -70,17 +70,17 @@ Problem (a founder needs a brand team; every option hurts) → solution (JamJam 
 - Your voice earns: agents pay per call; stablecoin plans
 
 **7. Solana integration** (1:35–1:44)
-- Today: Solana registry live on devnet, self-test passing; email sign-in; Verify page
+- Today: Solana Attestation Service registry, signed by the Registrar; email sign-in; Verify page (current status: STATE.md)
 - Next: verified accounts; USDC ambassador payouts; open record
 - Later: USDC tips; voice licensing; stablecoin plans
 
-**8. Go to market** (1:44–1:58)
+**8. Go to market** (1:44–1:59)
 - First customers: web3 founders and creators; crypto impersonation scams +1,400%
 - Customer zero: JamJam and my own brand
 - Beta: aDNA.network, film.fun, GamersLab and Altumera agreed to test at a reduced price
 - Growth: referral and rewards programs; partners for features
 
-**9. Competition** (1:58–2:08)
+**9. Competition** (1:59–2:08)
 - 59 products checked; the best do two of four
 - Others build, create, prove or pay; JamJam is built for all four, pay next
 - Works with your tools: export your kit to any AI agent
@@ -92,13 +92,13 @@ Problem (a founder needs a brand team; every option hurts) → solution (JamJam 
 - Every check runs on a public JamJam Verify page
 - Refer a friend: you both get 2 months free
 
-**11. Roadmap** (2:22–2:30)
+**11. Roadmap** (2:22–2:31)
 - Now: your brand kit
 - Next: content you approve unedited
 - Then: publish direct; tips and fan rewards
 - Later: monetise your voice
 
-**12. Team and ask** (2:30–2:46)
+**12. Team and ask** (2:31–2:47)
 - Founded Lilypad; built the original Waterlily.ai
 - Developer communities at IBM and Filecoin Foundation
 - Ask: your vote, to take JamJam to mainnet and its first paying brands
@@ -129,15 +129,15 @@ Four things changed. Americans reported three and a half billion dollars lost to
 
 We use a blockchain only where trust and money move. Every post you approve and register goes on Solana, and anyone can check it. The same rail will move money: fan tips in USDC, rewards for approved content, and agents paying to use your voice.
 
-**7. Solana integration** · 1:35–1:44 · 23 words
+**7. Solana integration** · 1:35–1:44 · 24 words
 
-Our registry on the Solana Attestation Service passes its self-test on devnet. You sign in with email, no wallet. USDC payouts are next.
+Every record goes through the Solana Attestation Service, signed by our Registrar, so you sign in with email, no wallet. USDC payouts are next.
 
-**8. Go to market** · 1:44–1:58 · 39 words
+**8. Go to market** · 1:44–1:59 · 39 words
 
 We start with web3 founders and creators. In crypto, impersonation scams grew fourteen hundred percent in a year. Customer zero is me: JamJam markets itself with JamJam. Four brands have agreed to beta test it at a reduced price.
 
-**9. Competition** · 1:58–2:08 · 25 words
+**9. Competition** · 1:59–2:08 · 25 words
 
 We checked fifty-nine products. The best do two of the four jobs. JamJam is built to do all four in one flow, with pay next.
 
@@ -145,11 +145,11 @@ We checked fifty-nine products. The best do two of the four jobs. JamJam is buil
 
 Your brand kit is free. Solo is thirty-nine dollars a month, Team one ninety-nine, and we take three percent on tips and rewards. Every fan who checks a post on Verify sees JamJam. That is how it spreads.
 
-**11. Roadmap** · 2:22–2:30 · 22 words
+**11. Roadmap** · 2:22–2:31 · 22 words
 
 Next comes content you approve without editing, then direct publishing and fan rewards, and later, getting paid when agents use your voice.
 
-**12. Team and ask** · 2:30–2:46 · 43 words
+**12. Team and ask** · 2:31–2:47 · 43 words
 
 I founded Lilypad, a decentralised AI compute network, and built the original Waterlily, AI art that paid its artists. I'm building the brand team I needed as a founder. I'm asking for your vote to take JamJam to mainnet. Every post provably yours.
 
