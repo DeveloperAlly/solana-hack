@@ -191,7 +191,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 
 | ID | Component | What the user gets | Status | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
-| L1 | Registrar-signed SAS attestation of kit versions (hashes and ids only) | Public, checkable brand record; no wallet | live (self-test on devnet) | hackathon | Free | `@solana/attestation` 2.1.0 | | G-SAS, issue #4 |
+| L1 | Registrar-signed SAS attestation of kit versions (hashes and ids only) | Public, checkable brand record; no wallet | partial: the Registrar-signed SAS attestation path is proven on devnet by the registry self-test; registering a real kit v1 has not yet been run live (STATE: 0 kits) | hackathon | Free | `@solana/attestation` 2.1.0 | | G-SAS, issue #4 |
 | L2 | Post registration and reconcile | Each approved post is on the record | built (`registerPost`, `reconcilePost`) | hackathon | Solo | | | #13 |
 | L3 | Public Verify page (exact match) | Anyone can check a post | built | hackathon | Free | | /verify matches the launch post | #36 |
 | L3a | Verify a kit version, an account or a claim; report impersonation | Anyone can check more than posts | spec | hackathon | Free | | | backend map (`/api/verify/{kit,account,claim}`, `/api/verify/report`); wireframe audit #21 |
@@ -282,7 +282,7 @@ Goal: a brand goes from its URL and documents to an approved, attested kit in un
 
 ### Phase 2: Content creation nailed
 
-Components: T1 to T10, G1 to G4, C1 to C3, V2 to V5, K1, K3 to K7, M1 to M3, M9, M10, X8, X10, X16.
+Components: T1 to T10, G1 to G4, C1 to C3, V2 to V4, K1, K3 to K7, M1 to M3, M9, M10, X8, X10, X16.
 
 Goal: drafts a brand approves without editing, with no slop and no unsupported claims.
 
