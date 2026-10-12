@@ -2,7 +2,7 @@ import { hopSession, readCapped, readPage, resolveRedirects, type FetchGate, typ
 import { factTrust, urlKind } from './registry';
 import { browserRenderer, type Renderer, type RenderUnavailable } from './render';
 import { fetchRobots, robotsAllows, type RobotsCheck } from './robots';
-import { clock, type SourceEnv, type SourcePage, type SourceResult } from './types';
+import { clock, PAGE_TEXT_MAX, type SourceEnv, type SourcePage, type SourceResult } from './types';
 
 /**
  * Site adapter (issue #33; architecture §6.1 "Source ingestion", accepted 2026-10-12): check robots.txt, then Exa
@@ -33,7 +33,7 @@ export interface SiteOptions {
 export const SITE_DEFAULTS: Required<Omit<SiteOptions, 'website'>> = {
   subpages: 8,
   subpageTarget: ['about', 'mission', 'product', 'features', 'pricing', 'team', 'docs', 'blog', 'faq', 'customers'],
-  maxCharacters: 20_000,
+  maxCharacters: PAGE_TEXT_MAX,
 };
 
 // Exa /contents: POST https://api.exa.ai/contents, key in x-api-key; body urls[] (1 to 100), text, extras.links;
@@ -221,7 +221,7 @@ export const BROWSER_UNAVAILABLE: Record<RenderUnavailable, string> = {
 };
 
 /** How a script-only page is rendered: the Browser Run binding in the Worker, a fake in tests. */
-export type RendererFactory = (gate: FetchGate, maxPages: number, session: HopSession) => Renderer;
+export type RendererFactory = (gate: FetchGate, maxPages: number, session: HopSession, maxCharacters: number) => Renderer;
 
 /** Reads a brand's website: home page plus key subpages. */
 export async function readSite(env: SourceEnv, raw: string, options: SiteOptions = {}, makeRenderer?: RendererFactory): Promise<SourceResult> {
@@ -255,8 +255,8 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   // Script-only pages are rendered in a browser, with robots.txt checked before every request it makes (render.ts),
   // at most once per page this read may return (the home page and its subpages).
   // The renderer shares this read's session: one cookie jar and one request budget, direct and rendered (PR #71 review).
-  const factory: RendererFactory | null = makeRenderer ?? (env.BROWSER ? (gate, max, session) => browserRenderer(env.BROWSER!, gate, max, session) : null);
-  const renderer = factory ? factory(allowedHere, 1 + opts.subpages, net) : null;
+  const factory: RendererFactory | null = makeRenderer ?? (env.BROWSER ? (gate, max, session, chars) => browserRenderer(env.BROWSER!, gate, max, session, chars) : null);
+  const renderer = factory ? factory(allowedHere, 1 + opts.subpages, net, opts.maxCharacters) : null;
   try {
     // Every page is checked on its own final URL: robots.txt for its origin, then its kind. The first admitted page sets
     // the kind (and so the trust); a later page is kept only if it has the same kind and, for a third-party page, the
