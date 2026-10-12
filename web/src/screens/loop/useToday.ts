@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Gate } from '../../domain/approval';
 import { nextBrainVersion, rulesWith } from '../../domain/brain';
-import { gateFor, primaryActions, type QueueItem, type QueueKind } from '../../domain/queue';
+import { gateFor, primaryActions, type DraftItem, type QueueItem, type QueueKind } from '../../domain/queue';
 import { approveSubmission, payoutOutcome, questWithPayouts } from '../../domain/quest';
 import { stageById } from '../../config/nav';
 import { loopProgressLabel, type LoopStepState } from '../../domain/loop';
@@ -36,6 +36,9 @@ export function selectQueue(rows: QueueRow[]) {
   return { needsYou, oneTap: needsYou.filter((r) => r.act && !r.gate.blocking), done: rows.filter((r) => r.outcome) };
 }
 
+/** What a draft approval covers: the text and its check results (slop, claims, disclosure); the Brain version is added by the store. */
+const draftInputs = (i: DraftItem) => ({ text: i.text, checks: i.checks });
+
 /** Where a decided item stands, from the shared loop state, so a decision made on another screen shows here too. */
 function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | 'status'> {
   if (item.kind === 'learnedRule') {
@@ -51,9 +54,9 @@ function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | '
   if (item.kind === 'draft') {
     const view = {
       valid: { outcome: primaryActions.draft?.done },
-      stale: { status: 'Your approval went stale: the Brain changed since. Approve it again.' },
+      stale: { status: 'Your approval went stale: the draft, its checks or the Brain changed since. Approve it again.' },
     };
-    const a = loop.approvalOf(item.id, item.text);
+    const a = loop.approvalOf(item.id, draftInputs(item));
     return a ? view[a] : {};
   }
   const done = loop.outcome(item.id);
@@ -75,7 +78,7 @@ export function useToday(data: TodayData) {
   };
   const ctx = { brainVersion: loop.brain.version, proposal: loop.proposal, quest };
   const acts: Partial<Record<QueueKind, (item: QueueItem) => void>> = {
-    draft: (i) => loop.approveItem(i.id, i.text),
+    draft: (i) => i.kind === 'draft' && loop.approveItem(i.id, draftInputs(i), gateFor(i, ctx)),
     reply: (i) => loop.finish(i.id, primaryActions.reply?.done ?? ''),
     // Every payout goes through domain/quest.ts: a quest submission through approveSubmission (it re-runs the quest
     // gate), a seat post through its gate and the shared payout outcome. Today builds no payout path of its own.

@@ -1,13 +1,6 @@
-// Approvals bound to what was approved (issue #45 rule "approvals go stale when their inputs change"; ADR-012
-// decision 4: approvals bound to an older Brain go stale). The Worker does the same for posts: any edit resets an
-// approved post to drafted (web/worker/posts.ts). Shared by every stage, so every screen agrees on staleness.
-
-/** One recorded decision by a person: who, when, and a fingerprint of the exact inputs they approved. */
-export interface Approval {
-  by: string;
-  at: string;
-  fingerprint: string;
-}
+// Gates and approvals for the loop domain. The approval model itself is the one in lib/approval.ts (an approval
+// stored with a fingerprint of exactly what was approved; stale when those inputs change).
+import type { Approval } from '../lib/approval';
 
 /** A gate result: whether it blocks the action, and the sentence that says why (badges and buttons read the same one). */
 export interface Gate {
@@ -15,8 +8,5 @@ export interface Gate {
   label: string;
 }
 
-/** A stable fingerprint of the inputs an approval covers (text, versions, ids). Order matters; JSON keeps it exact. */
-export const fingerprintOf = (...inputs: unknown[]): string => JSON.stringify(inputs);
-
-/** An approval is stale when the inputs it covered have changed since. */
-export const isStale = (approval: Approval, currentFingerprint: string): boolean => approval.fingerprint !== currentFingerprint;
+/** A person's approval: who and when, bound to the inputs it was made on (lib/approval.ts). */
+export type PersonApproval = Approval<{ by: string; at: string }>;

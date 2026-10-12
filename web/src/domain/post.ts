@@ -3,7 +3,8 @@
 // registration rows (web/worker/posts.ts) and the ADR-013 modules: drafted (X18 brand memory and the model gateway),
 // approved (human gate), published (P7 adapter registry), verified (registry), amplified (ambassador posts), results
 // (analytics ingest, N5 learn loop).
-import { fingerprintOf, isStale, type Approval } from './approval';
+import { isStale } from '../lib/approval';
+import type { PersonApproval } from './approval';
 
 /** The one provenance row a draft has (ADR-012 runtime section): exactly what it was built from. */
 export interface DraftProvenance {
@@ -51,7 +52,7 @@ export interface PostChecks {
 export interface PostLifecycle {
   /** The voice as people read it, e.g. "Founder voice". */
   drafted: { voiceLabel: string };
-  approval?: Approval;
+  approval?: PersonApproval;
   published: PlatformRun[];
   /** Registration of the original on Solana: a hash and ids, never the text. */
   verified?: { at: string };
@@ -74,10 +75,11 @@ export interface Post {
 }
 
 /**
- * What a post approval covers: the text, every input it was drafted from, and the Brain version it was approved
- * under. An edit, or a Brain change (a rule approved or retired), makes an unpublished approval stale.
+ * What a post approval covers (lib/approval.ts inputs): the text, every input it was drafted from, its check results
+ * (slop, claims, disclosure) and the Brain version it was approved under. An edit, a changed check, or a Brain change
+ * (a rule approved or retired) makes an unpublished approval stale.
  */
-export const postFingerprint = (post: Pick<Post, 'text' | 'provenance'>, brainVersion: string) => fingerprintOf(post.text, post.provenance, brainVersion);
+export const postApprovalInputs = (post: Pick<Post, 'text' | 'provenance' | 'checks'>, brainVersion: string) => ({ text: post.text, provenance: post.provenance, checks: post.checks, brainVersion });
 
 export type LifecycleStepId = 'drafted' | 'approved' | 'published' | 'verified' | 'amplified' | 'results';
 export type LifecycleStepState = 'done' | 'current' | 'failed' | 'blocked' | 'todo';
@@ -99,13 +101,13 @@ export function approvalState(post: Post, brainVersion: string): ApprovalState {
   const a = post.lifecycle.approval;
   if (!a) return 'none';
   if (post.lifecycle.published.some((r) => r.status === 'published')) return 'valid';
-  return isStale(a, postFingerprint(post, brainVersion)) ? 'stale' : 'valid';
+  return isStale(a, postApprovalInputs(post, brainVersion)) ? 'stale' : 'valid';
 }
 
-const approvedDetail: Record<ApprovalState, (a?: Approval) => string> = {
+const approvedDetail: Record<ApprovalState, (a?: PersonApproval) => string> = {
   none: () => 'Waiting for you',
   stale: () => 'Stale: the draft or the Brain changed after approval',
-  valid: (a) => `by ${a?.by} · ${a?.at}`,
+  valid: (a) => `by ${a?.decision.by} · ${a?.decision.at}`,
 };
 
 const count = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { fingerprintOf, isStale } from '../../domain/approval';
+import { approve, isCurrent } from '../../lib/approval';
+import type { Gate } from '../../domain/approval';
 import { nextBrainVersion, type Brain, type BrainRule } from '../../domain/brain';
 import type { Proposal } from '../../domain/proposal';
 import { loopStore, today } from './store';
@@ -24,8 +25,11 @@ export interface LoopFlow {
   /** The evaluator judges it again against the current Brain. INTEGRATION: POST /api/proposals/:id/check (not built). */
   recheckProposal: (p: Proposal) => void;
   retireRule: (r: BrainRule) => void;
-  /** Records a queue approval bound to `inputs` and the current Brain version. */
-  approveItem: (id: string, inputs: unknown) => void;
+  /**
+   * Approves a queue item through its gate: nothing is recorded while the gate blocks. The approval is bound to
+   * `inputs` (everything that matters: text and check results) and the current Brain version (lib/approval.ts).
+   */
+  approveItem: (id: string, inputs: unknown, gate: Gate) => void;
   /** Whether a recorded queue approval still holds for `inputs` under the current Brain; undefined when none. */
   approvalOf: (id: string, inputs: unknown) => 'valid' | 'stale' | undefined;
   /** Records an irreversible outcome (sent, paid). */
@@ -78,7 +82,6 @@ export function useLoop(base: LoopBase): LoopFlow {
     const s = loopStore.read();
     return { proposals: { ...s.proposals, [p.id]: { ...s.proposals[p.id], ...change } } };
   };
-  const fp = (inputs: unknown) => fingerprintOf(inputs, loopStore.read().brainVersion ?? base.brain.version);
 
   return {
     brain,
@@ -92,10 +95,14 @@ export function useLoop(base: LoopBase): LoopFlow {
     trialProposal: (p) => set(setProposal(p, { status: 'trial' })),
     recheckProposal: (p) => set(setProposal(p, { brainVersion: version })),
     retireRule: (r) => bump(`Rule "${r.text}" retired`, (at) => ({ rules: { ...loopStore.read().rules, [r.id]: { status: 'retired', decided: { by: base.approver, at } } } })),
-    approveItem: (id, inputs) => set({ approvals: { ...loopStore.read().approvals, [id]: { by: base.approver, at: today(), fingerprint: fp(inputs) } } }),
+    approveItem: (id, inputs, gate) => {
+      if (gate.blocking) return;
+      const s = loopStore.read();
+      set({ approvals: { ...s.approvals, [id]: approve({ inputs, brainVersion: s.brainVersion ?? base.brain.version }, { by: base.approver, at: today() }) } });
+    },
     approvalOf: (id, inputs) => {
       const a = state.approvals[id];
-      return a && (isStale(a, fingerprintOf(inputs, version)) ? 'stale' : 'valid');
+      return a && (isCurrent(a, { inputs, brainVersion: version }) ? 'valid' : 'stale');
     },
     finish: (id, outcome) => set({ outcomes: { ...loopStore.read().outcomes, [id]: outcome } }),
     outcome: (id) => state.outcomes[id],

@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { renderWithRouter } from '../../test/render';
 import { loopStore } from '../../flows/loop/store';
+import { resetActiveBrand, selectBrand } from '../../flows/brand/activeBrand';
 import { Today } from './Today';
 import { MToday } from './MToday';
 import { Brain } from './Brain';
@@ -12,7 +14,10 @@ import { VerifyHome } from './VerifyHome';
 import { brainScreen, learnRules, learnRulesCollecting, postDetail, today, verifyHome } from './fixtures';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
-beforeEach(() => loopStore.reset());
+beforeEach(() => {
+  loopStore.reset();
+  resetActiveBrand();
+});
 
 const queueRow = (text: RegExp) => screen.getAllByRole('listitem').find((li) => text.test(li.textContent ?? ''))!;
 
@@ -46,6 +51,18 @@ describe('Today', () => {
     await userEvent.click(within(queueRow(/LinkedIn post is live/)).getByRole('button', { name: 'Approve and pay' }));
     expect(screen.getByText('Approved. The 10 USDC payout is queued.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Needs you · 5' })).toBeInTheDocument();
+  });
+
+  it('a draft approval covers its check results: a changed check makes it stale, and the gate blocks re-approval', async () => {
+    const { rerender } = renderWithRouter(<Today data={today} />);
+    await userEvent.click(within(queueRow(/Your agent didn't forget/)).getByRole('button', { name: 'Approve' }));
+    expect(within(queueRow(/Your agent didn't forget/)).getByText(/It publishes on its schedule/)).toBeInTheDocument();
+    const failed = { ...today, queue: today.queue.map((i) => (i.id === 'q-draft-x' && i.kind === 'draft' ? { ...i, checks: { ...i.checks, slop: 'failed' as const } } : i)) };
+    rerender(<MemoryRouter><Today data={failed} /></MemoryRouter>);
+    const row = queueRow(/Your agent didn't forget/);
+    expect(within(row).getByText(/approval went stale/)).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Approve' })).toBeDisabled();
+    expect(within(row).getByText(/Blocked: Failed the no-AI-slop pass/)).toBeInTheDocument();
   });
 
   it('approving a learned rule bumps the Brain; an earlier draft approval goes stale', async () => {
@@ -151,6 +168,17 @@ describe('Brain and Learn-Rules share the Brain', () => {
     expect(screen.getByText(/1 suggested, waiting on you/)).toBeInTheDocument();
     expect(screen.queryByRole('rowheader', { name: 'Post event recaps within 24 hours' })).toBeNull();
     expect(screen.getByText('Brain v3.1')).toBeInTheDocument();
+  });
+
+  it('the loop state is kept per brand: a rule approved for aDNA does not change another brand', async () => {
+    renderWithRouter(<Brain data={brainScreen} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Approve: Open X threads with the problem, not the product' }));
+    expect(screen.getByText('Brain v3.2')).toBeInTheDocument();
+    act(() => selectBrand('gamerslab'));
+    expect(screen.getByText('Brain v3.1')).toBeInTheDocument();
+    expect(screen.getByText(/2 suggested, waiting on you/)).toBeInTheDocument();
+    act(() => selectBrand('adna'));
+    expect(screen.getByText('Brain v3.2')).toBeInTheDocument();
   });
 
   it('collecting shows nothing to suggest yet', () => {
