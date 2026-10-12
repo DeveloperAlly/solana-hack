@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { GalleryScreen } from '../../gallery/Gallery';
@@ -7,6 +7,7 @@ import { screenPath } from '../../gallery/screenPath';
 import { platforms } from '../../config/platforms';
 import { screens } from './registry';
 import { growthSession } from './session';
+import { selectBrand } from '../../flows/brand/activeBrand';
 import { growthArtboards } from './paths';
 import { splitTip } from './format';
 
@@ -64,6 +65,17 @@ describe('Platforms', () => {
     expect(screen.queryByRole('link', { name: 'X' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Coming soon' }));
     expect(screen.getByRole('heading', { name: 'No platform matches' })).toBeInTheDocument();
+  });
+
+  it('a connection made under one brand is not shown under another, and comes back on switching back (Codex review on PR #103)', async () => {
+    const user = at(screenPath('Platform-Detail'));
+    await user.click(screen.getByRole('button', { name: 'Connect X' }));
+    expect(screen.getByText('Connected (preview)')).toBeInTheDocument();
+    act(() => selectBrand('gamerslab'));
+    expect(screen.queryByText('Connected (preview)')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Connect X' })).toBeInTheDocument();
+    act(() => selectBrand('adna'));
+    expect(screen.getByText('Connected (preview)')).toBeInTheDocument();
   });
 
   it('opens a platform, connects it in preview, and the catalog shows it', async () => {

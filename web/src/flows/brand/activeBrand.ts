@@ -4,7 +4,7 @@
 // another on Coming soon (Codex review on PR #79). Session only. INTEGRATION: the brands on GET /api/me.
 import { createStore } from '../../lib/createStore';
 import type { BrandSource } from '../../lib/brandScopedStore';
-import { demoBrands } from '../../ui/domain/demoBrands';
+import { useBrandCatalog } from './brandCatalog';
 
 /** The demo brand selected before anyone chooses one: aDNA, the case brand with full sample data (issue #45). */
 export const defaultBrandId = 'adna';
@@ -30,9 +30,12 @@ export function useActiveBrandId(): [string, (id: string) => void] {
   return [activeBrand.use(), selectBrand];
 }
 
-/** The active demo brand with its name (D48 demo brands), for frames and screens that name the brand. */
-export function useActiveBrand(): { id: string; name: string; select: (id: string) => void } {
+/**
+ * The active brand from the catalog (demo brands plus brands added this session). An id the catalog does not hold is
+ * `found: false`, never another brand (Codex review on PR #103); BrandKeyed shows "Brand not found" for it.
+ */
+export function useActiveBrand(): { id: string; name: string; found: boolean; select: (id: string) => void } {
   const [id, select] = useActiveBrandId();
-  const brand = demoBrands.find((b) => b.id === id) ?? demoBrands[0];
-  return { id: brand.id, name: brand.name, select };
+  const brand = useBrandCatalog().brands.find((b) => b.id === id);
+  return { id, name: brand?.name ?? '', found: Boolean(brand), select };
 }

@@ -3,19 +3,12 @@
 // Everything except the brand choice is scoped to the active brand, so switching brand never shows another brand's
 // keys, connections, plan, claims or schedule (Codex review on PR #79).
 // INTEGRATION: each field is server state once its endpoint exists (named on each field).
-import { createStore } from '../../lib/createStore';
 import { createBrandScopedStore } from '../../lib/brandScopedStore';
 import { activeBrand } from '../../flows/brand/activeBrand';
 import type { SoonStatusId } from './status';
-import type { Claim, PaidPlan, StatusRowItem } from './types';
+import type { Claim, PaidPlan } from './types';
 
 export type AiSource = { source: 'default' } | { source: 'openrouter'; key: { last4: string } };
-
-/** Account-level state, shared by every brand. The active brand itself is flows/brand/activeBrand. */
-interface AccountState {
-  /** Brands added on Brand-Switcher (POST /api/brands). */
-  addedBrands?: StatusRowItem[];
-}
 
 /** Per-brand state. */
 export interface BrandState {
@@ -39,26 +32,20 @@ export interface BrandState {
   retried?: string[];
 }
 
-export type SoonSession = AccountState & BrandState;
+/** The session as screens read it: the active brand's state (the brand choice and catalog are flows/brand). */
+export type SoonSession = BrandState;
 
-const account = createStore<AccountState>({});
 const byBrand = createBrandScopedStore<BrandState>(activeBrand);
 
 /** Clears the session (tests). */
 export function resetSoonSession() {
-  account.reset();
   byBrand.reset();
 }
 
-function setSession(patch: Partial<SoonSession>) {
-  const { addedBrands, ...scoped } = patch;
-  if ('addedBrands' in patch) account.set({ addedBrands });
-  if (Object.keys(scoped).length) byBrand.set(scoped);
-}
+const setSession = (patch: Partial<SoonSession>) => byBrand.set(patch);
 
 /** The session for the active brand, and a setter that merges a patch (brand fields go to the active brand). */
 export function useSoonSession(): [SoonSession, (patch: Partial<SoonSession>) => void] {
-  const [acc] = account.use();
   const [scoped] = byBrand.use();
-  return [{ ...acc, ...scoped }, setSession];
+  return [scoped, setSession];
 }

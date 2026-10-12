@@ -15,6 +15,9 @@ const files = [];
 })(src);
 
 const HEX = /(^|[^&\w])#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/;
+// Issue and PR references ("PR #103", "PRs #79 and #103", "issues #48, #50") are not colours; they are removed before
+// the hex check, so a three- or four-digit reference never reads as one. A colour is never written after "PR".
+const REFS = /\b(?:PRs?|issues?|Refs|Closes)\s+#\d+(?:(?:,\s*|,?\s+and\s+)#\d+)*/gi;
 const FUNC = /\b(?:rgba?|hsla?)\s*\(/i;
 const PX = /\b\d*\.?\d+px\b/;
 // Dimensional properties given a bare number (React adds px), in inline or referenced style objects.
@@ -31,7 +34,7 @@ for (const file of files) {
   text.split('\n').forEach((line, i) => {
     // Test files may name colours as fixture data (they are not shipped or styled).
     const isTest = /\.test\.(t|j)sx?$/.test(rel);
-    if (!isTest && HEX.test(line)) errors.push(`${rel}:${i + 1}: raw hex colour: ${line.trim()}`);
+    if (!isTest && HEX.test(line.replace(REFS, ''))) errors.push(`${rel}:${i + 1}: raw hex colour: ${line.trim()}`);
     if (!isTest && FUNC.test(line)) errors.push(`${rel}:${i + 1}: raw rgb()/hsl() colour: ${line.trim()}`);
     if (PX.test(line)) errors.push(`${rel}:${i + 1}: px value: ${line.trim()}`);
     if (/\.(t|j)sx?$/.test(rel) && DIM_NUMBER.test(line)) errors.push(`${rel}:${i + 1}: numeric dimension in a style object: ${line.trim()}`);

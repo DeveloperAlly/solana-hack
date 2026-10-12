@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { useHubSession } from './useHubSession';
 import type { DraftContent, DraftReviewData, PolishAction } from '../types';
 import { draftLength, evaluateDraftChecks } from './draftChecks';
-import { draftStatusOf, isPostUrl, type Decision, type DraftRecord } from './draftStatus';
+import { decisionInputs, draftStatusOf, isPostUrl, type Decision, type DraftRecord } from './draftStatus';
+import { approve, isCurrent, isStale, type Approval } from '../../../lib/approval';
 import { publishRoutesFor } from './publishRoutes';
 import { useActiveBrand } from '../../../flows/brand/activeBrand';
 
@@ -31,28 +32,31 @@ export function useDraftReview(data: DraftReviewData, draftId: string, draft: Dr
   const [accessible, setAccessible] = useState(true);
   const [showOriginal, setShowOriginal] = useState(false);
   const [publish, setPublish] = useState(recorded?.route ?? '');
-  const [decision, setDecisionState] = useState<Decision | null>(recorded?.decision ?? null);
+  const [approval, setApproval] = useState<Approval<Decision> | null>(recorded?.approval ?? null);
+  // A decision counts only on the text and route it was made on (lib/approval), so a stale one never shows.
+  const decision = approval && isCurrent(approval, decisionInputs(text, publish)) ? approval.decision : null;
   const [postedUrl, setPostedUrl] = useState<string | undefined>(recorded?.postedUrl);
   const [urlError, setUrlError] = useState<string | null>(null);
   // Every decision is recorded in the hub session; the dashboard buckets it with draftStatusOf, like the badge here.
   // No decision (a rewrite request undone, or an approval reset by an edit) removes the record: back to Needs approval.
-  function writeStatus(d: Decision | null, url?: string) {
+  function writeStatus(a: Approval<Decision> | null, url?: string) {
     update((s) => {
       const { [draftId]: _old, ...rest } = s.drafts;
-      return { ...s, drafts: d ? { ...rest, [draftId]: { decision: d, route: publish, text, postedUrl: url } } : rest };
+      return { ...s, drafts: a ? { ...rest, [draftId]: { approval: a, route: publish, text, postedUrl: url } } : rest };
     });
   }
   function setDecision(d: Decision | null) {
-    setDecisionState(d);
+    const next = d ? approve(decisionInputs(text, publish), d) : null;
+    setApproval(next);
     setPostedUrl(undefined);
-    writeStatus(d);
+    writeStatus(next);
   }
   // Manual route: the post is Posted only once its URL is pasted back (INTEGRATION: PATCH /api/drafts/:id platform_url).
   function pasteUrl(url: string) {
     if (!isPostUrl(url)) return setUrlError('Paste the full https link to the post.');
     setUrlError(null);
     setPostedUrl(url.trim());
-    if (decision) writeStatus(decision, url.trim());
+    if (decision) writeStatus(approval, url.trim());
   }
 
   // Mirrors web/worker/posts.ts: a registered post cannot change (:107), and any edit, polish or undo of an approved
@@ -61,7 +65,12 @@ export function useDraftReview(data: DraftReviewData, draftId: string, draft: Dr
   function changeText(next: string) {
     if (locked) return;
     setTextState(next);
-    if (decision === 'approved') setDecision(null);
+    // Any edit, polish or undo makes a decision on the old text stale: it is dropped, and the draft is decided again.
+    if (approval && isStale(approval, decisionInputs(next, publish))) {
+      setApproval(null);
+      setPostedUrl(undefined);
+      writeStatus(null);
+    }
   }
 
   const last = versions.at(-1);

@@ -20,10 +20,9 @@ import { SoonPage } from './SoonPage';
 import { InlineForm } from '../../ui/composites/InlineForm';
 import { List, ListRow } from '../../ui/composites/ListRow';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { uniqueId } from '../../lib/id';
 import { StateView } from '../../ui/composites/StateView';
-import { useSoonSession } from './useSoonSession';
 import { useActiveBrandId } from '../../flows/brand/activeBrand';
+import { addBrand, useBrandCatalog } from '../../flows/brand/brandCatalog';
 import { useSoonRoutes } from './routes';
 import { soonStatus } from './status';
 import { domain, required } from './validate';
@@ -31,9 +30,10 @@ import type { BrandSwitcherData, StatusRowItem } from './types';
 
 export function BrandSwitcherScreen({ data, state = 'success' }: { data: BrandSwitcherData; state?: ScreenState }) {
   const routes = useSoonRoutes();
-  const [session, set] = useSoonSession();
-  // The current brand is the app-wide active brand (flows/brand), shared with every frame's switcher; added brands are session state.
-  const brands = [...data.brands, ...(session.addedBrands ?? [])];
+  // The current brand is the app-wide active brand (flows/brand), shared with every frame's switcher.
+  // Brands added here go to the brand catalog (flows/brand), so every page's switcher and label know them.
+  const { added } = useBrandCatalog();
+  const brands: StatusRowItem[] = [...data.brands, ...added.map((b) => ({ id: b.id, name: b.name, detail: b.domain, status: 'self-declared' as const }))];
   const [current, setCurrent] = useActiveBrandId();
   const actionFor = (b: StatusRowItem) => {
     if (b.id === current) return <Badge tone="solid">Current</Badge>;
@@ -43,7 +43,7 @@ export function BrandSwitcherScreen({ data, state = 'success' }: { data: BrandSw
   };
   // INTEGRATION: POST /api/brands { name, domain }; a new brand is self-declared until its domain is verified.
   const add = (v: Record<string, string>) => {
-    set({ addedBrands: [...(session.addedBrands ?? []), { id: uniqueId('brand'), name: v.name, detail: v.domain, status: 'self-declared' }] });
+    addBrand({ name: v.name, domain: v.domain });
   };
   return (
     <SoonPage header={{ title: 'Your brands', intro: 'Switch brand, or add another. Each brand has its own kit, posts and record.', definedIn: 'component inventory D48 BrandSwitcher, D36; architecture §3 (Brand, founder link)' }}>
