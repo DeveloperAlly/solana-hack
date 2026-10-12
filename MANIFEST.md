@@ -2,7 +2,7 @@
 type: manifest
 status: active
 created: 2026-10-06
-updated: 2026-10-12
+updated: 2026-10-13
 last_edited_by: agent
 tags: [manifest, index]
 ---
@@ -39,6 +39,7 @@ The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [A
 | [.agentic/what/decisions/adr_010_component_list_and_plan_tiers.md](./.agentic/what/decisions/adr_010_component_list_and_plan_tiers.md) | accepted | ADR-010: one component list, launch plan tiers, voice ladder, 9 voice dimensions |
 | [.agentic/what/decisions/adr_011_evidence_trust.md](./.agentic/what/decisions/adr_011_evidence_trust.md) | proposed | ADR-011: evidence trust classes, owner review and allow-list filters |
 | [.agentic/what/decisions/adr_008_submission_critical_path.md](./.agentic/what/decisions/adr_008_submission_critical_path.md) | proposed | ADR-008: submission critical path |
+| [.agentic/what/decisions/adr_012_product_architecture_loop.md](./.agentic/what/decisions/adr_012_product_architecture_loop.md) | proposed | ADR-012: product architecture, one loop (Brand, Create, Distribute, Verify, Grow, Learn) around a Brain, opened by Today |
 | [.agentic/what/context/component_inventory.md](./.agentic/what/context/component_inventory.md) | proposed | UI component inventory, first slice per component, screen-to-component map |
 | [.agentic/what/context/compendium_2026_10_06.md](./.agentic/what/context/compendium_2026_10_06.md) | active | Decision compendium 2026-10-06 (v2); source for the PRD rewrite |
 | [.agentic/what/context/brand_builder_architecture.md](./.agentic/what/context/brand_builder_architecture.md) | accepted | Brand Builder architecture, data model and per-section input spec |
