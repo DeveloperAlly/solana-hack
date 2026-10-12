@@ -157,6 +157,7 @@ export interface GapsVoiceData {
 
 /** J5-Approve-Kit. `registration` is set when registering kit v1 failed (Kit-RegisterFailed). */
 export interface ApproveKitData {
+  supportingSections?: { id: string; title: string; draft: string; approved: boolean; evidence: JourneyFact[] }[];
   approver: string;
   /** The J4 voice samples, so the Voice gate can name the person's picks. */
   voice: GapsVoiceData['voice'];

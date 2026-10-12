@@ -23,7 +23,7 @@ import { kitView } from './kitView';
 import { J3Confirm } from '../../screens/journey/J3-Confirm';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import { Button, Container } from '../../ui/primitives';
-import { ensureJourneySession, finishJourneySignIn, pendingJourneyEmail, sendJourneyEmail } from './auth';
+import { ensureJourneySession, finishJourneySignIn, pendingJourneyBrand, pendingJourneyEmail, sendJourneyEmail } from './auth';
 import type { FactRecord, GapsVoiceData } from '../../screens/journey/types';
 import type { JourneyBrandState } from './contract';
 import { confirmView, readView, saveView } from './views';
@@ -48,6 +48,7 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const catalog = useLiveBrands();
   const [brandId, setBrandId] = useState<string | null>(storedBrand);
+  const finishingHandoff = useRef<string | null>(null);
   const previousUser = useRef(session?.user.id);
   const [state, setState] = useState<JourneyBrandState | null>(null);
   const [selections, setSelections] = useState<JourneySelections>(() => ({ ...initialSelections, emailSentTo: pendingJourneyEmail(), signIn: pendingJourneyEmail() ? 'code' : 'email' }));
@@ -205,6 +206,18 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
     }
     previousUser.current = session?.user.id;
   }, [session]);
+  useEffect(() => {
+    const email = pendingJourneyEmail();
+    if (!session?.user || session.user.is_anonymous || !email) return;
+    const key = `${session.user.id}:${email}`;
+    if (finishingHandoff.current === key) return;
+    finishingHandoff.current = key;
+    const preferred = pendingJourneyBrand() || storedBrand() || undefined;
+    void finishJourneySignIn().then(async () => {
+      await catalog.refresh(preferred);
+      if (preferred) { currentId.current = preferred; setBrandId(preferred); persistBrand(preferred); await reload(preferred); }
+    }).catch(e => { setError(e instanceof Error ? e.message : 'Could not save your brand to your account.'); }).finally(() => { if (finishingHandoff.current === key) finishingHandoff.current = null; });
+  }, [session?.user.id, session?.user.is_anonymous, catalog.refresh, reload]);
   const requireCurrent = (id: string) => { if (currentId.current !== id || ctrl.current.signal.aborted) throw new Error('The selected brand changed. Continue with the current brand.'); };
   const actions: JourneyActions = {
     startJourney: async site => {
@@ -216,7 +229,7 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
       const id = result.brand.id; currentId.current = id; persistBrand(id); initialSource.current = { id, url: url.href }; setState(null); setSelections({ ...initialSelections, site: url.href }); setBrandId(id);
       await catalog.refresh(id);
     },
-    sendEmail: async email => { await sendJourneyEmail(email); patch({ signIn: 'code', emailSentTo: email }); },
+    sendEmail: async email => { await sendJourneyEmail(email, currentId.current || undefined); patch({ signIn: 'code', emailSentTo: email }); },
     verifyCode: async code => { await finishJourneySignIn(code); await catalog.refresh(currentId.current || undefined); await reload(); },
     changeEmail: () => patch({ signIn: 'email', emailSentTo: '' }),
     decideFact: async (eid, decision, edit) => {
@@ -252,6 +265,7 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
       prepared.current.delete(`${id}:approveKit`); await reload(id);
     },
     editGate: async (section, body) => { const id = currentId.current; if (!id) throw new Error('No brand is selected.'); await api(`/brands/${id}/sections/${section}`, { method: 'PUT', body: { body } }); await reload(id); },
+    approveSupportingSection: async section => { const id = currentId.current; if (!id) throw new Error('No brand is selected.'); await api(`/brands/${id}/sections/${section}/approve`, { body: {} }); await reload(id); },
     approveGate: async (section, decision) => { const id = currentId.current; if (!id) throw new Error('No brand is selected.'); await api(`/brands/${id}/sections/${section}/approve`, { body: { note: decision.why || '' } }); await reload(id); },
     reopenGate: async section => { const id = currentId.current; const body = heldState.current?.sections.find(x => x.section === section)?.body; if (!id || !body) throw new Error('Load your draft first.'); await api(`/brands/${id}/sections/${section}`, { method: 'PUT', body: { body } }); await reload(id); },
     setKitRegistered: async () => { const id = currentId.current; if (!id) throw new Error('No brand is selected.'); try { await api(`/brands/${id}/kit/register`, { body: {} }); await reload(id); if (!heldState.current?.kits.some(k => k.status === 'registered')) throw new Error('The kit has not registered yet.'); } catch (e) { await reload(id); throw e; } },
