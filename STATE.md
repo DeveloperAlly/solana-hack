@@ -1,7 +1,7 @@
 ---
 type: state
 status: active
-updated: 2026-10-12
+updated: 2026-10-13
 last_edited_by: agent
 ---
 # STATE
@@ -43,6 +43,7 @@ last_edited_by: agent
 - S0 check (2), email sign-in with a code, is not yet exercised live ([mission S0 row](./.agentic/how/missions/mission_ui_build.md)). Sign-in by link works ([sign-in proof on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118522618)), after the [auth config run](https://github.com/DeveloperAlly/solana-hack/actions/runs/38207926808) set custom SMTP through Resend; the app accepts the 8-digit code since [PR #27](https://github.com/DeveloperAlly/solana-hack/pull/27). The check names a 6-digit code, but the project sends 8 digits. Owner decision: set the project's code length to 6 (the `mailer_otp_length` auth setting, 6 to 10 allowed) and then sign in once by code, or revise the check to accept the project's code length.
 
 ## Proposed (awaiting owner)
+- [ADR-013](./.agentic/what/decisions/adr_013_six_stages_one_intelligence_system.md) (owner's six-stage definition, 2026-10-13, working session): six stages on one brand intelligence system (X18), an owner-approved learn loop (N5), a distribution adapter registry (P7) with every platform accounted for (P8 to P19 by demand), and composable modules; spec in [architecture §2a](./.agentic/what/context/brand_builder_architecture.md#2a-system-architecture-six-stages-on-one-intelligence-system-proposed-2026-10-13).
 - [ADR-011](./.agentic/what/decisions/adr_011_evidence_trust.md) ([issue #57](https://github.com/DeveloperAlly/solana-hack/issues/57), 2026-10-12): evidence trust classes, owner review of third-party facts, and one allow-list for drafting, the kit snapshot, registration and the claims gate.
 - [Onboarding journey audit](./audits/2026-10-12_onboarding-journey-wireframe-audit.md) ([issue #43](https://github.com/DeveloperAlly/solana-hack/issues/43), 2026-10-12): the first run fails the value test (about 16 minutes of questions before any output; the differentiator is a footer claim). The canvas now opens on a Journey (v3) page with five aha moments. Owner decisions D1–D5 (§Owner decisions): read the site before sign-in, kit size shown, time claim on the landing, brand layer, ratify ADR-008.
 - [Research 10](./.agentic/what/context/research/10_competitor_onboarding_pricing.md) ([issue #29](https://github.com/DeveloperAlly/solana-hack/issues/29), 2026-10-12): onboarding and pricing of 59 competitors, checked against every decision doc. Owner to accept, defer or reject 14 new proposals (N1–N14, §7.1) and whether to add Pressmaster and Encypher to pitch deck slide 9 (§8).

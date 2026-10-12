@@ -2,11 +2,11 @@
 type: architecture
 status: accepted
 created: 2026-10-06
-updated: 2026-10-12
+updated: 2026-10-13
 last_edited_by: agent
 tags: [architecture, brand-builder, input-spec, data-model]
 ---
-> **Status: accepted.** This is the Brand Builder architecture and input spec. Ratified by Ally Haire in chat, 2026-10-06. It feeds the PRD rewrite (issue #2), and the build follows the phased plan in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4).
+> **Status: accepted.** This is the Brand Builder architecture and input spec. Ratified by Ally Haire in chat, 2026-10-06. It feeds the PRD rewrite (issue #2), and the build follows the phased plan in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4). §2a (six stages on one intelligence system, 2026-10-13) is proposed and awaits the owner's ratification of [ADR-013](../decisions/adr_013_six_stages_one_intelligence_system.md).
 
 # Brand Builder: architecture and input spec
 
@@ -54,6 +54,210 @@ flowchart TD
 | 8 | Brand Kit | Approved sections | Kit vN plus hash | System |
 | 9 | Validation loop | Interviews, post performance | New evidence, suggested kit updates | **Analyst** (later) |
 | 10 | Registry | Kit hash, claims, accounts, content | Onchain memos | **Registrar** (deterministic code) |
+
+## 2a. System architecture: six stages on one intelligence system [proposed 2026-10-13]
+
+**Owner's definition (2026-10-13, working session; [issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90)):** the complete system is six stages: (1) build your brand and voice, using the intelligence system; (2) create your content, with an intelligence system made for your brand and voice; (3) distribute everywhere, to all the platforms; (4) verify anywhere, through the ledger; (5) grow your reach (ambassadors, influencers, campaigns), also on the intelligence system; (6) learn from what works (analytics and self-learning), also an intelligence system. Her rulings: "the spec should account for this; doesn't mean it gets built now; features get built by demand or market need", and the architecture must be "fully composable, scalable and maintainable". The README already opens with the six steps ([README, The system](../../../README.md#the-system)). The decision to organise the spec this way is [ADR-013](../decisions/adr_013_six_stages_one_intelligence_system.md) (proposed).
+
+**What this section fixes.** Before it, the parts of the intelligence system were specified as separate features in separate places: the evidence store (§3, backlog B3), the voice ladder (§6.2), learned rules (§6.1, T1b), the validation loop (§2 stage 9, §12.3 rule 6, B16), analytics (backlog N1 to N4) and the evaluators (§6.1, §13). Each stage reached into its own part directly; in the code, drafting reads kit sections itself and the claims check reads all evidence in batches (`voiceContext`, `allEvidence` and `policyCheck` in [`posts.ts`](../../../web/worker/posts.ts)). Distribution stopped at five platforms (§6.1 Publishing row; [backend map §10.5](./backend_map.md#105-publishing-order-p2-p3-p3a)). This section makes the intelligence system one named engine that every stage reads from and writes to, and makes distribution an adapter registry that accounts for every platform. It renames nothing that already exists: every part below keeps its backlog ID.
+
+```mermaid
+flowchart LR
+  B[1 Brand<br/>build your brand and voice] --> C[2 Create<br/>content]
+  C --> D[3 Distribute<br/>everywhere]
+  D --> V[4 Verify<br/>anywhere]
+  D --> G[5 Grow<br/>reach]
+  D --> L[6 Learn<br/>from what works]
+  G --> L
+  BI[(Brand intelligence system<br/>memory, retrieval, model gateway,<br/>evaluators and gates, learn loop)]
+  B <--> BI
+  C <--> BI
+  D <--> BI
+  V <--> BI
+  G <--> BI
+  L <--> BI
+  L -- proposals --> O{Owner approves?}
+  O -- approved change, versioned --> BI
+```
+
+### 2a.1 The six stages
+
+Backlog IDs are the [backlog](../../how/backlog/backlog.md) rows; a range such as "B1 to B17" includes the lettered rows inside it (B2a, B3a, B8a). Status is the backlog's "On main at 9da167b" column, a dated baseline; live status is only in [STATE.md](../../../STATE.md).
+
+| # | Stage | Backlog IDs | On main at 9da167b |
+|---|---|---|---|
+| 1 | **Build your brand and voice** | A1 to A7, B1 to B17, K1 to K7, V1, V1a, V2, V4, V5 | Built: A2, A3, A3a, B1, B3, B9, B10. Partial: A1, B2, B6, B8, B17, K3, V1. The rest is spec |
+| 2 | **Create your content** | T1 to T10, M1 to M10, G1 to G4, C1 to C3, V1b, V3 | Built: T2, G1, G3, V3. Partial: T1, C1, G2. The rest is spec |
+| 3 | **Distribute everywhere** | P1 to P19, S4 | Built: P1 (copy, publish yourself, paste the link back). The rest is spec; P7 to P19 are new in this section |
+| 4 | **Verify anywhere** | L1 to L12 | Built: L2, L3. Partial: L1, L4. The rest is spec |
+| 5 | **Grow your reach** | R1 to R11, I1 | All spec; R11 is new in this section |
+| 6 | **Learn from what works** | N1 to N5 (B16 is Brand's consumer of the loop) | All spec; N5 is new in this section |
+| All | Shared engine and settings | X1 to X18, S1 to S3, S5, S6 | Built: X7, X9, X13, S1. Partial: X1, X6, X8. The rest is spec; X18 is new in this section |
+
+Every stage is accounted for in the spec and has its screens in the UI proof of concept, built now on fixture data. Which features are integrated with real services, and when, is decided by demand or market need (owner, 2026-10-13; three delivery layers in [ADR-013](../decisions/adr_013_six_stages_one_intelligence_system.md) decision 7); the phase each row sits in, or the "By demand" list, is in [backlog §15](../../how/backlog/backlog.md#15-build-order).
+
+### 2a.2 The brand intelligence system (backlog X18)
+
+One engine per brand. It holds everything JamJam knows about the brand and every judgement made about it, and it is the only way a stage reads or writes that knowledge. Its parts already exist in the spec under their own IDs; X18 is the shared contract that joins them.
+
+| Part | What it holds or does | Backlog IDs | On main today |
+|---|---|---|---|
+| **Brand memory: evidence** | Facts with a verbatim quote, source, trust class and owner review decision | B3, B3a, X7 | Built: quote check ([`quote.ts`](../../../web/worker/quote.ts)), trust classes and the allow-list ([`sources/registry.ts`](../../../web/worker/sources/registry.ts), [ADR-011](../decisions/adr_011_evidence_trust.md)) |
+| **Brand memory: kit versions** | Approved sections, canonical JSON hash, version number | B9, B10, B17 | Built (`canonical()` in [`kit.ts`](../../../web/worker/kit.ts)) |
+| **Brand memory: voice** | Template and dials, voice-by-example picks, voice pack samples with their source path, the extracted voice spec | V1, V1a, V2, V4 | Partial (12 templates, 8 dials and claims level; §6.2 rung 0) |
+| **Brand memory: claims** | Claim text, evidence ids, owner, expiry | C1 | Partial (claims level and per-post check; claim table not built) |
+| **Brand memory: learned rules** | Readable rules learned from edits, each kept or deleted by the brand | T1b | Spec |
+| **Brand memory: decision history** | Gate decisions; approve, reject with a reason code, and edits as original and final; all candidates with their scores; retrieved exemplar ids and spec version (§6.2 "Collect from day one") | B9, G3, T1b | Partial: gate and post approvals are recorded and a post keeps its last 10 versions (`pushHistory` in [`posts.ts`](../../../web/worker/posts.ts)); reject reasons, candidates and exemplar ids are not stored |
+| **Brand memory: outcomes** | Metric snapshots (appended, never overwritten), the outcome log and attribution, campaign and submission results | N1 to N3a, R3b | Spec (`metrics` table stub in [`spec/api/schema.sql`](../../../spec/api/schema.sql)) |
+| **Retrieval** | Approved posts and site excerpts by topic and by style, filtered by the evidence allow-list before similarity | X16 | Spec (the allow-list filter it uses is built: `USABLE_FILTER` in `sources/registry.ts`) |
+| **Model gateway and model choice** | One call path for every prompt; default `openrouter/free`, then the brand's own key, then a self-hosted provider ([ADR-010](../decisions/adr_010_component_list_and_plan_tiers.md) decision 6); versioned prompts and traces | X1, X2, X3, X5, X14, S2 | Partial ([`llm.ts`](../../../web/worker/llm.ts): one gateway, default `openrouter/free`, retries) |
+| **Evaluators and gates** | No-AI-slop, claims, content policy, brand gate, independent review, measured voice and platform scorers, media checks, drift, the evaluation harness | G1, G2, G4, V3, T1a, M9, K6, X8, X12 | Partial (`slopCheck` and `policyCheck` in `posts.ts`) |
+| **Learning loop** | Turns outcomes into proposals for each stage; the owner decides (§2a.3) | N5, with B16, T1b and R11 as its consumers | Spec |
+
+**What each stage reads and writes.** A stage never reads another stage's tables; it asks the engine.
+
+| Stage | Reads from the engine | Writes to the engine |
+|---|---|---|
+| 1 Brand | Usable evidence and owner answers; templates; prior kit versions; approved kit-update proposals (B16) | Sources; facts with quotes, trust and review status; owner answers; section drafts with fact ids; gate decisions; kit versions; voice spec and samples |
+| 2 Create | The registered kit version; voice spec; retrieved exemplars; learned rules; usable facts and claims; channel specs (K3) | Every candidate with its scores; drafts; edits as original and final; reject reasons; evaluator verdicts; approvals |
+| 3 Distribute | The approved post and its approved hash; each platform adapter's declared capabilities; approved timing and format proposals | Publish records: platform, post id, URL, published hash, disclosure flags set, failures (P5a) |
+| 4 Verify | Registrations and approved hashes | Registrations (L1, L2); retractions (L8); impersonation reports (L3a) |
+| 5 Grow | Kit and voice; campaign history; outcomes; approved campaign proposals (R11) | Campaigns; submissions and their check results (R3b); payout records (R3c); campaign results |
+| 6 Learn | Every outcome, approval, edit and reject reason | Metric snapshots (N2 rules); proposals; the owner's decision on each; applied changes with a version |
+
+**Invariants.** Each is a check, not a sentence (backlog §13).
+
+1. **Human approval on everything.** Nothing posts, replies, sends or pays without a person approving it ([ADR-003](../decisions/adr_003_superhub_business_model.md) principle 1).
+2. **Nothing grades itself.** A generator's output is judged only by a check it cannot influence: code, or a model from a different family with fresh context (§6.1; backlog G4; §13.3).
+3. **Only evidenced facts count.** A fact from a source enters memory only when its quote is on that source; an owner answer from the guided interview enters as dated owner evidence (`owner_answer`, no quote) with the owner as its source. Only allow-listed facts of either kind reach drafting, the kit, the claims gate or registration (§1 principle 3; [ADR-011](../decisions/adr_011_evidence_trust.md)).
+4. **The owner approves every learned change.** Learned rules are shown to the brand to keep or delete (T1b); kit updates go back through the gates and produce a new kit version (§12.3 rule 6); no record leaves UNVERIFIED unless the owner promotes it (backlog §13).
+5. **One brand's memory never shapes another brand's output.** Retrieval and learned rules are scoped to one brand. The only pooled use is the later global anti-slop and preference pass, and only with each brand's training consent (§6.2).
+
+### 2a.3 The learn loop (backlog N5)
+
+Outcomes flow back into every stage as **proposals**. A proposal is a record: brand, target stage, kind, the change, the outcome ids it rests on, the result of its evaluation, and a status (`proposed`, `approved`, `rejected`) with who decided and when. Nothing changes until the owner approves it.
+
+| Signal (written by) | Feeds | Proposal kinds | What applying it does |
+|---|---|---|---|
+| Customer interviews, post performance, new evidence (Learn, Brand) | **Brand** | Kit update suggestions: a section to redraft, a messaging pillar to demote, a new evidenced fact (B16) | Redraft goes back through the gates and creates a new kit version, registered as usual (§12.3 rules 2 and 6) |
+| Edits, approvals without edit, reject reasons (Create) | **Create** | Learned rules from edits (T1b); exemplar ranking that favours approved posts which performed; later a brand-style reranker (§6.2 rung 2) | The rule or ranking is stored with a version; the next draft retrieves it; the brand can delete it |
+| Metric snapshots per platform and format (Learn, via adapters) | **Distribute** | Posting windows per platform (best times are local-time windows to test, [research 03](./research/03_platform_performance.md)); format per platform, for example a carousel instead of text on LinkedIn ([research 11](./research/11_media_formats.md) §1a) | The schedule default or format suggestion changes for that brand and platform |
+| Campaign and submission results (Grow) | **Grow** | Self-learning campaigns (R11): audience, format and budget split adjustments within the capped budget | The campaign plan changes; payouts still need the owner's own signature (R3c, [ADR-006](../decisions/adr_006_wallet_identity_split.md)); no X activity is ever rewarded (backlog §13) |
+
+**Rules for every proposal.**
+
+1. **Cites its outcomes.** A proposal lists the outcome ids it rests on, the outcome counterpart of the quote rule. Metrics follow backlog N2: rates over impressions, never raw counts, and the first 90 days shown as calibration.
+2. **Judged by something else.** A proposal is evaluated by a check other than the model that wrote it: the harness on fixtures, or a held-out comparison on production signals (§13.4). The minimum sample before a proposal is offered is set from harness data; no threshold is chosen yet (UNVERIFIED).
+3. **Owner approves.** Shown with its evidence and expected effect; approve, reject (with a reason) or edit.
+4. **Versioned and reversible.** An applied change records who approved it and when, and can be rolled back. A change that lowers approval without edit is rolled back (§13.4).
+5. **Never acts on its own.** A proposal changes a plan, a rule or a default. It never publishes, replies, or moves money.
+
+### 2a.4 Distribute everywhere (backlog P7 to P19)
+
+**One adapter per platform, one registry for all of them (P7).** Distribute never calls a platform directly. Each platform is an adapter that declares what it can do, and the registry refuses a publish the adapter does not declare. The copy-and-paste path (P1) is the manual adapter and works for any network.
+
+```ts
+// Contract only (proposed). No Cloudflare or Supabase code inside an adapter.
+interface DistributionAdapter {
+  id: string;                     // 'x', 'linkedin_member', 'bluesky', 'manual', ...
+  version: string;
+  capabilities: { formats: ('text' | 'thread' | 'image' | 'carousel' | 'document' | 'video' | 'article' | 'email')[];
+                  limits: Record<string, number>;   // characters, images, video seconds, posts per day
+                  schedule: 'native' | 'jamjam'; edit: boolean; remove: boolean };
+  auth: { kind: 'oauth2_pkce' | 'oauth2' | 'app_password' | 'bot_token' | 'api_key' | 'webhook' | 'smtp' | 'none';
+          scopes: string[]; access: 'self_serve' | 'app_review' | 'vetted' | 'unverified'; tokenLifetime?: string };
+  cost: { perPost?: number; perPostWithLink?: number; currency: 'USD' } | null;
+  disclosure: { aiFlag?: string; paidPartnershipFlag?: string; readsC2pa: boolean | 'unverified' };
+  // Connection lifecycle lives inside the adapter, not in stage code.
+  connect(brandId: string, redirect: string): Promise<{ authUrl: string } | { credentials: Credentials }>;
+  completeConnect?(brandId: string, callback: Record<string, string>): Promise<Credentials>;   // OAuth callback
+  refresh?(creds: Credentials): Promise<Credentials>;
+  disconnect(creds: Credentials): Promise<void>;   // revokes at the platform where it allows, then deletes stored tokens
+  check(post: ApprovedPost): Violation[];          // format limits, from the channel spec (K3)
+  publish(post: ApprovedPost, creds: Credentials): Promise<{ platformPostId: string; url: string }>;
+  readBack(platformPostId: string, creds: Credentials): Promise<{ text: string; url: string; removed: boolean }>;  // what the platform actually stores
+  readMetrics?(platformPostId: string, creds: Credentials): Promise<MetricSnapshot[]>;   // optional
+}
+```
+
+Rules: the registry, not the adapter, hashes the text returned by `readBack` and compares it with the approved hash, so the match is never self-reported; it must match 100% of the time (§6.1 Publishing row), and the manual adapter's read-back is the pasted link fetched by the registry; disclosure flags are pre-filled from the asset's generation record (backlog P5); tokens are encrypted at rest per brand (backlog X11, G-SECRETS); a platform's cost is shown before posting (backlog P2, G-X-COST); a failed publish alerts (P5a).
+
+**Every platform is in the spec and in the UI proof of concept now; which are integrated is decided by demand.** The table carries only what the repo's research already says. Anything else is marked UNVERIFIED and is checked against the platform's own docs when its integration is picked up; it never blocks the platform's screens.
+
+| Platform | Row | Access model and API (repo evidence) | Metrics read-back | AI disclosure | Source |
+|---|---|---|---|---|---|
+| Any network (manual) | P1 | Copy, publish yourself, paste the link back | None | The brand sets it on the platform | backlog P1 |
+| X | P2 | OAuth 2.0 PKCE; `POST /2/tweets`; $0.015 a post, $0.20 with a link; never a paid ambassador route | `public_metrics` for the brand's own posts; read pricing TO VERIFY | `made_with_ai` and `paid_partnership` on create post per backend map §9; research 11 says whether the API exposes the toggle is UNVERIFIED (sources disagree) | [backend map §9](./backend_map.md#9-external-api-facts-verified-2026-10-06-primary-docs), [research 11](./research/11_media_formats.md) §4a |
+| LinkedIn (member) | P3 | Self-serve `w_member_social`; 60-day tokens, no refresh; Documents API for carousels (100 MB, 300 pages) | Needs Community Management API approval | No self-disclosure rule found; shows a C2PA icon | backend map §2, §9; research 11 §1b, §4a |
+| LinkedIn (Company Page) | P3a | Vetted Community Management API; needs a legal entity and a screencast | Same approval | As above | [backend map §10.1](./backend_map.md#101-decisions) item 6 |
+| Bluesky | P3a | Free, open API; rate limits apply; 4 images, video up to 10 min | UNVERIFIED | No AI rule found | backend map §10.5; [research 03](./research/03_platform_performance.md); research 11 §1b |
+| Threads | P3a | App review; 5 links and 250 posts per 24 h; carousels of 2 to 20 | UNVERIFIED | Meta "AI info" labels from C2PA or self-disclosure | backend map §10.5; research 03; research 11 §1b, §4a |
+| Instagram | P8 | Graph API content publishing; carousels up to 10 items by API; Reels 3 s to 15 min; 50 or 100 posts per 24 h (Meta pages conflict); account and review requirements UNVERIFIED | UNVERIFIED | Meta disclosure rules; reads C2PA | research 11 §1b, §4a; [research 04](./research/04_brand_hub_landscape.md) §4 |
+| Facebook (Pages) | P9 | Publishing API UNVERIFIED in this repo; competitors publish there (Hootsuite, Pressmaster); comment replies need `pages_manage_engagement` | UNVERIFIED | Meta disclosure rules | research 04 §4; [research 10 B](./research/10_competitor_detail/b_ai_social_voice.md), [10 C](./research/10_competitor_detail/c_social_ops.md); research 11 §4a |
+| TikTok | P10 | Content Posting API: photo posts up to 35 images; video up to 10 min, 4 GB; 5 pending uploads per user per 24 h; app audit requirements UNVERIFIED | Display API covers the user's own videos | `is_aigc` flag; reads and attaches C2PA | research 11 §1b, §4a; backend map §9 |
+| YouTube (incl. Shorts) | P11 | Upload API UNVERIFIED in this repo; Shorts up to 3 min | `videos.list` statistics, 1 quota unit | Realistic synthetic content must be disclosed; API field UNVERIFIED | backend map §9; research 11 §1a, §4a, open questions |
+| Farcaster | P12 | Publishing API UNVERIFIED; the repo covers only Farcaster account verification badges | UNVERIFIED | UNVERIFIED | [research 10 F](./research/10_competitor_detail/f_provenance.md) |
+| Telegram (channels) | P13 | Channel posting UNVERIFIED; the repo covers Telegram for the inbox only (bot, or an MTProto client) | UNVERIFIED | UNVERIFIED | [compendium §7](./compendium_2026_10_06.md#7-unified-inbox-coming-soon); backend map §4 |
+| Discord | P14 | Bots only (inbox research); channel posting by bot or webhook UNVERIFIED | UNVERIFIED | UNVERIFIED | compendium §7 |
+| Reddit | P15 | API access and terms UNVERIFIED; Reddit blocked automated fetching during research; posting only from the brand's own account, draft and approve (purchased-account tools are the anti-pattern) | UNVERIFIED | UNVERIFIED | research 04 |
+| Long-form: Medium, Substack, Ghost, beehiiv, WordPress, own blog (RSS or API) | P16 | Competitors connect WordPress, Ghost and Medium (Pressmaster) and Substack Notes (Typefully); Ghost by webhook or API (Encypher); each API's terms UNVERIFIED; RSS as the read-back for an own blog | RSS for what was published; engagement UNVERIFIED | Blog rules: byline, disclose how it was made, including AI | research 10 B, 10 F, [10 D](./research/10_competitor_detail/d_ambassador_payouts.md); research 03 (Blogs and SEO); §6 Beautify (Markdown for blogs) |
+| Newsletter (email) | P17 | Resend is already the sender; needs the owned audience list with consent (R10); Gmail and Yahoo sender rules: SPF, DKIM, DMARC, one-click unsubscribe, complaints under 0.3% | Provider events UNVERIFIED | UNVERIFIED | backlog R10; research 03 (Substack and newsletters) |
+| Mastodon | P18 | A competitor schedules to Mastodon (Typefully); API and terms UNVERIFIED | UNVERIFIED | UNVERIFIED | [issue #82](https://github.com/DeveloperAlly/solana-hack/issues/82) (platforms page); research 10 B |
+| Developer: GitHub, dev.to | P19 | UNVERIFIED | UNVERIFIED | UNVERIFIED | issue #82 |
+
+A platform not in this table (for example Pinterest or WhatsApp channels, both UNVERIFIED) is one adapter and one backlog row; no stage code changes. Issue #82's platforms page is the screen view of this registry.
+
+### 2a.5 Composable, scalable, maintainable
+
+**Module boundaries.** [Backend map §10.3](./backend_map.md#103-reuse-providers-and-packaging) already decides that each component becomes a package with a typed contract and no Cloudflare or Supabase code inside, with the Worker only wiring packages together, and lists ten modules (provider client, normaliser, evidence extraction, slop scorer, claims checker, voice, eval harness, registrar client, payout builder, Verify matcher). The media modules are in [research 11 detail §8](./research/11_media_detail/generation_stack.md#8-reusable-modules-and-typed-contracts). This section adds the modules the six stages need and §10.3 does not list:
+
+| Module | Contract | Reuses | Backlog |
+|---|---|---|---|
+| Brand memory | `read(brandId, query)` returns typed records with provenance (source, quote, version, decider); `write(brandId, record)` returns id and version; outcomes and decisions are append-only | The evidence allow-list (`sources/registry.ts`); a storage port the Worker implements on Supabase | X18 |
+| Learn loop | `propose(brandId, outcomes)` returns proposals with the outcome ids they rest on; `decide(proposalId, decision, by)` applies a versioned change or none | Eval harness (§10.3); brand memory | N5 |
+| Campaign optimiser | `adjust(campaign, outcomes, budgetCap)` returns proposed audience, format and budget-split changes, never a payment | Learn loop; payout builder (§10.3) | R11 |
+| Distribution adapter registry | `register(adapter)`, `get(platformId)`, `list(capabilityFilter)`; the adapter contract in §2a.4 | Channel specs (K3); secrets vault (X11) | P7 |
+| Analytics ingest | `ingest(adapter, platformPostId)` returns appended metric snapshots with unit and denominator | Adapter `readMetrics`; metric rules (N2) | N1 |
+| Evaluator registry | `register(evaluator)` with id, version, kind (gate or score) and model family; `run(input)` returns a verdict with findings | Slop scorer and claims checker (§10.3); harness (X12) | G1, G2, G4, T1a |
+
+**Where the code is today, and where each piece goes.** On main the logic lives in Worker files, not packages; only the source registry ([`sources/registry.ts`](../../../web/worker/sources/registry.ts)) is already a registry. Open PRs move in this direction: source adapters under `web/worker/sources/` ([PR #71](https://github.com/DeveloperAlly/solana-hack/pull/71)) and the workflow engine under `web/worker/engine/` ([PR #70](https://github.com/DeveloperAlly/solana-hack/pull/70)); neither is on main.
+
+| File on main | What it holds now | Target modules |
+|---|---|---|
+| [`llm.ts`](../../../web/worker/llm.ts) | Gateway (`chat`), JSON parsing, the slop rule text | Provider client (§10.3); slop rules move to the slop scorer |
+| [`ingest.ts`](../../../web/worker/ingest.ts), [`sources/registry.ts`](../../../web/worker/sources/registry.ts), [`quote.ts`](../../../web/worker/quote.ts) | Page reading, source kinds and trust, quote check | Source adapters (X6); normaliser; evidence extraction; brand memory writes |
+| [`kit.ts`](../../../web/worker/kit.ts) | Sections, gates, steps, canonical JSON | Brand stage; kit versions in brand memory |
+| [`api.ts`](../../../web/worker/api.ts) | Routes plus section drafting, ingest, kit registration, answers, evidence review | Worker wiring only; drafting to Brand, registration to Verify, reads and writes through brand memory |
+| [`posts.ts`](../../../web/worker/posts.ts) | Drafting, slop check, polish, claims and content policy, approval, registration, Verify and Ledger | Create (drafting, polish); evaluator registry (slop, policy); Verify (register, verify, ledger) |
+| [`registry.ts`](../../../web/worker/registry.ts) | SAS attestation | Registrar client (§10.3) |
+
+Extraction happens when a file is next changed for a feature, one module per PR, behaviour unchanged and covered by a contract test; there is no separate rewrite (proposed in ADR-013).
+
+**Extension points.** Each is a registry: adding an entry is one file plus a test plus a backlog row, and no stage code changes.
+
+- **Sources:** source kinds and their trust class (built: `SOURCE_TYPES` in `sources/registry.ts`; backlog X6).
+- **Distribution platforms:** adapters (P7; §2a.4).
+- **Media renderers:** templates and generators (X10; research 11 detail §8 `brand-render`, `motion-render`, `media-gen`).
+- **Evaluators:** gates and scorers, each with a model family so the "nothing grades itself" check is mechanical (G1, G2, G4, T1a, M9).
+- **Model providers:** the brand's key, a self-hosted endpoint, the default router (X1 to X3; backend map §10.2).
+- **Proposal kinds:** what the learn loop may suggest, per stage (N5).
+
+**Multi-tenant scaling.**
+
+- **Per-brand isolation.** Every memory row carries `brand_id`; only the Worker reads and writes (RLS on with no policies, [README Architecture](../../../README.md#architecture)); role checks per route when seats arrive (A6, `requireRole` stub); retrieval filters by brand before similarity (invariant 5).
+- **Long jobs.** Ingest, drafting, rendering, publishing with retries, metric polling and learn runs are durable workflow runs (X4), one step per external call, because the Free plan allows 10 ms CPU per step and 1 MiB per step result ([backend map §2](./backend_map.md#2-runtime-topology-proposed)).
+- **Rate limits.** Per brand (X15); per platform, as each adapter declares (for example Threads 250 posts a day, TikTok 5 pending uploads); per model route (OpenRouter free: 20 requests a minute, and 50 or 1,000 a day; backend map §2 and §6.2). A brand that brings its own key carries its own model usage (S2).
+- **Data growth.** Outcomes and decisions are append-only (N2), so they grow fastest; full source text is stored for the quote check (migration 008); embeddings live in Postgres vectors (X16). Partitioning or roll-ups by brand and month, and a retention policy for source text, are deferred until volume needs them.
+
+**Decided now and deferred.**
+
+| Decided by this section (once ADR-013 is ratified) | Deferred, built by demand |
+|---|---|
+| Six stages are the top-level structure of the spec and the backlog | Which stages and platforms are built next, and when |
+| One brand intelligence system (X18) with the five invariants in §2a.2 | Storage layout inside brand memory beyond today's tables; partitioning and retention |
+| Every learned change is an owner-approved, versioned proposal (N5) | Proposal thresholds (minimum sample) and the reranker (§6.2 rung 2) |
+| One adapter contract and registry for distribution (P7); every listed platform has a row | Each platform adapter (P8 to P19), after its UNVERIFIED access facts are checked |
+| New modules are packages behind typed contracts, extracted on touch | Moving the Worker to a separate pipeline Worker (backend map §2), and the paid Workers tier |
 
 ## 3. Data model
 

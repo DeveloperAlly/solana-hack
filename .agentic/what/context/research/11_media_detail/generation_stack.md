@@ -6,7 +6,7 @@ updated: 2026-10-12
 last_edited_by: agent
 tags: [research, media]
 ---
-> **Status: active.** Research 11 detail (2026-10-12): how to generate each media type cheaply and on brand, licences, evaluation thresholds and provenance. The format and competitor evidence is in [research 11](../11_media_formats.md). Feeds backlog §6 (M1 to M10), §10 (L9) and §12 (X10).
+> **Status: active.** Research 11 detail (2026-10-12): how to generate each media type cheaply and on brand, licences, evaluation thresholds and provenance. The format and competitor evidence is in [research 11](../11_media_formats.md). Feeds backlog §6 (M1 to M10), §8 (L9) and §12 (X10).
 
 # Research 11 detail: Media generation, on-brand control, evaluation and provenance (researched 2026-10-12)
 

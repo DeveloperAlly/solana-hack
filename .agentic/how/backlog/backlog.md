@@ -2,11 +2,11 @@
 type: backlog
 status: active
 created: 2026-10-06
-updated: 2026-10-12
+updated: 2026-10-13
 last_edited_by: agent
 tags: [backlog, product-map, component-inventory]
 ---
-> **Status: active. This file is the one list of every JamJam component.** It replaces the 21-row product map that stood here (every one of those rows is kept below, with its old tag). It gathers, in one place, components that were decided in separate docs and issues: [compendium §5](../../what/context/compendium_2026_10_06.md#5-product-map-decided-structure-tags-drive-the-build), [ADR-003](../../what/decisions/adr_003_superhub_business_model.md), the [Brand Builder architecture](../../what/context/brand_builder_architecture.md), the [backend map](../../what/context/backend_map.md) and [`spec/api/`](../../../spec/api/README.md), PRD [#2](https://github.com/DeveloperAlly/solana-hack/issues/2), master list [#38](https://github.com/DeveloperAlly/solana-hack/issues/38) and its slices (#31 to #39), [research 10](../../what/context/research/10_competitor_onboarding_pricing.md) N1 to N14, the code on main (9da167b), and the owner's prior content-platform design ("prior platform design" below: private notes, not linked under the public-repo rule in AGENTS.md). Rows tagged **accepted 2026-10-12** were new in this pass and were accepted by the owner that day ([ADR-010](../../what/decisions/adr_010_component_list_and_plan_tiers.md)). Nothing here changes a decision; where two sources disagree, both are named.
+> **Status: active. This file is the one list of every JamJam component.** It replaces the 21-row product map that stood here (every one of those rows is kept below, with its old tag). It gathers, in one place, components that were decided in separate docs and issues: [compendium §5](../../what/context/compendium_2026_10_06.md#5-product-map-decided-structure-tags-drive-the-build), [ADR-003](../../what/decisions/adr_003_superhub_business_model.md), the [Brand Builder architecture](../../what/context/brand_builder_architecture.md), the [backend map](../../what/context/backend_map.md) and [`spec/api/`](../../../spec/api/README.md), PRD [#2](https://github.com/DeveloperAlly/solana-hack/issues/2), master list [#38](https://github.com/DeveloperAlly/solana-hack/issues/38) and its slices (#31 to #39), [research 10](../../what/context/research/10_competitor_onboarding_pricing.md) N1 to N14, the code on main (9da167b), and the owner's prior content-platform design ("prior platform design" below: private notes, not linked under the public-repo rule in AGENTS.md). Rows tagged **accepted 2026-10-12** were new in this pass and were accepted by the owner that day ([ADR-010](../../what/decisions/adr_010_component_list_and_plan_tiers.md)). Rows tagged **proposed 2026-10-13** come from [architecture §2a](../../what/context/brand_builder_architecture.md#2a-system-architecture-six-stages-on-one-intelligence-system-proposed-2026-10-13) and wait for the owner's ratification of [ADR-013](../../what/decisions/adr_013_six_stages_one_intelligence_system.md); the sections now follow the owner's six stages (2026-10-13). Nothing here changes a decision; where two sources disagree, both are named.
 
 # Backlog: every component
 
@@ -19,7 +19,19 @@ tags: [backlog, product-map, component-inventory]
 - **spec:** designed in a doc or stub, no code.
 - **accepted 2026-10-12** (in the Tag column): new in this pass and accepted by the owner on 2026-10-12.
 
-**Tag** (the build tag from compendium §5, unchanged): hackathon, hackathon (thin), coming soon, experimental, roadmap.
+**Tag** (the build tag from compendium §5): hackathon, hackathon (thin), coming soon, experimental, roadmap, and, from 2026-10-13, **by demand**: screens built now in the UI proof of concept; real integration built when demand or market need shows (owner, 2026-10-13; [ADR-013](../../what/decisions/adr_013_six_stages_one_intelligence_system.md), proposed).
+
+**Stages** (owner, 2026-10-13; [architecture §2a](../../what/context/brand_builder_architecture.md#2a-system-architecture-six-stages-on-one-intelligence-system-proposed-2026-10-13)). The sections follow the six stages, and every stage reads from and writes to one brand intelligence system (X18):
+
+| Stage | Sections |
+|---|---|
+| 1 Build your brand and voice | §2, §3, §4, and the voice rows of §5 |
+| 2 Create your content | §5 (claims and gates), §6 |
+| 3 Distribute everywhere | §7 |
+| 4 Verify anywhere | §8 |
+| 5 Grow your reach | §9 |
+| 6 Learn from what works | §10 |
+| All stages | §11 settings and billing; §12 shared modules and the intelligence system |
 
 **Sources added 2026-10-12:** media evidence is [research 11](../../what/context/research/11_media_formats.md) (formats, competitor media, platform AI rules) and [research 11 detail](../../what/context/research/11_media_detail/generation_stack.md) (generation stack, licences, evaluation, provenance). Component design, the voice ladder and the evaluation harness are in [architecture §6.1, §6.2, §7.1 and §13](../../what/context/brand_builder_architecture.md); providers, models, packaging and settings are in [backend map §10](../../what/context/backend_map.md). Those moved from the Claude doc "JamJam delivery plan", which now points here. "Owner, session" means said in a working session, with no public record.
 
@@ -43,7 +55,7 @@ A user who hits friction in onboarding leaves; a user whose first posts are not 
 | U10 | Wallet or seed phrase needed to use any core feature | never | ADR-006 |
 | U11 | First-run usability: 5 people try onboarding unaided | at least 4 of 5 finish | architecture §6.1 |
 
-## 2. Onboarding and account
+## 2. Brand: onboarding and account
 
 | ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
@@ -58,7 +70,7 @@ A user who hits friction in onboarding leaves; a user whose first posts are not 
 | A6 | Team seats and roles (owner, approver, editor, partner, ambassador) | Others can help without owning the brand | spec | roadmap | Team | `memberships` table in `spec/api/schema.sql` | Role checks on every route | ADR-003, `requireRole` stub |
 | A7 | Shareable no-login interview links | A co-founder or customer adds stories and evidence | spec | accepted 2026-10-12 | Solo | | | research 10 N1 |
 
-## 3. Brand: Build your brand
+## 3. Brand: build your brand
 
 | ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
@@ -80,7 +92,7 @@ A user who hits friction in onboarding leaves; a user whose first posts are not 
 | B13 | Connected history import: X archive, LinkedIn export, parsed in the browser | Voice learned from real posts; personal data never leaves the browser | spec | coming soon | Solo | | | #37, architecture §12.1 step 2 |
 | B14 | PPTX parsing | Decks count as sources | spec | | Solo | | | #37 |
 | B15 | Domain verification by DNS TXT | Unverified brands are flagged | spec | | Free | `lookupTxt` stub | | architecture §12.1 step 2, `WL-KIT.domain_verified` |
-| B16 | Validation loop (interviews, post performance feed the kit) | The kit gets better from results | spec | coming soon | Solo | Analytics (§9) | | architecture §2 step 9; prior platform design |
+| B16 | Validation loop (interviews, post performance feed the kit) | The kit gets better from results | spec | coming soon | Solo | Analytics (§10); learn loop (N5) supplies the proposals | Every kit update reaches the kit only through the gates as a new version | architecture §2 step 9, §2a.3; prior platform design |
 | B17 | aDNA export of the kit | Kit usable by any agent or tool | partial: one Markdown file download built (`hub/Brand.tsx`); zip per section not built | hackathon (thin) | Free | | | architecture §8, G-ZIP |
 
 ## 4. Brand: kit content (the 17 sections)
@@ -97,7 +109,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 | K7 | Pillars: every post tagged to one pillar, ideas bound to pillars, cadence ramp per channel | A balanced mix, not random posts | spec | accepted 2026-10-12 | Solo | | | prior platform design|
 | K3 | Channel specs with slot templates and reject rules | LinkedIn and X posts are not the same text | partial: X weighted 280-character limit enforced (`posts.ts` `xWeightedLength`); other specs not built | accepted 2026-10-12 | Solo | Research 03; prior platform design| One spec per channel; a draft breaking a reject rule is refused | prior platform design|
 
-## 5. Voices, claims and gates
+## 5. Brand and Create: voices, claims and gates
 
 | ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
@@ -143,7 +155,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 | M9 | Claims gate and approval on every slide, chart and number | No competitor checks facts inside media (research 11) | spec | accepted 2026-10-12 | Solo | Same gates as text (G1 to G3) | | research 11 |
 | M10 | Alt text and captions on every asset | Accessible and searchable | spec | accepted 2026-10-12 | Free | | | research 11 |
 
-## 7. Publish and schedule
+## 7. Distribute: publish, schedule and every platform
 
 | ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
@@ -156,38 +168,21 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 | P5a | Failed-publish alerts; canonical vs derivative marked on cross-posts | Knows when a post did not go out | spec | accepted 2026-10-12 | Solo | | | prior platform design|
 | P5b | Profile and presence consistency: bios, handles, links, visuals checked for drift; profile checklist | Every profile tells the same story | spec | accepted 2026-10-12 | Solo | Boilerplate (K4) | | prior platform design|
 | P6 | Browser extension | Check and post from where the user already is | spec | roadmap | | | | PRD #2 |
+| P7 | Distribution adapter registry: one adapter per platform declaring capabilities, auth, format limits, cost, AI-disclosure flags and optional metrics read-back; copy and paste (P1) is the manual adapter | Every platform works the same way; adding one is one adapter | spec | roadmap (proposed 2026-10-13) | Solo | Channel specs (K3); secrets vault (X11); disclosure flags (P5) | A publish the adapter does not declare is refused; published text hashes to the approved hash 100% | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
+| P8 | Instagram publishing: feed images, carousels (up to 10 by API), Reels | Reaches Instagram with its best formats | spec | by demand (proposed 2026-10-13) | Solo | P7 contract; template renderer (M1) | Access facts marked UNVERIFIED in §2a.4 checked on the platform's own docs; publishes, reads back and disconnects with its own success-rate check | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
+| P9 | Facebook Page publishing | Reaches Facebook | spec | by demand (proposed 2026-10-13) | Solo | P7 contract | Access facts marked UNVERIFIED in §2a.4 checked on the platform's own docs; publishes, reads back and disconnects with its own success-rate check | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
+| P10 | TikTok publishing: video and photo posts, `is_aigc` flag set from the generation record | Reaches TikTok | spec | by demand (proposed 2026-10-13) | Solo | P7 contract; short video (M3) | Access facts marked UNVERIFIED in §2a.4 checked on the platform's own docs; publishes, reads back and disconnects with its own success-rate check | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
+| P11 | YouTube publishing, including Shorts | Reaches YouTube | spec | by demand (proposed 2026-10-13) | Solo | P7 contract; short video (M3); clips (M4) | Access facts marked UNVERIFIED in §2a.4 checked on the platform's own docs; publishes, reads back and disconnects with its own success-rate check | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
+| P12 | Farcaster publishing | Reaches Farcaster | spec | by demand (proposed 2026-10-13) | Solo | P7 contract | Access facts marked UNVERIFIED in §2a.4 checked on the platform's own docs; publishes, reads back and disconnects with its own success-rate check | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
+| P13 | Telegram channel publishing | Reaches the brand's Telegram channel | spec | by demand (proposed 2026-10-13) | Solo | P7 contract; Telegram work for the inbox (I1) | Access facts marked UNVERIFIED in §2a.4 checked on the platform's own docs; publishes, reads back and disconnects with its own success-rate check | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
+| P14 | Discord channel publishing (bot or webhook) | Announcements reach the brand's Discord | spec | by demand (proposed 2026-10-13) | Solo | P7 contract | Access facts marked UNVERIFIED in §2a.4 checked on the platform's own docs; publishes, reads back and disconnects with its own success-rate check | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
+| P15 | Reddit publishing from the brand's own account, draft and approve | Reaches Reddit without purchased accounts or automation | spec | by demand (proposed 2026-10-13) | Solo | P7 contract | Access facts marked UNVERIFIED in §2a.4 checked on the platform's own docs; publishes, reads back and disconnects with its own success-rate check | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
+| P16 | Long-form publishing: Medium, Substack, Ghost, beehiiv, WordPress, own blog (RSS or API) | Long posts go where the brand already writes | spec | by demand (proposed 2026-10-13) | Solo | P7 contract; long-form (T6); Beautify Markdown output (T2) | Access facts marked UNVERIFIED in §2a.4 checked on the platform's own docs; publishes, reads back and disconnects with its own success-rate check | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
+| P17 | Newsletter publishing by email to the brand's owned audience list | An issue goes out to subscribers who opted in | spec | by demand (proposed 2026-10-13) | Solo | P7 contract; Resend (already the sender); owned audience list (R10) | Access facts marked UNVERIFIED in §2a.4 checked on the platform's own docs; publishes, reads back and disconnects with its own success-rate check | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
+| P18 | Mastodon publishing | Reaches Mastodon | spec | by demand (proposed 2026-10-13) | Solo | P7 contract | Access facts marked UNVERIFIED in §2a.4 checked on the platform's own docs; publishes, reads back and disconnects with its own success-rate check | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
+| P19 | Developer platforms: GitHub (for example release notes) and dev.to | Developer brands publish where developers read | spec | by demand (proposed 2026-10-13) | Solo | P7 contract | Access facts marked UNVERIFIED in §2a.4 checked on the platform's own docs; publishes, reads back and disconnects with its own success-rate check | [architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19) |
 
-## 8. Grow and Inbox
-
-| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
-|---|---|---|---|---|---|---|---|---|
-| R1 | Engagement assist: reply queue in the brand voice, one-click approval | Replies without writing them | spec | hackathon | Solo | reply detection by polling (pattern proven in an existing automation) | | compendium §5 |
-| R2 | Who to engage, suggested lists, scheduled posting, opt-in auto-replies | | spec | roadmap | Solo | | | compendium §5 |
-| R3 | Ambassadors: curated, verified posts, one USDC payout from a capped budget | Pays advocates with a public record | spec (cut by ADR-008, proposed) | hackathon (one payout) | Team | Lilypad quest data model | | ADR-003, research 05 |
-| R3a | Ambassador portal: browse open campaigns, notify me, join with a signMessage wallet link, draft with self-checks, submit (LinkedIn or URL, no X), payout status, earnings, payout wallet | Ambassadors can do the work without the brand chasing them | spec | coming soon | Team (free seat) | `grow.ts` stubs | | backend map §4 Grow; component inventory Amb-1 to Amb-5, M-1 to M-5 |
-| R3b | Submission check job: fetch the page, hash or similarity match, author check, disclosure check, budget reached | Pays only for real, disclosed work | spec | | Team | | | `grow.ts` |
-| R3c | Approve kept separate from pay: owner or approver approves, only the owner pays; idempotent pay and confirm | No accidental or double payouts | spec | | Team | | | ADR-006; backend map |
-| R4 | Paid quests (off X) | | spec | coming soon | Team | research 05 | | compendium §5 |
-| R5 | Open creator program: bounties, brand-picked rewards, performance pool; no X activity rewards | | spec | roadmap | Team | | Fraud checks before the performance pool | compendium §5 |
-| R6 | Ambassador ops: welcome brief, rejection reason and resubmit, usage-rights term, rate card, fee wording | | spec | accepted 2026-10-12 | Team | | | research 10 N8 to N11, N14 |
-| R7 | Find your customer (lead finder): public signals only, no harvesting or sending | | spec | experimental | Solo | GamersLab lead finder | | research 07 |
-| R7a | Listening: mentions and conversations about the brand and its topics | Knows what people say before replying | spec | | Solo | | | ADR-002 ("listening and leads"); prior platform design|
-| R8 | Create an influencer: founder persona, collaborator avatars, visible watermark, attested | | spec | experimental | Add-on | M8 | | compendium §5, G-WATERMARK |
-| R9 | Partner invites (partners write in the brand voice as seats) | | spec | roadmap | Team | A6 | | compendium §5 |
-| R10 | Owned audience list: email capture, consent record, sender | An audience the brand owns, not rents | spec | accepted 2026-10-12 | Solo | Resend (already the sender) | | prior platform design|
-| I1 | Unified inbox (email, Telegram, X, then WhatsApp Business, opt-in) and Needs reply | Nothing missed | spec | coming soon | Team | | | compendium §5, §7 |
-
-## 9. Analytics and measurement
-
-| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
-|---|---|---|---|---|---|---|---|---|
-| N1 | Analytics per platform and per voice | Knows what works | spec | roadmap | Solo | X own-post metrics first | | compendium §5 |
-| N2 | Metric rules: rates over impressions, never raw counts; snapshots appended, never overwritten; drafts and deleted posts kept; first 90 days shown as calibration | Numbers that do not mislead | spec | accepted 2026-10-12 | Solo | | Every displayed metric has unit, denominator and confounders | prior platform design|
-| N3 | Outcome log and attribution: front-door UTM link per channel, "how did you find us", 20-second manual log, UNATTRIBUTABLE as a normal value | Measures leads and deals, not likes | spec | accepted 2026-10-12 | Solo | | A test click and a test inbound both land | prior platform design|
-| N3a | Inbound qualified against the ICP: response time, outcome through to close; no third-party personal data stored | Knows which inbound is worth it and whether it closed | spec | accepted 2026-10-12 | Solo | | | prior platform design |
-| N4 | "What is where" view of the brand's own material (sources, verified vs unverified, what is missing) | One screen instead of a list | spec | accepted 2026-10-12 | Solo | Coverage map (B4) data | | prior platform design|
-
-## 10. Ledger, Verify and the registry
+## 8. Verify: Ledger, Verify and the registry
 
 | ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
@@ -206,7 +201,39 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 | L11 | Compliance record (who approved what, when, disclosures) | Evidence for regulators; EU AI Act human-review exemption | spec | | Team | Approval records already stored | | PRD #2; research 11 |
 | L12 | Agents paying per call (x402) | | spec | roadmap | | | | PRD #2 |
 
-## 11. Settings and billing
+## 9. Grow: reach, ambassadors and inbox
+
+| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
+|---|---|---|---|---|---|---|---|---|
+| R1 | Engagement assist: reply queue in the brand voice, one-click approval | Replies without writing them | spec | hackathon | Solo | reply detection by polling (pattern proven in an existing automation) | | compendium §5 |
+| R2 | Who to engage, suggested lists, scheduled posting, opt-in auto-replies | | spec | roadmap | Solo | | | compendium §5 |
+| R3 | Ambassadors: curated, verified posts, one USDC payout from a capped budget | Pays advocates with a public record | spec (cut by ADR-008, proposed) | hackathon (one payout) | Team | Lilypad quest data model | | ADR-003, research 05 |
+| R3a | Ambassador portal: browse open campaigns, notify me, join with a signMessage wallet link, draft with self-checks, submit (LinkedIn or URL, no X), payout status, earnings, payout wallet | Ambassadors can do the work without the brand chasing them | spec | coming soon | Team (free seat) | `grow.ts` stubs | | backend map §4 Grow; component inventory Amb-1 to Amb-5, M-1 to M-5 |
+| R3b | Submission check job: fetch the page, hash or similarity match, author check, disclosure check, budget reached | Pays only for real, disclosed work | spec | | Team | | | `grow.ts` |
+| R3c | Approve kept separate from pay: owner or approver approves, only the owner pays; idempotent pay and confirm | No accidental or double payouts | spec | | Team | | | ADR-006; backend map |
+| R4 | Paid quests (off X) | | spec | coming soon | Team | research 05 | | compendium §5 |
+| R5 | Open creator program: bounties, brand-picked rewards, performance pool; no X activity rewards | | spec | roadmap | Team | | Fraud checks before the performance pool | compendium §5 |
+| R6 | Ambassador ops: welcome brief, rejection reason and resubmit, usage-rights term, rate card, fee wording | | spec | accepted 2026-10-12 | Team | | | research 10 N8 to N11, N14 |
+| R7 | Find your customer (lead finder): public signals only, no harvesting or sending | | spec | experimental | Solo | GamersLab lead finder | | research 07 |
+| R7a | Listening: mentions and conversations about the brand and its topics | Knows what people say before replying | spec | | Solo | | | ADR-002 ("listening and leads"); prior platform design|
+| R8 | Create an influencer: founder persona, collaborator avatars, visible watermark, attested | | spec | experimental | Add-on | M8 | | compendium §5, G-WATERMARK |
+| R9 | Partner invites (partners write in the brand voice as seats) | | spec | roadmap | Team | A6 | | compendium §5 |
+| R10 | Owned audience list: email capture, consent record, sender | An audience the brand owns, not rents | spec | accepted 2026-10-12 | Solo | Resend (already the sender) | | prior platform design|
+| R11 | Self-learning campaigns: the learn loop proposes audience, format and budget-split changes within the capped budget, from campaign results; the owner approves each | Campaigns that improve from their own results without losing control | spec | by demand (proposed 2026-10-13) | Team | Learn loop (N5); campaign builder (T4); payout builder (X17) | Every applied change cites the results it rests on and was approved; no change moves money | [architecture §2a.3](../../what/context/brand_builder_architecture.md#2a3-the-learn-loop-backlog-n5) |
+| I1 | Unified inbox (email, Telegram, X, then WhatsApp Business, opt-in) and Needs reply | Nothing missed | spec | coming soon | Team | | | compendium §5, §7 |
+
+## 10. Learn: analytics, measurement and the learn loop
+
+| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
+|---|---|---|---|---|---|---|---|---|
+| N1 | Analytics per platform and per voice | Knows what works | spec | roadmap | Solo | X own-post metrics first | | compendium §5 |
+| N2 | Metric rules: rates over impressions, never raw counts; snapshots appended, never overwritten; drafts and deleted posts kept; first 90 days shown as calibration | Numbers that do not mislead | spec | accepted 2026-10-12 | Solo | | Every displayed metric has unit, denominator and confounders | prior platform design|
+| N3 | Outcome log and attribution: front-door UTM link per channel, "how did you find us", 20-second manual log, UNATTRIBUTABLE as a normal value | Measures leads and deals, not likes | spec | accepted 2026-10-12 | Solo | | A test click and a test inbound both land | prior platform design|
+| N3a | Inbound qualified against the ICP: response time, outcome through to close; no third-party personal data stored | Knows which inbound is worth it and whether it closed | spec | accepted 2026-10-12 | Solo | | | prior platform design |
+| N4 | "What is where" view of the brand's own material (sources, verified vs unverified, what is missing) | One screen instead of a list | spec | accepted 2026-10-12 | Solo | Coverage map (B4) data | | prior platform design|
+| N5 | Learn loop into every stage: outcomes (analytics, approvals, edits, campaign results) become proposals for Brand (kit updates), Create (learned rules, retrieval ranking), Distribute (timing, format) and Grow (campaigns); each is owner-approved, versioned and reversible | The product improves from what works, and the owner decides every change | spec | roadmap (proposed 2026-10-13) | Solo | Eval harness (X12); B16 and T1b are its first consumers | A proposal cites its outcome ids, is judged by a check other than the model that wrote it, and changes nothing until approved | [architecture §2a.3](../../what/context/brand_builder_architecture.md#2a3-the-learn-loop-backlog-n5) |
+
+## 11. Settings and billing (all stages)
 
 | ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
@@ -217,7 +244,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 | S5 | Payout wallet (owner only; signMessage) | Only needed to pay ambassadors | spec | coming soon | Team | | | ADR-006 |
 | S6 | Plan and billing; pricing page; trial without card auto-charge; pay in stablecoins option; payout fee as a second revenue line | Pays in one page | spec | | Free to Team | Billing provider not chosen | U9 | G-BILLING, research 10 N12 to N14, deck slide 10 |
 
-## 12. Shared modules (built once, reused across JamJam and other products)
+## 12. Shared modules and the brand intelligence system (built once, reused across JamJam and other products)
 
 Every module has one interface, its own tests, and no JamJam-specific names inside it.
 
@@ -240,6 +267,7 @@ Every module has one interface, its own tests, and no JamJam-specific names insi
 | X15 | Security | Database grants tightened behind the Worker, deny tests in CI, rate limits per brand | spec (accepted 2026-10-12) | | backend map §10 |
 | X16 | Retrieval | Embeddings for approved posts and site excerpts; retrieval under 200 ms | spec (accepted 2026-10-12) | pgvector | architecture §6.2 |
 | X17 | Payout builder and Verify matcher | Server-built USDC transfer confirmed against the record; edited-copy matching with a diff | spec (accepted 2026-10-12) | `@solana-program/token`; pg_trgm | architecture §7.1; backend map §10.3 |
+| X18 | Brand intelligence system ("the Brain" in the UI, ADR-012) | The one engine every stage reads from and writes to: brand memory (evidence, kit versions, voice, claims, learned rules, decision history, outcomes), retrieval, model gateway, evaluators and gates, learn loop; one read and write contract; per-brand isolation | spec (proposed 2026-10-13); its parts are partly built (X1, X7, B3, B10, G1) | Its parts: X1 to X3, X5, X7, X12, X14, X16; the evidence allow-list (ADR-011) | [architecture §2a.2](../../what/context/brand_builder_architecture.md#2a2-the-brand-intelligence-system-backlog-x18), [§2a.5](../../what/context/brand_builder_architecture.md#2a5-composable-scalable-maintainable) |
 
 ## 13. Product rules that apply to every component
 
@@ -261,11 +289,13 @@ From the prior platform design and ADR-003; each becomes a check, not a sentence
 
 ## 15. Build order
 
-The hackathon slices are tracked in [#38](https://github.com/DeveloperAlly/solana-hack/issues/38). The full product runs in five phases, in order, because each phase's output is the next one's input: onboarding produces the evidence and voice that creation needs, and creation produces the approved posts that publishing, payouts and tuning need. Every task takes its quality bar from [architecture §6.1 and §13](../../what/context/brand_builder_architecture.md). Product copy and marketing stay crypto-silent; the first market is a go-to-market choice, not a product feature. Moved here from the 2026-10-12 delivery plan.
+The hackathon slices are tracked in [#38](https://github.com/DeveloperAlly/solana-hack/issues/38). The full product runs in five phases, in order, plus a By demand list, because each phase's output is the next one's input: onboarding produces the evidence and voice that creation needs, and creation produces the approved posts that publishing, payouts and tuning need. Every task takes its quality bar from [architecture §6.1 and §13](../../what/context/brand_builder_architecture.md). Product copy and marketing stay crypto-silent; the first market is a go-to-market choice, not a product feature. Moved here from the 2026-10-12 delivery plan.
 
 ### Phase 1: Onboarding nailed
 
-Components: A1 to A7, B1 to B17, V1, V1a, S1 to S3, X1 to X7, X11, X12, X14 (X9 and X13 are built).
+Components: A1 to A5, A7, B1 to B17, V1, V1a, S1 to S3, X1 to X7, X11, X12, X14 (X9 and X13 are built).
+
+A6 (team seats) is placed in Phase 5, which lists it; until 2026-10-13 the range A1 to A7 here placed it in both phases.
 
 Goal: a brand goes from its URL and documents to an approved, attested kit in under 10 minutes, with no invented facts.
 
@@ -282,7 +312,7 @@ Goal: a brand goes from its URL and documents to an approved, attested kit in un
 
 ### Phase 2: Content creation nailed
 
-Components: T1 to T10, G1 to G4, C1 to C3, V2 to V4, K1, K3 to K7, M1 to M3, M9, M10, X8, X10, X16.
+Components: T1 to T10, G1 to G4, C1 to C3, V1b, V2 to V4, K1, K3 to K7, M1 to M3, M9, M10, X8, X10, X16, X18.
 
 Goal: drafts a brand approves without editing, with no slop and no unsupported claims.
 
@@ -299,7 +329,7 @@ Goal: drafts a brand approves without editing, with no slop and no unsupported c
 
 ### Phase 3: Publish and operate
 
-Components: P1 to P6, R1, R2, R7, R7a, R8, I1, N1 to N4, L1 to L11, S4, X15.
+Components: P1 to P7, R1, R2, R7, R7a, R8, I1, N1 to N5, L1 to L11, S4, X15.
 
 Goal: approved posts go out from JamJam and every one is verifiable.
 
@@ -307,7 +337,7 @@ Goal: approved posts go out from JamJam and every one is verifiable.
 |---|---|---|
 | UI | Connect accounts; schedule; post-publish Verify link; reply queue; unified inbox; analytics | Published text hashes to the approved hash 100% |
 | Workflows | Publish run with retries; register post on approval; poll engagement | No post publishes without an approval record |
-| Integrations | Order by cost and access: Bluesky (free, open), LinkedIn as a member (self-serve), X (pay per use; keep links out of post bodies, where the price jumps), Threads (app review), LinkedIn Company Pages (vetted access, legal entity) | Each live with its own success-rate check |
+| Integrations | Each platform is an adapter in the registry (P7). Order by cost and access: Bluesky (free, open), LinkedIn as a member (self-serve), X (pay per use; keep links out of post bodies, where the price jumps), Threads (app review), LinkedIn Company Pages (vetted access, legal entity) | Each live with its own success-rate check |
 | Proof | Post schema on SAS; Verify cascade with diff and "claims changed" flag; retraction by close plus record | F7 gates pass |
 | Security | OAuth tokens encrypted at rest per brand; database grants tightened behind the Worker; deny tests | Security tests in CI |
 | Settings › Connections | Connect and remove each publishing account with its status; copy-and-paste-back fallback per channel (D52); OAuth tokens encrypted at rest the same way as model keys | Each channel connects, publishes and disconnects cleanly; an expired token shows as expired before a publish fails |
@@ -336,6 +366,12 @@ Components: S6, A6, K2, M4 to M8, L12; V5 and the shared writer model when the h
 | Evals | Brand-style reranker trained on approve and reject labels replaces the generic style score | Reranker beats the judge on owner agreement |
 | Infra | Move to paid Workers tier before the free CPU-per-step limit binds; observability tier sized to volume | No run fails on platform limits |
 | Settings › Plan | Plan, seats (partners, agencies, ambassadors) and billing summary (D55) | A brand can upgrade, add a seat and see its bill without contacting you |
+
+### By demand
+
+Screens are in the UI proof of concept now; real integration is built when demand or market need shows (owner, 2026-10-13; [ADR-013](../../what/decisions/adr_013_six_stages_one_intelligence_system.md), proposed). Each platform's integration starts by checking its UNVERIFIED access facts ([architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19)).
+
+Components: P8 to P19, R11.
 
 ## 16. Every row of the previous product map, and where it is now
 
