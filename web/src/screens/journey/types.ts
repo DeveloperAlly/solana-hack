@@ -148,10 +148,10 @@ export interface FirstPostData {
   polishActions: string[];
 }
 
-/** J7-Proof. `explorerUrl` is null until the registration has a transaction. */
+/** J7-Proof. `signature` is null until the registration has a transaction. */
 export interface ProofData {
   record: { label: string; value: string }[];
-  explorerUrl: string | null;
+  signature: string | null;
   network: string;
   postText: string;
   checkLink: string;

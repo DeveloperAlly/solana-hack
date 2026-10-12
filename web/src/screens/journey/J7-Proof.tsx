@@ -6,7 +6,7 @@
  * | Field        | Source                                                                                              | Empty when |
  * |--------------|-----------------------------------------------------------------------------------------------------|------------|
  * | record[]     | The registration: POST /api/brands/:id/posts/:id/register (web/worker/api.ts, registerPost) returns post, kit version, approver, time and hash (`registrations` row) | never: J7 follows registration |
- * | explorerUrl  | The registration's transaction, as a Solana Explorer link (devnet)                                  | null until it has a transaction |
+ * | signature    | The registration's transaction signature; shown as a D32 receipt link to Solana Explorer (devnet)  | null until it has a transaction |
  * | network      | Static: devnet (the demo runs on devnet only)                                                       | never      |
  * | postText     | The approved post body (`posts` row)                                                                | never      |
  * | checkLink    | The public Check a post page for this post                                                          | never      |
@@ -23,13 +23,14 @@ import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { JourneyAha } from '../../ui/domain/JourneyAha';
 import { JourneyCopyButton } from '../../ui/domain/JourneyCopyButton';
 import { JourneySplit } from '../../ui/domain/JourneySplit';
+import { VerifyReceiptLink } from '../../ui/domain/VerifyReceiptLink';
 import { JourneyStepFrame } from './JourneyStepFrame';
 import { ProofCheck } from './ProofCheck';
 import { journeyPaths } from './paths';
 import type { ProofData } from './types';
 
 export function J7Proof({ data }: { data: ProofData }) {
-  const transaction = data.explorerUrl ? <Link href={data.explorerUrl} external>View on Solana Explorer</Link> : '[explorer link once registered]';
+  const transaction = <VerifyReceiptLink signature={data.signature} placeholder="[explorer link once registered]">View on Solana Explorer</VerifyReceiptLink>;
   return (
     <JourneyStepFrame step="proof" title="Your first post is registered" footer={<Button href={journeyPaths.hub}>Plan the rest of my week</Button>}>
       <JourneyAha n={5} tone="inverse">Anyone can check this came from you.</JourneyAha>

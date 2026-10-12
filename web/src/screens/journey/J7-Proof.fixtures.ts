@@ -15,7 +15,7 @@ export const proofFixture: ProofData = {
     { label: 'Approved by', value: '[approver] · [time]' },
     { label: 'Hash', value: '[sha256]' },
   ],
-  explorerUrl: null,
+  signature: null,
   network: 'devnet',
   postText: launchPost,
   checkLink: journeyPaths.proof,

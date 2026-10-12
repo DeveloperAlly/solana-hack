@@ -15,6 +15,12 @@ export interface JourneyStatusRow {
   href?: string;
 }
 
+/** A row's value: its link, or its status chip (solid for a done or passed state). */
+function rowValue(row: JourneyStatusRow) {
+  if (row.href) return <Link href={row.href}>{row.value}</Link>;
+  return <Badge tone={row.solid ? 'solid' : 'neutral'}>{row.value}</Badge>;
+}
+
 export interface JourneyStatusListProps {
   title: string;
   rows: JourneyStatusRow[];
@@ -33,10 +39,7 @@ export function JourneyStatusList({ title, rows, variant = 'default' }: JourneyS
       <Heading level={2} size="lg" id={headingId}>{title}</Heading>
       <div className={styles.rows}>
         <KeyValueList
-          items={rows.map((r) => ({
-            label: r.label,
-            value: r.href ? <Link href={r.href}>{r.value}</Link> : <Badge tone={r.solid ? 'solid' : 'neutral'}>{r.value}</Badge>,
-          }))}
+          items={rows.map((r) => ({ label: r.label, value: rowValue(r) }))}
         />
       </div>
     </Card>
