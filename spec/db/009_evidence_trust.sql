@@ -11,17 +11,20 @@ alter table public.evidence add column if not exists trust text;
 alter table public.evidence add column if not exists review_status text;
 alter table public.sources add column if not exists kind text not null default 'site';
 
--- Backfill: every existing row was written by code that only produced the brand's own pages ('source'), owner answers
--- and assumptions, all of which the old deny-list already let through (or labelled), so each keeps its standing.
-update public.evidence set trust = case origin when 'source' then 'owned' when 'owner_answer' then 'owner_answer' else 'assumption' end where trust is null;
-update public.evidence set review_status = 'approved' where review_status is null;
+-- Backfill, conservatively: the old "link to a page about you" input accepted any page, so an existing 'source' fact
+-- may come from a site the brand does not control. It becomes third-party and proposed, for the owner to approve
+-- (PR #63 review). Owner answers keep their standing; anything else is an assumption. On 2026-10-12 the live database
+-- held no source facts, so nothing approved is demoted there.
+update public.evidence set trust = case origin when 'source' then 'third_party' when 'owner_answer' then 'owner_answer' else 'assumption' end where trust is null;
+update public.evidence set review_status = case when trust = 'third_party' then 'proposed' else 'approved' end where review_status is null;
 
--- A Worker deployed before this migration's code still inserts rows without the new columns. Derive them from origin
--- the same way as the backfill, so no row is ever left without a trust class or review decision.
+-- A Worker deployed before this migration's code still inserts rows without the new columns, and cannot tell the
+-- brand's own site from any other page. Derive them from origin as conservatively as the backfill, so no row is ever
+-- left without a trust class or review decision.
 create or replace function public.evidence_trust_default() returns trigger language plpgsql as $$
 begin
   if new.trust is null then
-    new.trust := case new.origin when 'source' then 'owned' when 'owner_answer' then 'owner_answer' else 'assumption' end;
+    new.trust := case new.origin when 'source' then 'third_party' when 'owner_answer' then 'owner_answer' else 'assumption' end;
   end if;
   if new.review_status is null then
     new.review_status := case when new.trust = 'third_party' then 'proposed' else 'approved' end;

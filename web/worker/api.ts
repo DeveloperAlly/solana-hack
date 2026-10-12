@@ -81,10 +81,13 @@ export async function draftSection(env: Env, brand: Brand, section: SectionId) {
 
 export async function ingest(env: Env, brand: Brand, rawUrl: string) {
   // Owned only when the page is on the brand's own website; any other page is third-party (registry urlKind).
-  const kind = urlKind(rawUrl, brand.website);
+  let kind = urlKind(rawUrl, brand.website);
   const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url: rawUrl.slice(0, 500), status: 'pending', kind });
   try {
     const page = await readPage(rawUrl);
+    // readPage follows redirects, so classify again on the page actually read: an on-site link that redirects off the
+    // website is third-party (PR #63 review). Owned needs both the link and the final page on the website.
+    if (urlKind(page.url, brand.website) !== 'site') kind = 'page';
     const text = page.text.slice(0, 14000);
     const system = `You extract facts about the brand "${brand.name}" from a web page. Each fact needs an exact quote copied character for character from the page text, at most ${MAX_QUOTE} characters. Sections: ${Object.keys(SECTIONS).join(', ')}. Reply with JSON only: {"facts": [{"section": string, "claim": string, "quote": string}]}. At most 12 facts. No facts that the page does not state.`;
     const { text: reply } = await chat(env, system, `Page title: ${page.title}\nURL: ${page.url}\n\n${text}`);
@@ -101,7 +104,7 @@ export async function ingest(env: Env, brand: Brand, rawUrl: string) {
     if (rows.length) await db.insert(env, 'evidence', rows);
     // source_text (spec/db/008) keeps the full text the quotes were checked against, so any stored quote can be
     // re-checked later; text_excerpt stays for existing readers.
-    await db.update(env, 'sources', db.eq('id', src.id), { status: 'read', title: page.title, text_excerpt: text.slice(0, 2000), source_text: page.text, fetched_at: new Date().toISOString(), url: page.url.slice(0, 500) });
+    await db.update(env, 'sources', db.eq('id', src.id), { status: 'read', kind, title: page.title, text_excerpt: text.slice(0, 2000), source_text: page.text, fetched_at: new Date().toISOString(), url: page.url.slice(0, 500) });
     return { sourceId: src.id, facts: rows.length, dropped: facts.length - rows.length, kind, needsReview: kind === 'page' ? rows.length : 0 };
   } catch (e) {
     const msg = e instanceof HttpError ? e.message : 'reading the page failed';
@@ -206,6 +209,14 @@ export async function registerKit(env: Env, user: User, brand: Brand, now = Date
   if (evidenceKey(again) !== evidenceKey(st)) throw new HttpError(409, 'your facts changed while registering; check them and try again');
   const hash = 'sha256:' + (await sha256Hex(canonical(payload)));
   const [kit] = await db.insert<Kit>(env, 'kits', { brand_id: brand.id, version, hash, payload, approved_by: user.id, status: 'pending' });
+  // Read the fact decisions once more now that the pending kit exists, and refuse before signing if any changed: a
+  // rejection that landed between the re-read above and the insert would otherwise be signed (PR #63 review). Any
+  // decision after this read is a change made after registration began, which the next kit version picks up.
+  const final = await brandState(env, brand);
+  if (evidenceKey(final) !== evidenceKey(st)) {
+    await db.update(env, 'kits', db.eq('id', kit.id), { status: 'failed', error: 'facts changed while registering' });
+    throw new HttpError(409, 'your facts changed while registering; check them and try again');
+  }
   try {
     const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
     // Only hashes and ids go onchain (R27): brand id, kit hash, version, approver id.

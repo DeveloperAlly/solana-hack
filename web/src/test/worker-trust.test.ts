@@ -177,6 +177,21 @@ describe('drafting and registration use the allow-list', () => {
     await expect(registerKit(env, user, brand)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('facts changed') });
     expect(reg.register).not.toHaveBeenCalled();
   });
+  it('re-reads fact decisions after the pending kit is written, and fails it before signing (PR #63 review)', async () => {
+    tables = readyBrand();
+    // The owner approves the third-party fact after the second read, before the pending kit is inserted.
+    let evidenceReads = 0;
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('/kits') && init?.method === 'POST') tables.evidence.find((e) => e.id === 'e-third')!.review_status = 'approved';
+      if (url.includes('/evidence') && (init?.method ?? 'GET') === 'GET') evidenceReads++;
+      return realFetch(url, init);
+    }));
+    await expect(registerKit(env, user, brand)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('facts changed') });
+    expect(reg.register).not.toHaveBeenCalled();
+    expect(tables.kits[0]).toMatchObject({ status: 'failed' });
+    expect(evidenceReads).toBeGreaterThanOrEqual(3);
+  });
   it('a section citing a rejected fact cannot register, and rejecting reports the sections that cite it', async () => {
     tables = readyBrand();
     const r = await reviewEvidence(env, brand, 'e-owned', 'rejected');
@@ -212,6 +227,20 @@ describe('drafting and registration use the allow-list', () => {
     tables = { sources: [], evidence: [] };
     await ingest(env, brand, 'https://jamjam.tech');
     expect(tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
+  });
+  it('an on-site link that redirects off the website is third-party (PR #63 review)', async () => {
+    tables = { sources: [], evidence: [] };
+    page = '<html><title>Elsewhere</title><body><p>JamJam was founded in 2024 to help brands prove what they say.</p></body></html>';
+    llm = () => ({ facts: [{ section: 'purpose', claim: 'Founded 2024', quote: 'JamJam was founded in 2024' }] });
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      const res = await realFetch(url, init);
+      if (url.startsWith('https://jamjam.tech')) Object.defineProperty(res, 'url', { value: 'https://elsewhere.example/landing' });
+      return res;
+    }));
+    await ingest(env, { ...brand, website: 'jamjam.tech' }, 'https://jamjam.tech/go');
+    expect(tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
+    expect(tables.sources[0]).toMatchObject({ kind: 'page', url: 'https://elsewhere.example/landing' });
   });
   it('urlKind matches the website and its subdomains only', () => {
     expect(urlKind('https://blog.jamjam.tech/post', 'https://www.jamjam.tech')).toBe('site');
