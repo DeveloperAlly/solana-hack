@@ -58,7 +58,7 @@ export function CampaignPlan({ data, state = 'success' }: { data: CampaignPlanDa
           state={tableState[state]}
           empty={<Text tone="secondary">Every item is removed. Restore the plan to continue.</Text>}
           error={<Text tone="danger">The plan could not be written. Nothing was saved; go back and try again.</Text>}
-          actions={(r) => <Button variant="secondary" onClick={() => remove(r.id)}>Remove<span className="wl-visually-hidden"> {r.day}</span></Button>}
+          actions={(r) => <Button variant="secondary" aria-label={`Remove ${r.day}`} onClick={() => remove(r.id)}>Remove</Button>}
         />
         {removed.length > 0 && <Button variant="secondary" onClick={() => update({ removedPlanItems: [] })}>Restore removed items</Button>}
         <Text variant="small" tone="secondary">{data.rule}</Text>

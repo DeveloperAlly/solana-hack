@@ -61,7 +61,7 @@ export function SettingsPlan({ data, state = 'success' }: { data: SettingsPlanDa
           state={tableState[state]}
           empty={<Text tone="secondary">No invoices yet. They appear here after your first bill.</Text>}
           error={<Text tone="danger">Could not load invoices. Try again in a minute.</Text>}
-          actions={(inv) => <Button variant="secondary" onClick={() => download(inv)}>Download<span className="wl-visually-hidden"> invoice {inv.date}</span></Button>}
+          actions={(inv) => <Button variant="secondary" aria-label={`Download invoice ${inv.date}`} onClick={() => download(inv)}>Download</Button>}
         />
       </Card>
     </SoonHubFrame>

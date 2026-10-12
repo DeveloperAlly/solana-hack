@@ -34,9 +34,9 @@ export function Claims({ data, state = 'success' }: { data: ClaimsData; state?: 
   const patch = (id: string, p: Partial<Claim>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...p } : r)));
   // INTEGRATION: PATCH …/claims/:id; Register -> the Registrar's SAS claim attestation (backend map "Claims").
   const actionFor: Record<ClaimStatus, (c: Claim) => ReactNode> = {
-    approved: (c) => (c.registered ? <Badge tone="solid">Registered</Badge> : <Button variant="secondary" onClick={() => patch(c.id, { registered: true })}>Register<span className="wl-visually-hidden"> {c.text}</span></Button>),
-    pending: (c) => <Button variant="secondary" onClick={() => setEvidenceFor(c.id)}>Add evidence<span className="wl-visually-hidden"> for {c.text}</span></Button>,
-    expired: (c) => <Button variant="secondary" onClick={() => patch(c.id, { status: 'pending', expires: '–' })}>Renew<span className="wl-visually-hidden"> {c.text}</span></Button>,
+    approved: (c) => (c.registered ? <Badge tone="solid">Registered</Badge> : <Button variant="secondary" aria-label={`Register ${c.text}`} onClick={() => patch(c.id, { registered: true })}>Register</Button>),
+    pending: (c) => <Button variant="secondary" aria-label={`Add evidence for ${c.text}`} onClick={() => setEvidenceFor(c.id)}>Add evidence</Button>,
+    expired: (c) => <Button variant="secondary" aria-label={`Renew ${c.text}`} onClick={() => patch(c.id, { status: 'pending', expires: '–' })}>Renew</Button>,
   };
   const attach = (v: Record<string, string>) => {
     if (evidenceFor) patch(evidenceFor, { evidence: v.source, status: 'approved', expires: '[date]' });

@@ -58,7 +58,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
             rowKey={(r) => r.id}
             state={tableState[state]}
             error={<Alert tone="danger" title="The checks could not run. Nothing was approved." />}
-            actions={(r) => r.claims === 'unsupported' && <Button variant="secondary" onClick={() => setFixing(r.id)}>Add a source<span className="wl-visually-hidden"> for slide {r.slide}</span></Button>}
+            actions={(r) => r.claims === 'unsupported' && <Button variant="secondary" aria-label={`Add a source for slide ${r.slide}`} onClick={() => setFixing(r.id)}>Add a source</Button>}
           />
           {fixing && (
             <SoonInlineForm

@@ -33,8 +33,8 @@ export function SoonSlideEditor({ label, slides, onChange }: SoonSlideEditorProp
               <Placeholder label={`Slide ${s.label}`} ratio="square" />
               <Text variant="label">{s.label}</Text>
               <Text variant="small" tone="secondary" truncate>{s.text}</Text>
-              <Button variant="secondary" aria-pressed={s.id === selected} onClick={() => setSelected(s.id)}>
-                {s.id === selected ? 'Editing' : 'Edit'}<span className="wl-visually-hidden"> slide {s.label}</span>
+              <Button variant="secondary" aria-pressed={s.id === selected} aria-label={`Edit slide ${s.label}`} onClick={() => setSelected(s.id)}>
+                Edit
               </Button>
             </Stack>
           </Card>

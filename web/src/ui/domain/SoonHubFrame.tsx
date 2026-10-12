@@ -11,7 +11,7 @@ export interface SoonHubFrameProps {
   nav?: ReactNode;
   /** Brand selected in the switcher at first render (a demo fixture id). */
   brandId?: string;
-  /** Renders inside another page (workbench): no second main landmark or skip link. */
+  /** Renders inside another page (workbench): no second main landmark or skip link; the brand name keeps the preview nav's name unique. */
   preview?: boolean;
   children?: ReactNode;
 }
@@ -23,7 +23,7 @@ export interface SoonHubFrameProps {
 export function SoonHubFrame({ header, nav, brandId = 'jamjam', preview = false, children }: SoonHubFrameProps) {
   const [brand, setBrand] = useState(brandId);
   return (
-    <AppShell preview={preview} brandSlot={<BrandSwitcher brands={demoBrands} currentId={brand} onSelect={setBrand} />}>
+    <AppShell preview={preview} brandName={preview ? demoBrands.find((b) => b.id === brand)?.name : undefined} brandSlot={<BrandSwitcher brands={demoBrands} currentId={brand} onSelect={setBrand} />}>
       <Container width="app">
         <Stack gap={6}>
           <SoonPageHeader {...header} />

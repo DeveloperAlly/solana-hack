@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { Button, Heading, Stack, Text } from '../primitives';
 import { Card } from '../composites/Card';
+import type { HeadingLevel } from '../primitives/Heading';
 
 export interface SoonPlanTierProps {
   name: string;
@@ -13,15 +14,17 @@ export interface SoonPlanTierProps {
   note?: string;
   /** The highlighted tier. */
   featured?: boolean;
+  /** Heading level of the tier name (2 under a page title). */
+  level?: HeadingLevel;
 }
 
 /** Pricing tier card (canvas Pricing): name, price, what is included, a call to action and an optional note. */
-export function SoonPlanTier({ name, price, features, cta, href, note, featured = false }: SoonPlanTierProps) {
+export function SoonPlanTier({ name, price, features, cta, href, note, featured = false, level = 2 }: SoonPlanTierProps) {
   const id = useId();
   return (
     <Card as="section" labelledBy={id} variant={featured ? 'selected' : 'default'}>
       <Stack gap={3}>
-        <Heading level={2} size="xl" id={id}>{name}</Heading>
+        <Heading level={level} size="xl" id={id}>{name}</Heading>
         <Text variant="label">{price}</Text>
         <Text tone="secondary">{features}</Text>
         <Button href={href} variant={featured ? 'primary' : 'secondary'}>{cta}</Button>

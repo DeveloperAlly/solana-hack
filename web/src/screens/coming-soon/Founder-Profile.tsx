@@ -38,7 +38,7 @@ export function FounderProfile({ data }: { data: FounderProfileData }) {
         {sources.length === 0 && <Text tone="secondary">No sources yet. Add a CV or a LinkedIn export to start this kit.</Text>}
         <SoonStatusList label="Sources">
           {sources.map((s) => (
-            <SoonStatusRow key={s.id} name={s.name} detail={s.detail} status={soonStatus[s.status]} actions={<Button variant="secondary" onClick={() => remove(s.id)}>Remove<span className="wl-visually-hidden"> {s.name}</span></Button>} />
+            <SoonStatusRow key={s.id} name={s.name} detail={s.detail} status={soonStatus[s.status]} actions={<Button variant="secondary" aria-label={`Remove ${s.name}`} onClick={() => remove(s.id)}>Remove</Button>} />
           ))}
         </SoonStatusList>
         <SoonAddForm

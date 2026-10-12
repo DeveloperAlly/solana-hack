@@ -12,8 +12,8 @@ export function StatusToggleButton({ row, onToggle }: StatusToggleButtonProps) {
   const t = soonToggle[row.status];
   if (!t) return null;
   return (
-    <Button variant="secondary" onClick={() => onToggle(row.id, t.next)}>
-      {t.label}<span className="wl-visually-hidden"> {row.name}</span>
+    <Button variant="secondary" aria-label={`${t.label} ${row.name}`} onClick={() => onToggle(row.id, t.next)}>
+      {t.label}
     </Button>
   );
 }

@@ -33,9 +33,9 @@ export function BrandSwitcherScreen({ data, state = 'success' }: { data: BrandSw
   const [current, setCurrent] = useState(data.currentId);
   const actionFor = (b: StatusRowItem) => {
     if (b.id === current) return <Badge tone="solid">Current</Badge>;
-    if (b.id === data.founderId) return <Button href={soonRoutes.founderProfile} variant="secondary">Open<span className="wl-visually-hidden"> {b.name}</span></Button>;
+    if (b.id === data.founderId) return <Button href={soonRoutes.founderProfile} variant="secondary" aria-label={`Open ${b.name}`}>Open</Button>;
     // INTEGRATION: switching sets the active brand for the session (no endpoint yet).
-    return <Button variant="secondary" onClick={() => setCurrent(b.id)}>Switch<span className="wl-visually-hidden"> to {b.name}</span></Button>;
+    return <Button variant="secondary" aria-label={`Switch to ${b.name}`} onClick={() => setCurrent(b.id)}>Switch</Button>;
   };
   // INTEGRATION: POST /api/brands { name, domain }; a new brand is self-declared until its domain is verified.
   const add = (v: Record<string, string>) => {
