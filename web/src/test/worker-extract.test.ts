@@ -1134,6 +1134,21 @@ describe('conflicts stay true in the database (spec/db/011 rederive_conflicts, r
     expect(evidence().length).toBe(5);
     expect(evidence().every((e) => e.confidence && e.fact_key && e.source_key === 'host:jamjam.tech')).toBe(true);
   });
+  it('owner decisions are recorded apart from review_status: confirming an already approved fact is kept (PR #101 review)', async () => {
+    await extract('https://jamjam.tech');
+    const approved = evidence().find((e) => e.review_status === 'approved')!;
+    expect(approved.owner_decision ?? null).toBeNull();
+    expect((await call('PATCH', `/brands/${BRAND}/evidence/${approved.id}`, { review_status: 'approved' })).status).toBe(200);
+    expect(approved).toMatchObject({ review_status: 'approved', owner_decision: 'confirmed', owner_decided_by: 'u', owner_decided_at: expect.any(String) });
+    const { site, news, conflict } = await (async () => {
+      await extract('https://news.example/jamjam');
+      const s2 = evidence().find((e) => e.slot === 'founded' && e.quote.includes('2020'))!;
+      const n2 = evidence().find((e) => e.slot === 'founded' && e.quote.includes('2021'))!;
+      return { site: s2, news: n2, conflict: open()[0] };
+    })();
+    const out = await resolveFactConflict(envWith, { brandId: BRAND, conflictId: conflict.id as string, by: 'u', answer: { section: 'origin', claim: 'Founded in 2019.', value: '2019', editedFrom: news.id as string } });
+    expect([site.owner_decision, news.owner_decision, db.tables.evidence.find((e) => e.id === out.answer)!.owner_decision]).toEqual(['rejected', 'edited', 'edited']);
+  });
   it('the question is worded from the sides still on the conflict', async () => {
     const { conflict } = await twoSources();
     await extract('https://other.example/profile');

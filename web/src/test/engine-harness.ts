@@ -158,11 +158,17 @@ function resolveFactConflict({ p_brand, p_conflict, p_keep, p_by, p_answer }: { 
     if (!value || value.length > 120 || !key || key.length > 120) throw pt(400, 'the answer needs a value of 1 to 120 characters');
     const from = p_answer.edited_from as string | undefined;
     if (from !== undefined && !(ids.includes(from) && db.tables.evidence.some((e) => e.id === from && e.brand_id === p_brand && e.trust !== 'owner_answer'))) throw pt(400, 'edited_from must be a source fact on this conflict');
-    answer = { id: uuid(), created_at: new Date().toISOString(), brand_id: p_brand, source_id: null, section, claim, quote: null, origin: 'owner_answer', trust: 'owner_answer', review_status: 'approved', slot: c.slot, slot_value: value, slot_key: key, ...(from ? { edited_from: from } : {}) };
+    answer = { id: uuid(), created_at: new Date().toISOString(), brand_id: p_brand, source_id: null, section, claim, quote: null, origin: 'owner_answer', trust: 'owner_answer', review_status: 'approved', slot: c.slot, slot_value: value, slot_key: key, owner_decision: 'edited', owner_decided_by: p_by, owner_decided_at: new Date().toISOString(), ...(from ? { edited_from: from } : {}) };
   }
   Object.assign(c, { status: 'resolved', resolved_by: p_by, resolved_at: new Date().toISOString() });
   let changed = 0;
-  for (const e of db.tables.evidence) if (e.brand_id === p_brand && ids.includes(e.id as string)) { e.review_status = keep.includes(e.id as string) ? 'approved' : 'rejected'; changed++; }
+  const at = new Date().toISOString();
+  for (const e of db.tables.evidence) {
+    if (e.brand_id !== p_brand || !ids.includes(e.id as string)) continue;
+    const kept = keep.includes(e.id as string);
+    Object.assign(e, { review_status: kept ? 'approved' : 'rejected', owner_decision: kept ? 'confirmed' : e.id === p_answer?.edited_from ? 'edited' : 'rejected', owner_decided_by: p_by, owner_decided_at: at });
+    changed++;
+  }
   rederiveConflicts(p_brand, c.slot as string);
   if (answer) { db.tables.evidence.push(answer); rederiveConflicts(p_brand, c.slot as string); }
   return { changed, answer: answer?.id ?? null };

@@ -33,6 +33,16 @@ alter table public.evidence add column if not exists slot_key text;
 -- (sourceKey: one per host), written by the Worker, so the database computes confidence (save_extraction below).
 alter table public.evidence add column if not exists fact_key text;
 alter table public.evidence add column if not exists source_key text;
+-- The owner's own decision on a fact, kept apart from review_status (which the system also sets: an exact owned fact
+-- starts approved), so confirming an already approved fact is recorded (Codex review on PR #101): 'confirmed' and
+-- 'rejected' from the review route and from resolve_fact_conflict; 'edited' for an owner answer that settles a
+-- conflict and for the source fact it rewords. A record: a later contradiction still reopens a conflict.
+alter table public.evidence add column if not exists owner_decision text;
+alter table public.evidence add column if not exists owner_decided_by uuid references auth.users(id) on delete set null;
+alter table public.evidence add column if not exists owner_decided_at timestamptz;
+do $$ begin
+  alter table public.evidence add constraint evidence_owner_decision_check check (owner_decision is null or owner_decision in ('confirmed','rejected','edited'));
+exception when duplicate_object then null; end $$;
 do $$ begin
   alter table public.evidence add constraint evidence_quote_span_check check (quote_start is null or (quote_start >= 0 and quote_end >= quote_start));
 exception when duplicate_object then null; end $$;
@@ -246,18 +256,20 @@ begin
   update public.fact_conflicts set status = 'resolved', resolved_by = p_by, resolved_at = now(), updated_at = now() where id = p_conflict;
   -- Every fact on the conflict, owner answers included: the owner's choice replaces an earlier answer of theirs that it
   -- does not keep (left approved, it would reopen the disagreement at once).
-  update public.evidence set review_status = case when id = any(v_keep) then 'approved' else 'rejected' end
+  update public.evidence set review_status = case when id = any(v_keep) then 'approved' else 'rejected' end,
+    owner_decision = case when id = any(v_keep) then 'confirmed' when id = v_from then 'edited' else 'rejected' end,
+    owner_decided_by = p_by, owner_decided_at = now()
   where brand_id = p_brand and id = any(v_ids);
   get diagnostics v_n = row_count;
   if p_answer is not null then
     if v_from is null then
-      insert into public.evidence (brand_id, source_id, section, claim, quote, origin, trust, review_status, slot, slot_value, slot_key)
-      values (p_brand, null, v_section, v_claim, null, 'owner_answer', 'owner_answer', 'approved', v_slot, v_value, v_key)
+      insert into public.evidence (brand_id, source_id, section, claim, quote, origin, trust, review_status, slot, slot_value, slot_key, owner_decision, owner_decided_by, owner_decided_at)
+      values (p_brand, null, v_section, v_claim, null, 'owner_answer', 'owner_answer', 'approved', v_slot, v_value, v_key, 'edited', p_by, now())
       returning id into v_answer;
     else
-      execute 'insert into public.evidence (brand_id, source_id, section, claim, quote, origin, trust, review_status, slot, slot_value, slot_key, edited_from)
-               values ($1, null, $2, $3, null, ''owner_answer'', ''owner_answer'', ''approved'', $4, $5, $6, $7) returning id'
-        into v_answer using p_brand, v_section, v_claim, v_slot, v_value, v_key, v_from;
+      execute 'insert into public.evidence (brand_id, source_id, section, claim, quote, origin, trust, review_status, slot, slot_value, slot_key, edited_from, owner_decision, owner_decided_by, owner_decided_at)
+               values ($1, null, $2, $3, null, ''owner_answer'', ''owner_answer'', ''approved'', $4, $5, $6, $7, ''edited'', $8, now()) returning id'
+        into v_answer using p_brand, v_section, v_claim, v_slot, v_value, v_key, v_from, p_by;
     end if;
   end if;
   return jsonb_build_object('changed', v_n, 'answer', v_answer);
