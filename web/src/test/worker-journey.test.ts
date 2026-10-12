@@ -289,6 +289,20 @@ describe('editing a fact (J3 Edit)', () => {
     await call('perm', 'PUT', `/api/brands/${b.id}/answers/origin`, { data: { story: 'We started small' } });
     expect(tables.evidence.some((e) => e.claim === 'Owner wording')).toBe(true);
   });
+  it('editing again corrects the same correction, from either the edit or the original fact', async () => {
+    const b = brandRow('p-1');
+    const f = fact(b.id, 'origin', { trust: 'third_party', review_status: 'proposed' });
+    tables.brands = [b];
+    tables.evidence = [f];
+    const first = await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${f.id}`, { claim: 'First wording' });
+    const editId = (first.body.evidence as { id: string }).id;
+    const again = await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${editId}`, { claim: 'Second wording' });
+    expect(again).toMatchObject({ status: 200, body: { replaced: f.id } });
+    await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${f.id}`, { claim: 'Third wording' });
+    const approved = tables.evidence.filter((e) => e.review_status === 'approved');
+    expect(approved.map((e) => e.claim)).toEqual(['Third wording']);
+    expect(approved[0].id).toBe(editId);
+  });
   it('refuses an empty edit, an unknown fact and an owner answer', async () => {
     const b = brandRow('p-1');
     const own = fact(b.id, 'origin', { trust: 'owner_answer', origin: 'owner_answer' });
