@@ -15,7 +15,7 @@ import type { FactRecord } from './contract';
 
 /** The review operations a decision runs through: api.ts reviewEvidence, and PR #96's journey.ts editFact. */
 export interface DecisionOps {
-  review(env: Env, brand: { id: string }, id: string, status: 'approved' | 'rejected', by: { id: string }): Promise<{ evidence: unknown; stale: string[] }>;
+  review(env: Env, brand: { id: string }, id: string, status: 'approved' | 'rejected', by: string | null): Promise<{ evidence: unknown; stale: string[] }>;
   edit(env: Env, brandId: string, id: string, text: string): Promise<{ evidence: unknown; stale: string[]; replaced?: string }>;
 }
 
@@ -105,7 +105,7 @@ export async function resolveConflict(env: Env, user: { id: string }, brand: { i
 export async function decideFact(env: Env, user: { id: string }, brand: { id: string }, id: string, record: Decision, ops: DecisionOps) {
   const conflict = record.decision === 'rejected' ? undefined : await openConflictOf(env, brand.id, id);
   if (record.decision === 'accepted') {
-    if (!conflict) return ops.review(env, brand, id, 'approved', user);
+    if (!conflict) return ops.review(env, brand, id, 'approved', user.id);
     const resolved = await resolveConflict(env, user, brand, conflict.id, { keep: id });
     return { evidence: { id, review_status: 'approved' }, stale: resolved.stale, resolved };
   }
@@ -120,5 +120,5 @@ export async function decideFact(env: Env, user: { id: string }, brand: { id: st
     const resolved = await resolveConflict(env, user, brand, conflict.id, { answer: { claim: record.edit, value: record.value, editedFrom: id } });
     return { evidence: { id: resolved.answer }, replaced: id, stale: resolved.stale, resolved };
   }
-  return ops.review(env, brand, id, 'rejected', user);
+  return ops.review(env, brand, id, 'rejected', user.id);
 }

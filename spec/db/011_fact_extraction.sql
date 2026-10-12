@@ -29,6 +29,20 @@ alter table public.evidence add column if not exists page_title text;
 -- slot_key: the comparable form of slot_value (web/worker/extract/facts.ts normText), written by the Worker, so the
 -- database can tell whether the facts left on a conflict still disagree (reconcile_fact_conflicts below).
 alter table public.evidence add column if not exists slot_key text;
+-- fact_key and source_key: which facts are the same fact (extract/facts.ts factKey) and which sources are independent
+-- (sourceKey: one per host), written by the Worker, so the database computes confidence (save_extraction below).
+alter table public.evidence add column if not exists fact_key text;
+alter table public.evidence add column if not exists source_key text;
+-- The owner's own decision on a fact, kept apart from review_status (which the system also sets: an exact owned fact
+-- starts approved), so confirming an already approved fact is recorded (Codex review on PR #101): 'confirmed' and
+-- 'rejected' from the review route and from resolve_fact_conflict; 'edited' for an owner answer that settles a
+-- conflict and for the source fact it rewords. A record: a later contradiction still reopens a conflict.
+alter table public.evidence add column if not exists owner_decision text;
+alter table public.evidence add column if not exists owner_decided_by uuid references auth.users(id) on delete set null;
+alter table public.evidence add column if not exists owner_decided_at timestamptz;
+do $$ begin
+  alter table public.evidence add constraint evidence_owner_decision_check check (owner_decision is null or owner_decision in ('confirmed','rejected','edited'));
+exception when duplicate_object then null; end $$;
 do $$ begin
   alter table public.evidence add constraint evidence_quote_span_check check (quote_start is null or (quote_start >= 0 and quote_end >= quote_start));
 exception when duplicate_object then null; end $$;
@@ -104,28 +118,89 @@ end $$;
 create unique index if not exists fact_conflicts_one_open on public.fact_conflicts(brand_id, slot) where status = 'open';
 alter table public.fact_conflicts enable row level security;
 
--- Records a conflict atomically: opens it, or adds facts to the open one for that slot; then holds every listed fact
--- for review. Owner answers keep their standing (the owner said them); the question stays open either way. A
--- disagreement the owner already resolved, over the same facts, is not asked again. Returns the conflict id, or null
--- when it was already resolved.
-create or replace function public.record_fact_conflict(p_brand uuid, p_slot text, p_evidence uuid[], p_question text)
-returns uuid language plpgsql security invoker set search_path = public as $fn$
-declare v_id uuid;
+-- A fact on a side of an open conflict reaches 'approved' only through resolve_fact_conflict (Codex review on PR #91,
+-- P1 4250250002): a direct approval (the evidence review route) is refused with 409, so the owner is told why, and no
+-- side of a live disagreement is ever usable. resolve_fact_conflict closes the conflict before it sets the sides, and
+-- rederive_conflicts restores reviews only on a conflict it has just closed, so neither is refused.
+create or replace function public.refuse_disputed_approval()
+returns trigger language plpgsql security invoker set search_path = public as $fn$
 begin
-  if exists (select 1 from public.fact_conflicts where brand_id = p_brand and slot = p_slot and status = 'resolved' and evidence_ids @> p_evidence) then
-    return null;
+  if new.review_status = 'approved' and old.review_status is distinct from 'approved'
+     and exists (select 1 from public.fact_conflicts fc where fc.brand_id = new.brand_id and fc.status = 'open' and new.id = any(fc.evidence_ids)) then
+    raise sqlstate 'PT409' using message = 'other sources disagree with this fact: resolve the disagreement first';
   end if;
-  insert into public.fact_conflicts (brand_id, slot, evidence_ids, question)
-  values (p_brand, p_slot, (select array_agg(distinct x order by x) from unnest(p_evidence) x), p_question)
-  on conflict (brand_id, slot) where status = 'open' do update
-    set evidence_ids = (select array_agg(distinct x order by x) from unnest(public.fact_conflicts.evidence_ids || excluded.evidence_ids) x),
-        question = excluded.question,
-        updated_at = now()
-  returning id into v_id;
-  update public.evidence set review_status = 'proposed'
-  where brand_id = p_brand and id = any(p_evidence) and review_status = 'approved' and trust <> 'owner_answer';
-  return v_id;
+  return new;
 end $fn$;
+drop trigger if exists evidence_refuse_disputed_approval on public.evidence;
+create trigger evidence_refuse_disputed_approval before update of review_status on public.evidence
+  for each row execute function public.refuse_disputed_approval();
+revoke all on function public.refuse_disputed_approval() from public, anon, authenticated;
+
+-- Slot labels for the question text, the same as web/worker/extract/facts.ts SLOTS (worker-extract.test.ts checks).
+create table if not exists public.fact_slots (slot text primary key, label text not null);
+alter table public.fact_slots enable row level security;
+insert into public.fact_slots (slot, label) values
+  ('founded', 'when the brand was founded or launched'),
+  ('headquarters', 'where the brand is based'),
+  ('legal_name', 'the registered company name'),
+  ('team_size', 'how many people work on the brand'),
+  ('customer_count', 'how many customers or clients it has'),
+  ('user_count', 'how many users it has'),
+  ('funding', 'how much money it has raised'),
+  ('price_from', 'its lowest listed price')
+on conflict (slot) do update set label = excluded.label;
+
+-- Conflicts as a pure function of the facts (Codex reviews on PR #91 and PR #101). For one brand and slot: when the
+-- facts that are not rejected give at least two different values (slot_key), there is exactly one open conflict for
+-- the slot, listing every such fact, and every fact on it (owner answers included) is held at 'proposed', so none of
+-- them is usable (sources/registry.ts usableFact: approved only) and two contradictory approved values can never
+-- stand. Otherwise there is no open conflict: an open one is closed as 'dissolved' and each fact it held returns to the
+-- review it would start with without a conflict (owner answers approved; owned and exactly quoted approved: save.ts
+-- initialReviewFor; anything else waits). An owner's resolution stays as a 'resolved' record; a later re-approval of a
+-- side the owner turned down gives two live values again, so a new conflict opens. Serialised per brand and slot.
+-- Runs from statement triggers after every insert, delete and review change on evidence (below), so every path that
+-- changes which facts are live goes through it in the same transaction. Returns the open conflict's id, or null.
+create or replace function public.rederive_conflicts(p_brand uuid, p_slot text)
+returns uuid language plpgsql security invoker set search_path = public as $fn$
+declare v_live uuid[]; v_values int; v_open uuid; v_held uuid[]; v_question text;
+begin
+  perform pg_advisory_xact_lock(hashtextextended('fact_conflict:' || p_brand::text || ':' || p_slot, 0));
+  v_live := array(select e.id from public.evidence e where e.brand_id = p_brand and e.slot = p_slot and e.review_status <> 'rejected' and e.slot_key is not null order by e.id);
+  select count(distinct e.slot_key) into v_values from public.evidence e where e.id = any(v_live);
+  select fc.id, fc.evidence_ids into v_open, v_held from public.fact_conflicts fc where fc.brand_id = p_brand and fc.slot = p_slot and fc.status = 'open' for update;
+  if v_values >= 2 then
+    select format('Your sources disagree on %s: %s. Which is right?', coalesce((select label from public.fact_slots where slot = p_slot), p_slot),
+                  string_agg(format('"%s" (%s %s)', g.v, g.n, case when g.n = 1 then 'fact' else 'facts' end), ' or ' order by g.v collate "C"))
+    into v_question
+    from (select min(btrim(e.slot_value)) as v, count(*) as n from public.evidence e where e.id = any(v_live) group by e.slot_key) g;
+    if v_open is null then
+      insert into public.fact_conflicts (brand_id, slot, evidence_ids, question) values (p_brand, p_slot, v_live, v_question) returning id into v_open;
+    elsif v_held is distinct from v_live then
+      update public.fact_conflicts set evidence_ids = v_live, question = v_question, updated_at = now() where id = v_open;
+    end if;
+    update public.evidence set review_status = 'proposed' where id = any(v_live) and review_status = 'approved';
+    return v_open;
+  end if;
+  if v_open is not null then
+    update public.fact_conflicts set evidence_ids = array(select e.id from public.evidence e where e.id = any(v_held) order by e.id),
+      status = 'dissolved', resolved_at = now(), updated_at = now() where id = v_open;
+    update public.evidence e set review_status = t.target
+    from (select e2.id, case when e2.trust = 'owner_answer' or (e2.trust = 'owned' and e2.match = 'exact') then 'approved' else 'proposed' end as target
+          from public.evidence e2 where e2.id = any(v_held) and e2.review_status = 'proposed') t
+    where e.id = t.id and e.review_status <> t.target;
+  end if;
+  return null;
+end $fn$;
+revoke all on function public.rederive_conflicts(uuid, text) from public, anon, authenticated;
+grant execute on function public.rederive_conflicts(uuid, text) to service_role;
+
+-- Kept for the save step (web/worker/extract/save.ts), which calls it per contradicting slot: it now only re-derives
+-- that slot (p_evidence and p_question are not used; the facts decide). Returns the open conflict's id, or null.
+drop function if exists public.record_fact_conflict(uuid, text, uuid[], text);
+create or replace function public.record_fact_conflict(p_brand uuid, p_slot text, p_evidence uuid[], p_question text)
+returns uuid language sql security invoker set search_path = public as $fn$
+  select public.rederive_conflicts(p_brand, p_slot);
+$fn$;
 -- Functions in public are callable through the API by default; only the Worker's secret key (service_role) may call this.
 revoke all on function public.record_fact_conflict(uuid, text, uuid[], text) from public, anon, authenticated;
 grant execute on function public.record_fact_conflict(uuid, text, uuid[], text) to service_role;
@@ -133,8 +208,9 @@ grant execute on function public.record_fact_conflict(uuid, text, uuid[], text) 
 -- Resolves a conflict atomically, for the owner's answer (issue #34 serves the question and calls this through
 -- web/worker/extract/conflicts.ts resolveFactConflict). Either the facts in p_keep become approved, or p_answer (the
 -- owner's own value: {section, claim, slot, value, slot_key, edited_from?}) is saved as an approved owner answer; every
--- other fact on the conflict becomes rejected, and the conflict is closed with who decided and when. Owner answers
--- already on the conflict keep their standing. All checks run before anything changes, in one transaction, so a
+-- other fact on the conflict, an earlier owner answer included, becomes rejected, and the conflict is closed as
+-- 'resolved' with who decided and when (a record of the decision; rederive_conflicts opens a new conflict if a turned-
+-- down side is approved again later). All checks run before anything changes, in one transaction, so a
 -- refused call changes nothing. Errors map to HTTP statuses through PostgREST's PTxyz codes
 -- (https://docs.postgrest.org/en/stable/references/errors.html): 404 no such conflict; 409 already resolved, or a
 -- kept fact no longer exists or was rejected (the conflict changed in another tab: reload); 400 a kept fact not on
@@ -178,55 +254,28 @@ begin
   end if;
   -- Closed first, so the review trigger (rederive_conflicts) does not also close it as dissolved.
   update public.fact_conflicts set status = 'resolved', resolved_by = p_by, resolved_at = now(), updated_at = now() where id = p_conflict;
-  update public.evidence set review_status = case when id = any(v_keep) then 'approved' else 'rejected' end
-  where brand_id = p_brand and id = any(v_ids) and trust <> 'owner_answer';
+  -- Every fact on the conflict, owner answers included: the owner's choice replaces an earlier answer of theirs that it
+  -- does not keep (left approved, it would reopen the disagreement at once).
+  update public.evidence set review_status = case when id = any(v_keep) then 'approved' else 'rejected' end,
+    owner_decision = case when id = any(v_keep) then 'confirmed' when id = v_from then 'edited' else 'rejected' end,
+    owner_decided_by = p_by, owner_decided_at = now()
+  where brand_id = p_brand and id = any(v_ids);
   get diagnostics v_n = row_count;
   if p_answer is not null then
     if v_from is null then
-      insert into public.evidence (brand_id, source_id, section, claim, quote, origin, trust, review_status, slot, slot_value, slot_key)
-      values (p_brand, null, v_section, v_claim, null, 'owner_answer', 'owner_answer', 'approved', v_slot, v_value, v_key)
+      insert into public.evidence (brand_id, source_id, section, claim, quote, origin, trust, review_status, slot, slot_value, slot_key, owner_decision, owner_decided_by, owner_decided_at)
+      values (p_brand, null, v_section, v_claim, null, 'owner_answer', 'owner_answer', 'approved', v_slot, v_value, v_key, 'edited', p_by, now())
       returning id into v_answer;
     else
-      execute 'insert into public.evidence (brand_id, source_id, section, claim, quote, origin, trust, review_status, slot, slot_value, slot_key, edited_from)
-               values ($1, null, $2, $3, null, ''owner_answer'', ''owner_answer'', ''approved'', $4, $5, $6, $7) returning id'
-        into v_answer using p_brand, v_section, v_claim, v_slot, v_value, v_key, v_from;
+      execute 'insert into public.evidence (brand_id, source_id, section, claim, quote, origin, trust, review_status, slot, slot_value, slot_key, edited_from, owner_decision, owner_decided_by, owner_decided_at)
+               values ($1, null, $2, $3, null, ''owner_answer'', ''owner_answer'', ''approved'', $4, $5, $6, $7, ''edited'', $8, now()) returning id'
+        into v_answer using p_brand, v_section, v_claim, v_slot, v_value, v_key, v_from, p_by;
     end if;
   end if;
   return jsonb_build_object('changed', v_n, 'answer', v_answer);
 end $fn$;
 revoke all on function public.resolve_fact_conflict(uuid, uuid, uuid[], uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.resolve_fact_conflict(uuid, uuid, uuid[], uuid, jsonb) to service_role;
-
--- The conflict invariant, in one place (Codex reviews on PR #91 and PR #101): a conflict is open only while the facts
--- on it that still exist and are not rejected give at least two different values (slot_key). rederive_conflicts
--- re-checks the open conflict of one brand and slot: it drops facts that no longer exist from evidence_ids and, when
--- fewer than two values are left, closes it as 'dissolved' and returns each fact left that it was holding to the review
--- it would start with without a conflict (web/worker/extract/save.ts initialReviewFor: owned and exactly quoted is
--- approved; anything else waits). Owner answers and rejected facts are left as they are. It runs, in the same
--- transaction, after every statement that deletes evidence or changes a fact's review (removing a source, an owner's
--- rejection through the review route, replacing an interview answer), through the two triggers below.
-create or replace function public.rederive_conflicts(p_brand uuid, p_slot text)
-returns void language plpgsql security invoker set search_path = public as $fn$
-declare c record; v_live uuid[]; v_values int;
-begin
-  for c in select fc.id, fc.evidence_ids from public.fact_conflicts fc where fc.brand_id = p_brand and fc.slot = p_slot and fc.status = 'open' for update
-  loop
-    v_live := array(select e.id from public.evidence e where e.id = any(c.evidence_ids) order by e.id);
-    select count(distinct e.slot_key) into v_values from public.evidence e
-    where e.id = any(v_live) and e.review_status <> 'rejected' and e.slot_key is not null;
-    if v_values >= 2 then
-      if v_live is distinct from c.evidence_ids then
-        update public.fact_conflicts set evidence_ids = v_live, updated_at = now() where id = c.id;
-      end if;
-    else
-      update public.fact_conflicts set evidence_ids = v_live, status = 'dissolved', resolved_at = now(), updated_at = now() where id = c.id;
-      update public.evidence set review_status = case when trust = 'owned' and match = 'exact' then 'approved' else 'proposed' end
-      where id = any(v_live) and review_status = 'proposed' and trust <> 'owner_answer';
-    end if;
-  end loop;
-end $fn$;
-revoke all on function public.rederive_conflicts(uuid, text) from public, anon, authenticated;
-grant execute on function public.rederive_conflicts(uuid, text) to service_role;
 
 -- Removes a source and the facts read from it in one transaction; the delete trigger below re-derives every conflict
 -- those facts were on. PT404 when the brand has no such source.
@@ -241,6 +290,7 @@ end $fn$;
 revoke all on function public.delete_source(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.delete_source(uuid, uuid) to service_role;
 
+-- The triggers that run rederive_conflicts (above) for every brand and slot a statement touched.
 drop function if exists public.reconcile_fact_conflicts() cascade;
 create or replace function public.rederive_conflicts_after_delete()
 returns trigger language plpgsql security invoker set search_path = public as $fn$
@@ -251,6 +301,16 @@ begin
   end loop;
   return null;
 end $fn$;
+create or replace function public.rederive_conflicts_after_insert()
+returns trigger language plpgsql security invoker set search_path = public as $fn$
+declare r record;
+begin
+  for r in select distinct n.brand_id, n.slot from added n where n.slot is not null order by 1, 2 loop
+    perform public.rederive_conflicts(r.brand_id, r.slot);
+  end loop;
+  return null;
+end $fn$;
+-- Only rows whose review actually changed count, so the updates rederive_conflicts makes settle in one more pass.
 create or replace function public.rederive_conflicts_after_review()
 returns trigger language plpgsql security invoker set search_path = public as $fn$
 declare r record;
@@ -265,10 +325,14 @@ drop trigger if exists evidence_reconcile_conflicts on public.evidence;
 drop trigger if exists evidence_rederive_after_delete on public.evidence;
 create trigger evidence_rederive_after_delete after delete on public.evidence
   referencing old table as gone for each statement execute function public.rederive_conflicts_after_delete();
+drop trigger if exists evidence_rederive_after_insert on public.evidence;
+create trigger evidence_rederive_after_insert after insert on public.evidence
+  referencing new table as added for each statement execute function public.rederive_conflicts_after_insert();
 drop trigger if exists evidence_rederive_after_review on public.evidence;
 create trigger evidence_rederive_after_review after update on public.evidence
   referencing old table as was new table as changed for each statement execute function public.rederive_conflicts_after_review();
 revoke all on function public.rederive_conflicts_after_delete() from public, anon, authenticated;
+revoke all on function public.rederive_conflicts_after_insert() from public, anon, authenticated;
 revoke all on function public.rederive_conflicts_after_review() from public, anon, authenticated;
 
 -- Admission (engine/api.ts admit; design review and Codex reviews on PR #91 and PR #100): one transaction, serialised
@@ -277,13 +341,24 @@ revoke all on function public.rederive_conflicts_after_review() from public, ano
 -- anonymous caller's runs from its network in the last hour (p_client_key is an HMAC of the IP computed by the Worker,
 -- never the IP itself); the brand's run rate (runs started in the last hour); and, for a run with metered steps, the
 -- brand's spend today (UTC: the sum of run_steps.cost_usd, failed attempts included) against its daily allowance and
--- the metered-call budget (metered calls made today, plus what runs still going or reserved have not used of their
--- plan, plus this run's plan). The Worker computes the caps and the plan (engine/guards.ts). A reservation becomes the
+-- the metered-call budget (calls consumed today by the meter, consume_metered, plus what runs still going or reserved
+-- have not consumed of their plan, plus this run's plan). Admission is the early refusal; the meter is the authority. The Worker computes the caps and the plan (engine/guards.ts). A reservation becomes the
 -- run when engine/api.ts start writes its input (status 'running'); released, it is deleted; expired, it is ignored by
 -- every count and deleted at the brand's next admission, so abandoned work frees its capacity. Refusals are PT429.
 alter table public.runs add column if not exists metered_planned int check (metered_planned is null or metered_planned >= 0);
 alter table public.runs add column if not exists reserved_until timestamptz;
 alter table public.runs add column if not exists client_key text;
+-- The per-call meter (consume_metered below): the budget fixed at admission, and the calls this run has consumed.
+alter table public.runs add column if not exists metered_budget int check (metered_budget is null or metered_budget >= 0);
+alter table public.runs add column if not exists metered_used int not null default 0 check (metered_used >= 0);
+-- Metered calls each brand consumed per UTC day: the authority for the budget (consume_metered writes it).
+create table if not exists public.metered_usage (
+  brand_id uuid not null references public.brands(id) on delete cascade,
+  day date not null,
+  calls int not null default 0 check (calls >= 0),
+  primary key (brand_id, day)
+);
+alter table public.metered_usage enable row level security;
 do $$ begin
   alter table public.runs drop constraint if exists runs_status_check;
   alter table public.runs add constraint runs_status_check check (status in ('reserved','running','paused','done','failed','superseded'));
@@ -317,26 +392,47 @@ begin
     if v_spent >= p_spend_cap then
       raise sqlstate 'PT429' using message = format('this brand has spent $%s of its $%s daily allowance for paid services; try again after 00:00 UTC', trim_scale(round(v_spent, 4)), trim_scale(p_spend_cap));
     end if;
-    -- Calls made: each attempt's metered_calls; for a trace written without it, 1 for a model call or a costed call.
-    select coalesce(sum(coalesce(s.metered_calls, case when s.type = 'llm' or s.cost_usd is not null then 1 else 0 end)), 0) into v_used
-    from public.run_steps s join public.runs r on r.id = s.run_id
-    where r.brand_id = p_brand and s.created_at >= v_today;
-    select coalesce(sum(greatest(r.metered_planned - (
-      select coalesce(sum(coalesce(s.metered_calls, case when s.type = 'llm' or s.cost_usd is not null then 1 else 0 end)), 0)
-      from public.run_steps s where s.run_id = r.id), 0)), 0)
+    -- Calls made: the meter's count for today (consume_metered); reserved: what runs going or reserved have not yet
+    -- consumed of their plan.
+    select coalesce((select calls from public.metered_usage where brand_id = p_brand and day = (now() at time zone 'UTC')::date), 0) into v_used;
+    select coalesce(sum(greatest(r.metered_planned - r.metered_used, 0)), 0)
     into v_reserved from public.runs r
     where r.brand_id = p_brand and r.metered_planned is not null and (r.status in ('running','paused') or (r.status = 'reserved' and r.reserved_until > now()));
     if v_used + v_reserved + p_planned > p_budget then
       raise sqlstate 'PT429' using message = format('this brand has used its %s metered calls for today (%s made, %s reserved by runs still going, %s needed); try again after 00:00 UTC', p_budget, v_used, v_reserved, p_planned);
     end if;
   end if;
-  insert into public.runs (brand_id, kind, workflow_version, executor, status, input, progress, created_by, metered_planned, reserved_until, client_key)
-  values (p_brand, p_kind, p_version, p_executor, 'reserved', '{}'::jsonb, p_progress, p_created_by, p_planned, now() + make_interval(secs => p_ttl_s), p_client_key)
+  insert into public.runs (brand_id, kind, workflow_version, executor, status, input, progress, created_by, metered_planned, metered_budget, reserved_until, client_key)
+  values (p_brand, p_kind, p_version, p_executor, 'reserved', '{}'::jsonb, p_progress, p_created_by, p_planned, p_budget, now() + make_interval(secs => p_ttl_s), p_client_key)
   returning * into v_run;
   return to_jsonb(v_run);
 end $fn$;
 revoke all on function public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric, text, int, int) from public, anon, authenticated;
 grant execute on function public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric, text, int, int) to service_role;
+
+-- The per-call meter (Codex review on PR #91: retries are not in a reservation, so admission alone cannot hold the
+-- budget). Before every attempt at a metered step the runner consumes its calls here, under the same brand lock as
+-- admit_run: if the brand's calls today plus these would pass the budget fixed at the run's admission, it refuses with
+-- PT429 and nothing is counted; the runner ends the run failed with the reason (metering.ts BudgetExhausted), without
+-- retrying. Returns the calls left today.
+create or replace function public.consume_metered(p_run uuid, p_n int)
+returns int language plpgsql security invoker set search_path = public as $fn$
+declare v_brand uuid; v_budget int; v_day date := (now() at time zone 'UTC')::date; v_used int;
+begin
+  select brand_id, metered_budget into v_brand, v_budget from public.runs where id = p_run;
+  if not found then raise sqlstate 'PT404' using message = 'no such run'; end if;
+  perform pg_advisory_xact_lock(hashtextextended('admit_run:' || v_brand::text, 0));
+  select coalesce((select calls from public.metered_usage where brand_id = v_brand and day = v_day), 0) into v_used;
+  if v_budget is not null and v_used + p_n > v_budget then
+    raise sqlstate 'PT429' using message = format('this brand has used its %s metered calls for today, so the run stopped here (%s made, %s more needed); start it again after 00:00 UTC', v_budget, v_used, p_n);
+  end if;
+  insert into public.metered_usage (brand_id, day, calls) values (v_brand, v_day, p_n)
+  on conflict (brand_id, day) do update set calls = public.metered_usage.calls + excluded.calls;
+  update public.runs set metered_used = metered_used + p_n where id = p_run;
+  return case when v_budget is null then null else v_budget - v_used - p_n end;
+end $fn$;
+revoke all on function public.consume_metered(uuid, int) from public, anon, authenticated;
+grant execute on function public.consume_metered(uuid, int) to service_role;
 
 -- Models per task (web/worker/models.ts; the value mirrors web/worker/engine/seed.ts EXTRACT_MODELS, and
 -- worker-extract.test.ts fails if they drift apart): the extractor and its support judge, from different model
@@ -346,6 +442,54 @@ grant execute on function public.admit_run(uuid, text, int, text, jsonb, uuid, i
 insert into public.engine_config (key, value) values
   ('task_models', $cfg${"extract.facts":["nvidia/nemotron-3-super-120b-a12b:free","apodex/apodex-1.1-mini:free"],"extract.check_support":["dots-studio/dots-3-note-preview:free","liquid/lfm-2.5-2.6b:free"]}$cfg$::jsonb)
 on conflict (key) do update set value = excluded.value || public.engine_config.value, updated_at = now();
+
+-- The save step of extract_facts as one transaction (Codex review on PR #91, P1 4250249994): the run's facts are
+-- inserted (ids are stable per source, claim and offsets, so a retried save inserts nothing twice and never reverts an
+-- owner's review), the insert trigger re-derives every slot they touch (conflicts), confidence is recomputed for every
+-- fact that shares a fact_key with them (extract/facts.ts confidenceOf: exact and 2+ independent sources high, exact
+-- medium, fuzzy and 2+ medium, fuzzy low), and the source is marked read with its text. Any failure rolls all of it
+-- back, so a failed save leaves nothing behind. p_rows: evidence rows as the Worker builds them (save.ts); p_source:
+-- {kind, title, text_excerpt, source_text, url?}. Returns {facts, needsReview, conflicts} for the run's own facts.
+create or replace function public.save_extraction(p_run uuid, p_brand uuid, p_source uuid, p_rows jsonb, p_source_patch jsonb)
+returns jsonb language plpgsql security invoker set search_path = public as $fn$
+declare v_ids uuid[]; v_keys text[]; v_out jsonb;
+begin
+  if not exists (select 1 from public.runs where id = p_run and brand_id = p_brand) then raise sqlstate 'PT404' using message = 'no such run'; end if;
+  if not exists (select 1 from public.sources where id = p_source and brand_id = p_brand) then raise sqlstate 'PT404' using message = 'no such source'; end if;
+  insert into public.evidence (id, brand_id, source_id, section, claim, quote, origin, trust, review_status, quote_start, quote_end,
+    match, slot, slot_value, slot_key, fact_key, source_key, run_id, page_url, page_title)
+  select r.id, p_brand, p_source, r.section, r.claim, r.quote, 'source', r.trust, r.review_status, r.quote_start, r.quote_end,
+    r.match, r.slot, r.slot_value, r.slot_key, r.fact_key, r.source_key, p_run, r.page_url, r.page_title
+  from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb)) as r(id uuid, section text, claim text, quote text, trust text, review_status text,
+    quote_start int, quote_end int, match text, slot text, slot_value text, slot_key text, fact_key text, source_key text, page_url text, page_title text)
+  on conflict (id) do nothing;
+  v_ids := array(select (x->>'id')::uuid from jsonb_array_elements(coalesce(p_rows, '[]'::jsonb)) x);
+  v_keys := array(select distinct x->>'fact_key' from jsonb_array_elements(coalesce(p_rows, '[]'::jsonb)) x where x->>'fact_key' is not null);
+  update public.evidence e set confidence = c.conf
+  from (
+    select e2.id, case when e2.match = 'exact' then case when k.n >= 2 then 'high' else 'medium' end
+                       else case when k.n >= 2 then 'medium' else 'low' end end as conf
+    from public.evidence e2
+    join (select fact_key, count(distinct coalesce(source_key, 'source:' || coalesce(source_id::text, id::text))) as n from public.evidence
+          where brand_id = p_brand and match in ('exact','fuzzy') and review_status in ('proposed','approved') and fact_key = any(v_keys)
+          group by fact_key) k on k.fact_key = e2.fact_key
+    where e2.brand_id = p_brand and e2.match in ('exact','fuzzy') and e2.review_status in ('proposed','approved')
+  ) c
+  where e.id = c.id and e.confidence is distinct from c.conf;
+  update public.sources set status = 'read', error = null, fetched_at = now(),
+    kind = coalesce(p_source_patch->>'kind', kind), title = coalesce(p_source_patch->>'title', title),
+    text_excerpt = p_source_patch->>'text_excerpt', source_text = p_source_patch->>'source_text',
+    url = coalesce(nullif(p_source_patch->>'url', ''), url)
+  where id = p_source and brand_id = p_brand;
+  select jsonb_build_object(
+    'facts', count(*) filter (where e.review_status <> 'rejected'),
+    'needsReview', count(*) filter (where e.review_status = 'proposed'),
+    'conflicts', (select count(*) from public.fact_conflicts fc where fc.brand_id = p_brand and fc.status = 'open' and fc.evidence_ids && v_ids))
+  into v_out from public.evidence e where e.id = any(v_ids);
+  return v_out;
+end $fn$;
+revoke all on function public.save_extraction(uuid, uuid, uuid, jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.save_extraction(uuid, uuid, uuid, jsonb, jsonb) to service_role;
 
 -- Seed: the two prompts and the extract_facts definition. Source of truth after this migration is these rows;
 -- web/worker/engine/seed.ts mirrors them for tests (worker-extract.test.ts fails if they drift apart).

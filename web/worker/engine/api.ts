@@ -2,8 +2,8 @@
 //   POST /api/brands/:id/runs {kind, ...}  -> 202 {run}             starts a run of a startable kind (engine/kinds.ts)
 //   GET  /api/runs/:id                     -> 200 {run, steps}      status, progress and per-step traces
 //   GET  /api/brands/:id                   -> adds activeRun        the newest running or paused run, or null
-//   POST /api/brands/:id/sources {url}     -> the extract_facts workflow (SOURCE_RUN_KIND); 201 body when done, else 409
-//                                             "still reading"
+//   POST /api/brands/:id/sources {url}     -> the extract_facts workflow (SOURCE_RUN_KIND); 201 body when done, else 202
+//                                             {runId, status, ...} to follow with GET /api/runs/:id
 import { db } from '../db';
 import { HttpError, type Env } from '../env';
 import { checkExecutor, engineConfig, launch, waitForRun, type ExecutorName, type WaitUntil } from './executor';
@@ -149,22 +149,22 @@ export async function getRun(env: Env, user: UserRef, id: string) {
   return { run, steps };
 }
 
-/** The answer while a source is still being read: a non-2xx the shipped Your links step already shows as a message. */
+/** The message while a source is still being read (the 202 answer's `message`). */
 export const STILL_READING = 'Still reading your source. It will appear in your links shortly.';
 
 /**
  * POST /api/brands/:id/sources on the engine. The run goes on in the background; the request does not wait for it
  * unless engine_config ingest_wait_ms is set (default 0). A run already done answers as the old synchronous ingest did:
  * 201 {sourceId, facts, dropped, kind, needsReview, runId}; a failed run answers with the same error as before.
- * A run still going answers 409 {error, runId, sourceId, status, progress, resume_at}. The shipped Your links step
- * (Build.tsx) treats every 2xx as {facts, dropped} and shows the error text of any non-2xx, then reloads the list, so
- * this never shows "undefined facts" (PR #70 review); GET /api/runs/:id follows the run from there.
+ * A run still going answers 202 {runId, sourceId, status, progress, resume_at, message}: accepted, not done, the same
+ * contract as the drafting route (PR #99 review), so a client follows the run with GET /api/runs/:runId until it is
+ * done or failed. 202 has no facts and dropped; the Your links step (Build.tsx, the UI session's) reads it so.
  */
 export async function ingestSource(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, body: Record<string, unknown>, kind: string = SOURCE_RUN_KIND) {
   const { run, config } = await admitAndStart(env, ctx, user, brand, kind, body);
   const done = await waitForRun(env, run, config.ingestWaitMs);
   if (done.status === 'done') return { status: 201, body: { ...(done.output as object), runId: run.id } };
   if (done.status === 'failed') throw new HttpError(done.error_code && done.error_code >= 400 ? done.error_code : 502, done.error ?? 'reading the page failed');
-  const error = done.status === 'paused' ? (done.progress?.message ?? STILL_READING) : STILL_READING;
-  return { status: 409, body: { error, runId: run.id, sourceId: (run.input as { sourceId?: string }).sourceId, status: done.status, progress: done.progress, resume_at: done.resume_at } };
+  const message = done.status === 'paused' ? (done.progress?.message ?? STILL_READING) : STILL_READING;
+  return { status: 202, body: { runId: run.id, sourceId: (run.input as { sourceId?: string }).sourceId, status: done.status, progress: done.progress, resume_at: done.resume_at, message } };
 }

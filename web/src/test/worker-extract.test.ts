@@ -21,6 +21,8 @@ const { alignQuote, bestFuzzySpan, FUZZY_MIN } = await import('../../worker/extr
 const { alignFacts, chunkSource, decideFacts, supportBatches } = await import('../../worker/extract/pipeline');
 const { confidenceOf, findConflicts, numbersSupported, valueStandsAlone, MAX_CLAIM, MAX_FACTS_PER_CHUNK } = await import('../../worker/extract/facts');
 const { initialReviewFor, pageOf, saveExtractedFacts, MAX_PAGE_TITLE, MAX_PAGE_URL } = await import('../../worker/extract/save');
+const { usableFact } = await import('../../worker/sources/registry');
+const { SLOTS } = await import('../../worker/extract/facts');
 const { conflictView, factView, journeyFacts, openConflictIds, sectionLabel, sourceLabel } = await import('../../worker/extract/journey');
 const { normaliseMapped, normalisePage, normaliseQuote, quoteOnPage, MAX_QUOTE } = await import('../../worker/quote');
 const { readSource, registerReader, READERS, READER_INPUTS } = await import('../../worker/engine/readers');
@@ -866,6 +868,24 @@ describe('start checks: per-brand daily metered-call budget, run rate and anonym
       delete KINDS.count_things;
     }
   });
+  it('Codex P2 on PR #91: retries are metered call by call, and a run that reaches the budget mid-run stops there, not retried', async () => {
+    // A step planned as one metered call that keeps failing, so its retries go past the plan: admitted at a budget of
+    // 2, the third attempt is refused by the meter and the run ends there with the reason.
+    registerKind('retry_things', async (_env, brand) => ({ brandName: brand.name }));
+    db.tables.workflow_defs.push({ id: 'retry_things', version: 1, status: 'active', spec: { id: 'retry_things', version: 1, title: 't', concurrency: 'parallel', retries: { limit: 4, delay: '1 second', backoff: 'constant' }, steps: [{ id: 'try', type: 'code', label: 'Trying', fn: 'chunk_text', args: { text: 'x', target: '10', min: '20', max: '5', overlap: '600', max_chunks: '1' }, metered: 1 }], output: '$steps.try.count' } });
+    setBudget({ permanent: 2 });
+    try {
+      step = fakeStep();
+      expect((await call('POST', `/brands/${BRAND}/runs`, { kind: 'retry_things' })).status).toBe(202);
+      const run = db.tables.runs[0] as Row & { status: string; error: string; error_code: number; metered_used: number };
+      expect(run.metered_used).toBe(2);
+      expect(run).toMatchObject({ status: 'failed', error_code: 429, error: 'this brand has used its 2 metered calls for today, so the run stopped here (2 made, 1 more needed); start it again after 00:00 UTC' });
+      expect(db.tables.run_steps.filter((x) => x.step === 'try').map((x) => [x.outcome, x.metered_calls])).toEqual([['error', 1], ['error', 1], ['error', 0]]);
+      expect(db.tables.metered_usage[0]).toMatchObject({ calls: 2 });
+    } finally {
+      delete KINDS.retry_things;
+    }
+  });
   it('caps how many runs of any kind a brand starts per hour, before anything is written', async () => {
     db.tables.engine_config.push({ key: 'run_rate', value: { permanent: 2 } });
     const hourAgo = new Date(Date.now() - 3_700_000).toISOString();
@@ -890,19 +910,17 @@ describe('start checks: per-brand daily metered-call budget, run rate and anonym
     }
     expect([db.tables.sources.length, db.tables.runs.length]).toEqual([sources, runs]);
   });
-  it('counts only today\'s calls, and reserves the full plan of runs still going', async () => {
+  it('counts only today\'s metered calls (the meter), and reserves what runs still going have not consumed', async () => {
     setBudget({ permanent: 100 });
-    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
-    // Started yesterday, finished today: only its calls made today count.
-    db.tables.runs.push({ id: 'old', brand_id: BRAND, kind: 'extract_facts', workflow_version: 1, status: 'done', created_at: yesterday, updated_at: new Date().toISOString() });
-    for (let i = 0; i < 90; i++) db.tables.run_steps.push({ id: `o${i}`, run_id: 'old', type: 'llm', created_at: yesterday });
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    db.tables.metered_usage.push({ brand_id: BRAND, day: yesterday, calls: 90 });
     step = fakeStep();
     await startRun(envWith, undefined, owner(), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' });
-    expect(db.tables.runs.at(-1)).toMatchObject({ status: 'done' });
-    // A run still going reserves what it has not used yet of its plan: 61 planned, 10 calls made, 51 reserved.
+    expect(db.tables.runs.at(-1)).toMatchObject({ status: 'done', metered_used: 4 });
+    // A run still going reserves what it has not consumed of its plan: 61 planned, 10 consumed, 51 reserved.
     const now = new Date().toISOString();
-    db.tables.runs.push({ id: 'going', brand_id: BRAND, kind: 'extract_facts', workflow_version: 1, status: 'running', metered_planned: 61, created_at: now, updated_at: now });
-    for (let i = 0; i < 10; i++) db.tables.run_steps.push({ id: `g${i}`, run_id: 'going', type: 'llm', created_at: now });
+    db.tables.runs.push({ id: 'going', brand_id: BRAND, kind: 'extract_facts', workflow_version: 1, status: 'running', metered_planned: 61, metered_used: 10, created_at: now, updated_at: now });
+    (db.tables.metered_usage.find((u) => u.day !== yesterday)!).calls = 14;
     await expect(startRun(envWith, undefined, owner(), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: 'this brand has used its 100 metered calls for today (14 made, 51 reserved by runs still going, 61 needed); try again after 00:00 UTC' });
   });
   it('an anonymous owner gets the smaller budget and a per-network cap (an HMAC of the IP, never the IP); a permanent one is not counted by network', async () => {
@@ -1065,6 +1083,72 @@ describe('conflicts stay true in the database (spec/db/011 rederive_conflicts, r
     expect(db.tables.evidence.find((e) => e.id === out.answer)).toMatchObject({ trust: 'owner_answer', review_status: 'approved', slot: 'founded', slot_value: '2019', slot_key: '2019', edited_from: news.id, quote: null });
     expect([site.review_status, news.review_status, conflict.status]).toEqual(['rejected', 'rejected', 'resolved']);
   });
+  it('Codex P1 on PR #91: resolve, then re-approve the turned-down side: the conflict is open again and neither value is usable', async () => {
+    const { site, news, conflict } = await twoSources();
+    await resolveFactConflict(envWith, { brandId: BRAND, conflictId: conflict.id as string, by: 'u', keep: [site.id] });
+    expect([site.review_status, news.review_status, conflict.status]).toEqual(['approved', 'rejected', 'resolved']);
+    expect((await call('PATCH', `/brands/${BRAND}/evidence/${news.id}`, { review_status: 'approved' })).status).toBe(200);
+    const reopened = open();
+    expect(reopened).toHaveLength(1);
+    expect(reopened[0].id).not.toBe(conflict.id);
+    expect(conflict.status).toBe('resolved');
+    expect([site.review_status, news.review_status]).toEqual(['proposed', 'proposed']);
+    expect([usableFact(site), usableFact(news)]).toEqual([false, false]);
+    // An owner answer that joins a disagreement is held too, and comes back when the disagreement goes.
+    db.tables.evidence.push({ id: 'ans', brand_id: BRAND, section: 'origin', claim: 'Founded 2019.', quote: null, origin: 'owner_answer', trust: 'owner_answer', review_status: 'approved', slot: 'founded', slot_value: '2019', slot_key: '2019' });
+    await call('PATCH', `/brands/${BRAND}/evidence/${news.id}`, { review_status: 'rejected' });
+    const ans = db.tables.evidence.find((e) => e.id === 'ans')!;
+    expect([open().length, ans.review_status, usableFact(ans)]).toEqual([1, 'proposed', false]); // 2020 against 2019 now
+    await call('PATCH', `/brands/${BRAND}/evidence/${site.id}`, { review_status: 'rejected' });
+    expect([open().length, ans.review_status]).toEqual([0, 'approved']);
+  });
+  it('the database words the question as the Worker does, from the same slot labels', () => {
+    const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/011_fact_extraction.sql'), 'utf8');
+    const labels = Object.fromEntries([...sql.matchAll(/^  \('(\w+)', '([^']+)'\)/gm)].map(([, k, v]) => [k, v]));
+    expect(labels).toEqual(SLOTS);
+  });
+  it('Codex P1 on PR #91: approving one side of an open conflict is refused (409) so it never becomes usable', async () => {
+    const { site, news, conflict } = await twoSources();
+    const r = await call('PATCH', `/brands/${BRAND}/evidence/${news.id}`, { review_status: 'approved' });
+    expect(r).toEqual({ status: 409, body: { error: 'other sources disagree with this fact: resolve the disagreement first' } });
+    expect([site.review_status, news.review_status, conflict.status, usableFact(news)]).toEqual(['proposed', 'proposed', 'open', false]);
+  });
+  it('Codex P1 on PR #91: the save is one transaction: a failure in its conflict or confidence part leaves nothing of the run', async () => {
+    for (const point of ['conflicts', 'confidence']) {
+      await seedTables();
+      db.tables.brands[0].website = 'https://jamjam.tech';
+      db.failInside = point;
+      step = fakeStep();
+      await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', url: 'https://jamjam.tech' });
+      expect(db.tables.runs[0]).toMatchObject({ status: 'failed' });
+      expect([db.tables.evidence.length, (db.tables.fact_conflicts ?? []).length]).toEqual([0, 0]);
+      expect(db.tables.sources[0]).toMatchObject({ status: 'failed' });
+      expect(db.tables.sources[0].source_text ?? null).toBeNull();
+    }
+    // The same save with nothing failing writes the facts, their confidence and the source together.
+    await seedTables();
+    db.tables.brands[0].website = 'https://jamjam.tech';
+    step = fakeStep();
+    await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', url: 'https://jamjam.tech' });
+    expect(db.tables.runs[0]).toMatchObject({ status: 'done' });
+    expect(evidence().length).toBe(5);
+    expect(evidence().every((e) => e.confidence && e.fact_key && e.source_key === 'host:jamjam.tech')).toBe(true);
+  });
+  it('owner decisions are recorded apart from review_status: confirming an already approved fact is kept (PR #101 review)', async () => {
+    await extract('https://jamjam.tech');
+    const approved = evidence().find((e) => e.review_status === 'approved')!;
+    expect(approved.owner_decision ?? null).toBeNull();
+    expect((await call('PATCH', `/brands/${BRAND}/evidence/${approved.id}`, { review_status: 'approved' })).status).toBe(200);
+    expect(approved).toMatchObject({ review_status: 'approved', owner_decision: 'confirmed', owner_decided_by: 'u', owner_decided_at: expect.any(String) });
+    const { site, news, conflict } = await (async () => {
+      await extract('https://news.example/jamjam');
+      const s2 = evidence().find((e) => e.slot === 'founded' && e.quote.includes('2020'))!;
+      const n2 = evidence().find((e) => e.slot === 'founded' && e.quote.includes('2021'))!;
+      return { site: s2, news: n2, conflict: open()[0] };
+    })();
+    const out = await resolveFactConflict(envWith, { brandId: BRAND, conflictId: conflict.id as string, by: 'u', answer: { section: 'origin', claim: 'Founded in 2019.', value: '2019', editedFrom: news.id as string } });
+    expect([site.owner_decision, news.owner_decision, db.tables.evidence.find((e) => e.id === out.answer)!.owner_decision]).toEqual(['rejected', 'edited', 'edited']);
+  });
   it('the question is worded from the sides still on the conflict', async () => {
     const { conflict } = await twoSources();
     await extract('https://other.example/profile');
@@ -1211,6 +1295,7 @@ describe('consumers: the onboarding journey shape (PR #75 JourneyFact, served by
     // The source excerpt: 1,999 characters then an emoji across the 2,000-unit mark is cut before the emoji.
     const text = `${'a'.repeat(1999)}😀 and more`;
     db.tables.sources.push({ id: 'src-x', brand_id: BRAND, url: 'https://jamjam.tech/', status: 'queued' });
+    db.tables.runs.push({ id: 'run-x', brand_id: BRAND, kind: 'extract_facts', workflow_version: 1, status: 'running' });
     await saveExtractedFacts(env, { id: 'run-x', brand_id: BRAND }, { sourceId: 'src-x', read: { ...read, text, pages: [] }, facts: [], dropped: {} });
     expect(db.tables.sources.find((x) => x.id === 'src-x')).toMatchObject({ text_excerpt: 'a'.repeat(1999), source_text: text });
   });
