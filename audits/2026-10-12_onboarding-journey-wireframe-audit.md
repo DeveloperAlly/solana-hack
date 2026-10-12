@@ -106,7 +106,7 @@ It also records that Pressmaster's onboarding is a five-step checklist that pays
 | 2 | A binding rule: a PR that changes UI, and an ADR that changes product behaviour, updates the canvas in the same change or states why not. Enforced through the PR template | [AGENTS.md](../AGENTS.md) rule 8; [`.github/pull_request_template.md`](../.github/pull_request_template.md) |
 | 2 | Clear the existing drift: rename to JamJam; correct the sign-in note; move parked and superseded boards to an Archive page; retag Pay boards to match ADR-008; mark the linear intake as the fallback if H5 slips; resolve open question n-openq to coverage-first | Canvas |
 | 3 | A brand layer separate from the wireframe theme. The owner decides (D4). The journey artboards mark where proof assets sit (JamJam's own kit and post) | Owner decision D4 |
-| 4 | Proof becomes moments the user experiences. The quote appears next to each fact while the site is read (aha 1). The first post shows each claim linked to its evidence (aha 4). The Verify page says "Official" for the user's own post (aha 5) | Journey stages 1, 6 and 7 |
+| 4 | Proof becomes moments the user experiences. The quote appears next to each fact while the site is read (aha 1). The first post shows each claim linked to its evidence (aha 4). The Verify page says "Official" for the user's own post (aha 5). Flagging an edited copy needs a fuzzy match, which is not built or planned for the submission | Journey stages 1, 6 and 7 |
 
 ## The journey (v3, proposed)
 Time budgets are targets until measured on [#36](https://github.com/DeveloperAlly/solana-hack/issues/36) (the delivery plan's H5 target is under 5 minutes to kit v1).
@@ -120,7 +120,7 @@ Time budgets are targets until measured on [#36](https://github.com/DeveloperAll
 | 4 | Fill gaps and voice | Answers only the missing questions; picks a paragraph twice | **Aha 3:** "That sounds like us" | 4:00–6:00 | H5 (#34), H10 |
 | 5 | Approve kit | Approves purpose, positioning and voice with sources beside them; kit v1 registers | Ownership: the approval is recorded | 6:00–7:00 | Built (gates, registration) |
 | 6 | First post | Gets a first post drafted from the kit, with each claim linked to its evidence | **Aha 4:** "A post in my voice, and every claim is backed" | 7:00–9:00 | Built (Create); claims on the draft is H9 |
-| 7 | Prove | Approves; the post registers; Verify says "Official" and flags an edited copy | **Aha 5:** "Anyone can check this came from us" | 9:00–10:00 | Built (Verify, Ledger) |
+| 7 | Prove | Approves; the post registers; Verify says "Official" for the exact text | **Aha 5:** "Anyone can check this came from us" | 9:00–10:00 | Built: exact match and Ledger. The edited-copy check is not built: `verifyText` in [`posts.ts`](../web/worker/posts.ts) matches exact text only |
 | 8 | Return | Lands on a first-run hub with a setup checklist and a next action | A reason to come back | Day 2+ | Proposal N3 |
 
 ## Owner decisions
@@ -145,11 +145,28 @@ Time budgets are targets until measured on [#36](https://github.com/DeveloperAll
 | 2 | **Stale notes fixed.** The sign-in note now describes link and code, 8 digits. Open questions 1 to 3 are resolved: coverage-first, JamJam as the walkthrough brand, Onboard-4 archived. The 17-versus-6 kit gap is added as an open question (D2) | Notes n-ob1 and n-openq |
 | 2 | **Process.** [AGENTS.md](../AGENTS.md) gains rule 8, the canvas follows the product. A [PR template](../.github/pull_request_template.md) asks every PR for its canvas update or the reason there is none. The [UI build mission](../.agentic/how/missions/mission_ui_build.md) points onboarding at the Journey page | In this PR |
 | 3 | Not changed. The brand layer is the owner's call (D4). The landing now shows real output (when #36 has produced it) and a public ledger in place of invented proof | D4 open |
-| 4 | Proof becomes moments in the journey: the quote beside each fact (J1, J3), the evidence beside each claim (J6), and "Official" on the user's own post with an edited-copy diff (J7) | Aha moments 1, 4 and 5 on the map |
+| 4 | Proof becomes moments in the journey: the quote beside each fact (J1, J3), the evidence beside each claim (J6), and "Official" on the user's own post (J7). The edited-copy diff is drawn as coming soon | Aha moments 1, 4 and 5 on the map |
 
 **Not fixed here, deliberately:**
 - **The live app.** It still runs the linear flow. The journey is delivered by the slices already planned: #33 (H4), #34 (H5), #35 (H6), #36 (H7), H9 and H10. The landing (stage 0) and the first-run hub (stage 8) need two new slices, which the owner decides on.
 - **The hub screens.** Inbox, Grow and Analytics were not reviewed against the journey; they come after first run.
+
+## Second pass (2026-10-12, after review)
+A review of the canvas against the code found claims the first pass got wrong. All are fixed on the canvas, version 1791798475-0bbc.
+
+| What was wrong | Evidence | Fix |
+|---|---|---|
+| J7 and Verify-3 showed the edited-copy diff as built | `verifyText` matches exact text only ([`posts.ts`](../web/worker/posts.ts)); an edited copy shows "Not an official post" ([`Verify.tsx`](../web/src/screens/verify/Verify.tsx)) | Both tagged COMING SOON; the journey map says exact match only |
+| J6 and Draft-Review presented voice-fit and platform scores as real | The scores come from the same model call that writes the draft (delivery plan) | J6 says "proposed"; Draft-Review says "self-graded today" |
+| Voice-Editor's per-channel overrides were tagged HACKATHON | Built: template, 8 dials, claims level, one sample ([`steps.ts`](../web/src/screens/build/steps.ts)) | Overrides tagged roadmap |
+| Brand-Build's tag implied 17 sections | 6 sections drafted ([`kit.ts`](../web/worker/kit.ts)) | Tag and copy say 6 built, 11 coming soon |
+| Ambassador flows paid for X posts (Amb-1 to 5c, M-1 to M-4, Dashboard, Campaign-v2-2-Measure) | X bans paying people for posts ([ADR-002](../.agentic/what/decisions/adr_002_purpose_build_run_prove.md)); the API rejects a paid X format ([backend map](../.agentic/what/context/backend_map.md)) | X removed from every paid format; brand-owned X posts stay |
+| Dashboard had "Approve and pay" as one button | [ADR-006](../.agentic/what/decisions/adr_006_wallet_identity_split.md) and the backend map separate approving from paying | Approve, Reject and "Pay (owner only)" |
+| Onboard-2 said registration is off for unverified domains | The build registers with `domain_verified: false` ([`api.ts`](../web/worker/api.ts)); Verify says the name is self-declared | Board matches the code |
+| Licensing leftovers: "Edit pack", and payout fields as Verify-1's default result | [ADR-003](../.agentic/what/decisions/adr_003_superhub_business_model.md) | "Edit kit"; Verify-1 shows a brand post, with ambassador details only for ambassador posts |
+| 19 planned screens had no artboard | Component inventory D19, D48, D52, D54, D55 and campaign steps 2, 4–6; backend map Settings rows | Drawn on a new "Coming soon (drawn, not built)" page: Settings (AI, get a key, connections, plan), Pricing, Upgrade, media composer and review, Claims, campaign steps, publishing calendar, brand switcher, founder profile, Verify for account, kit and claim, Verify retracted, outcome log |
+
+The same wrong "diff built" claim was in [research 10 §10.4](../.agentic/what/context/research/10_competitor_onboarding_pricing.md#104-other-areas); it is corrected in this PR.
 
 ## Sources
 - [Issue #43](https://github.com/DeveloperAlly/solana-hack/issues/43): this task and its success criteria.
