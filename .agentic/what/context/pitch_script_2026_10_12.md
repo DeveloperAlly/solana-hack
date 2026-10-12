@@ -10,7 +10,7 @@ tags: [pitch, script, colosseum]
 
 # Pitch script: JamJam
 
-Total: 464 words, about 2:54 at 160 words a minute.
+Total: 468 words, about 2:56 at 160 words a minute.
 
 ## 1. Dot points per slide
 
@@ -56,31 +56,32 @@ Total: 464 words, about 2:54 at 160 words a minute.
 - Next: verified accounts; ambassador payouts in USDC; open record
 - Later: USDC tips; voice licensing; stablecoin plans
 
-**8. Go to market** (1:43–1:57)
+**8. Go to market** (1:43–1:58)
 - First customers: web3 founders and creators; impersonation +1,400%
-- Then everyone who is their own brand
-- AI writing tools list at $20–49 a month; the whole job takes 3–4 (our estimate)
-- Customer zero: me (JamJam, aDNA)
+- Referral and rewards programs for growth
+- Partnerships for features, fast
+- Customer zero: JamJam and my personal brand
+- Beta clients at a reduced price: aDNA.network, film.fun, GamersLab, Altumera
 
-**9. Competition** (1:57–2:12)
+**9. Competition** (1:58–2:13)
 - Four tools that don't talk, or one
 - 59 products checked; the best do two steps
 - JamJam does all four
 
-**10. Business model** (2:12–2:30)
+**10. Business model** (2:13–2:31)
 - Free kit is the hook
 - Solo $39, Team $199 a month
 - 3% on tips and rewards
 - Flywheel: every check happens on a public JamJam Verify page
 - Refer a friend: you both get 2 months free
 
-**11. Roadmap** (2:30–2:39)
+**11. Roadmap** (2:31–2:40)
 - Now: your brand kit
 - Next: content you approve unedited
 - Then: publish direct to X, LinkedIn, Bluesky, Threads (paste-back elsewhere); tips and fan rewards
 - Later: monetise your voice
 
-**12. Team and ask** (2:39–2:54)
+**12. Team and ask** (2:40–2:56)
 - Founded Lilypad; built the original Waterlily.ai
 - Developer communities at IBM and Filecoin Foundation
 - JamJam: your brand team, in one app
@@ -115,22 +116,22 @@ We don't need a blockchain to write your posts. We need one where trust and mone
 
 Today the Solana registry is live on devnet, with email sign-in. Next: verified accounts and USDC payouts.
 
-**8. Go to market** · 1:43–1:57 · 38 words
+**8. Go to market** · 1:43–1:58 · 42 words
 
-Our first customers are web3 founders and creators, where impersonation is up fourteen hundred percent. Then everyone who is their own brand. Comparable AI writing tools list at twenty to forty-nine dollars a month. Customer zero is me.
+Our first customers are web3 founders and creators, where impersonation is up fourteen hundred percent. Referral and rewards programs drive growth, and partners extend the feature set fast. Customer zero is me, and four beta brands test it at a reduced price.
 
-**9. Competition** · 1:57–2:12 · 39 words
+**9. Competition** · 1:58–2:13 · 39 words
 
 We checked fifty-nine products. The best do two of the four steps. JamJam is the only one we found that builds the brand, creates the content, proves it and pays for the work, and it exports to your tools.
 
-**10. Business model** · 2:12–2:30 · 48 words
+**10. Business model** · 2:13–2:31 · 48 words
 
 Building your brand kit is free. Solo is thirty-nine dollars a month, Team is a hundred and ninety-nine, and we take three percent on tips and rewards. Every check of a post happens on a public JamJam page. Refer a friend, and you both get two months free.
 
-**11. Roadmap** · 2:30–2:39 · 25 words
+**11. Roadmap** · 2:31–2:40 · 25 words
 
 Next: content you approve unedited, publishing direct to X, LinkedIn, Bluesky and Threads, tips and fan rewards, then getting paid when agents use your voice.
 
-**12. Team and ask** · 2:39–2:54 · 40 words
+**12. Team and ask** · 2:40–2:56 · 40 words
 
 I founded Lilypad, a decentralised AI compute network, and built the original Waterlily, AI art that paid its artists. I've built developer communities at IBM and the Filecoin Foundation. JamJam: your brand team, in one app. Every post provably yours.
