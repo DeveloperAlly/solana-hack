@@ -34,6 +34,10 @@ export interface ChatResult { text: string; model: string; usage?: { promptToken
 export function chatBody(model: string, system: string, user: string, opts: ChatOptions = {}) {
   return {
     ...(opts.models ? { models: opts.models } : { model }),
+    // Named workflow tasks request low reasoning effort; default/router calls retain their previous shape (#114).
+    // Low keeps reasoning available, including mandatory-reasoning fallbacks:
+    // https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
+    ...(opts.models ? { reasoning: { effort: 'low' as const } } : {}),
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     ...(opts.schema
       ? { response_format: { type: 'json_schema', json_schema: { name: opts.schema.name, strict: true, schema: opts.schema.schema } }, provider: { require_parameters: true } }

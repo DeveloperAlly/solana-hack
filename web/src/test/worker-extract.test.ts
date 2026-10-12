@@ -277,7 +277,15 @@ describe('LLM gateway: strict schema with providers required to honour it', () =
     // Existing callers (drafting, polish, claims) send exactly what they sent before.
     expect(chatBody('m', 's', 'u')).toEqual({ model: 'm', messages: [{ role: 'system', content: 's' }, { role: 'user', content: 'u' }] });
     // A task with configured models sends OpenRouter's fallback list in place of the default model.
-    expect(chatBody('m', 's', 'u', { models: ['a/x:free', 'b/y:free'] })).toEqual({ models: ['a/x:free', 'b/y:free'], messages: [{ role: 'system', content: 's' }, { role: 'user', content: 'u' }] });
+    expect(chatBody('m', 's', 'u', { models: ['a/x:free', 'b/y:free'] })).toEqual({ models: ['a/x:free', 'b/y:free'], reasoning: { effort: 'low' }, messages: [{ role: 'system', content: 's' }, { role: 'user', content: 'u' }] });
+  });
+  it('requests low effort for named tasks without weakening schema or disabling fallback reasoning', () => {
+    const models = ['nvidia/nemotron-3-super-120b-a12b:free', 'apodex/apodex-1.1-mini:free'];
+    const body = chatBody('openrouter/free', 's', 'u', { models, schema: EXTRACTED_FACTS });
+    expect(body).toMatchObject({ models, reasoning: { effort: 'low' }, provider: { require_parameters: true }, response_format: { json_schema: { strict: true, schema: EXTRACTED_FACTS.schema } } });
+    expect(body.reasoning).not.toHaveProperty('enabled');
+    expect(body).not.toHaveProperty('max_tokens');
+    expect(chatBody('openrouter/free', 's', 'u', { schema: SUPPORT_VERDICTS })).not.toHaveProperty('reasoning');
   });
   it('every object in both schemas lists all its properties as required and forbids others (strict-mode rules)', () => {
     const walk = (s: Record<string, unknown>): void => {
