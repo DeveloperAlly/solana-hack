@@ -1,11 +1,16 @@
 import type { ApprovedPost, BadgeEmbedData, BadgeStyle } from './types';
 import { growthSession } from './session';
 
+/** Escapes text for an HTML attribute value, so a brand name with a quote or angle bracket cannot break the snippet. */
+function attr(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 /** The embed code for a post's badge: a link to Verify around the badge image (the image route is not built yet). */
 export function badgeSnippet(data: BadgeEmbedData, post: ApprovedPost, style: BadgeStyle): string {
   const id = encodeURIComponent(post.id);
-  const alt = `Official ${post.brand.name} post, checked on JamJam`;
-  return `<a href="${data.verifyUrl}?post=${id}"><img src="${data.imageUrl}/${id}.svg?style=${style}" alt="${alt}"></a>`;
+  const alt = attr(`Official ${post.brand.name} post, checked on JamJam`);
+  return `<a href="${attr(`${data.verifyUrl}?post=${id}`)}"><img src="${attr(`${data.imageUrl}/${id}.svg?style=${style}`)}" alt="${alt}"></a>`;
 }
 
 export interface BadgeEmbedFlow {

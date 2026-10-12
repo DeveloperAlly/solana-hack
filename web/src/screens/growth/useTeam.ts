@@ -9,12 +9,13 @@ export function openInvites(session: GrowthSession, base: Invite[]): Invite[] {
   return [...session.invitesAdded, ...base].filter((i) => !session.invitesClosed.includes(i.id));
 }
 
-/** The email field's error: not an address, or already invited. */
-function emailError(value: string, invites: Invite[]): string | undefined {
+/** The email field's error: not an address, already invited, or already a member (an accepted invite). */
+function emailError(value: string, invites: Invite[], members: Member[]): string | undefined {
   const check = emailCheck(value);
   if (check.blocking) return check.label;
   const email = value.trim().toLowerCase();
   if (invites.some((i) => i.email.toLowerCase() === email)) return `${value.trim()} already has an invite.`;
+  if (members.some((m) => m.name.toLowerCase() === email)) return `${value.trim()} is already on the team.`;
   return undefined;
 }
 
@@ -51,7 +52,7 @@ export function useTeam(data: TeamData): TeamFlow {
   const seats = seatCheck(used, data.seatLimit);
 
   function send() {
-    const next = { email: emailError(form.email, invites), role: form.role ? undefined : 'Choose a role.' };
+    const next = { email: emailError(form.email, invites, members), role: form.role ? undefined : 'Choose a role.' };
     setErrors(next);
     if (seats.blocking || next.email || next.role || !form.role) return;
     // INTEGRATION: POST /api/brands/:id/invites { email, role } -> memberships (backend map §4 Roadmap, "Partners").

@@ -218,6 +218,13 @@ describe('Team invites', () => {
     expect(screen.getByText('You’re on JamJam’s team')).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'See the team' }));
     expect(within(screen.getByRole('list', { name: 'Members' })).getByText('partner@example.com')).toBeInTheDocument();
+    // An accepted member cannot be invited again (Codex review on PR #89). Free a seat first: all 3 are in use.
+    expect(screen.getByRole('button', { name: 'Send invite' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Revoke the invite to [integration partner email]' }));
+    await user.type(screen.getByLabelText('Email'), 'partner@example.com');
+    await user.selectOptions(screen.getByLabelText(/^Role/), 'teammate');
+    await user.click(screen.getByRole('button', { name: 'Send invite' }));
+    expect(screen.getByText('partner@example.com is already on the team.')).toBeInTheDocument();
   });
 
   it('declining closes the invite; with none open the empty view shows', async () => {

@@ -24,7 +24,10 @@ export function tipAmountCheck(raw: string): Check {
   const v = raw.trim();
   if (!v) return block('Enter an amount in USDC.');
   if (!/^\d+(\.\d{1,2})?$/.test(v)) return block('Use a number with up to 2 decimals, like 5 or 2.50.');
-  return Number(v) > 0 ? pass('Amount ready.') : block('The amount must be more than 0.');
+  const amount = Number(v);
+  // A long digit string passes the pattern but loses precision or becomes Infinity; cents must stay exact.
+  if (!Number.isSafeInteger(Math.round(amount * 100))) return block('That amount is too large.');
+  return amount > 0 ? pass('Amount ready.') : block('The amount must be more than 0.');
 }
 
 /** Tips need the creator's own wallet: USDC goes straight to it (ADR-006). */
