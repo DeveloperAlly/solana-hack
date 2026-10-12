@@ -1,5 +1,6 @@
 // Run API (issue #32), owner-only like every /api/brands route:
-//   POST /api/brands/:id/runs {kind, ...}  -> 202 {run}             starts a run of a startable kind
+//   POST /api/brands/:id/runs {kind, ...}  -> 202 {run}             starts a run of a startable kind (ingest_url,
+//                                                                  extract_facts)
 //   GET  /api/runs/:id                     -> 200 {run, steps}      status, progress and per-step traces
 //   GET  /api/brands/:id                   -> adds activeRun        the newest running or paused run, or null
 //   POST /api/brands/:id/sources {url}     -> the ingest_url workflow; same 201 body when done, else 409 "still reading"
@@ -30,11 +31,26 @@ const KINDS: Record<string, (env: Env, brand: BrandRef, body: Record<string, unk
     const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url, status: 'pending', kind: urlKind(url, website) });
     return { url, sourceId: src.id, brandName: brand.name, website };
   },
+  /**
+   * Fact extraction (issue #64): a link read through the site adapter (home page plus key subpages, robots.txt checked;
+   * sources/site.ts), cut into chunks, extracted under a strict schema, quote- and support-checked, then saved with
+   * conflicts for the owner. The adapter decides site or page from the brand's website, as ingest_url does. Pasted
+   * text is not offered here yet: a source row needs a URL the links list can open (sources.url, Build.tsx).
+   */
+  extract_facts: async (env, brand, body) => {
+    const url = typeof body.url === 'string' ? body.url.trim().slice(0, 500) : '';
+    if (!url) throw new HttpError(400, 'a link is required');
+    const website = brand.website ?? null;
+    const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url, status: 'pending', kind: urlKind(url, website) });
+    return { reader: 'site', url, sourceId: src.id, brandName: brand.name, website };
+  },
 };
 
 export async function activeDef(env: Env, kind: string): Promise<WorkflowSpec> {
   const [def] = await db.select<{ spec: WorkflowSpec }>(env, 'workflow_defs', `${db.eq('id', kind)}&${db.eq('status', 'active')}&select=spec&order=version.desc&limit=1`);
-  if (!def) throw new HttpError(404, `unknown run kind ${kind}`);
+  // A startable kind whose definition is not in the database is a setup gap (its migration is not applied), not a bad
+  // request, and is refused before any row is written.
+  if (!def) throw KINDS[kind] ? new HttpError(503, `${kind} is not set up in this database yet (its migration in spec/db has not been applied)`) : new HttpError(404, `unknown run kind ${kind}`);
   return def.spec;
 }
 

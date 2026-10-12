@@ -1,14 +1,23 @@
 // Step types (fetch, llm, code, write, map) and the registries that definitions name. Definitions are data; these are
 // the only places their steps run code. Each handler returns {output, trace}; the runner records the trace in run_steps.
 import { db } from '../db';
-import { HttpError, sha256Hex, type Env } from '../env';
+import { HttpError, type Env } from '../env';
+import { MAX_FACTS_PER_CHUNK, SLOT_PROMPT } from '../extract/facts';
+import { addDropped, alignFacts, chunkSource, decideFacts, supportBatches, type Candidate, type Dropped } from '../extract/pipeline';
+import { saveExtractedFacts, type ReadOutput } from '../extract/save';
+import { EXTRACTED_FACTS, SUPPORT_VERDICTS } from '../extract/schemas';
+import { stableId } from '../ids';
 import { readPage } from '../ingest';
 import { isSection, SECTIONS } from '../kit';
 import { chat, parseJson } from '../llm';
 import { MAX_QUOTE, normalisePage, quoteOnPage } from '../quote';
+import { schemaError, type NamedSchema } from '../schema';
+import { capText, readSource } from './readers';
 import { loadPrompt, render } from './prompts';
 import { factTrust, urlKind } from '../sources/registry';
 import type { RunRow, StepSpec, StepTrace } from './types';
+
+export { capText } from './readers';
 
 export interface StepContext { env: Env; run: RunRow; state: RunState }
 /** What a run has so far: its input and the output of every finished step, by step id. */
@@ -16,7 +25,10 @@ export interface RunState { input: Record<string, unknown>; steps: Record<string
 export type StepResult = { output: unknown; trace: Partial<StepTrace> };
 
 /** Constants a definition may reference as $const.NAME. */
-const CONSTS: Record<string, unknown> = { MAX_QUOTE, SECTIONS: Object.keys(SECTIONS).join(', ') };
+const CONSTS: Record<string, unknown> = { MAX_QUOTE, SECTIONS: Object.keys(SECTIONS).join(', '), SLOTS: SLOT_PROMPT, MAX_FACTS_PER_CHUNK };
+
+/** Reply schemas an 'llm' step can name (types.ts LlmStep.schema). */
+export const SCHEMAS: Record<string, NamedSchema> = { extracted_facts: EXTRACTED_FACTS, support_verdicts: SUPPORT_VERDICTS };
 
 /** Resolves "$input.a", "$steps.id.a.b" or "$const.NAME"; any other string is a literal. */
 export function resolve(ref: string, state: RunState): unknown {
@@ -38,23 +50,13 @@ const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice
 
 type Fact = { section?: string; claim?: string; quote?: string };
 
-/**
- * The longest prefix of `s` within `maxUnits` UTF-16 units and `maxBytes` UTF-8 bytes, never splitting a character
- * (TextEncoder.encodeInto stops before a character that does not fit and reports how many units it read).
- */
-export function capText(s: string, maxUnits: number, maxBytes: number) {
-  let t = s.slice(0, maxUnits);
-  if (/[\uD800-\uDBFF]$/.test(t)) t = t.slice(0, -1);
-  const { read } = new TextEncoder().encodeInto(t, new Uint8Array(maxBytes));
-  return t.slice(0, read ?? t.length);
+/** A whole number from a definition argument (literals arrive as strings); a bad one is a definition error. */
+function int(v: unknown, name: string): number {
+  const n = typeof v === 'number' ? v : Number(v);
+  if (!Number.isInteger(n) || n < 0) throw new HttpError(500, `step argument ${name} must be a whole number`);
+  return n;
 }
-
-/** A stable UUID for a fact, from its source and content, so a retried save writes the same rows (name-based, as in
- * RFC 9562 §5.8 UUIDv8 layout: https://www.rfc-editor.org/rfc/rfc9562#section-5.8). */
-async function factId(...parts: string[]) {
-  const h = await sha256Hex(parts.join('\u0000'));
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-${((parseInt(h[16], 16) & 3) | 8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
-}
+const list = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
 /** Pure functions a 'code' step can name. */
 export const CODE: Record<string, (args: Record<string, unknown>) => unknown> = {
@@ -71,6 +73,16 @@ export const CODE: Record<string, (args: Record<string, unknown>) => unknown> = 
       .map((f) => ({ section: f.section as string, claim: str(f.claim, 500), quote: f.quote }));
     return { facts: kept, dropped: list.length - kept.length };
   },
+  // Fact extraction (issue #64; architecture §6.1): extract/pipeline.ts holds each stage; these adapt step arguments.
+  /** Chunks of 2-4k tokens with offsets into the source text (extract/chunk.ts). */
+  chunk_text: ({ text, target, min, max, overlap, max_chunks }) =>
+    chunkSource(asText(text), { target: int(target, 'target'), min: int(min, 'min'), max: int(max, 'max'), overlap: int(overlap, 'overlap') }, int(max_chunks, 'max_chunks')),
+  /** Each proposed fact's quote located in the source, exact or fuzzy, with the number guard and merging. */
+  align_facts: ({ text, chunks, extracted }) => alignFacts(asText(text), list(chunks), list(extracted)),
+  /** The support check's inputs, `size` facts per call, at most `max_batches` calls. */
+  support_batches: ({ facts, size, max_batches }) => supportBatches(list<Candidate>(facts), Math.max(1, int(size, 'size')), int(max_batches, 'max_batches')),
+  /** Only facts the support check marked supported. */
+  decide_facts: ({ facts, batches, verdicts }) => decideFacts(list<Candidate>(facts), list(batches), list(verdicts)),
 };
 
 /** Database writes a 'write' step (or onFailure) can name. Each is idempotent, because a step may run more than once. */
@@ -87,13 +99,16 @@ export const WRITES: Record<string, (ctx: StepContext, args: Record<string, unkn
     const site = typeof website === 'string' ? website : null;
     const kind = urlKind(asText(link), site) === 'site' && urlKind(asText(url), site) === 'site' ? 'site' : 'page';
     const list = (facts ?? []) as { section: string; claim: string; quote: string }[];
-    const rows = await Promise.all(list.map(async (f, i) => ({ id: await factId(sid, String(i), f.section, f.claim, f.quote), brand_id: run.brand_id, source_id: sid, section: f.section, claim: f.claim, quote: f.quote, origin: 'source', ...factTrust(kind) })));
+    const rows = await Promise.all(list.map(async (f, i) => ({ id: await stableId(sid, String(i), f.section, f.claim, f.quote), brand_id: run.brand_id, source_id: sid, section: f.section, claim: f.claim, quote: f.quote, origin: 'source', ...factTrust(kind) })));
     if (rows.length) await db.insertNew(env, 'evidence', rows, 'id');
     const page = asText(text);
     // source_text (spec/db/008) keeps the text the quotes were checked against, so any stored quote can be re-checked.
     await db.update(env, 'sources', `${db.eq('id', sid)}&${db.eq('brand_id', run.brand_id)}`, { status: 'read', kind, title: asText(title), text_excerpt: page.slice(0, 2000), source_text: page, fetched_at: new Date().toISOString(), url: asText(url).slice(0, 500), error: null });
     return { sourceId: sid, facts: rows.length, dropped: Number(dropped) || 0, kind, needsReview: kind === 'page' ? rows.length : 0 };
   },
+  /** Extracted facts for one source, with trust, review, confidence and conflicts (extract/save.ts; issue #64). */
+  save_extracted_facts: async ({ env, run }, { sourceId, read, facts, droppedAlign, droppedSupport }) =>
+    saveExtractedFacts(env, run, { sourceId: asText(sourceId), read: read as ReadOutput, facts: list<Candidate>(facts), dropped: addDropped(droppedAlign as Dropped, droppedSupport as Dropped) }),
   mark_source_failed: async ({ env, run }, { sourceId, error }) => {
     await db.update(env, 'sources', `${db.eq('id', asText(sourceId))}&${db.eq('brand_id', run.brand_id)}`, { status: 'failed', error: asText(error) || 'reading the page failed' });
     return null;
@@ -105,6 +120,10 @@ export async function runStep(spec: Exclude<StepSpec, { type: 'map' }>, ctx: Ste
   const state = item === undefined ? ctx.state : { ...ctx.state, input: { ...ctx.state.input, item } };
   switch (spec.type) {
     case 'fetch': {
+      if (spec.reader !== undefined) {
+        const reader = asText(resolve(spec.reader, state));
+        return { output: await readSource(ctx.env, reader, resolveAll(spec.args, state), spec.maxChars, spec.maxBytes), trace: {} };
+      }
       const page = await readPage(asText(resolve(spec.url, state)));
       const text = capText(page.text, spec.maxChars, spec.maxBytes);
       return { output: { url: page.url, title: page.title, text, excerpt: text.slice(0, spec.excerptChars) }, trace: {} };
@@ -113,11 +132,21 @@ export async function runStep(spec: Exclude<StepSpec, { type: 'map' }>, ctx: Ste
       const p = await loadPrompt(ctx.env, spec.prompt, spec.promptVersion ?? state.prompts[spec.prompt]);
       const system = render(p.body, textVars(spec.vars, state));
       const user = render(spec.user, textVars(spec.userVars, state));
-      // llm.ts returns the text and the model that answered; token counts are not returned yet (see the PR's
-      // follow-up for llm.ts), so tokens are recorded as null rather than guessed.
-      const r = (await chat(ctx.env, system, user)) as { text: string; model: string; usage?: { promptTokens?: number; completionTokens?: number } };
+      const schema = spec.schema === undefined ? undefined : SCHEMAS[spec.schema];
+      if (spec.schema !== undefined && !schema) throw new HttpError(500, `unknown reply schema ${spec.schema}`);
+      // Token counts are recorded when OpenRouter reports usage, null otherwise; never guessed.
+      const r = await chat(ctx.env, system, user, schema ? { schema } : {});
       const trace = { prompt_key: p.key, prompt_version: p.version, prompt_hash: p.hash, model: r.model, tokens_in: r.usage?.promptTokens ?? null, tokens_out: r.usage?.completionTokens ?? null };
-      return { output: spec.json ? parseJson<unknown>(r.text) : { text: r.text }, trace };
+      if (!schema) return { output: spec.json ? parseJson<unknown>(r.text) : { text: r.text }, trace };
+      // A schema-bound reply is used only if it conforms in full; otherwise the step fails (5xx, so it is retried) and
+      // nothing from that reply is kept. The log names the schema and the path that failed, never the content.
+      const value = parseJson<unknown>(r.text);
+      const bad = schemaError(schema.schema, value) ?? schema.limits?.(value) ?? null;
+      if (bad) {
+        console.error('llm reply off schema', { schema: schema.name, at: bad.split(':')[0], model: r.model });
+        throw new HttpError(502, 'the AI model reply did not match the expected format, trying again');
+      }
+      return { output: value, trace };
     }
     case 'code': {
       const fn = CODE[spec.fn];

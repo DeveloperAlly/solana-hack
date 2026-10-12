@@ -32,6 +32,18 @@ function recordRunStep({ p_run, p_step, p_patch }: { p_run: string; p_step: Row 
   return true;
 }
 
+/** Same semantics as spec/db/011 record_fact_conflict (checked against Postgres 16 when 011 was written): open or extend
+ * the one open conflict per brand and slot, hold its approved non-owner facts for review, skip a resolved one. */
+function recordFactConflict({ p_brand, p_slot, p_evidence, p_question }: { p_brand: string; p_slot: string; p_evidence: string[]; p_question: string }) {
+  const rows = (db.tables.fact_conflicts ??= []);
+  if (rows.some((c) => c.brand_id === p_brand && c.slot === p_slot && c.status === 'resolved' && p_evidence.every((id) => (c.evidence_ids as string[]).includes(id)))) return null;
+  let c = rows.find((x) => x.brand_id === p_brand && x.slot === p_slot && x.status === 'open');
+  if (c) Object.assign(c, { evidence_ids: [...new Set([...(c.evidence_ids as string[]), ...p_evidence])].sort(), question: p_question });
+  else rows.push((c = { id: uuid(), brand_id: p_brand, slot: p_slot, evidence_ids: [...new Set(p_evidence)].sort(), question: p_question, status: 'open' }));
+  for (const e of db.tables.evidence ?? []) if (e.brand_id === p_brand && p_evidence.includes(e.id as string) && e.review_status === 'approved' && e.trust !== 'owner_answer') e.review_status = 'proposed';
+  return c.id;
+}
+
 export function fakeDb(url: string, init: RequestInit = {}) {
   const u = new URL(url);
   const path = u.pathname.replace('/rest/v1/', '');
@@ -40,6 +52,7 @@ export function fakeDb(url: string, init: RequestInit = {}) {
   const body = init.body ? JSON.parse(String(init.body)) : undefined;
   db.calls.push({ method, table: path, query: u.search });
   if (path === 'rpc/record_run_step') return recordRunStep(body);
+  if (path === 'rpc/record_fact_conflict') return recordFactConflict(body);
   const rows = (db.tables[path] ??= []);
   if (method === 'GET') {
     if (Number(q.get('offset') ?? 0) > 0) return [];
@@ -67,7 +80,7 @@ export async function seedTables(extra: Record<string, Row[]> = {}) {
   db.calls = [];
   db.tables = {
     brands: [{ id: BRAND, owner_id: 'u', name: 'JamJam', type: 'company' }],
-    sources: [], evidence: [], runs: [], run_steps: [], engine_config: [],
+    sources: [], evidence: [], runs: [], run_steps: [], engine_config: [], fact_conflicts: [],
     workflow_defs: SEED_DEFS.map((spec) => ({ id: spec.id, version: spec.version, spec, status: 'active' })),
     prompt_versions: await Promise.all(SEED_PROMPTS.map(async (p) => ({ ...p, status: 'active', hash: 'sha256:' + (await sha256Hex(p.body)) }))),
     ...extra,

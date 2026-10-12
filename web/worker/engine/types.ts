@@ -8,16 +8,26 @@ export interface RetrySpec { limit: number; delay: string; backoff: 'constant' |
 interface StepBase { id: string; label: string; retries?: RetrySpec; timeout?: string }
 /** Reads one public page (ingest.ts readPage). Output: {url, title, text, excerpt}. The text keeps at most maxChars
  * UTF-16 units and maxBytes UTF-8 bytes, so the step result stays under Workflows' 1 MiB limit in either encoding. */
-export interface FetchStep extends StepBase { type: 'fetch'; url: string; maxChars: number; maxBytes: number; excerptChars: number }
-/** One call through the LLM gateway (llm.ts chat) with a versioned prompt (prompt_versions) as the system message. */
-export interface LlmStep extends StepBase { type: 'llm'; prompt: string; promptVersion?: number; vars?: Record<string, string>; user: string; userVars?: Record<string, string>; json?: boolean }
+export interface FetchStep extends StepBase { type: 'fetch'; reader?: undefined; url: string; maxChars: number; maxBytes: number; excerptChars: number }
+/**
+ * Reads a source through a source adapter (issue #33) named in engine/readers.ts READERS, as a 'fetch' step: reader
+ * is a name or a reference ($input.reader), args are references passed to the reader. Output: engine/readers.ts
+ * ReadStepOutput, its text capped at maxChars UTF-16 units and maxBytes UTF-8 bytes, as for FetchStep (issue #64).
+ */
+export interface SourceStep extends StepBase { type: 'fetch'; reader: string; args: Record<string, string>; maxChars: number; maxBytes: number }
+/**
+ * One call through the LLM gateway (llm.ts chat) with a versioned prompt (prompt_versions) as the system message.
+ * schema names a reply schema in steps.ts SCHEMAS: it is sent as a strict structured output with providers required to
+ * honour it, and the reply is refused unless it conforms (issue #64). json without a schema keeps the loose parse.
+ */
+export interface LlmStep extends StepBase { type: 'llm'; prompt: string; promptVersion?: number; vars?: Record<string, string>; user: string; userVars?: Record<string, string>; json?: boolean; schema?: string }
 /** A named pure function from the code registry (steps.ts CODE). */
 export interface CodeStep extends StepBase { type: 'code'; fn: string; args: Record<string, string> }
 /** A named, idempotent database write from the registry (steps.ts WRITES). */
 export interface WriteStep extends StepBase { type: 'write'; op: string; args: Record<string, string> }
 /** Runs an inner step once per item of a list, each item as its own durable step. Output: the list of results. */
 export interface MapStep extends StepBase { type: 'map'; over: string; max: number; step: Exclude<StepSpec, MapStep> }
-export type StepSpec = FetchStep | LlmStep | CodeStep | WriteStep | MapStep;
+export type StepSpec = FetchStep | SourceStep | LlmStep | CodeStep | WriteStep | MapStep;
 
 export interface WorkflowSpec {
   id: string;
