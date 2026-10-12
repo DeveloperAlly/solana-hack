@@ -35,7 +35,7 @@ Total: 461 words, about 2:53 at 160 words a minute.
 
 **4. How it works** (0:40–0:52)
 - Six steps, one app: build, create, distribute, verify, grow, learn
-- Build and create are built; verify is live on devnet; distribute, grow and learn are next
+- Brand building and a first text-post flow are built; verify is live on devnet; media, distribute, grow and learn are next
 - Each step checked where others guess
 
 **5. Why now** (0:52–1:06)
