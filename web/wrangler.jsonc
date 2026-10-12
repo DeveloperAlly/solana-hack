@@ -31,5 +31,9 @@
   // Per-IP abuse limit for the anonymous endpoints (/api/verify, /api/ledger), which query the database and Solana.
   // Workers rate limiting binding; namespace_id is an account-unique number we choose; period must be 10 or 60.
   // 6 per minute matches the spec's 30 verifications per five minutes (spec/api/routes/brand_builder.ts).
-  "ratelimits": [{ "name": "PUBLIC_LIMITER", "namespace_id": "1001", "simple": { "limit": 6, "period": 60 } }]
+  "ratelimits": [{ "name": "PUBLIC_LIMITER", "namespace_id": "1001", "simple": { "limit": 6, "period": 60 } }],
+  // Durable runs (issue #32): one Workflow, bound as env.RUN_WORKFLOW, running the RunWorkflow class exported from
+  // worker/index.ts. Each instance is one row in the runs table. Deploying creates the Workflow.
+  // Syntax: https://developers.cloudflare.com/workflows/build/workers-api/#call-workflows-from-workers
+  "workflows": [{ "name": "jamjam-runs", "binding": "RUN_WORKFLOW", "class_name": "RunWorkflow" }]
 }

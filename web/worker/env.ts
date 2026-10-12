@@ -1,3 +1,5 @@
+import type { WorkflowBinding } from './engine/executor';
+
 export interface Env {
   ASSETS: { fetch(req: Request): Promise<Response> };
   REGISTRAR_KEY: string; // secret: 64-byte devnet keypair as a JSON array
@@ -9,6 +11,7 @@ export interface Env {
   OPENROUTER_API_KEY: string; // secret
   OPENROUTER_MODEL?: string; // optional model slug; default openrouter/auto
   PUBLIC_LIMITER?: { limit(o: { key: string }): Promise<{ success: boolean }> }; // Workers rate limiting binding
+  RUN_WORKFLOW?: WorkflowBinding; // Cloudflare Workflows binding for durable runs (wrangler.jsonc "workflows"; issue #32)
 }
 
 export const json = (body: unknown, status = 200) =>

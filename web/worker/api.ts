@@ -1,11 +1,11 @@
 import { requireUser, type User } from './auth';
 import { db } from './db';
 import { HttpError, json, safeError, sha256Hex, type Env } from './env';
-import { readPage } from './ingest';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
-import { MAX_QUOTE, normalisePage, quoteOnPage } from './quote';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
+import { activeRun, getRun, ingestSource, startRun } from './engine/api';
+import type { WaitUntil } from './engine/executor';
 import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
@@ -74,34 +74,6 @@ async function draftSection(env: Env, brand: Brand, section: SectionId) {
   const gate = SECTIONS[section].gate;
   if (gate) await db.del(env, 'gates', `${db.eq('brand_id', brand.id)}&${db.eq('gate', gate)}`);
   return row;
-}
-
-export async function ingest(env: Env, brand: Brand, rawUrl: string) {
-  const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url: rawUrl.slice(0, 500), status: 'pending' });
-  try {
-    const page = await readPage(rawUrl);
-    const text = page.text.slice(0, 14000);
-    const system = `You extract facts about the brand "${brand.name}" from a web page. Each fact needs an exact quote copied character for character from the page text, at most ${MAX_QUOTE} characters. Sections: ${Object.keys(SECTIONS).join(', ')}. Reply with JSON only: {"facts": [{"section": string, "claim": string, "quote": string}]}. At most 12 facts. No facts that the page does not state.`;
-    const { text: reply } = await chat(env, system, `Page title: ${page.title}\nURL: ${page.url}\n\n${text}`);
-    const facts = parseJson<{ facts?: { section?: string; claim?: string; quote?: string }[] }>(reply).facts ?? [];
-    // One normaliser for the page and every quote (quote.ts), so typography and line breaks cannot fail a real quote.
-    const hay = normalisePage(page.text);
-    // Keep only facts whose quote really is on the page (no invented evidence). The quote checked is the quote stored:
-    // one longer than the stored limit is refused here, never cut after the check (a cut quote may no longer match).
-    const rows = facts
-      .map((f) => ({ ...f, quote: typeof f.quote === 'string' ? f.quote.trim() : '' }))
-      .filter((f) => f.claim && f.quote && f.quote.length <= MAX_QUOTE && isSection(f.section ?? '') && quoteOnPage(hay, f.quote))
-      .map((f) => ({ brand_id: brand.id, source_id: src.id, section: f.section, claim: str(f.claim, 500), quote: f.quote, origin: 'source' }));
-    if (rows.length) await db.insert(env, 'evidence', rows);
-    // source_text (spec/db/008) keeps the full text the quotes were checked against, so any stored quote can be
-    // re-checked later; text_excerpt stays for existing readers.
-    await db.update(env, 'sources', db.eq('id', src.id), { status: 'read', title: page.title, text_excerpt: text.slice(0, 2000), source_text: page.text, fetched_at: new Date().toISOString(), url: page.url.slice(0, 500) });
-    return { sourceId: src.id, facts: rows.length, dropped: facts.length - rows.length };
-  } catch (e) {
-    const msg = e instanceof HttpError ? e.message : 'reading the page failed';
-    await db.update(env, 'sources', db.eq('id', src.id), { status: 'failed', error: msg });
-    throw e;
-  }
 }
 
 /**
@@ -298,7 +270,7 @@ export async function publicLimit(req: Request, env: Env, scope: string) {
 }
 
 /** Authenticated product API (S1-S4). Returns null for paths it does not own. */
-export async function handleApi(req: Request, env: Env, url: URL): Promise<Response | null> {
+export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUntil): Promise<Response | null> {
   const p = url.pathname.split('/').filter(Boolean); // ['api', ...]
   const m = req.method;
   // Public (no sign-in): Verify and Ledger (S6), limited per client IP because they query the database and Solana.
@@ -311,8 +283,10 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     return json(await verifyText(env, str(b.text, 8000)));
   }
   if (p[1] === 'ledger' && p.length === 2 && m === 'GET') { await publicLimit(req, env, 'ledger'); return json(await ledger(env)); }
-  if (p[1] !== 'me' && p[1] !== 'brands') return null;
+  if (p[1] !== 'me' && p[1] !== 'brands' && p[1] !== 'runs') return null;
   const user = await requireUser(req, env);
+  // GET /api/runs/:id -> {run, steps}: a run's status, progress and step traces, for the brand's owner (issue #32).
+  if (p[1] === 'runs') return p.length === 3 && m === 'GET' ? json(await getRun(env, user, p[2])) : json({ error: 'not found' }, 404);
 
   if (p[1] === 'me' && p.length === 2 && m === 'GET') {
     const brands = await db.select<Brand>(env, 'brands', `${db.eq('owner_id', user.id)}&order=created_at`);
@@ -329,7 +303,16 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   if (p[1] !== 'brands' || !p[2]) return json({ error: 'not found' }, 404);
   const brand = await ownBrand(env, user, p[2]);
 
-  if (p.length === 3 && m === 'GET') return json(await brandState(env, brand));
+  if (p.length === 3 && m === 'GET') {
+    // activeRun: the newest running or paused run, so a reload shows its progress (issue #32).
+    const [state, run] = await Promise.all([brandState(env, brand), activeRun(env, brand.id)]);
+    return json({ ...state, activeRun: run });
+  }
+  // POST /api/brands/:id/runs {kind, ...input} -> 202 {run}
+  if (p[3] === 'runs' && p.length === 4 && m === 'POST') {
+    const b = await body(req);
+    return json({ run: await startRun(env, ctx, user, brand, str(b.kind, 60), b) }, 202);
+  }
   if (p.length === 3 && m === 'PATCH') {
     const b = await body(req);
     const patch: Record<string, string | null> = {};
@@ -363,7 +346,9 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const b = await body(req);
     const u = str(b.url, 500);
     if (!u) throw new HttpError(400, 'a link is required');
-    return json(await ingest(env, brand, u), 201);
+    // Runs as the ingest_url workflow (engine/seed.ts); same quote check and the same 201 body when it finishes in time.
+    const r = await ingestSource(env, ctx, user, brand, { url: u });
+    return json(r.body, r.status);
   }
   if (p[3] === 'sections' && p[4] && isSection(p[4])) {
     const section = p[4];

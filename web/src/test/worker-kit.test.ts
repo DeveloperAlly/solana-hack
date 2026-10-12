@@ -13,8 +13,8 @@ vi.mock('../../worker/registry', () => ({
   NotLanded: class extends Error {},
   explorerTx: (s: string) => s,
 }));
-const { registerKit, saveAnswer, patchBrand, ingest, KIT_PENDING_TIMEOUT_MS, staleSections, unapprovedSections } = await import('../../worker/api');
-const { normaliseQuote, normalisePage, quoteOnPage, MAX_QUOTE } = await import('../../worker/quote');
+const { registerKit, saveAnswer, patchBrand, KIT_PENDING_TIMEOUT_MS, staleSections, unapprovedSections } = await import('../../worker/api');
+const { normaliseQuote, normalisePage, quoteOnPage } = await import('../../worker/quote');
 const { decode } = await import('../../worker/ingest');
 
 const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k', REGISTRAR_KEY: '[1]', RPC_URL: 'https://rpc.test', OPENROUTER_API_KEY: 'k' } as Env;
@@ -257,25 +257,4 @@ describe('quote normaliser', () => {
   });
 });
 
-describe('ingest keeps only quotes it checked, as checked', () => {
-  const html = `<html><title>JamJam</title><body><p>JamJam\u2019s mission is to help brands prove what they say on\u00AD chain.</p><p>${'Filler text about the product. '.repeat(100)}</p></body></html>`;
-  it('stores the checked quote in full, refuses over-long quotes before the check, and stores the full source text', async () => {
-    tables = { sources: [], evidence: [] };
-    page = html;
-    const long = `JamJam's mission ${'x'.repeat(MAX_QUOTE)}`;
-    llmReply = JSON.stringify({ facts: [
-      { section: 'purpose', claim: 'Helps brands prove claims', quote: "JamJam's mission is to help brands prove what they say on chain." },
-      { section: 'purpose', claim: 'Too long', quote: long },
-      { section: 'purpose', claim: 'Invented', quote: 'We have a million users' },
-    ] });
-    const r = await ingest(env, brand, 'https://example.com');
-    expect(r).toMatchObject({ facts: 1, dropped: 2 });
-    expect(tables.evidence).toHaveLength(1);
-    expect(tables.evidence[0].quote).toBe("JamJam's mission is to help brands prove what they say on chain.");
-    const src = tables.sources[0] as { status: string; source_text: string; text_excerpt: string };
-    expect(src.status).toBe('read');
-    expect(src.source_text.length).toBeGreaterThan(src.text_excerpt.length);
-    // The stored quote re-checks against the stored source text.
-    expect(quoteOnPage(normalisePage(src.source_text), tables.evidence[0].quote as string)).toBe(true);
-  });
-});
+// Ingest now runs on the workflow engine; its quote-check test moved to worker-engine.test.ts (issue #32).
