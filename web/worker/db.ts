@@ -1,5 +1,32 @@
 import { HttpError, type Env } from './env';
 
+/**
+ * The error a failed PostgREST call becomes, mapped code by code (https://docs.postgrest.org/en/stable/references/errors.html):
+ * - PTxyz: a function of ours raised it on purpose ("RAISE errors with HTTP Status Codes"); PostgREST answers with
+ *   status xyz, and a 4xx keeps that status and the function's message, written for the caller.
+ * - Postgres constraint codes PostgREST maps to 4xx (23505 unique and 23503 foreign key violations: 409; 23514 check
+ *   violation and 22P02 invalid text form: 400 under "other") keep their status with a fixed message that names no
+ *   table, column or value.
+ * - Everything else, including every 5xx and PostgREST's own PGRST codes (a malformed request from this Worker is our
+ *   fault, not the caller's), is a plain 500 'database error' with no detail.
+ */
+const SQLSTATE: Record<string, { status: number; message: string }> = {
+  '23505': { status: 409, message: 'that already exists' },
+  '23503': { status: 409, message: 'that refers to something that no longer exists' },
+  '23514': { status: 400, message: 'that value is not allowed' },
+  '22P02': { status: 400, message: 'that value is not in the right form' },
+};
+export function dbError(status: number, code: string | undefined, body: string): HttpError {
+  if (code && /^PT4\d\d$/.test(code) && status === Number(code.slice(2))) {
+    let message = 'the request was refused';
+    try { const m = (JSON.parse(body) as { message?: unknown }).message; if (typeof m === 'string' && m) message = m.slice(0, 300); } catch { /* keep the default */ }
+    return new HttpError(status, message);
+  }
+  const known = code ? SQLSTATE[code] : undefined;
+  if (known && status >= 400 && status < 500) return new HttpError(known.status, known.message);
+  return new HttpError(500, 'database error');
+}
+
 // PostgREST with the secret key on the apikey header (Supabase API keys guide: keys go on apikey, not Bearer).
 async function rest<T>(env: Env, path: string, init: RequestInit & { prefer?: string } = {}): Promise<T> {
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
@@ -16,7 +43,7 @@ async function rest<T>(env: Env, path: string, init: RequestInit & { prefer?: st
     let code: string | undefined;
     try { code = (JSON.parse(text) as { code?: string }).code; } catch { /* not JSON */ }
     console.error('db error', { table: path.split('?')[0], method: init.method ?? 'GET', status: res.status, code });
-    throw new HttpError(500, 'database error');
+    throw dbError(res.status, code, text);
   }
   return (text ? JSON.parse(text) : null) as T;
 }

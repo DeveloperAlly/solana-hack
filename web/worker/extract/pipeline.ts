@@ -3,10 +3,10 @@
 // Order in the extract_facts definition (engine/seed.ts): chunk -> (model: extract) -> align -> batch ->
 // (model: support check) -> decide -> save.
 import { isSection } from '../kit';
-import { MAX_QUOTE, normaliseMapped, normaliseQuote } from '../quote';
+import { MAX_QUOTE, normaliseMapped } from '../quote';
 import { alignQuote, fuzzyBudget, type MatchType } from './align';
 import { chunkText, type ChunkOptions } from './chunk';
-import { factKey, MAX_CLAIM, MAX_VALUE, normText, numbersSupported, SLOTS, type Slot } from './facts';
+import { factKey, MAX_CLAIM, MAX_VALUE, normText, numbersSupported, SLOTS, valueStandsAlone, type Slot } from './facts';
 
 /** What a reply to the extraction prompt holds per fact (extract/schemas.ts EXTRACTED_FACTS). */
 export interface ExtractedFact { section: string; claim: string; quote: string; slot: string; value: string }
@@ -78,7 +78,7 @@ export function alignFacts(text: string, chunks: { start: number; end: number }[
       if (!at) { drop(dropped, budget.skipped > skippedBefore ? 'not_located' : 'not_in_source'); continue; }
       let slot: Slot = f.slot in SLOTS ? (f.slot as Slot) : 'none';
       let value = slot === 'none' ? '' : f.value.trim();
-      if (slot !== 'none' && (!value || !normaliseQuote(at.text).includes(normaliseQuote(value)))) { slot = 'none'; value = ''; }
+      if (slot !== 'none' && (!value || !valueStandsAlone(value, at.text))) { slot = 'none'; value = ''; }
       if (!numbersSupported(`${claim} ${value}`, at.text)) { drop(dropped, 'number_not_in_quote'); continue; }
       const key = `${factKey({ section: f.section, claim, slot: 'none', slot_value: '' })}|${slot}|${normText(value)}|${at.start}|${at.end}`;
       const same = byKey.get(key);
@@ -104,7 +104,9 @@ export function supportBatches(facts: Candidate[], size: number, maxBatches: num
   const batches: { ids: string[]; text: string }[] = [];
   for (let i = 0; i < facts.length; i += size) {
     const part = facts.slice(i, i + size);
-    batches.push({ ids: part.map((f) => f.id), text: JSON.stringify(part.map((f) => ({ id: f.id, claim: f.claim, passage: f.quote })), null, 1) });
+    // A fact that fills a slot is checked with its slot and value too (Codex review on PR #91), so a value the passage
+    // only partly states ("York" for "New York") is not supported.
+    batches.push({ ids: part.map((f) => f.id), text: JSON.stringify(part.map((f) => ({ id: f.id, claim: f.claim, passage: f.quote, ...(f.slot !== 'none' ? { fact: SLOTS[f.slot], value: f.value } : {}) })), null, 1) });
   }
   if (batches.length > maxBatches) throw new Error(`support check needs ${batches.length} calls, more than the ${maxBatches} the definition allows`);
   return { batches, count: batches.length };

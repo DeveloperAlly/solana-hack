@@ -5,6 +5,7 @@
 // exactly those field names and meanings, and the API passes them through unchanged: one shape, no second model of a
 // fact. Pure functions only: the caller reads the rows (evidence, sources, fact_conflicts; spec/db/001, 009, 011).
 import { GATES, isSection, SECTIONS } from '../kit';
+import { conflictQuestion, normText, SLOTS, type Slot } from './facts';
 
 export type FactStatus = 'found' | 'partly' | 'needs-you';
 /** Structurally the same as PR #75's JourneyFact. */
@@ -28,6 +29,8 @@ export interface EvidenceRow {
   review_status: string;
   trust?: string | null;
   match?: string | null;
+  /** The single-valued slot value, when the fact fills one (spec/db/011), so a conflict's question is worded from its live sides. */
+  slot_value?: string | null;
   page_url?: string | null;
   page_title?: string | null;
 }
@@ -106,9 +109,20 @@ export function conflictView(c: ConflictRow, facts: EvidenceRow[], sources: Map<
   const ids = new Set(c.evidence_ids);
   const sides = facts.filter((f) => ids.has(f.id)).map((f) => factView(f, sources, ids)).filter((f): f is FactView => f !== null);
   if (!sides.length) return null;
-  const sections = [...new Set(facts.filter((f) => ids.has(f.id) && f.review_status !== 'rejected').map((f) => f.section))];
+  const live = facts.filter((f) => ids.has(f.id) && f.review_status !== 'rejected');
+  const sections = [...new Set(live.map((f) => f.section))];
+  // The question is worded from the facts still on it, so a stored question never shows a side that is gone.
+  const groups = new Map<string, { value: string; ids: string[] }>();
+  for (const f of live) {
+    const k = normText(f.slot_value ?? '');
+    if (!k) continue;
+    const g = groups.get(k) ?? { value: (f.slot_value ?? '').trim(), ids: [] };
+    g.ids.push(f.id);
+    groups.set(k, g);
+  }
+  const statement = c.slot in SLOTS && groups.size >= 2 ? conflictQuestion(c.slot as Exclude<Slot, 'none'>, [...groups.values()].sort((a, b) => a.value.localeCompare(b.value))) : c.question;
   const section = sections.length === 1 ? sectionLabel(sections[0]) : sections.map((s) => (isSection(s) ? SECTIONS[s].title : s)).join(' · ');
-  return { question: { id: c.id, section, status: 'needs-you', statement: c.question, note: 'These passages disagree. Nothing is picked for you.' }, sides };
+  return { question: { id: c.id, section, status: 'needs-you', statement, note: 'These passages disagree. Nothing is picked for you.' }, sides };
 }
 
 /**

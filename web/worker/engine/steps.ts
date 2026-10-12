@@ -11,6 +11,7 @@ import { readPage } from '../ingest';
 import { isSection, SECTIONS } from '../kit';
 import { chat, parseJson } from '../llm';
 import { sameModel, type TaskModels } from '../models';
+import { MeteredFailure } from '../metering';
 import { MAX_QUOTE, normalisePage, quoteOnPage } from '../quote';
 import { schemaError, type NamedSchema } from '../schema';
 import { capText, readSource } from './readers';
@@ -92,10 +93,11 @@ export const CODE: Record<string, (args: Record<string, unknown>) => unknown> = 
   decide_facts: ({ facts, batches, verdicts }) => decideFacts(list<Candidate>(facts), list(batches), list(verdicts)),
 };
 
-/** Attaches the trace of a call that was made to the error that refused its result (engine/runner.ts records it). */
-export function withTrace(e: unknown, trace: Partial<StepTrace>): unknown {
-  if (e && typeof e === 'object') (e as { trace?: Partial<StepTrace> }).trace = trace;
-  return e;
+/** The error that refused a call's result, as a MeteredFailure carrying the call's trace and cost (metering.ts), so
+ * engine/runner.ts records them on the step's error record. */
+export function withTrace(e: unknown, trace: Partial<StepTrace>): MeteredFailure {
+  const { cost_usd, ...made } = trace;
+  return MeteredFailure.from(e, cost_usd ?? null, made);
 }
 
 /** Database writes a 'write' step (or onFailure) can name. Each is idempotent, because a step may run more than once. */

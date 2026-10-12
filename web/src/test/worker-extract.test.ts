@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BRAND, db, env, fakeDb, fakeStep, seedTables, type Row } from './engine-harness';
+import { BRAND, db, env, fakeDbResponse, fakeStep, seedTables, type Row } from './engine-harness';
 import { filler, NEWS_PROPOSALS, NEWS_TEXT, PLANTED, SITE_PROPOSALS, SITE_SENTENCES, SUPPORT_LABELS, type Proposal } from './extract-fixtures';
 
 // Fact extraction (issue #64; architecture §6.1 "Fact extraction with quote check", §13). Supabase is the in-memory
@@ -19,14 +19,16 @@ const { EXTRACTED_FACTS, SUPPORT_VERDICTS } = await import('../../worker/extract
 const { chunkText, CHUNK_DEFAULTS } = await import('../../worker/extract/chunk');
 const { alignQuote, bestFuzzySpan, FUZZY_MIN } = await import('../../worker/extract/align');
 const { alignFacts, chunkSource, decideFacts, supportBatches } = await import('../../worker/extract/pipeline');
-const { confidenceOf, findConflicts, numbersSupported, MAX_CLAIM, MAX_FACTS_PER_CHUNK } = await import('../../worker/extract/facts');
+const { confidenceOf, findConflicts, numbersSupported, valueStandsAlone, MAX_CLAIM, MAX_FACTS_PER_CHUNK } = await import('../../worker/extract/facts');
 const { initialReviewFor, pageOf, saveExtractedFacts, MAX_PAGE_TITLE, MAX_PAGE_URL } = await import('../../worker/extract/save');
 const { conflictView, factView, journeyFacts, openConflictIds, sectionLabel, sourceLabel } = await import('../../worker/extract/journey');
 const { normaliseMapped, normalisePage, normaliseQuote, quoteOnPage, MAX_QUOTE } = await import('../../worker/quote');
 const { readSource, registerReader, READERS, READER_INPUTS } = await import('../../worker/engine/readers');
-const { DEFAULT_MODEL_CALL_BUDGET, plannedModelCalls, registerStartGuard, START_GUARDS } = await import('../../worker/engine/guards');
+const { DEFAULT_METERED_CALL_BUDGET, DEFAULT_RUN_RATE, meteredCalls, plannedMeteredCalls, registerStartGuard, START_GUARDS } = await import('../../worker/engine/guards');
 const { startRun } = await import('../../worker/engine/api');
 const { openRouterKeyInfo } = await import('../../worker/openrouter');
+const { MeteredFailure } = await import('../../worker/metering');
+const { resolveFactConflict } = await import('../../worker/extract/conflicts');
 const { KINDS, registerKind } = await import('../../worker/engine/kinds');
 
 const page = (paras: string[]) => `<html><title>JamJam</title><body>${paras.map((p) => `<p>${p}</p>`).join('')}</body></html>`;
@@ -64,7 +66,7 @@ beforeEach(async () => {
   answerModel = null;
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'u', email: 'o@example.com' }));
-    if (url.startsWith('https://db.test')) return new Response(JSON.stringify(fakeDb(url, init)));
+    if (url.startsWith('https://db.test')) return fakeDbResponse(url, init);
     if (url.endsWith('/robots.txt')) return new Response('', { status: 404 });
     if (url.startsWith('https://openrouter.ai')) {
       const body = JSON.parse(String(init!.body)) as { messages: { content: string }[]; models?: string[]; response_format?: { json_schema?: { name?: string } } };
@@ -133,7 +135,7 @@ describe('definitions are data (spec/db/011)', () => {
     expect(new TextEncoder().encode(json).length).toBeLessThan(2 ** 20);
     expect(json.length * 2).toBeLessThan(2 ** 20);
   });
-  it('every fact the extract calls can return fits the support check, and the align, batch and decide outputs stay under 1 MiB', () => {
+  it('every fact the extract calls can return fits the support check, and the align, batch and decide outputs stay under 1 MiB', { timeout: 30_000 }, () => {
     const chunk = EXTRACT_FACTS.steps.find((s) => s.id === 'chunk') as { args: Record<string, string> };
     const batch = EXTRACT_FACTS.steps.find((s) => s.id === 'batch') as { args: Record<string, string> };
     const support = EXTRACT_FACTS.steps.find((s) => s.id === 'support') as { max: number };
@@ -819,24 +821,57 @@ describe('metering: every step records what its external call cost (run_steps.co
   });
 });
 
-describe('start checks: per-brand daily model-call budget and anonymous caps, inside start() (engine/guards.ts)', () => {
-  const setBudget = (v: Record<string, number>) => db.tables.engine_config.push({ key: 'model_call_budget', value: v });
+describe('start checks: per-brand daily metered-call budget, run rate and anonymous caps, inside start() (engine/guards.ts)', () => {
+  const setBudget = (v: Record<string, number>) => db.tables.engine_config.push({ key: 'metered_call_budget', value: v });
   const owner = (extra: Record<string, unknown> = {}) => ({ id: 'u', ...extra });
-  it('plans the most model calls a run can make: 20 extraction and 40 support calls for extract_facts', () => {
-    expect(plannedModelCalls(EXTRACT_FACTS)).toBe(60);
-    expect(DEFAULT_MODEL_CALL_BUDGET).toEqual({ permanent: 300, anonymous: 120 });
+  it('plans the most metered calls a run can make: the read, 20 extraction and 40 support calls for extract_facts', () => {
+    expect(plannedMeteredCalls(EXTRACT_FACTS)).toBe(61);
+    expect(DEFAULT_METERED_CALL_BUDGET).toEqual({ permanent: 300, anonymous: 120 });
+    expect(DEFAULT_RUN_RATE).toEqual({ permanent: 30, anonymous: 10 });
+    // Declared on any step kind; defaults count llm steps and reader fetches; a map counts its inner step per item.
+    expect(meteredCalls({ id: 'x', label: 'x', type: 'code', fn: 'chunk_text', args: {}, metered: 2 })).toBe(2);
+    expect(meteredCalls({ id: 'x', label: 'x', type: 'code', fn: 'chunk_text', args: {} })).toBe(0);
+    expect(meteredCalls({ id: 'x', label: 'x', type: 'map', over: '$x', max: 5, step: { id: 'y', label: 'y', type: 'write', op: 'w', args: {}, metered: 1 } })).toBe(5);
+  });
+  it('Codex review on PR #100: a workflow with no model call but a metered step is refused over the cap, before any step runs', async () => {
+    let reads = 0;
+    registerReader('paid_search', async () => { reads++; return { ok: true, kind: 'search_result', trust: 'third_party', title: 'Search', text: 'x', meta: { pages: 1, cost: 0.005, ms: 0, notes: [] } } as never; }, READER_INPUTS.paste);
+    registerKind('find_things', async (_env, brand) => ({ brandName: brand.name, reader: 'paid_search', args: { text: 'q' } }));
+    db.tables.workflow_defs.push({ id: 'find_things', version: 1, status: 'active', spec: { id: 'find_things', version: 1, title: 't', concurrency: 'parallel', retries: { limit: 0, delay: '1 second', backoff: 'constant' }, steps: [{ id: 'search', type: 'fetch', label: 'Searching', reader: '$input.reader', args: '$input.args', maxChars: 1000, maxBytes: 3000 }], output: '$steps.search.title' } });
+    setBudget({ permanent: 2 });
+    try {
+      for (let i = 0; i < 2; i++) { step = fakeStep(); expect((await call('POST', `/brands/${BRAND}/runs`, { kind: 'find_things' })).status).toBe(202); }
+      expect(reads).toBe(2);
+      expect(db.tables.run_steps.filter((x) => x.step === 'search').map((x) => x.cost_usd)).toEqual([0.005, 0.005]);
+      const r = await call('POST', `/brands/${BRAND}/runs`, { kind: 'find_things' });
+      expect(r).toMatchObject({ status: 429, body: { error: 'this brand has used its 2 metered calls for today (2 made, 0 reserved by runs still going, 1 needed); try again after 00:00 UTC' } });
+      expect(reads).toBe(2);
+      expect(db.tables.runs).toHaveLength(2);
+    } finally {
+      delete READERS.paid_search; delete READER_INPUTS.paid_search; delete KINDS.find_things;
+    }
+  });
+  it('caps how many runs of any kind a brand starts per hour, before anything is written', async () => {
+    db.tables.engine_config.push({ key: 'run_rate', value: { permanent: 2 } });
+    const hourAgo = new Date(Date.now() - 3_700_000).toISOString();
+    db.tables.runs.push({ id: 'older', brand_id: BRAND, kind: 'extract_facts', workflow_version: 1, status: 'done', created_at: hourAgo, updated_at: hourAgo });
+    for (let i = 0; i < 2; i++) { step = fakeStep(); expect((await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', url: 'https://jamjam.tech' })).status).toBe(202); }
+    const sources = db.tables.sources.length;
+    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://jamjam.tech/about' });
+    expect(r).toMatchObject({ status: 429, body: { error: 'this brand has started 2 runs in the last hour; wait a little and try again' } });
+    expect(db.tables.sources).toHaveLength(sources);
   });
   it('refuses a run, before writing anything, when today\'s calls plus its plan pass the budget, on every route', async () => {
-    setBudget({ permanent: 62 });
+    setBudget({ permanent: 64 });
     step = fakeStep();
     expect((await call('POST', `/brands/${BRAND}/sources`, { url: 'https://jamjam.tech' })).status).toBe(201);
-    const used = db.tables.run_steps.filter((x) => x.type === 'llm').length;
-    expect(used).toBe(3);
+    const used = db.tables.run_steps.filter((x) => x.type === 'llm' || x.cost_usd != null).length;
+    expect(used).toBe(4); // the read step and 3 model calls
     const [sources, runs] = [db.tables.sources.length, db.tables.runs.length];
     for (const [path, body] of [['sources', { url: 'https://jamjam.tech/about' }], ['runs', { kind: 'extract_facts', url: 'https://jamjam.tech/about' }]] as const) {
       const r = await call('POST', `/brands/${BRAND}/${path}`, body);
       expect(r.status).toBe(429);
-      expect(r.body.error).toBe(`this brand has used its 62 AI model calls for today (${used} made, 0 reserved by runs still going, 60 needed); try again after 00:00 UTC`);
+      expect(r.body.error).toBe(`this brand has used its 64 metered calls for today (${used} made, 0 reserved by runs still going, 61 needed); try again after 00:00 UTC`);
     }
     expect([db.tables.sources.length, db.tables.runs.length]).toEqual([sources, runs]);
   });
@@ -849,16 +884,18 @@ describe('start checks: per-brand daily model-call budget and anonymous caps, in
     step = fakeStep();
     await startRun(envWith, undefined, owner(), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' });
     expect(db.tables.runs.at(-1)).toMatchObject({ status: 'done' });
-    db.tables.runs.push({ id: 'going', brand_id: BRAND, kind: 'extract_facts', workflow_version: 1, status: 'running' });
-    db.tables.runs.at(-1)!.updated_at = new Date().toISOString();
-    await expect(startRun(envWith, undefined, owner(), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/60 reserved by runs still going/) });
+    // A run still going reserves what it has not used yet of its plan: 61 planned, 10 calls made, 51 reserved.
+    const now = new Date().toISOString();
+    db.tables.runs.push({ id: 'going', brand_id: BRAND, kind: 'extract_facts', workflow_version: 1, status: 'running', metered_planned: 61, created_at: now, updated_at: now });
+    for (let i = 0; i < 10; i++) db.tables.run_steps.push({ id: `g${i}`, run_id: 'going', type: 'llm', created_at: now });
+    await expect(startRun(envWith, undefined, owner(), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: 'this brand has used its 100 metered calls for today (14 made, 51 reserved by runs still going, 61 needed); try again after 00:00 UTC' });
   });
   it('an anonymous owner gets the smaller budget and a per-IP limit; a permanent one is not IP-limited', async () => {
     const keys: string[] = [];
     let allow = true;
     const limited = { ...envWith, PUBLIC_LIMITER: { limit: async (o: { key: string }) => { keys.push(o.key); return { success: allow }; } } };
-    setBudget({ anonymous: 59 });
-    await expect(startRun(limited, undefined, owner({ isAnonymous: true, ip: '203.0.113.9' }), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/used its 59 AI model calls/) });
+    setBudget({ anonymous: 60 });
+    await expect(startRun(limited, undefined, owner({ isAnonymous: true, ip: '203.0.113.9' }), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/used its 60 metered calls/) });
     expect(keys).toEqual(['run:203.0.113.9']);
     allow = false;
     await expect(startRun(limited, undefined, owner({ isAnonymous: true, ip: '203.0.113.9' }), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/too many reads from your network/) });
@@ -889,6 +926,129 @@ describe('start checks: per-brand daily model-call budget and anonymous caps, in
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 401 })));
     expect(await openRouterKeyInfo('k')).toEqual({ isFreeTier: null, freeModelDailyLimit: null });
     expect(await openRouterKeyInfo(undefined)).toEqual({ isFreeTier: null, freeModelDailyLimit: null });
+  });
+});
+
+describe('admission is atomic and counts every spend (spec/db/011 admit_run; metering.ts MeteredFailure)', () => {
+  const owner = { id: 'u' };
+  it('two starts at the edge of the budget: exactly one is admitted (Codex review on PR #91)', async () => {
+    db.tables.engine_config.push({ key: 'metered_call_budget', value: { permanent: 100 } });
+    step = fakeStep();
+    const results = await Promise.allSettled([0, 1].map(() => startRun(envWith, undefined, owner, db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })));
+    expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+    expect((results.find((r) => r.status === 'rejected') as PromiseRejectedResult).reason).toMatchObject({ status: 429, message: 'this brand has used its 100 metered calls for today (0 made, 61 reserved by runs still going, 61 needed); try again after 00:00 UTC' });
+    expect(db.tables.runs).toHaveLength(1);
+    expect(db.tables.sources).toHaveLength(1);
+  });
+  it('a paid read that fails still records its cost, and the brand-day spend counts it (Codex review on PR #100)', async () => {
+    registerReader('paid_empty', async () => ({ ok: false, kind: 'paste', code: 'empty', reason: 'nothing usable came back', meta: { pages: 0, cost: 0.007, ms: 0, notes: [] } }) as never, READER_INPUTS.paste);
+    db.tables.engine_config.push({ key: 'daily_spend_usd', value: { permanent: 0.007 } });
+    try {
+      step = fakeStep();
+      expect((await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'paid_empty', text: 'x' })).status).toBe(202);
+      expect(db.tables.runs[0]).toMatchObject({ status: 'failed', error: 'nothing usable came back' });
+      expect(db.tables.run_steps.filter((x) => x.step === 'read')).toEqual([expect.objectContaining({ outcome: 'error', cost_usd: 0.007 })]);
+      const r = await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'paid_empty', text: 'x' });
+      expect(r).toMatchObject({ status: 429, body: { error: 'this brand has spent $0.007 of its $0.007 daily allowance for paid services; try again after 00:00 UTC' } });
+    } finally {
+      delete READERS.paid_empty; delete READER_INPUTS.paid_empty;
+    }
+  });
+  it('a charged model reply with no choices is a MeteredFailure, and its cost and model are recorded on the failed step', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ model: 'dots-studio/dots-3-note-preview:free', usage: { prompt_tokens: 9, completion_tokens: 0, cost: 0.0001 } }))));
+    const e = await chat(env, 's', 'u').catch((x) => x);
+    expect(e).toBeInstanceOf(MeteredFailure);
+    expect(e).toMatchObject({ status: 502, cost: 0.0001, trace: { model: 'dots-studio/dots-3-note-preview:free', tokens_in: 9 } });
+    expect(MeteredFailure.from(new HttpError(400, 'bad'), -1)).toMatchObject({ status: 400, message: 'bad', cost: null });
+  });
+});
+
+describe('conflicts stay true in the database (spec/db/011 rederive_conflicts, resolve_fact_conflict)', () => {
+  const open = () => (db.tables.fact_conflicts as Row[]).filter((c) => c.status === 'open');
+  const twoSources = async () => {
+    await extract('https://jamjam.tech');
+    await extract('https://news.example/jamjam');
+    const site = evidence().find((e) => e.slot === 'founded' && e.quote.includes('2020'))! as ReturnType<typeof evidence>[number] & { id: string };
+    const news = evidence().find((e) => e.slot === 'founded' && e.quote.includes('2021'))! as ReturnType<typeof evidence>[number] & { id: string };
+    expect(open()).toHaveLength(1);
+    expect([site.review_status, news.review_status]).toEqual(['proposed', 'proposed']);
+    expect([site.slot_key, news.slot_key]).toEqual(['2020', '2021']);
+    return { site, news, conflict: open()[0] };
+  };
+  it('removing the source of one side closes the conflict and returns the other side to its own review', async () => {
+    const { site, news, conflict } = await twoSources();
+    expect((await call('DELETE', `/brands/${BRAND}/sources/${news.source_id}`)).status).toBe(200);
+    expect(conflict).toMatchObject({ status: 'dissolved', evidence_ids: [site.id] });
+    expect(site.review_status).toBe('approved');
+    expect((await call('DELETE', `/brands/${BRAND}/sources/${news.source_id}`)).status).toBe(404);
+  });
+  it('rejecting the only fact on one side, through the review route, closes the conflict and restores the other side', async () => {
+    const { site, news, conflict } = await twoSources();
+    expect((await call('PATCH', `/brands/${BRAND}/evidence/${news.id}`, { review_status: 'rejected' })).status).toBe(200);
+    expect(conflict.status).toBe('dissolved');
+    expect(site.review_status).toBe('approved');
+  });
+  it('resolve: keep approves its side and rejects the rest; a vanished or rejected kept fact is a 409 that changes nothing', async () => {
+    const { site, news, conflict } = await twoSources();
+    db.tables.evidence = db.tables.evidence.filter((e) => e.id !== news.id); // gone without the trigger: another tab raced it
+    await expect(resolveFactConflict(envWith, { brandId: BRAND, conflictId: conflict.id as string, by: 'u', keep: [news.id] })).rejects.toMatchObject({ status: 409, message: 'this disagreement changed since it was shown; reload it' });
+    expect([conflict.status, site.review_status]).toEqual(['open', 'proposed']);
+    db.tables.evidence.push(news);
+    await expect(resolveFactConflict(envWith, { brandId: BRAND, conflictId: conflict.id as string, by: 'u', keep: [site.id] })).resolves.toEqual({ changed: 2, answer: null });
+    expect([site.review_status, news.review_status, conflict.status, conflict.resolved_by]).toEqual(['approved', 'rejected', 'resolved', 'u']);
+    await expect(resolveFactConflict(envWith, { brandId: BRAND, conflictId: conflict.id as string, by: 'u', keep: [site.id] })).rejects.toMatchObject({ status: 409 });
+    await expect(resolveFactConflict(envWith, { brandId: BRAND, conflictId: '00000000-0000-4000-8000-00000000ffff', by: 'u' })).rejects.toMatchObject({ status: 404 });
+  });
+  it('resolve with the owner\'s own answer saves it and rejects every source side in one call; an invalid answer changes nothing', async () => {
+    const { site, news, conflict } = await twoSources();
+    const before = JSON.stringify([db.tables.evidence, db.tables.fact_conflicts]);
+    for (const answer of [{ section: 'origin', claim: '', value: '2019' }, { section: 'origin', claim: 'Founded in 2019.', value: '' }, { section: '', claim: 'Founded in 2019.', value: '2019' }, { section: 'origin', claim: 'x', value: '2019', editedFrom: '00000000-0000-4000-8000-00000000ffff' }]) {
+      await expect(resolveFactConflict(envWith, { brandId: BRAND, conflictId: conflict.id as string, by: 'u', answer })).rejects.toMatchObject({ status: 400 });
+    }
+    await expect(resolveFactConflict(envWith, { brandId: BRAND, conflictId: conflict.id as string, by: 'u', keep: [site.id], answer: { section: 'origin', claim: 'Founded in 2019.', value: '2019' } })).rejects.toMatchObject({ status: 400 });
+    expect(JSON.stringify([db.tables.evidence, db.tables.fact_conflicts])).toBe(before);
+    const out = await resolveFactConflict(envWith, { brandId: BRAND, conflictId: conflict.id as string, by: 'u', answer: { section: 'origin', claim: 'JamJam was founded in 2019.', value: '2019', editedFrom: news.id } });
+    expect(out.changed).toBe(2);
+    expect(db.tables.evidence.find((e) => e.id === out.answer)).toMatchObject({ trust: 'owner_answer', review_status: 'approved', slot: 'founded', slot_value: '2019', slot_key: '2019', edited_from: news.id, quote: null });
+    expect([site.review_status, news.review_status, conflict.status]).toEqual(['rejected', 'rejected', 'resolved']);
+  });
+  it('the question is worded from the sides still on the conflict', async () => {
+    const { conflict } = await twoSources();
+    await extract('https://other.example/profile');
+    const v = conflictView(conflict as never, evidence() as never, new Map());
+    expect(v!.question.statement).toBe('Your sources disagree on when the brand was founded or launched: "2020" (1 fact) or "2021" (2 facts). Which is right?');
+    const other = evidence().find((e) => e.source_id === db.tables.sources[2].id && e.slot === 'founded')!;
+    other.review_status = 'rejected';
+    expect(conflictView(conflict as never, evidence() as never, new Map())!.question.statement).toMatch(/"2020" \(1 fact\) or "2021" \(1 fact\)/);
+  });
+});
+
+describe('slot values must be the whole value, and the judge checks them (Codex review on PR #91)', () => {
+  it('"York" never stands for "New York": cleared before the check; the whole name, numbers and $ amounts stand', () => {
+    expect([
+      valueStandsAlone('York', 'JamJam is based in New York.'), valueStandsAlone('New York', 'Based in New York City.'), valueStandsAlone('10', 'used by 10,000 teams'), valueStandsAlone('12', 'Plans start at $12.50 a month'),
+    ]).toEqual([false, false, false, false]);
+    expect([
+      valueStandsAlone('New York', 'JamJam is based in New York.'), valueStandsAlone('New York', 'In New York, JamJam began.'), valueStandsAlone('Melbourne', 'Melbourne start-up JamJam, founded in 2021'), valueStandsAlone('10,000', 'used by 10,000 teams'), valueStandsAlone('$12', 'Plans start at $12 a month'),
+    ]).toEqual([true, true, true, true, true]);
+    const text = 'JamJam is based in New York.';
+    const out = alignFacts(text, [{ start: 0, end: text.length }], [{ facts: [
+      { section: 'origin', claim: 'JamJam is based in New York.', quote: text, slot: 'headquarters', value: 'York' },
+      { section: 'origin', claim: 'JamJam is based in New York.', quote: text, slot: 'headquarters', value: 'New York' },
+    ] }]);
+    expect(out.facts.map((f) => [f.slot, f.value])).toEqual([['none', ''], ['headquarters', 'New York']]);
+    // A York reading and a New York reading never make a conflict.
+    expect(findConflicts(out.facts.map((f) => ({ id: f.id, source_id: 's', section: f.section, claim: f.claim, slot: f.slot === 'none' ? null : f.slot, slot_value: f.value, match: 'exact', review_status: 'approved', trust: 'owned' })))).toEqual([]);
+  });
+  it('the support judge sees the slot and value with the claim and passage, and the prompt says how to judge them', () => {
+    const text = 'JamJam is based in New York.';
+    const { facts } = alignFacts(text, [{ start: 0, end: text.length }], [{ facts: [{ section: 'origin', claim: 'JamJam is based in New York.', quote: text, slot: 'headquarters', value: 'New York' }, { section: 'purpose', claim: 'JamJam is a company.', quote: text, slot: 'none', value: '' }] }]);
+    const items = JSON.parse(supportBatches(facts, 12, 40).batches[0].text);
+    expect(items).toEqual([
+      { id: 'f1', claim: 'JamJam is based in New York.', passage: text.replace(/\.$/, '').length ? items[0].passage : '', fact: 'where the brand is based', value: 'New York' },
+      { id: 'f2', claim: 'JamJam is a company.', passage: items[1].passage },
+    ]);
+    expect(CHECK_SUPPORT_PROMPT).toContain('does not support where the brand is based = "York"');
   });
 });
 

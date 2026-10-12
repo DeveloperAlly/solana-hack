@@ -8,6 +8,7 @@
 // (intake.ts). A document is converted when it is uploaded and its text stored, so its reader reads the stored text;
 // there is no upload store.
 import { HttpError, type Env } from '../env';
+import { MeteredFailure } from '../metering';
 import { PASTE_MAX_CHARS, readPaste } from '../sources/paste';
 import { SOURCE_TYPES, urlKind, type SourceKind } from '../sources/registry';
 import { readSite } from '../sources/site';
@@ -136,7 +137,8 @@ export async function readSource(env: Env, reader: string, args: Record<string, 
   const read = Object.hasOwn(READERS, reader) ? READERS[reader] : undefined;
   if (!read) throw new HttpError(500, `unknown source reader ${reader}`);
   const r = await read(env, args);
-  if (!r.ok) throw new HttpError(STATUS[r.code], r.reason);
+  // A failed read may still have cost money (an Exa call that returned nothing usable): its cost is recorded.
+  if (!r.ok) throw new MeteredFailure(STATUS[r.code], r.reason, r.meta?.cost ?? null);
   const text = capText(r.text, maxChars, maxBytes);
   const pages: ReadStepOutput['pages'] = [];
   let at = 0;

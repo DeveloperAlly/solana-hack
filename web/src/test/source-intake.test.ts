@@ -2,7 +2,7 @@
 // The Worker runs on workerd, whose Request, FormData and File are the WHATWG ones Node provides (undici); jsdom's
 // File does not round-trip through a multipart body, so this file runs in the node environment.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BRAND, db, env, fakeDb, fakeStep, seedTables, type Row } from './engine-harness';
+import { BRAND, db, env, fakeDbResponse, fakeStep, seedTables, type Row } from './engine-harness';
 import { parseLinkedInExport, parseXArchive, socialPayload } from '../lib/socialExport';
 import type { ConversionResult } from '../../worker/sources/types';
 
@@ -14,7 +14,7 @@ const { HttpError } = await import('../../worker/env');
 const { runWorkflow } = await import('../../worker/engine/runner');
 const { localDeps } = await import('../../worker/engine/executor');
 const { READERS, readSource, SOURCE_READ_LIMIT } = await import('../../worker/engine/readers');
-const { EXTRACT_FACTS } = await import('../../worker/engine/seed');
+const { EXTRACT_FACTS, FIND_COMPETITORS } = await import('../../worker/engine/seed');
 const { SOURCE_TYPES } = await import('../../worker/sources/registry');
 const { readSocial, SOCIAL_LIMIT, SOCIAL_MAX_ITEMS } = await import('../../worker/sources/social');
 const { readSearch, readCompetitors, EXA_SEARCH, EXA_FIND_SIMILAR, COMPETITOR_CANDIDATES } = await import('../../worker/sources/search');
@@ -45,7 +45,7 @@ beforeEach(async () => {
   exaReply = null;
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'u', email: 'o@example.com' }));
-    if (url.startsWith('https://db.test')) return new Response(JSON.stringify(fakeDb(url, init)));
+    if (url.startsWith('https://db.test')) return fakeDbResponse(url, init);
     if (url === EXA_SEARCH || url === EXA_FIND_SIMILAR) {
       const body = JSON.parse(String(init!.body)) as Record<string, unknown>;
       exaCalls.push({ url, body });
@@ -500,6 +500,34 @@ describe('competitor candidates (#35): three, with sources, for the positioning 
     const done = run((await api('POST', `/brands/${BRAND}/competitors`, {})).body.run && db.tables.runs[0].id);
     expect(done.output).toMatchObject({ cost: null });
     expect(db.tables.run_steps.find((s) => s.run_id === done.id && s.step === 'read')).toMatchObject({ cost_usd: null });
+  });
+
+  it('Codex review on PR #100: the paid findSimilar step is metered, so a brand over its budget or spend is refused before any Exa call', async () => {
+    expect(FIND_COMPETITORS.steps.find((x) => x.id === 'read')).toMatchObject({ metered: 1 });
+    exaReply = () => exaOk([exaResult('https://rival.example/', 'Rival.', 'Rival')]);
+    db.tables.engine_config.push({ key: 'metered_call_budget', value: { permanent: 0, anonymous: 0 } });
+    const overBudget = await api('POST', `/brands/${BRAND}/competitors`, {});
+    expect(overBudget.status).toBe(429);
+    db.tables.engine_config = db.tables.engine_config.filter((c) => c.key !== 'metered_call_budget');
+    // Today's recorded spend at the cap (spec/db/011 admit_run sums cost_usd, failed attempts included).
+    db.tables.runs.push({ id: 'spent-run', brand_id: BRAND, kind: 'extract_facts', status: 'done', created_at: '2000-01-01T00:00:00.000Z' });
+    db.tables.run_steps.push({ id: 's1', run_id: 'spent-run', step: 'read', type: 'fetch', outcome: 'ok', cost_usd: 0.5, created_at: new Date().toISOString() });
+    const overSpend = await api('POST', `/brands/${BRAND}/competitors`, {});
+    expect(overSpend).toMatchObject({ status: 429, body: { error: expect.stringMatching(/daily allowance/) } });
+    expect(exaCalls).toHaveLength(0);
+    expect(db.tables.runs.filter((r) => r.kind === 'find_competitors')).toHaveLength(0);
+  });
+
+  it('Codex review on PR #100: a search or competitor read that Exa charged for but that found nothing usable still records its cost', async () => {
+    exaReply = () => exaOk([exaResult('https://jamjam.tech/about', 'Our own page.', 'About')], 0.009);
+    const s = await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' });
+    const searchRun = run((s.body.run as Row).id);
+    expect(searchRun).toMatchObject({ status: 'failed', error_code: 422 });
+    expect(db.tables.run_steps.find((x) => x.run_id === searchRun.id && x.step === 'read')).toMatchObject({ outcome: 'error', cost_usd: 0.009 });
+    const c = await api('POST', `/brands/${BRAND}/competitors`, {});
+    const compRun = run((c.body.run as Row).id);
+    expect(compRun.status).toBe('failed');
+    expect(db.tables.run_steps.find((x) => x.run_id === compRun.id && x.step === 'read')).toMatchObject({ outcome: 'error', cost_usd: 0.009 });
   });
 
   it('a brand without a website is told to add one; nothing is called', async () => {
