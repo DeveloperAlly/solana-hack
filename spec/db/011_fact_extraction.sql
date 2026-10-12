@@ -37,6 +37,7 @@ alter table public.evidence add column if not exists source_key text;
 -- starts approved), so confirming an already approved fact is recorded (Codex review on PR #101): 'confirmed' and
 -- 'rejected' from the review route and from resolve_fact_conflict; 'edited' for an owner answer that settles a
 -- conflict and for the source fact it rewords. A record: a later contradiction still reopens a conflict.
+alter table public.evidence add column if not exists contradicts_owner boolean not null default false;
 alter table public.evidence add column if not exists owner_decision text;
 alter table public.evidence add column if not exists owner_decided_by uuid references auth.users(id) on delete set null;
 alter table public.evidence add column if not exists owner_decided_at timestamptz;
@@ -119,8 +120,8 @@ create unique index if not exists fact_conflicts_one_open on public.fact_conflic
 alter table public.fact_conflicts enable row level security;
 
 -- A fact on a side of an open conflict reaches 'approved' only through resolve_fact_conflict (Codex review on PR #91,
--- P1 4250250002): a direct approval (the evidence review route) is refused with 409, so the owner is told why, and no
--- side of a live disagreement is ever usable. resolve_fact_conflict closes the conflict before it sets the sides, and
+-- P1 4250250002), and a fact that contradicts the owner's own answer only after the owner changes that answer: a direct
+-- approval (the evidence review route) is refused with 409, so the owner is told why, and no second value is ever usable. resolve_fact_conflict closes the conflict before it sets the sides, and
 -- rederive_conflicts restores reviews only on a conflict it has just closed, so neither is refused.
 create or replace function public.refuse_disputed_approval()
 returns trigger language plpgsql security invoker set search_path = public as $fn$
@@ -128,6 +129,9 @@ begin
   if new.review_status = 'approved' and old.review_status is distinct from 'approved'
      and exists (select 1 from public.fact_conflicts fc where fc.brand_id = new.brand_id and fc.status = 'open' and new.id = any(fc.evidence_ids)) then
     raise sqlstate 'PT409' using message = 'other sources disagree with this fact: resolve the disagreement first';
+  end if;
+  if new.review_status = 'approved' and old.review_status is distinct from 'approved' and old.contradicts_owner then
+    raise sqlstate 'PT409' using message = 'your own answer says otherwise: change your answer to use this fact';
   end if;
   return new;
 end $fn$;
@@ -150,46 +154,80 @@ insert into public.fact_slots (slot, label) values
   ('price_from', 'its lowest listed price')
 on conflict (slot) do update set label = excluded.label;
 
--- Conflicts as a pure function of the facts (Codex reviews on PR #91 and PR #101). For one brand and slot: when the
--- facts that are not rejected give at least two different values (slot_key), there is exactly one open conflict for
--- the slot, listing every such fact, and every fact on it (owner answers included) is held at 'proposed', so none of
--- them is usable (sources/registry.ts usableFact: approved only) and two contradictory approved values can never
--- stand. Otherwise there is no open conflict: an open one is closed as 'dissolved' and each fact it held returns to the
--- review it would start with without a conflict (owner answers approved; owned and exactly quoted approved: save.ts
--- initialReviewFor; anything else waits). An owner's resolution stays as a 'resolved' record; a later re-approval of a
--- side the owner turned down gives two live values again, so a new conflict opens. Serialised per brand and slot.
--- Runs from statement triggers after every insert, delete and review change on evidence (below), so every path that
--- changes which facts are live goes through it in the same transaction. Returns the open conflict's id, or null.
+-- Conflicts as a pure function of the facts (Codex reviews on PR #91 and PR #101), with the owner's word first
+-- (ADR-011: owner answers start approved and their trust class exists so the owner's word stands). For one brand and
+-- slot, from the facts that are not rejected and have a value (slot_key):
+-- - Owner answers are never sides of a conflict and are never demoted. While exactly one owner value stands, every
+--   other fact giving a different value is held at 'proposed' and flagged contradicts_owner ("your source says X, you
+--   said Y"), never usable, and there is no open conflict; facts that agree with the owner are not held.
+-- - With no owner value, two or more different values among the other facts mean exactly one open conflict listing
+--   them, each held at 'proposed' (so none is usable: sources/registry.ts usableFact, approved only); fewer close it as
+--   'dissolved'.
+-- - If owner answers themselves disagree (two owner values), they and every other fact become sides of one conflict,
+--   so no two values are ever usable at once.
+-- A fact this function stops holding returns to the review it would start with (owner answers approved; owned and
+-- exactly quoted approved: save.ts initialReviewFor; anything else waits). An owner's resolution stays as a 'resolved'
+-- record; re-approving a turned-down side gives two live values again, so a new conflict opens. The owner changing
+-- their answer re-derives through the same triggers. Serialised per brand and slot. Runs from statement triggers after
+-- every insert, delete and review change on evidence (below). Returns the open conflict's id, or null.
+alter table public.evidence add column if not exists contradicts_owner boolean not null default false;
 create or replace function public.rederive_conflicts(p_brand uuid, p_slot text)
 returns uuid language plpgsql security invoker set search_path = public as $fn$
-declare v_live uuid[]; v_values int; v_open uuid; v_held uuid[]; v_question text;
+declare
+  v_owner text[]; v_live uuid[]; v_values int; v_open uuid; v_held uuid[]; v_question text; v_release uuid[] := '{}';
 begin
   perform pg_advisory_xact_lock(hashtextextended('fact_conflict:' || p_brand::text || ':' || p_slot, 0));
-  v_live := array(select e.id from public.evidence e where e.brand_id = p_brand and e.slot = p_slot and e.review_status <> 'rejected' and e.slot_key is not null order by e.id);
-  select count(distinct e.slot_key) into v_values from public.evidence e where e.id = any(v_live);
+  v_owner := array(select distinct e.slot_key from public.evidence e where e.brand_id = p_brand and e.slot = p_slot
+                   and e.trust = 'owner_answer' and e.review_status <> 'rejected' and e.slot_key is not null);
   select fc.id, fc.evidence_ids into v_open, v_held from public.fact_conflicts fc where fc.brand_id = p_brand and fc.slot = p_slot and fc.status = 'open' for update;
-  if v_values >= 2 then
-    select format('Your sources disagree on %s: %s. Which is right?', coalesce((select label from public.fact_slots where slot = p_slot), p_slot),
-                  string_agg(format('"%s" (%s %s)', g.v, g.n, case when g.n = 1 then 'fact' else 'facts' end), ' or ' order by g.v collate "C"))
-    into v_question
-    from (select min(btrim(e.slot_value)) as v, count(*) as n from public.evidence e where e.id = any(v_live) group by e.slot_key) g;
-    if v_open is null then
-      insert into public.fact_conflicts (brand_id, slot, evidence_ids, question) values (p_brand, p_slot, v_live, v_question) returning id into v_open;
-    elsif v_held is distinct from v_live then
-      update public.fact_conflicts set evidence_ids = v_live, question = v_question, updated_at = now() where id = v_open;
+
+  if cardinality(v_owner) = 1 then
+    -- The owner's value stands: no question; the facts that disagree are held and flagged; the rest are released.
+    if v_open is not null then
+      update public.fact_conflicts set evidence_ids = array(select e.id from public.evidence e where e.id = any(v_held) order by e.id),
+        status = 'dissolved', resolved_at = now(), updated_at = now() where id = v_open;
+      v_release := v_held;
     end if;
-    update public.evidence set review_status = 'proposed' where id = any(v_live) and review_status = 'approved';
-    return v_open;
+    update public.evidence set contradicts_owner = true, review_status = case when review_status = 'approved' then 'proposed' else review_status end
+    where brand_id = p_brand and slot = p_slot and trust <> 'owner_answer' and review_status <> 'rejected' and slot_key is not null
+      and slot_key <> v_owner[1] and (not contradicts_owner or review_status = 'approved');
+    v_release := v_release || array(select e.id from public.evidence e where e.brand_id = p_brand and e.slot = p_slot and e.contradicts_owner and e.slot_key = v_owner[1]);
+    update public.evidence set contradicts_owner = false where id = any(v_release) and contradicts_owner and slot_key = v_owner[1];
+    v_release := array(select e.id from public.evidence e where e.id = any(v_release) and not e.contradicts_owner);
+  else
+    -- No owner value (or the owner's values disagree): a conflict among the facts that are live.
+    v_live := array(select e.id from public.evidence e where e.brand_id = p_brand and e.slot = p_slot and e.review_status <> 'rejected'
+                    and e.slot_key is not null and (cardinality(v_owner) >= 2 or e.trust <> 'owner_answer') order by e.id);
+    select count(distinct e.slot_key) into v_values from public.evidence e where e.id = any(v_live);
+    v_release := array(select e.id from public.evidence e where e.brand_id = p_brand and e.slot = p_slot and e.contradicts_owner);
+    update public.evidence set contradicts_owner = false where id = any(v_release);
+    if v_values >= 2 then
+      select format('Your sources disagree on %s: %s. Which is right?', coalesce((select label from public.fact_slots where slot = p_slot), p_slot),
+                    string_agg(format('"%s" (%s %s)', g.v, g.n, case when g.n = 1 then 'fact' else 'facts' end), ' or ' order by g.v collate "C"))
+      into v_question
+      from (select min(btrim(e.slot_value)) as v, count(*) as n from public.evidence e where e.id = any(v_live) group by e.slot_key) g;
+      if v_open is null then
+        insert into public.fact_conflicts (brand_id, slot, evidence_ids, question) values (p_brand, p_slot, v_live, v_question) returning id into v_open;
+      elsif v_held is distinct from v_live then
+        update public.fact_conflicts set evidence_ids = v_live, question = v_question, updated_at = now() where id = v_open;
+      end if;
+      update public.evidence set review_status = 'proposed' where id = any(v_live) and review_status = 'approved';
+      v_release := array(select x from unnest(v_release) x where not (x = any(v_live)));
+    else
+      if v_open is not null then
+        update public.fact_conflicts set evidence_ids = array(select e.id from public.evidence e where e.id = any(v_held) order by e.id),
+          status = 'dissolved', resolved_at = now(), updated_at = now() where id = v_open;
+        v_release := v_release || v_held;
+      end if;
+      v_open := null;
+    end if;
   end if;
-  if v_open is not null then
-    update public.fact_conflicts set evidence_ids = array(select e.id from public.evidence e where e.id = any(v_held) order by e.id),
-      status = 'dissolved', resolved_at = now(), updated_at = now() where id = v_open;
-    update public.evidence e set review_status = t.target
-    from (select e2.id, case when e2.trust = 'owner_answer' or (e2.trust = 'owned' and e2.match = 'exact') then 'approved' else 'proposed' end as target
-          from public.evidence e2 where e2.id = any(v_held) and e2.review_status = 'proposed') t
-    where e.id = t.id and e.review_status <> t.target;
-  end if;
-  return null;
+
+  update public.evidence e set review_status = t.target
+  from (select e2.id, case when e2.trust = 'owner_answer' or (e2.trust = 'owned' and e2.match = 'exact') then 'approved' else 'proposed' end as target
+        from public.evidence e2 where e2.id = any(v_release) and e2.review_status = 'proposed' and not e2.contradicts_owner) t
+  where e.id = t.id and e.review_status <> t.target;
+  return case when cardinality(v_owner) = 1 then null else v_open end;
 end $fn$;
 revoke all on function public.rederive_conflicts(uuid, text) from public, anon, authenticated;
 grant execute on function public.rederive_conflicts(uuid, text) to service_role;
@@ -262,6 +300,9 @@ begin
   where brand_id = p_brand and id = any(v_ids);
   get diagnostics v_n = row_count;
   if p_answer is not null then
+    -- The new answer replaces any earlier answer of the owner's for this slot, so one owner value stands.
+    update public.evidence set review_status = 'rejected', owner_decision = 'edited', owner_decided_by = p_by, owner_decided_at = now()
+    where brand_id = p_brand and slot = v_slot and trust = 'owner_answer' and review_status <> 'rejected';
     if v_from is null then
       insert into public.evidence (brand_id, source_id, section, claim, quote, origin, trust, review_status, slot, slot_value, slot_key, owner_decision, owner_decided_by, owner_decided_at)
       values (p_brand, null, v_section, v_claim, null, 'owner_answer', 'owner_answer', 'approved', v_slot, v_value, v_key, 'edited', p_by, now())

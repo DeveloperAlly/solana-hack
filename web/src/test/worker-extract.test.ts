@@ -1094,13 +1094,12 @@ describe('conflicts stay true in the database (spec/db/011 rederive_conflicts, r
     expect(conflict.status).toBe('resolved');
     expect([site.review_status, news.review_status]).toEqual(['proposed', 'proposed']);
     expect([usableFact(site), usableFact(news)]).toEqual([false, false]);
-    // An owner answer that joins a disagreement is held too, and comes back when the disagreement goes.
+    // An owner answer for the slot settles it: the open conflict closes, the owner's value stands and stays usable, and
+    // the facts that disagree with it are held and flagged (the owner's word first, ADR-011).
     db.tables.evidence.push({ id: 'ans', brand_id: BRAND, section: 'origin', claim: 'Founded 2019.', quote: null, origin: 'owner_answer', trust: 'owner_answer', review_status: 'approved', slot: 'founded', slot_value: '2019', slot_key: '2019' });
     await call('PATCH', `/brands/${BRAND}/evidence/${news.id}`, { review_status: 'rejected' });
     const ans = db.tables.evidence.find((e) => e.id === 'ans')!;
-    expect([open().length, ans.review_status, usableFact(ans)]).toEqual([1, 'proposed', false]); // 2020 against 2019 now
-    await call('PATCH', `/brands/${BRAND}/evidence/${site.id}`, { review_status: 'rejected' });
-    expect([open().length, ans.review_status]).toEqual([0, 'approved']);
+    expect([open().length, ans.review_status, usableFact(ans), site.review_status, site.contradicts_owner]).toEqual([0, 'approved', true, 'proposed', true]);
   });
   it('the database words the question as the Worker does, from the same slot labels', () => {
     const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/011_fact_extraction.sql'), 'utf8');
@@ -1148,6 +1147,28 @@ describe('conflicts stay true in the database (spec/db/011 rederive_conflicts, r
     })();
     const out = await resolveFactConflict(envWith, { brandId: BRAND, conflictId: conflict.id as string, by: 'u', answer: { section: 'origin', claim: 'Founded in 2019.', value: '2019', editedFrom: news.id as string } });
     expect([site.owner_decision, news.owner_decision, db.tables.evidence.find((e) => e.id === out.answer)!.owner_decision]).toEqual(['rejected', 'edited', 'edited']);
+  });
+  it('the owner\'s own answer stands: a page saying otherwise is held and flagged, never a conflict that demotes the owner', async () => {
+    db.tables.evidence.push({ id: 'own', brand_id: BRAND, section: 'origin', claim: 'Based in Melbourne.', quote: null, origin: 'owner_answer', trust: 'owner_answer', review_status: 'approved', slot: 'headquarters', slot_value: 'Melbourne', slot_key: 'melbourne' });
+    PAGES['https://elsewhere.example/jamjam'] = page(['JamJam is based in Sydney.', ...filler(20).split('\n\n')]);
+    proposals.push({ when: 'based in Sydney', section: 'origin', claim: 'JamJam is based in Sydney.', quote: 'JamJam is based in Sydney.', slot: 'headquarters', value: 'Sydney' });
+    SUPPORT_LABELS['JamJam is based in Sydney.'] = true;
+    try {
+      await extract('https://elsewhere.example/jamjam');
+      const own = db.tables.evidence.find((e) => e.id === 'own')!;
+      const sydney = evidence().find((e) => e.slot_value === 'Sydney')! as ReturnType<typeof evidence>[number] & { id: string; contradicts_owner: boolean };
+      expect([own.review_status, usableFact(own)]).toEqual(['approved', true]);
+      expect([sydney.review_status, sydney.contradicts_owner, usableFact(sydney)]).toEqual(['proposed', true, false]);
+      expect(open()).toHaveLength(0);
+      expect(factView(sydney as never, new Map(), new Set())).toMatchObject({ status: 'needs-you', note: expect.stringMatching(/Your own answer says something different/) });
+      expect(await call('PATCH', `/brands/${BRAND}/evidence/${sydney.id}`, { review_status: 'approved' })).toEqual({ status: 409, body: { error: 'your own answer says otherwise: change your answer to use this fact' } });
+      // The owner changes their answer to Sydney: the page's fact is released, and Melbourne no longer stands.
+      db.tables.evidence = db.tables.evidence.filter((e) => e.id !== 'own');
+      await call('DELETE', `/brands/${BRAND}/sources/${db.tables.sources.at(-1)!.id}`).catch(() => undefined);
+    } finally {
+      delete PAGES['https://elsewhere.example/jamjam'];
+      delete SUPPORT_LABELS['JamJam is based in Sydney.'];
+    }
   });
   it('the question is worded from the sides still on the conflict', async () => {
     const { conflict } = await twoSources();
