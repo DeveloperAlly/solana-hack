@@ -6,7 +6,7 @@ import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
 import { activeRun, getRun, ingestSource, startRun } from './engine/api';
 import type { WaitUntil } from './engine/executor';
-import { usableFact } from './sources/registry';
+import { reviewable, usableFact } from './sources/registry';
 import { resolveConflict } from './prefill/decide';
 import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
@@ -290,8 +290,6 @@ export async function patchBrand(env: Env, brand: Brand, patch: Record<string, s
   return { brand: row, reapprove };
 }
 
-/** Trust classes whose facts the owner reviews; owner answers are changed by editing the answer, assumptions by redrafting. */
-const REVIEWABLE = ['owned', 'third_party'];
 
 /**
  * The owner approves or rejects one fact (issue #57). Third-party facts start proposed and enter a kit or back a post
@@ -303,7 +301,7 @@ export async function reviewEvidence(env: Env, brand: Brand, id: string, decisio
   const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
   const [row] = await db.select<Evidence>(env, 'evidence', f);
   if (!row) throw new HttpError(404, 'fact not found');
-  if (!REVIEWABLE.includes(row.trust ?? '')) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
+  if (!reviewable(row)) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
   const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision });
   if (decision === 'approved') return { evidence: updated, stale: [] as string[] };
   const sections = await db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);

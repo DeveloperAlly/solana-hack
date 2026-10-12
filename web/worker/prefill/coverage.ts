@@ -8,9 +8,9 @@
 // Architecture: https://github.com/DeveloperAlly/solana-hack/blob/main/.agentic/what/context/brand_builder_architecture.md
 import { SECTIONS, type SectionId } from '../kit';
 import { normText } from '../extract/facts';
-import { usableFact } from '../sources/registry';
+import { reviewable, usableFact } from '../sources/registry';
 import type { EvidenceStatus, JourneyCoverage } from './contract';
-import { FIELDS, readers, type FieldSpec, type StepId } from './fields';
+import { FIELDS, readers, sectionQuestions, type FieldSpec, type StepId } from './fields';
 
 /** An evidence row as the coverage map reads it (spec/db/001, 009 and 011; edited_from from PR #96's migration). */
 export interface CoverageFact {
@@ -28,6 +28,8 @@ export interface CoverageFact {
   slot_value?: string | null;
   /** The comparable form of slot_value the database tells values apart by (spec/db/011). */
   slot_key?: string | null;
+  /** The fact an owner statement rewords (PR #96, spec/db/012 there). */
+  edited_from?: string | null;
 }
 /** An answers row (spec/db/001): one per interview step. */
 export interface CoverageAnswer { step: string; data: Record<string, string>; skipped: boolean }
@@ -44,8 +46,8 @@ export interface SectionCoverage {
   facts: number;
   /** Of those, facts the allow-list lets into a kit (usableFact, ADR-011). */
   usable: number;
-  /** Why the section has its status, in a few words, for the screen and the logs. */
-  basis: 'owner answer' | 'high-confidence fact' | 'owner-approved fact' | 'facts to confirm' | 'drafted from other sections' | 'disputed' | 'nothing yet';
+  /** The questions its state is aggregated from (fields.ts sectionQuestions). */
+  fields: string[];
 }
 export interface FieldCoverage {
   id: string;
@@ -128,7 +130,7 @@ export const ownerApproved = (f: CoverageFact) => f.review_status === 'approved'
  */
 export function evidences(f: CoverageFact, contested: ReadonlySet<string>): boolean {
   if (!usableFact(f) || contested.has(f.id)) return false;
-  if (isOwnerRow(f)) return f.section in SECTIONS;
+  if (isOwnerRow(f)) return ownerStatement(f);
   return (f.trust === 'owned' && f.confidence === 'high') || ownerApproved(f);
 }
 
@@ -201,9 +203,33 @@ export function fieldState(answer: string, skipped: boolean, candidates: Coverag
   return { status: 'needs-you', basis: 'none', factIds: [], conflictFactIds: [] };
 }
 
-/** A fact that can answer a question: read from a source (an owner statement answers no particular question), quoted,
- * and not rejected. Its review status and disputes are weighed by fieldState. */
-export const candidateFact = (f: CoverageFact) => f.review_status !== 'rejected' && !isOwnerRow(f) && !!f.quote;
+/**
+ * A fact that can answer a question: a quoted fact the owner can accept or reject (sources/registry.ts reviewable:
+ * read from a source, owned or third-party), or the owner's own statement in a kit section; never an assumption, which
+ * the owner cannot decide and which therefore never stands in for a question; never rejected. Its review status and
+ * disputes are weighed by fieldState. The Journey cards show the reviewable ones, and only those.
+ */
+export const candidateFact = (f: CoverageFact) => f.review_status !== 'rejected' && ((reviewable(f) && !!f.quote) || ownerStatement(f));
+
+/**
+ * The owner's own statement in a kit section: a rewording of a fact (PR #96 editFact, edited_from set) or the owner's
+ * answer to a disagreement (spec/db/011 resolve_fact_conflict, slot set). It answers what the facts it replaces
+ * answered, and evidences it (§12.3 rule 1, "a direct owner answer"), but it is not a card: the owner changes it by
+ * editing. Interview answer rows are not statements here, though the origin and voice steps share a kit section's
+ * name: they count through the answers table, one question each.
+ */
+export const ownerStatement = (f: CoverageFact) => isOwnerRow(f) && f.section in SECTIONS && f.review_status === 'approved' && (!!f.edited_from || !!f.slot);
+
+/**
+ * A section's state from its questions' states (fields.ts sectionQuestions), with no rule of its own over evidence
+ * (PR #101 review): all found is found, all needs-you is needs-you, anything else (a partly found question, or a mix)
+ * is partly.
+ */
+export function aggregate(states: EvidenceStatus[]): EvidenceStatus {
+  if (states.length && states.every((x) => x === 'found')) return 'found';
+  if (!states.length || states.every((x) => x === 'needs-you')) return 'needs-you';
+  return 'partly';
+}
 
 export function coverageMap(input: CoverageInput): CoverageMap {
   const live = input.evidence.filter((f) => f.review_status !== 'rejected');
@@ -224,38 +250,12 @@ export function coverageMap(input: CoverageInput): CoverageMap {
   const fieldOf = new Map(fields.map((f) => [f.id, f]));
 
   const sectionIds = Object.keys(SECTIONS) as SectionId[];
-  const base = new Map<SectionId, SectionCoverage>();
-  for (const s of sectionIds) {
+  const sections: SectionCoverage[] = sectionIds.map((s) => {
     const own = live.filter((x) => x.section === s);
-    const usable = own.filter((x) => usableFact(x));
-    const answered = FIELDS.some((f) => f.asks === s && fieldOf.get(f.id)!.confirmed);
-    const disputed = own.some((x) => contested.has(x.id));
-    const evidenced = own.find((x) => evidences(x, contested));
-    let status: EvidenceStatus;
-    let basis: SectionCoverage['basis'];
-    if ((answered || evidenced) && !disputed) {
-      status = 'found';
-      basis = answered ? 'owner answer' : isOwnerRow(evidenced!) ? 'owner answer' : ownerApproved(evidenced!) ? 'owner-approved fact' : 'high-confidence fact';
-    } else if (usable.some((x) => !contested.has(x.id)) || answered || evidenced) {
-      status = 'partly';
-      basis = disputed ? 'disputed' : 'facts to confirm';
-    } else if (disputed) {
-      status = 'partly';
-      basis = 'disputed';
-    } else {
-      status = 'needs-you';
-      basis = 'nothing yet';
-    }
-    base.set(s, { section: s, title: SECTIONS[s].title, gate: SECTIONS[s].gate, status, facts: own.length, usable: usable.length, basis });
-  }
-  // Messaging has no question of its own: with no messaging facts it is drafted from purpose and positioning (§4 row 8,
-  // zero-data fallback "Draft from 2–7"), so it is inferred once both have something behind them (§12.3 rule 1:
-  // "I if ... derived").
-  const messaging = base.get('messaging')!;
-  if (messaging.status === 'needs-you' && base.get('purpose')!.status !== 'needs-you' && base.get('positioning')!.status !== 'needs-you') {
-    base.set('messaging', { ...messaging, status: 'partly', basis: 'drafted from other sections' });
-  }
-  const sections = sectionIds.map((s) => base.get(s)!);
+    const questions = sectionQuestions(s).map((f) => f.id);
+    const status = aggregate(questions.map((id) => fieldOf.get(id)!.status));
+    return { section: s, title: SECTIONS[s].title, gate: SECTIONS[s].gate, status, facts: own.length, usable: own.filter((x) => usableFact(x)).length, fields: questions };
+  });
   const found = sections.filter((s) => s.status === 'found').length;
   const partly = sections.filter((s) => s.status === 'partly').length;
   const covered = found + partly;

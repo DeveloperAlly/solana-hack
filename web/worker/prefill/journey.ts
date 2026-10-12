@@ -6,8 +6,9 @@
 import { VOICE_TEMPLATES } from '../../src/screens/build/steps';
 import { SECTIONS } from '../kit';
 import { conflictView, factView, openConflictIds, sectionLabel, sourceLabel, type ConflictRow, type EvidenceRow, type SourceRow } from '../extract/journey';
+import { reviewable } from '../sources/registry';
 import type { ConfirmData, GapsVoiceData, JourneyFact, JourneySource, ReadData, SourceStatus } from './contract';
-import { compareFacts, coverageMap, journeyCoverage, type CoverageAnswer, type CoverageFact, type CoverageMap, type GapQuestion } from './coverage';
+import { candidateFact, compareFacts, coverageMap, journeyCoverage, type CoverageAnswer, type CoverageFact, type CoverageMap, type GapQuestion } from './coverage';
 import { fieldById } from './fields';
 
 export interface JourneySourceRow { id: string; url: string | null; title: string | null; status: string; error?: string | null }
@@ -48,15 +49,13 @@ export function sourceStatus(s: JourneySourceRow, run?: JourneyRun): { status: S
   return { status: 'queued', ...(why ? { reason: why } : {}) };
 }
 
-const isOwnerRow = (e: CoverageFact) => e.trust === 'owner_answer' || e.origin === 'owner_answer';
-
 /** J1's list: each source with its state and, once read, how many facts were found on it. */
 export function journeySources(state: Pick<JourneyState, 'sources' | 'runs' | 'evidence'>): JourneySource[] {
   return state.sources.map((s) => {
     const run = state.runs.find((r) => r.input?.sourceId === s.id);
     const { status, reason } = sourceStatus(s, run);
     const label = sourceLabel(s.url, null)?.label.replace(/ · home page$/, '') ?? (s.title || 'Text you added');
-    const facts = status === 'read' ? state.evidence.filter((e) => e.source_id === s.id && e.review_status !== 'rejected' && !isOwnerRow(e)).length : undefined;
+    const facts = status === 'read' ? state.evidence.filter((e) => e.source_id === s.id && candidateFact(e) && reviewable(e)).length : undefined;
     return { id: s.id, label, status, ...(facts !== undefined ? { facts } : {}), ...(reason ? { reason } : {}) };
   });
 }
@@ -68,8 +67,9 @@ function build(state: JourneyState): Built {
   const sources = new Map<string, SourceRow>(state.sources.map((s) => [s.id, { id: s.id, url: s.url, title: s.title }]));
   const open = openConflictIds(state.conflicts);
   const conflicts = state.conflicts.map((c) => conflictView(c, state.evidence, sources)).filter((v): v is JourneyConflict => v !== null);
-  // Facts read from a source and not rejected, best first (coverage.ts compareFacts).
-  const read = state.evidence.filter((e) => !isOwnerRow(e) && e.review_status !== 'rejected').sort(compareFacts(open));
+  // The facts the coverage map counts for questions (coverage.ts candidateFact) that the owner can accept or reject
+  // (sources/registry.ts reviewable), best first, so no card offers a decision the review route refuses (PR #101 review).
+  const read = state.evidence.filter((e) => candidateFact(e) && reviewable(e)).sort(compareFacts(open));
   return { map, sources, open, conflicts, read };
 }
 

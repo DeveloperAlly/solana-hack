@@ -236,7 +236,7 @@ describe('the routes return #75\'s shapes when wired to the prefill module', () 
   it('an answer raises coverage: the owner\'s answers make their sections found and finish their steps', async () => {
     await call('PUT', `/brands/${BRAND}/answers/origin`, { data: { why: 'a', broken: 'b', first_win: 'c' } });
     const m = coverageMap(await state());
-    expect(m.sections.find((s) => s.section === 'origin')).toMatchObject({ status: 'found', basis: 'owner answer' });
+    expect(m.sections.find((s) => s.section === 'origin')!.status).toBe('found');
     expect(m.steps.find((s) => s.step === 'origin')!.mode).toBe('done');
     expect(readData(await state()).coverage.percent).toBe(50);
   });
@@ -267,7 +267,11 @@ describe('the owner decides each fact (FactRecord) through the review path', () 
     expect(out.replaced).toBe(e.id);
     expect(byClaim(e.claim).review_status).toBe('rejected');
     expect(byClaim('Tidewater lets roasters sell to cafes with no broker.')).toMatchObject({ trust: 'owner_answer', review_status: 'approved', section: 'positioning', edited_from: e.id });
-    expect(coverageMap(await state()).sections.find((s) => s.section === 'positioning')).toMatchObject({ status: 'found', basis: 'owner answer' });
+    // The owner's statement answers what the fact answered, and evidences it: those questions are found.
+    const m = coverageMap(await state());
+    for (const id of ['golden_circle.what', 'golden_circle.how', 'alternatives.edge']) expect(m.fields.find((f) => f.id === id)).toMatchObject({ status: 'found', basis: 'evidence' });
+    // The statement is not a card: the owner changes it by editing, not by accepting or rejecting it.
+    expect(confirmData(await state()).facts.some((f) => f.statement === 'Tidewater lets roasters sell to cafes with no broker.')).toBe(false);
   });
   it('rejected: rejected, and the card leaves the confirm list', async () => {
     const e = byClaim('Tidewater is built for independent roasters with fewer than ten staff.');

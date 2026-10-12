@@ -91,3 +91,13 @@ export const readers = (f: Pick<FieldSpec, 'step'>): SectionId[] =>
 
 /** The fields a kit section's drafter reads. */
 export const sectionFields = (s: SectionId) => FIELDS.filter((f) => (SECTIONS[s].from as readonly string[]).includes(f.step));
+
+/**
+ * The questions a kit section's state is aggregated from: those that ask for it (asks). Messaging has none of its own
+ * (§5 drafts it from the others), so it is aggregated from the questions its drafter reads (kit.ts SECTIONS.from).
+ * Optional questions never hold a section back.
+ */
+export function sectionQuestions(s: SectionId): FieldSpec[] {
+  const asking = FIELDS.filter((f) => f.asks === s);
+  return (asking.length ? asking : sectionFields(s)).filter((f) => !f.optional);
+}
