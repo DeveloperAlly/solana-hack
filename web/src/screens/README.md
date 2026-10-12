@@ -58,6 +58,28 @@ export const screens: ScreenEntry[] = [
 
 Artboard names must be unique. The gallery throws on a duplicate when it loads.
 
+## Shared components: use these, don't re-create
+Added in [issue #46](https://github.com/DeveloperAlly/solana-hack/issues/46) after six page branches built the same components under page prefixes. Before you build a component, check this table and the [component inventory](../../../.agentic/what/context/component_inventory.md) (§6.9). If a shared one is close but not quite right, add a prop to it in `src/ui`; never copy it under a page prefix.
+
+To migrate: delete the page copy (component, CSS module, example, test), change the import, and rename the props as below. Props not listed keep their name.
+
+| Old (page branch) | New shared component | Props: old → new |
+|---|---|---|
+| `BuilderSelect` (50) | `Select` from `ui/primitives/Select` (P13) | `options: string[]` unchanged (strings are allowed); `hint`, native select props unchanged |
+| `AmbSelect` (53) | `Select` (P13) | `onChange(value)` → `onValueChange(value)`; `layout` unchanged; options `{ value, label }` unchanged |
+| `SelectField` + `FieldFrame` (52) | `Select` (P13); `FieldFrame` is in `ui/primitives/FieldFrame` | unchanged (`label`, `hint`, `error`, `options`, native props). Drop the 52 copies of `FieldFrame.tsx`, `Field.tsx` and the `index.ts` export: this branch has them |
+| `BuilderCopyButton` (50) | `CopyButton` from `ui/composites/CopyButton` (C13) | unchanged (`value`, `label`, `variant`); default `feedback="status"` is its behaviour |
+| `SoonCopyButton` (51) | `CopyButton` (C13) | `text` → `value`; add `feedback="label"` and `messages={{ copied: 'Copied to the clipboard.', failed: 'Could not copy. Select the text and copy it yourself.' }}` for the same wording |
+| `BuilderProgressBar` (50) | `ProgressBar` from `ui/composites/ProgressBar` (P24) | tone `strong` → `primary`, `muted` → `secondary`; `label`, `segments`, `caption` unchanged |
+| `AmbBar` (53) | `ProgressBar` (P24) | `segments [{ pct, tone }]` → `[{ value, label, tone }]` (add a `label` per segment); add `label`; `marker`, `size` unchanged; pass `decorative` where the numbers are already in text |
+| `AmbBudgetBar` (53) | `BudgetBar` from `ui/domain/BudgetBar` (D25) | `AmbBudget` → `Budget`; `budgetLevel`, `caption` unchanged; `AMB_BUDGET_WARN_SHARE` → `BUDGET_WARN_SHARE` |
+| `AmbOnBrandMeter` (53) | keep as the page's D4 preset, drawn with `Meter` from `ui/composites/Meter` (P25) | replace the inner `role="meter"` div and `AmbBar` with `<Meter label="On-brand score" value={score} threshold={threshold} valueText=… summary=… hint=… />` |
+| `HubBarList` (52) | `BarList` from `ui/composites/BarList` (C22) | `HubBarItem` → `BarListItem`; props unchanged |
+| `BuilderScale` (50) | `Scale` from `ui/composites/Scale` (C6) | `low` → `startLabel`, `high` → `endLabel`; `legend`, `value`, `onChange`, `steps` unchanged |
+| `HubDial` (52) | `Scale` (C6) | `start` → `startLabel`, `end` → `endLabel`; add `layout="stacked"` for the dial look; `disabled` unchanged |
+| `BuilderCoverageBadge` (50) | `CoverageBadge` from `ui/domain/CoverageBadge` (D51) | `state` `'E' / 'I' / 'M'` → `status` `'evidenced' / 'inferred' / 'missing'`; `withDetail` → `display="legend"`; `coverageMeaning` → `coverageMeta` |
+| `HubCoverageBadge` (52) | `CoverageBadge` (D51) | `showWord` → `display="word"`; `coverageStatuses`, `coverageWord` unchanged. Drop the 52 change to `EvidenceChip.tsx`: this branch has it |
+
 ## Links between screens
 Added in [issue #46](https://github.com/DeveloperAlly/solana-hack/issues/46) after a Codex review finding on [PR #68](https://github.com/DeveloperAlly/solana-hack/pull/68): bare links reset the gallery theme.
 - Link to another artboard with `ScreenLink` ([`../gallery/ScreenLink.tsx`](../gallery/ScreenLink.tsx)): `<ScreenLink artboard="Ledger" state="empty">`.

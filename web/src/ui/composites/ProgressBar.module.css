@@ -1,0 +1,2 @@
+.root { display: flex; flex-direction: column; gap: var(--wl-space-1); }
+.caption { margin: 0; font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }

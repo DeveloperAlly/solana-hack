@@ -256,6 +256,22 @@ Know JamJam data types (M6). Grouped by area.
 | D57 | EvidenceChip | Found (solid) / Partly found (grey) / Needs you (dashed) | n/a | J1-Read, J3-Confirm, Hub-Home |
 | D58 | Placeholder | local SVG stand-in image; aspect ratio square / landscape / portrait / wide; alt text required | n/a | every screen with an image until real media exists (issue #45, "Rules") |
 
+### 6.9 Built in the shared consolidation ([issue #46](https://github.com/DeveloperAlly/solana-hack/issues/46))
+Six page branches (`ui/50-builder`, `ui/51-coming-soon`, `ui/52-superhub`, `ui/53-ambassador`) built the same components under page prefixes. Each group below is now one shared component under the inventory ID it already had; pages migrate with the table in [`web/src/screens/README.md`](../../../web/src/screens/README.md#shared-components-use-these-dont-re-create). Every one has a CSS module on semantic tokens, a test (render, behaviour, axe at 0) and a workbench example.
+
+| ID | Component (path under `web/src/ui/`) | Variants and props | States | Replaces |
+|---|---|---|---|---|
+| P13 | Select (`primitives/Select.tsx`) | `options` as strings or `{ value, label, disabled }`; `hint`, `error`; `layout` stacked / inline; native `onChange` plus `onValueChange(value)`; frame shared with P17 Field (`primitives/FieldFrame.tsx`) | error, disabled | BuilderSelect, AmbSelect, SelectField (+ FieldFrame) |
+| P24 | ProgressBar (`composites/ProgressBar.tsx`) | `segments [{ value, label, tone primary / secondary }]`, `marker`, `caption`, `size` sm / md, `decorative`; one segment is a `progressbar`, several are one labelled image | empty, full | BuilderProgressBar, AmbBar |
+| P25 | Meter (`composites/Meter.tsx`) | `value`, `min`, `max`, `threshold` marker, `valueText`, `summary` and `hint` slots, `size` | below / at or above threshold (`data-below`) | the bar in AmbOnBrandMeter (D4 VoiceFitMeter stays a preset on P25) |
+| C6 | Scale (`composites/Scale.tsx`) | `legend`, `startLabel`, `endLabel`, `steps`, `layout` inline / stacked | selected, locked (`disabled`) | BuilderScale, HubDial |
+| C13 | CopyButton (`composites/CopyButton.tsx`) | `value`, `label`, `variant`, `feedback` status / label, `messages`, `resultLabels`, `onCopy` | idle, copied, failed | BuilderCopyButton, SoonCopyButton |
+| C22 | BarList (`composites/BarList.tsx`) | `items [{ label, value, display }]`, `max`, `hideLabels`, `size` | empty (renders nothing) | HubBarList |
+| D25 | BudgetBar (`domain/BudgetBar.tsx`) | P24 preset: `budget { spent, committed, cap, unit }`, `caption`, `label`; `budgetLevel()` | empty, ok, near cap (warns under 20%), full | AmbBudgetBar |
+| D51 | CoverageBadge (`domain/CoverageBadge.tsx`) | `status` evidenced / inferred / missing; `display` letter / word / legend; styles from D57 EvidenceChip (which gains `children`) | n/a | BuilderCoverageBadge, HubCoverageBadge |
+
+Layer notes: P24 and P25 keep their P IDs but live in `composites/` because they share one drawn bar (`composites/BarTrack.tsx`, internal, hidden from assistive tech) with C22. D51 stays in `domain/`: it is a JamJam data type and composes D57, and a composite may not import a domain pattern (§1, "Layers depend downwards only").
+
 ## 7. Shared config and data modules
 Not visual, but they are what keeps the UI DRY.
 

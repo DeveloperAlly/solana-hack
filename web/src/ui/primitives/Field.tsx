@@ -1,5 +1,5 @@
-import { useId, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
-import styles from './Field.module.css';
+import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { FieldFrame } from './FieldFrame';
 
 interface Common {
   label: string;
@@ -12,34 +12,15 @@ export type FieldProps = Common &
     | ({ multiline: true } & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'id'>)
   );
 
-/** C1 Field: a labelled text input or textarea, with hint and error wired to aria-describedby. */
+/** C1 Field: a labelled text input or textarea, with hint and error wired to aria-describedby (frame: FieldFrame). */
 export function Field(props: FieldProps) {
-  const id = useId();
-  const hintId = `${id}-hint`;
-  const errId = `${id}-err`;
   const { label, hint, error, multiline, ...rest } = props as Common & { multiline?: boolean } & Record<string, unknown>;
-  const describedBy = [hint ? hintId : null, error ? errId : null].filter(Boolean).join(' ') || undefined;
-  const shared = { id, className: styles.control, 'aria-invalid': error ? true : undefined, 'aria-describedby': describedBy };
   return (
-    <div className={styles.field}>
-      <label htmlFor={id} className={styles.label}>
-        {label}
-      </label>
-      {hint && (
-        <span id={hintId} className={styles.hint}>
-          {hint}
-        </span>
-      )}
-      {multiline ? (
-        <textarea {...(rest as TextareaHTMLAttributes<HTMLTextAreaElement>)} {...shared} />
-      ) : (
-        <input {...(rest as InputHTMLAttributes<HTMLInputElement>)} {...shared} />
-      )}
-      {error && (
-        <span id={errId} className={styles.error} role="alert">
-          {error}
-        </span>
-      )}
-    </div>
+    <FieldFrame label={label} hint={hint} error={error}>
+      {(control) =>
+        multiline
+          ? <textarea {...(rest as TextareaHTMLAttributes<HTMLTextAreaElement>)} {...control} />
+          : <input {...(rest as InputHTMLAttributes<HTMLInputElement>)} {...control} />}
+    </FieldFrame>
   );
 }
