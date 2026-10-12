@@ -11,10 +11,9 @@ last_edited_by: agent
 Authority: [canonical plan](.agentic/how/missions/mission_hackathon_submission.md), [master #38](https://github.com/DeveloperAlly/solana-hack/issues/38), [execution #114](https://github.com/DeveloperAlly/solana-hack/issues/114). This checkpoint supersedes the older status narrative below.
 
 - Codex owns integrations, release validation and submission execution; Claude owns UI finishing. Pitch deck/script are locked. No Docker.
-- Backend integration passed 1,894 tests, typecheck, build and Cloudflare deployment dry-run. Embedded PostgreSQL checks applied migrations 001–014 and exercised confidence, corrections, metering and admission reservations. These are local evidence, not deployed acceptance.
-- Applied production migrations confirmed through 010. Release migrations 011–014 and actual Cloudflare Workflow provisioning remain release gates.
-- Live Journey adapter has been integrated with the existing screens and real APIs. Combined release tests and independent review are running; deployed Journey acceptance is pending.
-- Submission preparation is running against the existing approved pitch. A complete asset package and portal receipt are pending; submission is not complete.
+- Release candidate ca375e9 is deployed at [jamjam.tech](https://jamjam.tech), with real migrations 001–014 and Cloudflare Workflow provisioning: [deployment proof](https://github.com/DeveloperAlly/solana-hack/actions/runs/38296800669). Landing, deep links and real registrar devnet transaction passed. Main-branch merge is pending; existing PR #99 carries the integrated release.
+- Full user outcome remains open: JamJam's own website read failed, while the existing aDNA source read succeeds and extraction continues. [Own-site proof](https://github.com/DeveloperAlly/solana-hack/actions/runs/38308189480), [aDNA run](https://github.com/DeveloperAlly/solana-hack/actions/runs/38308508803). The aDNA proof process lost its connection during polling; the persisted background run continued. A bounded transport correction and precise source-failure diagnostics are prepared; [next deployment](https://github.com/DeveloperAlly/solana-hack/actions/runs/38308976360) is running.
+- [Original-slide presentation MP4](web/public/submission/pitch.mp4) is prepared at 2:45.72, with disclosed standard synthetic narration of the unchanged approved script. The [logo](.agentic/what/context/submission-assets/jamjam-logo.png) is prepared. Product video, public playback links and an authenticated portal receipt remain open. Colosseum browser is signed out; owner sign-in is pending while independent work continues.
 - Work is bounded to 20-minute blocks with 10-minute reports, per the canonical plan.
 
 ## Earlier checkpoint (historical; superseded above)
