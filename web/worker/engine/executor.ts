@@ -52,21 +52,39 @@ export function inlineStep(sleep = (ms: number) => new Promise((r) => setTimeout
 /** The most POST /sources may be set to wait for its run (engine_config ingest_wait_ms). */
 export const MAX_INGEST_WAIT_MS = 30_000;
 
+/** How long POST /posts waits for its draft run by default (engine_config draft_wait_ms overrides it): the Create screen
+ * tells the person drafting takes "up to a minute" (web/src/screens/create/Create.tsx). */
+export const DEFAULT_DRAFT_WAIT_MS = 60_000;
+/** The most POST /posts may be set to wait for its draft run. */
+export const MAX_DRAFT_WAIT_MS = 120_000;
+
 /**
  * Engine settings from engine_config, in one read. executor: 'workflows' unless the row says 'inline'.
  * ingestWaitMs: how long POST /sources waits for its run before answering "still reading"; 0 (no row) means it does not
  * wait, so the request never holds on to the run (PR #70 review), capped at MAX_INGEST_WAIT_MS.
+ * draftWaitMs: how long POST /posts waits for a draft run on Workflows before answering "still drafting"; the Create
+ * screen expects the post in the response, so the default waits (DEFAULT_DRAFT_WAIT_MS), capped at MAX_DRAFT_WAIT_MS.
  */
-export async function engineConfig(env: Env): Promise<{ executor: ExecutorName; ingestWaitMs: number }> {
-  const rows = await db.select<{ key: string; value: unknown }>(env, 'engine_config', 'key=in.(executor,ingest_wait_ms)&select=key,value');
+export async function engineConfig(env: Env): Promise<{ executor: ExecutorName; ingestWaitMs: number; draftWaitMs: number }> {
+  const rows = await db.select<{ key: string; value: unknown }>(env, 'engine_config', 'key=in.(executor,ingest_wait_ms,draft_wait_ms)&select=key,value');
   const get = (k: string) => rows.find((r) => r.key === k)?.value;
   const wait = Number(get('ingest_wait_ms'));
-  return { executor: get('executor') === 'inline' ? 'inline' : 'workflows', ingestWaitMs: Number.isFinite(wait) ? Math.min(Math.max(wait, 0), MAX_INGEST_WAIT_MS) : 0 };
+  const draft = get('draft_wait_ms') === undefined ? DEFAULT_DRAFT_WAIT_MS : Number(get('draft_wait_ms'));
+  return {
+    executor: get('executor') === 'inline' ? 'inline' : 'workflows',
+    ingestWaitMs: Number.isFinite(wait) ? Math.min(Math.max(wait, 0), MAX_INGEST_WAIT_MS) : 0,
+    draftWaitMs: Number.isFinite(draft) ? Math.min(Math.max(draft, 0), MAX_DRAFT_WAIT_MS) : DEFAULT_DRAFT_WAIT_MS,
+  };
 }
 
-/** Refuses a run the chosen executor cannot finish, before any row is written. */
-export function checkExecutor(env: Env, name: ExecutorName, spec: WorkflowSpec) {
-  if (name === 'inline' && spec.steps.length > 1) {
+/**
+ * Refuses a run the chosen executor cannot finish, before any row is written. `awaited`: the caller runs the inline run
+ * inside its own request and waits for it (launch without a waitUntil context), so the 30-second waitUntil window does
+ * not apply: an HTTP request has no duration limit while the client stays connected
+ * (https://developers.cloudflare.com/workers/platform/limits/#duration). Only then may an inline run have many steps.
+ */
+export function checkExecutor(env: Env, name: ExecutorName, spec: WorkflowSpec, opts: { awaited?: boolean } = {}) {
+  if (name === 'inline' && spec.steps.length > 1 && !opts.awaited) {
     throw new HttpError(503, `${spec.id} has ${spec.steps.length} steps; the inline engine runs single-step workflows only, so this needs Cloudflare Workflows`);
   }
   if (name === 'workflows' && !env.RUN_WORKFLOW) throw new HttpError(503, 'the workflow engine is not available here');

@@ -96,5 +96,5 @@ export function parseJson<T>(text: string): T {
   }
 }
 
-// No-AI-slop rules applied to every draft (ADR-003): plain, specific, no filler.
-export const SLOP_RULES = `Write plainly and specifically. Never use these words or phrases: "delve", "unlock", "unleash", "elevate", "seamless", "game-changer", "revolutionize", "cutting-edge", "in today's fast-paced world", "landscape", "tapestry", "empower", "leverage", "synergy", "robust", "harness", "navigate the", "it's not just", "more than just". No em dashes. No hype, no exclamation marks, no rhetorical questions. Do not invent facts, numbers, customers or awards.`;
+// No-AI-slop rules applied to every draft (ADR-003): one list with the check, in slop.ts (backlog G1).
+export { SLOP_RULES } from './slop';

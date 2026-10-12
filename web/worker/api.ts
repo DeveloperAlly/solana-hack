@@ -4,10 +4,11 @@ import { HttpError, json, safeError, sha256Hex, type Env } from './env';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
-import { activeRun, getRun, ingestSource, startRun } from './engine/api';
+import { draftChecks } from './create/checks';
+import { activeRun, draftRun, getRun, ingestSource, startRun } from './engine/api';
 import type { WaitUntil } from './engine/executor';
 import { usableFact } from './sources/registry';
-import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
+import { approvePost, editPost, rejectPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
 export const MAX_POSTS = 500;
@@ -331,10 +332,19 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
     return json(await verifyText(env, str(b.text, 8000)));
   }
   if (p[1] === 'ledger' && p.length === 2 && m === 'GET') { await publicLimit(req, env, 'ledger'); return json(await ledger(env)); }
-  if (p[1] !== 'me' && p[1] !== 'brands' && p[1] !== 'runs') return null;
+  if (p[1] !== 'me' && p[1] !== 'brands' && p[1] !== 'runs' && p[1] !== 'drafts') return null;
   const user = await requireUser(req, env);
   // GET /api/runs/:id -> {run, steps}: a run's status, progress and step traces, for the brand's owner (issue #32).
   if (p[1] === 'runs') return p.length === 3 && m === 'GET' ? json(await getRun(env, user, p[2])) : json({ error: 'not found' }, 404);
+  // GET /api/drafts/:id/checks -> the draft's checks for the Ambassador Generate screen (#78), from the verdict stored on
+  // the post (create/checks.ts; issue #93). Owner only: a post of someone else's brand is reported as not found.
+  if (p[1] === 'drafts') {
+    if (!(p.length === 4 && p[3] === 'checks' && m === 'GET' && /^[0-9a-f-]{36}$/i.test(p[2]))) return json({ error: 'not found' }, 404);
+    const [post] = await db.select<Post>(env, 'posts', `${db.eq('id', p[2])}&select=id,brand_id,channel,checks`);
+    const [own] = post ? await db.select<{ id: string }>(env, 'brands', `${db.eq('id', post.brand_id)}&${db.eq('owner_id', user.id)}&select=id`) : [];
+    if (!post || !own) throw new HttpError(404, 'draft not found');
+    return json(draftChecks(post));
+  }
 
   if (p[1] === 'me' && p.length === 2 && m === 'GET') {
     const brands = await db.select<Brand>(env, 'brands', `${db.eq('owner_id', user.id)}&order=created_at`);
@@ -441,14 +451,17 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
       const b = await body(req);
       const brief = str(b.brief, 1000);
       if (!brief) throw new HttpError(400, 'say what the post is about');
-      return json({ post: await draftPost(env, brand, brief, str(b.channel, 40)) }, 201);
+      // The draft_post workflow (issue #93): candidates, independent evaluators, every candidate stored.
+      const r = await draftRun(env, ctx, user, brand, { brief, channel: str(b.channel, 40) });
+      return json(r.body, r.status);
     }
     const [post] = p[4] && /^[0-9a-f-]{36}$/.test(p[4]) ? await db.select<Post>(env, 'posts', `${db.eq('id', p[4])}&${db.eq('brand_id', brand.id)}`) : [];
     if (!post) throw new HttpError(404, 'post not found');
     const b = await body(req);
     // Every change names the revision the person saw; if the post changed since (another tab), it is refused.
     if (b.rev !== post.rev) throw new HttpError(409, 'this post changed since you loaded it; reload to see the latest version');
-    if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str(b.body, 4000)) });
+    if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str(b.body, 4000), user) });
+    if (p[5] === 'reject' && m === 'POST') return json({ post: await rejectPost(env, user, post, str(b.reason, 40), str(b.note, 500)) });
     if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
     if (p[5] === 'polish' && m === 'POST') return json({ post: await polishPost(env, post, str(b.action, 40)) });
     if (p[5] === 'undo' && m === 'POST') return json({ post: await undoPost(env, post) });

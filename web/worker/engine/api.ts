@@ -1,14 +1,17 @@
 // Run API (issue #32), owner-only like every /api/brands route:
 //   POST /api/brands/:id/runs {kind, ...}  -> 202 {run}             starts a run of a startable kind (ingest_url,
-//                                                                  extract_facts)
+//                                                                  extract_facts, draft_post)
 //   GET  /api/runs/:id                     -> 200 {run, steps}      status, progress and per-step traces
 //   GET  /api/brands/:id                   -> adds activeRun        the newest running or paused run, or null
 //   POST /api/brands/:id/sources {url}     -> the ingest_url workflow; same 201 body when done, else 409 "still reading"
+//   POST /api/brands/:id/posts {brief, channel} -> the draft_post workflow (issue #93); 201 {post, runId} when done,
+//                                                  else 409 "still drafting"
 import { db } from '../db';
 import { HttpError, type Env } from '../env';
 import { checkExecutor, engineConfig, launch, waitForRun, type WaitUntil } from './executor';
 import { progressAt } from './runner';
 import { urlKind } from '../sources/registry';
+import { registeredKit } from '../create/ops';
 import type { RunRow, WorkflowSpec } from './types';
 
 interface BrandRef { id: string; owner_id: string; name: string; website?: string | null }
@@ -44,6 +47,18 @@ const KINDS: Record<string, (env: Env, brand: BrandRef, body: Record<string, unk
     const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url, status: 'pending', kind: urlKind(url, website) });
     return { reader: 'site', url, sourceId: src.id, brandName: brand.name, website };
   },
+  /**
+   * Drafting (issue #93): the brief and channel, and the registered kit version the post is written to, fixed at the
+   * start so every step and the saved post name the same kit. Refused before any row is written when there is no
+   * registered kit with a voice section, as the single-call drafter refused.
+   */
+  draft_post: async (env, brand, body) => {
+    const brief = typeof body.brief === 'string' ? body.brief.trim().slice(0, 1000) : '';
+    if (!brief) throw new HttpError(400, 'say what the post is about');
+    const channel = typeof body.channel === 'string' ? body.channel.trim().slice(0, 40) : '';
+    const kit = await registeredKit({ env }, brand.id);
+    return { brief, channel, kitVersion: kit.version };
+  },
 };
 
 export async function activeDef(env: Env, kind: string): Promise<WorkflowSpec> {
@@ -59,12 +74,16 @@ export async function startRun(env: Env, ctx: WaitUntil | undefined, user: UserR
   return (await start(env, ctx, user, brand, kind, body)).run;
 }
 
-async function start(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, kind: string, body: Record<string, unknown>) {
+/**
+ * opts.awaited: the caller waits for the run inside its own request. An inline run is then run to the end before
+ * start returns (no waitUntil, so no 30-second cut-off), which lets an inline run have many steps (executor.ts).
+ */
+async function start(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, kind: string, body: Record<string, unknown>, opts: { awaited?: boolean } = {}) {
   const prepare = KINDS[kind];
   if (!prepare) throw new HttpError(404, `unknown run kind ${kind}`);
   const [spec, config] = await Promise.all([activeDef(env, kind), engineConfig(env)]);
   const { executor } = config;
-  checkExecutor(env, executor, spec);
+  checkExecutor(env, executor, spec, opts);
   const input = await prepare(env, brand, body);
   // Everything after prepare() is in one cleanup path (PR #70 review): if superseding, writing the run row or handing
   // it to the executor fails, the run (if written) and any source prepare() created are marked failed, so no pending
@@ -75,7 +94,7 @@ async function start(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand:
       await db.update(env, 'runs', `${db.eq('brand_id', brand.id)}&${db.eq('kind', kind)}&status=in.(running,paused)`, { status: 'superseded', updated_at: new Date().toISOString() });
     }
     [run] = await db.insert<RunRow>(env, 'runs', { brand_id: brand.id, kind, workflow_version: spec.version, executor, status: 'running', input, progress: progressAt(spec, 0), created_by: user.id });
-    await launch(env, ctx, run);
+    await launch(env, opts.awaited ? undefined : ctx, run);
   } catch (e) {
     const note = 'the run could not start';
     if (run) await db.update(env, 'runs', db.eq('id', run.id), { status: 'failed', error: note, error_code: 503, updated_at: new Date().toISOString() }).catch(() => undefined);
@@ -120,4 +139,26 @@ export async function ingestSource(env: Env, ctx: WaitUntil | undefined, user: U
   if (done.status === 'failed') throw new HttpError(done.error_code && done.error_code >= 400 ? done.error_code : 502, done.error ?? 'reading the page failed');
   const error = done.status === 'paused' ? (done.progress?.message ?? STILL_READING) : STILL_READING;
   return { status: 409, body: { error, runId: run.id, sourceId: (run.input as { sourceId?: string }).sourceId, status: done.status, progress: done.progress, resume_at: done.resume_at } };
+}
+
+/** The answer while a draft is still being written on Workflows: a non-2xx the Create screen shows as a message. */
+export const STILL_DRAFTING = 'Still drafting your post. It will appear in your list shortly.';
+
+/**
+ * POST /api/brands/:id/posts on the engine (issue #93): a draft_post run. Inline, it runs inside this request; on
+ * Workflows, the request waits up to engine_config draft_wait_ms. Done: 201 {post, runId}, the post in the same shape
+ * as before plus checks.draft. Failed: the run's error. Still going: 409 {error, runId, status, progress}.
+ */
+export async function draftRun(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, body: Record<string, unknown>) {
+  const { run, config } = await start(env, ctx, user, brand, 'draft_post', body, { awaited: true });
+  const done = await waitForRun(env, run, config.draftWaitMs);
+  if (done.status === 'done') {
+    const postId = (done.output as { postId?: unknown } | null)?.postId;
+    const [post] = typeof postId === 'string' ? await db.select(env, 'posts', `${db.eq('id', postId)}&${db.eq('brand_id', brand.id)}`) : [];
+    if (!post) throw new HttpError(500, 'the draft finished but its post was not found');
+    return { status: 201, body: { post, runId: run.id } };
+  }
+  if (done.status === 'failed') throw new HttpError(done.error_code && done.error_code >= 400 ? done.error_code : 502, done.error ?? 'drafting failed');
+  const error = done.status === 'paused' ? (done.progress?.message ?? STILL_DRAFTING) : STILL_DRAFTING;
+  return { status: 409, body: { error, runId: run.id, status: done.status, progress: done.progress, resume_at: done.resume_at } };
 }

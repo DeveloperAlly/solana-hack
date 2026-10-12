@@ -217,7 +217,13 @@ async function attempt(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepConte
   if (s.type !== 'map') return one(name, s.id, s, true);
   const items = (resolve(s.over, ctx.state) as unknown[] | undefined ?? []).slice(0, s.max);
   const out: unknown[] = [];
-  for (let j = 0; j < items.length; j++) out.push(await one(`${name}[${j}]`, `${s.id}[${j}]`, s.step, j === items.length - 1, items[j]));
+  if (s.parallel) {
+    // Progress moves past the map only once every item is done, so no item marks it finished while others still run.
+    out.push(...(await Promise.all(items.map((item, j) => one(`${name}[${j}]`, `${s.id}[${j}]`, s.step, false, item)))));
+    if (items.length) await step.do(`${name}:done`, BOOKKEEPING, async () => { await record(env, ctx.run.id, null, { progress: progressAt(spec, i + 1) }); return null; });
+  } else {
+    for (let j = 0; j < items.length; j++) out.push(await one(`${name}[${j}]`, `${s.id}[${j}]`, s.step, j === items.length - 1, items[j]));
+  }
   if (!items.length) await step.do(`${name}:empty`, BOOKKEEPING, async () => { await record(env, ctx.run.id, null, { progress: progressAt(spec, i + 1) }); return null; });
   return out;
 }

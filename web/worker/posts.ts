@@ -2,6 +2,7 @@ import type { User } from './auth';
 import { db } from './db';
 import { HttpError, safeError, sha256Hex, type Env } from './env';
 import { chat, parseJson, SLOP_RULES } from './llm';
+import { BANNED } from './slop';
 import { snapshotFact, USABLE_FILTER, usableFact } from './sources/registry';
 import { currentBlockHeight, explorerTx, NotLanded, prepareKitAttestation, readKitAttestation, registrarFromSecret } from './registry';
 
@@ -14,7 +15,9 @@ export interface Post {
 // A history entry is the full visible state before a change, so Undo restores the text *and* the scores and notes
 // that described it. Older rows stored only the text (string); those restore with scores cleared.
 export interface Snapshot { body: string; slop: Checks['slop']; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit' }
-interface Checks { slop: { passed: boolean; hits: string[] }; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit'; history?: (Snapshot | string)[]; lastAction?: string; policy?: PolicyResult }
+interface Checks { slop: { passed: boolean; hits: string[] }; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit'; history?: (Snapshot | string)[]; lastAction?: string; policy?: PolicyResult; draft?: DraftRecord; rejected?: { reason: string; at: string } }
+/** What the draft_post workflow recorded about the text it chose (create/ops.ts save_draft; issue #93). */
+export interface DraftRecord { bodyHash: string; chosen: number; verdict: { passed: boolean; reasons: string[] }; candidates?: { idx: number; body: string }[]; findings?: { slop?: string[]; claims?: { rule: string; text: string; detail: string }[]; unsupported?: string[] } }
 
 const snapshot = (post: Post): Snapshot => ({ body: post.body, slop: post.checks.slop, voiceFit: post.checks.voiceFit ?? null, platform: post.checks.platform ?? null, notes: post.checks.notes ?? [], source: post.checks.source });
 export const pushHistory = (post: Post) => [...(post.checks.history ?? []), snapshot(post)].slice(-10);
@@ -23,9 +26,7 @@ export function restoreEntry(entry: Snapshot | string): Snapshot {
   return { ...entry, slop: slopCheck(entry.body) };
 }
 
-// Same banned list the drafting prompt carries (llm.ts SLOP_RULES), checked again on the output.
-const BANNED = ['delve', 'unlock', 'unleash', 'elevate', 'seamless', 'game-changer', 'game changer', 'revolutioniz', 'cutting-edge', "in today's fast-paced", 'landscape', 'tapestry', 'empower', 'leverage', 'synergy', 'robust', 'harness', 'navigate the', "it's not just", 'more than just', '—'];
-
+// The banned list is the one the drafting prompt carries (slop.ts: one list for the prompt and the check, backlog G1).
 export function slopCheck(text: string) {
   // Checked on a plain copy so styled letters (𝘂𝗻𝗹𝗼𝗰𝗸, ᴜɴʟᴏᴄᴋ, fullwidth ！) cannot hide a banned term; the post keeps its styling.
   const plain = plainLetters(text).normalize('NFKC');
@@ -75,42 +76,42 @@ export function modelPost(raw: unknown): { body: string; voiceFit: unknown; plat
   };
 }
 
-export async function draftPost(env: Env, brand: { id: string; name: string }, brief: string, channel: string) {
-  const ctx = await voiceContext(env, brand.id);
-  if (!ctx.voice) throw new HttpError(409, 'the registered kit has no voice section');
-  // The brand name is the one registered in the kit the post is written to, not a later rename.
-  const system = `You write one social post for "${ctx.brandName ?? brand.name}" in its approved voice. Stay inside the facts in the kit; do not invent numbers, customers or claims. ${SLOP_RULES} Then score it. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 3, what to improve)}.`;
-  const user = `Channel: ${channel || 'LinkedIn'}\nBrief: ${brief}\n\nVoice:\n${ctx.voice}\n\nMessaging:\n${ctx.messaging}\n\nPositioning:\n${ctx.positioning}\n\nPurpose:\n${ctx.purpose}`;
-  const { text, model: firstModel } = await chat(env, system, user);
-  // The model recorded is the one that wrote the text kept: the rewrite's, when a rewrite is accepted.
-  let model = firstModel;
-  const out = modelPost(parseJson<unknown>(text));
-  let body = out.body.trim().slice(0, 4000);
-  if (!body) throw new HttpError(502, 'the AI model returned an empty post, try again');
-  // R9: an AI draft that fails the slop check gets one automatic rewrite; if it still fails it is stored
-  // but never shown (the UI hides AI text whose slop check failed).
-  // The rewrite is scored again with the same context, so the scores shown always describe the text shown.
-  let scored = out;
-  const first = slopCheck(body);
-  if (!first.passed) {
-    const fix = await chat(env, `Rewrite the draft post without these: ${first.hits.join(', ')}. Keep the meaning, facts and voice. ${SLOP_RULES} Then score the rewrite. Reply with JSON only: {"body": string, "voiceFit": number 0-100, "platform": number 0-100, "notes": string[] (max 3)}.`, `${user}\n\nDraft to rewrite:\n${body}`);
-    const fixed = modelPost(parseJson<unknown>(fix.text));
-    const fixedBody = fixed.body.trim().slice(0, 4000);
-    if (fixedBody) { body = fixedBody; scored = fixed; model = fix.model; }
-  }
-  const num = (n: unknown) => (typeof n === 'number' && n >= 0 && n <= 100 ? Math.round(n) : null);
-  const checks: Checks = { slop: slopCheck(body), voiceFit: num(scored.voiceFit), platform: num(scored.platform), notes: scored.notes.slice(0, 3).map((n) => n.slice(0, 200)), source: 'ai' };
-  const [post] = await db.insert<Post>(env, 'posts', { brand_id: brand.id, brief: brief.slice(0, 1000), channel: channel || null, body, checks, status: 'drafted', model, kit_version: ctx.kitVersion });
-  return post;
-}
+// Drafting runs on the engine as the draft_post workflow (create/ops.ts, engine/api.ts draftRun; issue #93): best of 3
+// candidates, each judged by evaluators that did not write it. The single call that wrote and scored its own draft is gone.
 
-export async function editPost(env: Env, post: Post, body: string) {
+export async function editPost(env: Env, post: Post, body: string, user?: User) {
   if (post.status === 'registered' || post.status === 'registering') throw new HttpError(409, post.status === 'registered' ? 'a registered post cannot change; draft a new one' : 'this post is being registered and cannot change');
   const text = body.trim().slice(0, 4000);
   if (!text) throw new HttpError(400, 'the post cannot be empty');
   // Scores belonged to the old text; a person's edit is shown even if it fails the slop check (only approval is blocked).
   const checks: Checks = { ...post.checks, slop: slopCheck(text), voiceFit: null, platform: null, notes: [], source: 'edit', history: pushHistory(post), lastAction: 'edit', policy: undefined };
-  return changePost(env, post, ['drafted', 'approved'], { body: text, checks, status: 'drafted', approved_by: null, approved_at: null });
+  const row = await changePost(env, post, ['drafted', 'approved'], { body: text, checks, status: 'drafted', approved_by: null, approved_at: null });
+  await recordDecision(env, post, user, { kind: 'edit', original: post.body, final: text });
+  return row;
+}
+
+/**
+ * Decision history (architecture §6.2 "Collect from day one"; §2a.2 decision history): every edit as original and final,
+ * every approval with the text the AI first drafted and the text approved (so "approved without edit" is measurable,
+ * §13.4), and every rejection with its reason code. One row per decision in post_decisions (spec/db/013).
+ */
+export async function recordDecision(env: Env, post: Pick<Post, 'id' | 'brand_id'>, user: User | undefined, d: { kind: 'edit' | 'approve' | 'reject'; original: string | null; final: string | null; reason?: string | null; note?: string | null }) {
+  await db.insert(env, 'post_decisions', { post_id: post.id, brand_id: post.brand_id, kind: d.kind, original: d.original, final: d.final, reason: d.reason ?? null, note: d.note ?? null, decided_by: user?.id ?? null });
+}
+
+/** The text the drafting workflow chose for this post, as first drafted, when it was drafted by the workflow. */
+export const draftedText = (post: Post) => post.checks.draft?.candidates?.find((c) => c.idx === post.checks.draft!.chosen)?.body ?? null;
+
+/** Reason codes for rejecting a draft (§2a.2 "reject with a reason code"; backlog §15 phase 2 UI row). */
+export const REJECT_REASONS = ['off_voice', 'unsupported_facts', 'off_topic', 'too_generic', 'too_long', 'platform', 'other'] as const;
+
+/** A person rejects a draft with a reason code: recorded for learning, the post stays in the list marked rejected. */
+export async function rejectPost(env: Env, user: User, post: Post, reason: string, note: string) {
+  if (!(REJECT_REASONS as readonly string[]).includes(reason)) throw new HttpError(400, `reason must be one of ${REJECT_REASONS.join(', ')}`);
+  if (post.status !== 'drafted') throw new HttpError(409, 'only a draft can be rejected');
+  const row = await changePost(env, post, ['drafted'], { checks: { ...post.checks, rejected: { reason, at: new Date().toISOString() } } as Checks });
+  await recordDecision(env, post, user, { kind: 'reject', original: draftedText(post), final: post.body, reason, note: note || null });
+  return row;
 }
 
 // Polish actions (architecture §6): single click, always reversible (the previous text is kept in checks.history).
@@ -258,6 +259,14 @@ export const CLAIMS_POLICY: Record<string, string> = {
 const CATEGORIES = { sexual: 'sexual content', minors: 'content sexualising or targeting minors', explicitLanguage: 'explicit language' } as const;
 type Category = keyof typeof CATEGORIES;
 /**
+ * The content questions, one per category, as every checker is asked them: the approval check (policyCheck) and the
+ * independent reviewer of drafts (create/ prompts, issue #93), so both judge the same policy in the same words.
+ */
+export const CONTENT_QUESTIONS = `   sexual: does it contain sexual content (descriptions of sexual acts or nudity, or sexual innuendo beyond light flirtation)?
+   minors: does it sexualise, or direct romantic or sexual content at, anyone who is or appears to be under 18?
+   explicitLanguage: does it use profanity, slurs or crude sexual words?`;
+export const FLIRTY_NOTE = '   This brand uses a flirty voice: light, playful flirtation is fine and is not sexual content.';
+/**
  * Version of the approval check. Bumped when what a passing result means changes. A result from an earlier version is
  * not current and must be run again before the post can register.
  * - 2: checked against the evidence snapshot of the post's kit version.
@@ -357,9 +366,7 @@ export async function policyCheck(env: Env, post: Post): Promise<PolicyResult> {
   const system = `You check one social post before a brand approves it. Do not rewrite it.
 1. Claims gate, ${CLAIMS_POLICY[claims]}. List each claim in the post that the evidence does not support, quoted briefly. Anything the evidence states, or that is plainly opinion where opinions are allowed, is supported.
 2. Content: answer each question true or false.
-   sexual: does it contain sexual content (descriptions of sexual acts or nudity, or sexual innuendo beyond light flirtation)?
-   minors: does it sexualise, or direct romantic or sexual content at, anyone who is or appears to be under 18?
-   explicitLanguage: does it use profanity, slurs or crude sexual words?${flirty ? '\n   This brand uses a flirty voice: light, playful flirtation is fine and is not sexual content.' : ''}
+${CONTENT_QUESTIONS}${flirty ? `\n${FLIRTY_NOTE}` : ''}
 Reply with JSON only, all four keys: {"unsupported": string[], "sexual": boolean, "minors": boolean, "explicitLanguage": boolean}.`;
   const { text } = await chat(env, system, `Evidence:\n${facts}\n\nPost:\n${post.body}`);
   let verdict = policyVerdict(claims, template, parseJson<unknown>(text));
@@ -397,6 +404,14 @@ export async function approvePost(env: Env, user: User, post: Post) {
   if (post.status === 'approved' && isCurrentPolicy(post.checks.policy)) return post;
   if (post.status !== 'drafted' && post.status !== 'approved') throw new HttpError(409, 'this post is being registered');
   if (!post.checks.slop?.passed) throw new HttpError(409, 'fix the slop check first: ' + post.checks.slop.hits.join(', '));
+  // The independent verdict (issue #93; backlog G4): text the drafting workflow chose is approvable only if every
+  // evaluator passed it, including a review by a model of another family. With no review there is no verdict, and the
+  // text is not approvable as drafted (fail closed). Once a person edits it, the verdict no longer describes the text;
+  // the person is then its author, and the claims and content check below decides, as for any edited post.
+  const draft = post.checks.draft;
+  if (draft && draft.bodyHash === (await contentHash(post.body)) && !draft.verdict?.passed) {
+    throw new HttpError(409, `the independent checks did not pass this draft: ${(draft.verdict?.reasons ?? ['no verdict']).slice(0, 3).join('; ')}. Edit it or draft again.`);
+  }
   const policy = await policyCheck(env, post);
   if (!policy.passed) {
     // Record why, against this revision, so the screen can show it; then refuse.
@@ -406,7 +421,9 @@ export async function approvePost(env: Env, user: User, post: Post) {
       : `blocked by the claims gate (${policy.claims === '5' ? 'strict' : policy.claims === '3' ? 'light' : 'standard'}): no evidence for ${policy.unsupported.map((u) => `"${u}"`).join(', ')}. Add a source on your brand, or rewrite, then approve again.`);
   }
   // Approves exactly the revision whose checks were read: an edit in between bumps rev and this fails with 409.
-  return changePost(env, post, ['drafted', 'approved'], { status: 'approved', approved_by: user.id, approved_at: new Date().toISOString(), checks: { ...post.checks, policy } as Checks });
+  const row = await changePost(env, post, ['drafted', 'approved'], { status: 'approved', approved_by: user.id, approved_at: new Date().toISOString(), checks: { ...post.checks, policy } as Checks });
+  await recordDecision(env, post, user, { kind: 'approve', original: draftedText(post), final: post.body });
+  return row;
 }
 
 export function cleanPublishedUrl(raw: string): string | null {

@@ -17,6 +17,10 @@ import { capText, readSource } from './readers';
 import { loadPrompt, render } from './prompts';
 import { factTrust, urlKind } from '../sources/registry';
 import type { RunRow, StepSpec, StepTrace } from './types';
+import { CREATE_CODE, CREATE_READS, CREATE_WRITES } from '../create/ops';
+import { DRAFT_CANDIDATE, REVIEW_FINDINGS } from '../create/schemas';
+import { CONTENT_QUESTIONS } from '../posts';
+import { SLOP_RULES } from '../slop';
 
 export { capText } from './readers';
 
@@ -32,10 +36,10 @@ export interface RunState {
 export type StepResult = { output: unknown; trace: Partial<StepTrace> };
 
 /** Constants a definition may reference as $const.NAME. */
-const CONSTS: Record<string, unknown> = { MAX_QUOTE, SECTIONS: Object.keys(SECTIONS).join(', '), SLOTS: SLOT_PROMPT, MAX_FACTS_PER_CHUNK };
+const CONSTS: Record<string, unknown> = { MAX_QUOTE, SECTIONS: Object.keys(SECTIONS).join(', '), SLOTS: SLOT_PROMPT, MAX_FACTS_PER_CHUNK, SLOP_RULES, CONTENT_QUESTIONS };
 
 /** Reply schemas an 'llm' step can name (types.ts LlmStep.schema). */
-export const SCHEMAS: Record<string, NamedSchema> = { extracted_facts: EXTRACTED_FACTS, support_verdicts: SUPPORT_VERDICTS };
+export const SCHEMAS: Record<string, NamedSchema> = { extracted_facts: EXTRACTED_FACTS, support_verdicts: SUPPORT_VERDICTS, draft_candidate: DRAFT_CANDIDATE, review_findings: REVIEW_FINDINGS };
 
 /** Resolves "$input.a", "$steps.id.a.b" or "$const.NAME"; any other string is a literal. */
 export function resolve(ref: string, state: RunState): unknown {
@@ -90,7 +94,12 @@ export const CODE: Record<string, (args: Record<string, unknown>) => unknown> = 
   support_batches: ({ facts, size, max_batches }) => supportBatches(list<Candidate>(facts), Math.max(1, int(size, 'size')), int(max_batches, 'max_batches')),
   /** Only facts the support check marked supported. */
   decide_facts: ({ facts, batches, verdicts }) => decideFacts(list<Candidate>(facts), list(batches), list(verdicts)),
+  // Drafting (issue #93): create/ops.ts.
+  ...CREATE_CODE,
 };
+
+/** Database reads a 'read' step can name. A read changes nothing, so a retried or replayed step is harmless. */
+export const READS: Record<string, (ctx: StepContext, args: Record<string, unknown>) => Promise<unknown>> = { ...CREATE_READS };
 
 /** Database writes a 'write' step (or onFailure) can name. Each is idempotent, because a step may run more than once. */
 export const WRITES: Record<string, (ctx: StepContext, args: Record<string, unknown>) => Promise<unknown>> = {
@@ -120,6 +129,8 @@ export const WRITES: Record<string, (ctx: StepContext, args: Record<string, unkn
     await db.update(env, 'sources', `${db.eq('id', asText(sourceId))}&${db.eq('brand_id', run.brand_id)}`, { status: 'failed', error: asText(error) || 'reading the page failed' });
     return null;
   },
+  // Drafting (issue #93): create/ops.ts.
+  ...CREATE_WRITES,
 };
 
 /** Runs one step of a definition. Map steps are expanded by the runner, not here. */
@@ -166,6 +177,11 @@ export async function runStep(spec: Exclude<StepSpec, { type: 'map' }>, ctx: Ste
       const fn = CODE[spec.fn];
       if (!fn) throw new HttpError(500, `unknown code step ${spec.fn}`);
       return { output: fn(resolveAll(spec.args, state)), trace: {} };
+    }
+    case 'read': {
+      const op = READS[spec.op];
+      if (!op) throw new HttpError(500, `unknown read step ${spec.op}`);
+      return { output: await op({ ...ctx, state }, resolveAll(spec.args, state)), trace: {} };
     }
     case 'write': {
       const op = WRITES[spec.op];

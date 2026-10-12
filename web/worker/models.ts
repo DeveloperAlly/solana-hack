@@ -25,6 +25,8 @@ export type TaskModels = Record<string, string[]>;
 /** Judge task -> the task whose output it judges. */
 export const JUDGES: Record<string, string> = {
   'extract.check_support': 'extract.facts',
+  // The independent reviewer of drafts (issue #93; backlog G4).
+  'create.review': 'create.draft',
 };
 
 

@@ -23,11 +23,18 @@ export interface SourceStep extends StepBase { type: 'fetch'; reader: string; ar
 export interface LlmStep extends StepBase { type: 'llm'; prompt: string; promptVersion?: number; vars?: Record<string, string>; user: string; userVars?: Record<string, string>; json?: boolean; schema?: string }
 /** A named pure function from the code registry (steps.ts CODE). */
 export interface CodeStep extends StepBase { type: 'code'; fn: string; args: Record<string, string> }
+/** A named database read from the registry (steps.ts READS): it changes nothing, so it is safe to repeat. */
+export interface ReadStep extends StepBase { type: 'read'; op: string; args: Record<string, string> }
 /** A named, idempotent database write from the registry (steps.ts WRITES). */
 export interface WriteStep extends StepBase { type: 'write'; op: string; args: Record<string, string> }
 /** Runs an inner step once per item of a list, each item as its own durable step. Output: the list of results. */
-export interface MapStep extends StepBase { type: 'map'; over: string; max: number; step: Exclude<StepSpec, MapStep> }
-export type StepSpec = FetchStep | SourceStep | LlmStep | CodeStep | WriteStep | MapStep;
+export interface MapStep extends StepBase {
+  type: 'map'; over: string; max: number; step: Exclude<StepSpec, MapStep>;
+  /** Run the items at once instead of one after another. Each item is still its own named durable step, so a replay
+   * returns each finished item by name (https://developers.cloudflare.com/workflows/build/rules-of-workflows/). */
+  parallel?: boolean;
+}
+export type StepSpec = FetchStep | SourceStep | LlmStep | CodeStep | ReadStep | WriteStep | MapStep;
 
 export interface WorkflowSpec {
   id: string;
