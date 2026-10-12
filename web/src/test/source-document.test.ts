@@ -22,7 +22,18 @@ describe('document adapter', () => {
     const r = await readDocument(env, { name: 'scan.pdf', bytes });
     expect(r).toMatchObject({ ok: false, code: 'needs_ocr', reason: expect.stringContaining('no readable text'), meta: { pages: 3 } });
   });
-  it('returns needs_ocr when only a few letters per page come through', async () => {
+  it('keeps the text of a short text PDF, with a note, instead of calling it a scan (PR #71 review)', async () => {
+    const flyer = '# flyer.pdf\n## Metadata\n- Producer=Canva\n\n## Contents\n### Page 1\n# Launch night\nJamJam, Friday 7pm, Footscray.\n';
+    const one = await readDocument({ AI: ai({ name: 'flyer.pdf', format: 'markdown', data: flyer }) }, { name: 'flyer.pdf', bytes });
+    expect(one).toMatchObject({ ok: true, title: 'Launch night', meta: { pages: 1 } });
+    expect(one.ok && one.text).toContain('Friday 7pm');
+    expect(one.meta.notes.join(' ')).toMatch(/only \d+ letters came through/);
+    const slides = Array.from({ length: 5 }, (_, i) => `### Page ${i + 1}\n${['Why us', 'Proof', 'Pricing', 'Team', 'Contact'][i]}`).join('\n');
+    const deck = await readDocument({ AI: ai({ name: 'd.pdf', format: 'markdown', data: `# d.pdf\n## Metadata\n- Producer=Keynote\n\n## Contents\n${slides}` }) }, { name: 'd.pdf', bytes });
+    expect(deck).toMatchObject({ ok: true, meta: { pages: 5 } });
+    expect(deck.ok && deck.text).toContain('Pricing');
+  });
+  it('returns needs_ocr when only a running header or footer comes through on every page', async () => {
     const pages = Array.from({ length: 10 }, (_, i) => `### Page ${i + 1}\nPage ${i + 1} of 10 Confidential`).join('\n');
     const data = `# s.pdf\n## Metadata\n- Producer=Scanner\n\n## Contents\n${pages}`;
     const r = await readDocument({ AI: ai({ name: 's.pdf', format: 'markdown', data }) }, { name: 's.pdf', bytes });

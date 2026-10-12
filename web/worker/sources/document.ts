@@ -5,8 +5,9 @@ import { clock, letterCount, type ConversionResult, type SourceEnv, type SourceR
  * Document adapter (issue #33; architecture §6.1 "Source ingestion", accepted 2026-10-12): PDF, DOCX and XLSX bytes
  * converted to Markdown by Workers AI `env.AI.toMarkdown`, which is free for these formats
  * (https://developers.cloudflare.com/workers-ai/features/markdown-conversion/). A PDF with no text layer (a scan)
- * comes back nearly empty; that is returned as `needs_ocr` (OCR itself is not built yet; architecture §6.1 names an OCR
- * engine for scanned PDFs). PPTX is not a supported format
+ * comes back with no text of its own; that is returned as `needs_ocr` (OCR itself is not built yet; architecture §6.1
+ * names an OCR engine for scanned PDFs). A PDF with little text (a flyer, a certificate, a sparse slide export) keeps
+ * what it has, with a note (PR #71 review). PPTX is not a supported format
  * (https://developers.cloudflare.com/workers-ai/features/markdown-conversion/supported-formats/), so it is refused
  * with a way forward.
  */
@@ -17,10 +18,25 @@ export const DOC_TYPES: Record<string, { mime: string; label: string }> = {
 };
 // Plan v2 §5: "Max upload 15 MB (config)". The engine passes the config value; this is the default.
 export const DOC_MAX_BYTES = 15 * 1024 * 1024;
-// Fewer letters than this per page (and in total) reads as a scan with no text layer. A starting value, to calibrate
-// on the fixtures in architecture §13 (F1 holds each brand's documents).
+// Fewer letters than this per page (or in total) gets a note that parts of the PDF may be scanned images; the text that
+// did come through is still used. A starting value, to calibrate on the fixtures in architecture §13 (F1 holds each
+// brand's documents).
 export const MIN_LETTERS_PER_PAGE = 40;
 export const MIN_LETTERS = 200;
+
+/**
+ * Letters in the lines that are the document's own text. In a PDF of two or more pages, a line that appears on every
+ * page (digits ignored, so "Page 3 of 10" matches "Page 4 of 10") is a running header or footer, which a scanner can
+ * stamp on pages that have no text layer, so it does not count. A one-page PDF counts every line.
+ */
+export function contentLetters(body: string, pages: number): number {
+  const key = (line: string) => line.trim().replace(/\d+/g, '#').toLowerCase();
+  const lines = body.split('\n').filter((l) => l.trim());
+  if (pages < 2) return letterCount(lines.join('\n'));
+  const seen = new Map<string, number>();
+  for (const l of lines) seen.set(key(l), (seen.get(key(l)) ?? 0) + 1);
+  return letterCount(lines.filter((l) => (seen.get(key(l)) ?? 0) < pages).join('\n'));
+}
 
 export interface DocumentInput { name: string; bytes: ArrayBuffer | Uint8Array; maxBytes?: number }
 
@@ -86,8 +102,14 @@ export async function readDocument(env: SourceEnv, input: DocumentInput): Promis
   // The converter echoes the input name (ConversionResult.name, binding docs above).
   const { body, pages } = readableText(out.data, out.name || name);
   const letters = letterCount(body);
-  if (extension === 'pdf' && (letters < MIN_LETTERS || letters / pages < MIN_LETTERS_PER_PAGE)) {
-    return fail('needs_ocr', 'This file has no readable text (it looks like a scan). Export it with text, or paste the key points.', pages);
+  if (extension === 'pdf') {
+    // needs_ocr only when no text of the document's own came through; sparse text is kept (PR #71 review).
+    if (contentLetters(body, pages) === 0) {
+      return fail('needs_ocr', 'This file has no readable text (it looks like a scan). Export it with text, or paste the key points.', pages);
+    }
+    if (letters < MIN_LETTERS || letters / pages < MIN_LETTERS_PER_PAGE) {
+      c.notes.push(`only ${letters} letters came through across ${pages} page(s); if parts of the file are scanned images, paste their key points`);
+    }
   }
   if (letters === 0) return fail('empty', `This ${type.label} has no text we can use; paste the key points instead.`, pages);
   const title = (body.match(/^#\s+(.+)$/m)?.[1] ?? name).trim().slice(0, 200);
