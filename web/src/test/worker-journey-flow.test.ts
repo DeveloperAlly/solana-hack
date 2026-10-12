@@ -123,7 +123,7 @@ afterEach(() => vi.unstubAllGlobals());
 async function call(token: string | null, method: string, path: string, body?: unknown) {
   const req = new Request(`https://jamjam.tech/api${path}`, { method, headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': 'application/json', 'cf-connecting-ip': '1.2.3.4' }, body: body === undefined ? undefined : JSON.stringify(body) });
   try {
-    const res = (await handleApi(req, env, new URL(req.url), { waitUntil: () => undefined } as never))!;
+    const res = (await handleApi(req, env, new URL(req.url)))!;
     return { status: res.status, body: (await res.json()) as Record<string, any> };
   } catch (e) {
     return { status: (e as { status?: number }).status ?? 500, body: { error: (e as Error).message } as Record<string, any> };
