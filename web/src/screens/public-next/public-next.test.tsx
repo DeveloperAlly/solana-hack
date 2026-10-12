@@ -6,7 +6,10 @@ import { GalleryScreen } from '../../gallery/Gallery';
 import { expectNoAxeViolations } from '../../test/axe';
 import { screenStates } from '../../ui/composites/DemoStateSwitcher';
 import { screens } from './registry';
-import { verifyPaths } from './paths';
+import { screenPath } from '../../gallery/screenPath';
+import { verifyArtboards } from './paths';
+
+const verifyPaths = Object.fromEntries(Object.entries(verifyArtboards).map(([k, a]) => [k, screenPath(a)])) as Record<keyof typeof verifyArtboards, string>;
 import { adnaLaunchPost, adnaStandardPost, jamjamRetractedPost } from './posts.fixtures';
 import { renderWithRouter } from '../../test/render';
 import { VerifyMatchResult } from './components/VerifyMatchResult';
@@ -177,6 +180,17 @@ describe('Ledger: filter, sort, paginate and check', () => {
   it('empty state says nothing is registered', () => {
     at(`${verifyPaths.ledger}?state=empty`);
     expect(screen.getByText('JamJam has nothing registered yet.')).toBeInTheDocument();
+  });
+});
+
+describe('links keep the gallery theme (Codex review, PR #68)', () => {
+  it('sample, ledger and check links carry ?theme=', async () => {
+    at(`${verifyPaths.match}?theme=wireframe-dark`);
+    expect(screen.getByRole('link', { name: 'Not found' })).toHaveAttribute('href', '/screens/Verify-2-NoMatch?theme=wireframe-dark');
+    expect(screen.getByRole('link', { name: "See aDNA's public ledger" })).toHaveAttribute('href', '/screens/Ledger?theme=wireframe-dark&brand=adna');
+    await userEvent.click(screen.getByRole('link', { name: "See aDNA's public ledger" }));
+    const check = within(screen.getByRole('table')).getAllByRole('link', { name: 'Check it' })[0];
+    expect(check.getAttribute('href')).toMatch(/^\/screens\/Verify-1-Match\?theme=wireframe-dark&q=/);
   });
 });
 

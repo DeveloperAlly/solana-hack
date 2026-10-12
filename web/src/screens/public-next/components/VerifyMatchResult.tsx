@@ -4,7 +4,7 @@ import { KeyValueList } from '../../../ui/composites/KeyValueList';
 import { VerifyReceiptLink } from '../../../ui/domain/VerifyReceiptLink';
 import { VerifyResultCard } from '../../../ui/domain/VerifyResultCard';
 import { formatDateTime } from '../format';
-import { ledgerHref } from '../paths';
+import { useVerifyLinks } from '../paths';
 import type { ApprovedPost } from '../types';
 
 /** "LinkedIn · 5 Oct 2026, 16:21 · Open post"; unknown parts stay bracketed. */
@@ -17,6 +17,7 @@ function publishedValue(published: ApprovedPost['published']): ReactNode {
 /** "Brand-approved: yes" (canvas Verify-1-Match; note n-v1: brand, kit version, approver, where it was published). */
 export function VerifyMatchResult({ post }: { post: ApprovedPost }) {
   const { brand } = post;
+  const links = useVerifyLinks();
   // Unverified brands show the name as self-declared (canvas note n-ob2).
   const domain = brand.domainVerified ? `${brand.domain} verified` : `${brand.domain} · self-declared`;
   const where = publishedValue(post.published);
@@ -35,7 +36,7 @@ export function VerifyMatchResult({ post }: { post: ApprovedPost }) {
       <Stack gap={1}>
         <Text variant="small" tone="secondary">For an ambassador post, the result also shows the ambassador, the campaign and the payout receipt.</Text>
         <Text variant="small" tone="secondary">
-          Match type: exact fingerprint. <Link href={ledgerHref(brand.id)}>See {brand.name}'s public ledger</Link>
+          Match type: exact fingerprint. <Link href={links.ledger(brand.id)}>See {brand.name}'s public ledger</Link>
         </Text>
       </Stack>
     </VerifyResultCard>
