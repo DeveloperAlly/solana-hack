@@ -22,7 +22,8 @@ export interface JourneySelections {
   voicePicks: Partial<Record<VoiceRound, string>>;
   voiceSentence: string;
   gateDrafts: Record<string, string>;
-  gateDecisions: Record<string, JourneyGateDecision>;
+  /** A decision per gate; null means reopened, which hides a decision that came with the data. */
+  gateDecisions: Record<string, JourneyGateDecision | null>;
 }
 
 const empty: JourneySelections = {
@@ -62,11 +63,7 @@ const actions = {
     update((s) => ({ factDecisions: { ...s.factDecisions, [id]: decision }, factEdits: edit === undefined ? s.factEdits : { ...s.factEdits, [id]: edit } })),
   undoFact: (id: string) => update((s) => ({ factDecisions: without(s.factDecisions, id) })),
   // INTEGRATION: PUT /api/brands/:id/answers/:step (alternatives, answers and voice picks are interview answers).
-  toggleAlternative: (option: string, defaults: string[]) =>
-    update((s) => {
-      const current = s.alternatives ?? defaults;
-      return { alternatives: current.includes(option) ? current.filter((o) => o !== option) : [...current, option] };
-    }),
+  setAlternatives: (selected: string[]) => update(() => ({ alternatives: selected })),
   addAlternative: (option: string, defaults: string[]) =>
     update((s) => ({ customAlternatives: [...s.customAlternatives, option], alternatives: [...(s.alternatives ?? defaults), option] })),
   setAnswer: (id: string, value: string) => update((s) => ({ answers: { ...s.answers, [id]: value } })),
@@ -74,9 +71,9 @@ const actions = {
   setVoiceRound: (round: VoiceRound) => update(() => ({ voiceRound: round })),
   setVoiceSentence: (sentence: string) => update(() => ({ voiceSentence: sentence })),
   // INTEGRATION: PUT /api/brands/:id/sections/:section (edit) and POST …/sections/:section/approve {note} (gate).
-  editGate: (id: string, draft: string) => update((s) => ({ gateDrafts: { ...s.gateDrafts, [id]: draft }, gateDecisions: without(s.gateDecisions, id) })),
+  editGate: (id: string, draft: string) => update((s) => ({ gateDrafts: { ...s.gateDrafts, [id]: draft }, gateDecisions: { ...s.gateDecisions, [id]: null } })),
   approveGate: (id: string, decision: JourneyGateDecision) => update((s) => ({ gateDecisions: { ...s.gateDecisions, [id]: decision } })),
-  reopenGate: (id: string) => update((s) => ({ gateDecisions: without(s.gateDecisions, id) })),
+  reopenGate: (id: string) => update((s) => ({ gateDecisions: { ...s.gateDecisions, [id]: null } })),
 };
 
 export type JourneyActions = typeof actions;
@@ -90,11 +87,14 @@ export function useJourneyFlow(step?: JourneyStepId) {
     steps: journeySteps.map((s) => ({ label: s.label })),
     index,
     estimate: journeySteps[index]?.estimate,
+    status: journeySteps[index]?.status,
     nextHref: index >= 0 && index < last ? journeySteps[index + 1].path : journeyPaths.hub,
     backHref: index > 0 ? journeySteps[index - 1].path : journeyPaths.main,
     /** Done steps link back to their screen. */
     stepHref: (i: number): string | undefined => (i < index ? journeySteps[i].path : undefined),
     selections,
+    /** The gate decision to show: the person's own this visit, else the one that came with the data (the `gates` row). */
+    gateDecision: (id: string, fromData?: JourneyGateDecision) => (id in selections.gateDecisions ? selections.gateDecisions[id] ?? undefined : fromData),
     actions,
   };
 }

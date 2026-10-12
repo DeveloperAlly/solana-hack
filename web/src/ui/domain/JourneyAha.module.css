@@ -1,4 +1,5 @@
 .aha {
+  margin: 0;
   display: flex;
   gap: var(--wl-space-2-5);
   align-items: baseline;

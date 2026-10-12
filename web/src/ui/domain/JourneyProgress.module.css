@@ -1,4 +1,5 @@
 .root { display: flex; flex-direction: column; gap: var(--wl-space-2); min-width: 0; }
+.grow { flex: 1 1 calc(var(--wl-space-12) * 8); }
 .label { color: var(--wl-text-primary); }
 .hint { font-size: var(--wl-font-size-xs); color: var(--wl-text-secondary); }
 .bar {

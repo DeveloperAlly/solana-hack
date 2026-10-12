@@ -9,8 +9,6 @@ export interface JourneyStepFrameProps {
   step: JourneyStepId;
   title: string;
   intro?: ReactNode;
-  /** Header chip: sign-in or registration status, e.g. "Not signed in". */
-  status: string;
   footer?: ReactNode;
   error?: ReactNode;
   children: ReactNode;
@@ -21,14 +19,14 @@ export interface JourneyStepFrameProps {
  * a status chip and "Save and exit" in place of the nav, then L6 WizardLayout with the seven steps, the time estimate,
  * and links back to done steps. Composition only: no styles.
  */
-export function JourneyStepFrame({ step, title, intro, status, footer, error, children }: JourneyStepFrameProps) {
+export function JourneyStepFrame({ step, title, intro, footer, error, children }: JourneyStepFrameProps) {
   const flow = useJourneyFlow(step);
   return (
     <PublicShell
       navHref={publicNavHref}
       actions={
         <>
-          <Badge>{status}</Badge>
+          <Badge>{flow.status}</Badge>
           <Link href={journeyPaths.main}>Save and exit</Link>
         </>
       }

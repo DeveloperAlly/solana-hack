@@ -30,7 +30,7 @@ export function JourneyClaimText({ segments, selected, onSelect }: JourneyClaimT
             aria-pressed={s.claimId === selected}
             onClick={() => onSelect(s.claimId as string)}
           >
-            <span className="wl-visually-hidden">Claim: </span>
+            <span className="wl-visually-hidden">Claim:</span>{' '}
             {s.text}
           </button>
         ) : (

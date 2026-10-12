@@ -30,16 +30,27 @@ export function JourneyChoiceCards({ legend, options, value, onChange }: Journey
     <fieldset className={styles.group}>
       <legend className={styles.legend}>{legend}</legend>
       <div className={styles.grid}>
-        {options.map((o) => (
-          <label key={o.value} className={[styles.card, o.value === value && styles.selected].filter(Boolean).join(' ')}>
-            <span className={styles.head}>
-              <input type="radio" name={name} value={o.value} checked={o.value === value} onChange={() => onChange(o.value)} />
-              <strong>{o.title}</strong>
-              {o.tag && <span className={styles.tag}>{o.tag}</span>}
-            </span>
-            <span className={styles.body}>{o.body}</span>
-          </label>
-        ))}
+        {options.map((o) => {
+          const id = `${name}-${o.value}`;
+          return (
+            <label key={o.value} className={[styles.card, o.value === value && styles.selected].filter(Boolean).join(' ')}>
+              <span className={styles.head}>
+                <input
+                  type="radio"
+                  name={name}
+                  value={o.value}
+                  checked={o.value === value}
+                  onChange={() => onChange(o.value)}
+                  aria-labelledby={[`${id}-t`, o.tag && `${id}-g`].filter(Boolean).join(' ')}
+                  aria-describedby={`${id}-b`}
+                />
+                <strong id={`${id}-t`}>{o.title}</strong>
+                {o.tag && <span id={`${id}-g`} className={styles.tag}>{o.tag}</span>}
+              </span>
+              <span id={`${id}-b`} className={styles.body}>{o.body}</span>
+            </label>
+          );
+        })}
       </div>
     </fieldset>
   );

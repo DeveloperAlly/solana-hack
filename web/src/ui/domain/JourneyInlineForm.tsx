@@ -24,6 +24,8 @@ export interface JourneyInlineFormProps {
   onCancel?: () => void;
   /** Error from outside (a failed request), shown under the field. */
   error?: string | null;
+  /** Validates from the first render, e.g. to show an invalid value that was carried in. */
+  showErrorsNow?: boolean;
 }
 
 /**
@@ -32,9 +34,9 @@ export interface JourneyInlineFormProps {
  * and the one-sentence voice (J4) on the canvas Journey boards (issue #48).
  */
 export function JourneyInlineForm(props: JourneyInlineFormProps) {
-  const { label, submitLabel, validate, onSubmit, defaultValue = '', placeholder, hint, multiline = false, type = 'text', inputMode, autoComplete, busy = false, busyLabel, onCancel, error } = props;
+  const { label, submitLabel, validate, onSubmit, defaultValue = '', placeholder, hint, multiline = false, type = 'text', inputMode, autoComplete, busy = false, busyLabel, onCancel, error, showErrorsNow = false } = props;
   const [value, setValue] = useState(defaultValue);
-  const [touched, setTouched] = useState(false);
+  const [touched, setTouched] = useState(showErrorsNow);
   const problem = touched ? validate(value.trim()) : null;
 
   function submit(e: FormEvent) {

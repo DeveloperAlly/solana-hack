@@ -8,6 +8,8 @@ export interface JourneyProgressProps {
   value: number;
   /** Optional line under the bar. */
   hint?: ReactNode;
+  /** In a wrapping row (a footer bar), takes the free space beside the actions. */
+  grow?: boolean;
 }
 
 /**
@@ -15,11 +17,11 @@ export interface JourneyProgressProps {
  * (J8) on canvas boards J1-Read, J3-Confirm and J8-Hub-FirstRun (issue #48). A native <progress>, so the fill needs no
  * inline style and assistive tech reads the value; the caption carries the number in text too.
  */
-export function JourneyProgress({ label, value, hint }: JourneyProgressProps) {
+export function JourneyProgress({ label, value, hint, grow = false }: JourneyProgressProps) {
   const id = useId();
   const v = Math.min(100, Math.max(0, Math.round(value)));
   return (
-    <div className={styles.root}>
+    <div className={[styles.root, grow && styles.grow].filter(Boolean).join(' ')}>
       <span id={id} className={styles.label}>{label}</span>
       <progress className={styles.bar} max={100} value={v} aria-labelledby={id}>{v}%</progress>
       {hint && <span className={styles.hint}>{hint}</span>}

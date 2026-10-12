@@ -31,15 +31,18 @@ export const journeyPaths = {
 
 export type JourneyPath = (typeof journeyPaths)[keyof typeof journeyPaths];
 
-/** The seven numbered steps of the first run, in order, with the time estimate each canvas board shows. */
+/**
+ * The seven numbered steps of the first run, in order, with the time estimate and header status chip each canvas board
+ * shows. The signed-in address is the canvas sample ("ally@…"); live, it is the session's email.
+ */
 export const journeySteps = [
-  { id: 'read', label: 'Read', path: journeyPaths.read, estimate: 'About 9 min left · target' },
-  { id: 'save', label: 'Save', path: journeyPaths.save, estimate: 'About 8 min left · target' },
-  { id: 'confirm', label: 'Confirm', path: journeyPaths.confirm, estimate: 'About 7 min left · target' },
-  { id: 'gapsVoice', label: 'Gaps + voice', path: journeyPaths.gapsVoice, estimate: 'About 5 min left · target' },
-  { id: 'approveKit', label: 'Approve kit', path: journeyPaths.approveKit, estimate: 'About 3 min left · target' },
-  { id: 'firstPost', label: 'First post', path: journeyPaths.firstPost, estimate: 'About 2 min left · target' },
-  { id: 'proof', label: 'Prove', path: journeyPaths.proof, estimate: 'Done · target under 10 min' },
+  { id: 'read', label: 'Read', path: journeyPaths.read, estimate: 'About 9 min left · target', status: 'Not signed in' },
+  { id: 'save', label: 'Save', path: journeyPaths.save, estimate: 'About 8 min left · target', status: 'Not signed in' },
+  { id: 'confirm', label: 'Confirm', path: journeyPaths.confirm, estimate: 'About 7 min left · target', status: 'ally@… signed in' },
+  { id: 'gapsVoice', label: 'Gaps + voice', path: journeyPaths.gapsVoice, estimate: 'About 5 min left · target', status: 'ally@… signed in' },
+  { id: 'approveKit', label: 'Approve kit', path: journeyPaths.approveKit, estimate: 'About 3 min left · target', status: 'ally@… signed in' },
+  { id: 'firstPost', label: 'First post', path: journeyPaths.firstPost, estimate: 'About 2 min left · target', status: 'Kit v1 registered ✓' },
+  { id: 'proof', label: 'Prove', path: journeyPaths.proof, estimate: 'Done · target under 10 min', status: 'Post registered ✓' },
 ] as const;
 
 export type JourneyStepId = (typeof journeySteps)[number]['id'];

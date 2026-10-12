@@ -1,0 +1,64 @@
+/*
+ * Data contract: J7-Proof, "Prove: registered + Official (AHA 5)" (canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn,
+ * board J7-Proof, note n-j7-proof; issue #48). Shape: ProofData in ./types. Backend map:
+ * .agentic/what/context/backend_map.md §4, rows "Publish and Registered" and "Verify-1, Verify-2, Verify-3".
+ *
+ * | Field        | Source                                                                                              | Empty when |
+ * |--------------|-----------------------------------------------------------------------------------------------------|------------|
+ * | record[]     | The registration: POST /api/brands/:id/posts/:id/register (web/worker/api.ts, registerPost) returns post, kit version, approver, time and hash (`registrations` row) | never: J7 follows registration |
+ * | explorerUrl  | The registration's transaction, as a Solana Explorer link (devnet)                                  | null until it has a transaction |
+ * | network      | Static: devnet (the demo runs on devnet only)                                                       | never      |
+ * | postText     | The approved post body (`posts` row)                                                                | never      |
+ * | checkLink    | The public Check a post page for this post                                                          | never      |
+ * | officialNote | POST /api/verify result for an exact match                                                          | never      |
+ * | edited       | Static example: the edited-copy diff is COMING SOON (verifyText checks exact text only; G-MATCH)    | never      |
+ *
+ * States: success only (the board draws one state). Publishing from JamJam is coming soon (ADR-008).
+ */
+import { Badge, Button, Heading, Link, Stack, Text } from '../../ui/primitives';
+import { Card } from '../../ui/composites/Card';
+import { DiffView } from '../../ui/composites/DiffView';
+import { KeyValueList } from '../../ui/composites/KeyValueList';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
+import { JourneyAha } from '../../ui/domain/JourneyAha';
+import { JourneyCopyButton } from '../../ui/domain/JourneyCopyButton';
+import { JourneySplit } from '../../ui/domain/JourneySplit';
+import { JourneyStepFrame } from './JourneyStepFrame';
+import { ProofCheck } from './ProofCheck';
+import { journeyPaths } from './paths';
+import type { ProofData } from './types';
+
+export function J7Proof({ data }: { data: ProofData }) {
+  const transaction = data.explorerUrl ? <Link href={data.explorerUrl} external>View on Solana Explorer</Link> : '[explorer link once registered]';
+  return (
+    <JourneyStepFrame step="proof" title="Your first post is registered" footer={<Button href={journeyPaths.hub}>Plan the rest of my week</Button>}>
+      <JourneyAha n={5} tone="inverse">Anyone can check this came from you.</JourneyAha>
+      <JourneySplit
+        ratio="5-7"
+        first={
+          <Card labelledBy="proof-record">
+            <Heading level={2} size="xl" id="proof-record">On the public record</Heading>
+            <KeyValueList items={[...data.record, { label: 'Transaction', value: <>{transaction} <Badge>{data.network}</Badge></> }]} />
+            <Stack direction="row" gap={2} wrap>
+              <JourneyCopyButton variant="primary" label="Copy post" text={data.postText} />
+              <JourneyCopyButton label="Copy check link" text={data.checkLink} />
+            </Stack>
+            <Text variant="caption" tone="secondary">
+              Publishing to X and LinkedIn from JamJam: <ComingSoonFlag tag="COMING SOON" />. For now, paste the post and add its link back.
+            </Text>
+          </Card>
+        }
+        second={
+          <Card variant="selected" labelledBy="proof-check" header={<><Heading level={2} size="xl" id="proof-check">Check a post</Heading><Badge>What anyone sees</Badge></>}>
+            <ProofCheck registeredText={data.postText} officialNote={data.officialNote} />
+            <Card variant="subtle" as="div" header={<><Text variant="small"><strong>Someone edits it?</strong></Text><ComingSoonFlag tag="COMING SOON" /></>}>
+              <Text variant="caption" tone="secondary">{data.edited.note}</Text>
+              <DiffView segments={data.edited.diff} />
+            </Card>
+            <Link href={journeyPaths.ledger}>See JamJam's public ledger</Link>
+          </Card>
+        }
+      />
+    </JourneyStepFrame>
+  );
+}

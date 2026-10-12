@@ -18,9 +18,9 @@ export interface JourneyAhaProps {
  */
 export function JourneyAha({ n, children, tone = 'default' }: JourneyAhaProps) {
   return (
-    <aside className={`${styles.aha} ${styles[tone]}`} aria-label={`Aha moment ${n}`}>
+    <p className={`${styles.aha} ${styles[tone]}`}>
       <b className={styles.label}>Aha {n}</b>
       <span className={styles.text}>{children}</span>
-    </aside>
+    </p>
   );
 }

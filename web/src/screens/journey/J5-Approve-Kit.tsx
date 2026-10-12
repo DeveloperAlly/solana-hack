@@ -1,0 +1,70 @@
+/*
+ * Data contract: J5-Approve-Kit, "Approve kit v1: 3 gates" (canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn,
+ * board J5-Approve-Kit, note n-j5-approve-kit; issue #48). Shape: ApproveKitData in ./types. Backend map:
+ * .agentic/what/context/backend_map.md §4, rows "Gate 1, Gate 2, Gate 3" and "Onboard-6-Published, Kit-RegisterFailed".
+ *
+ * | Field         | Source                                                                                            | Empty when |
+ * |---------------|---------------------------------------------------------------------------------------------------|------------|
+ * | approver      | The signed-in user (Supabase session); the `gates.approved_by` it records                         | never      |
+ * | gates[]       | `kit_sections` drafts (POST /api/brands/:id/sections/:section/draft) with their cited `evidence`, plus any `gates` row (approved_by, approved_at, note) via GET /api/brands/:id | never: J5 follows J4 |
+ * | alsoDrafted[] | `kit_sections` without a gate (audience, origin, messaging), status drafted                       | []         |
+ * | onChain       | Static copy: the WL-KIT schema fields (brand_id, hash, kit_version, approver, domain_verified)     | never      |
+ * | registration  | POST /api/brands/:id/kit/register failure (web/worker/api.ts, registerKit): reason, kit hash, last try | unset unless it failed |
+ *
+ * Approve, Edit and Change persist through useJourneyFlow (INTEGRATION there: POST …/sections/:section/approve {note}).
+ * States (note n-j5-approve-kit): success = the three gates; error = registration failed, the kit stays approved.
+ */
+import { useNavigate } from 'react-router';
+import { Grid } from '../../ui/primitives';
+import { JourneyFactCard } from '../../ui/domain/JourneyFactCard';
+import { JourneyGateCard } from '../../ui/domain/JourneyGateCard';
+import { JourneyStatusList } from '../../ui/domain/JourneyStatusList';
+import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
+import { ApproveRegisterPanel } from './ApproveRegisterPanel';
+import { JourneyStepFrame } from './JourneyStepFrame';
+import { useJourneyFlow } from './useJourneyFlow';
+import type { ApproveKitData } from './types';
+
+export interface ApproveKitProps {
+  data: ApproveKitData;
+  state?: ScreenState;
+}
+
+export function J5ApproveKit({ data, state = 'success' }: ApproveKitProps) {
+  const navigate = useNavigate();
+  const flow = useJourneyFlow('approveKit');
+  const { selections, actions } = flow;
+  const decisions = data.gates.map((g) => flow.gateDecision(g.id, g.decision));
+  return (
+    <JourneyStepFrame
+      step="approveKit"
+      title="Approve kit v1"
+      intro="Three decisions. Each shows what it was built from. Your approval is recorded: who, when, and why if you say."
+    >
+      <Grid min="sm" gap={4}>
+        {data.gates.map((g, i) => (
+          <JourneyGateCard
+            key={g.id}
+            gate={g.gate}
+            title={g.title}
+            draft={selections.gateDrafts[g.id] ?? g.draft}
+            builtFrom={g.builtFrom}
+            evidence={g.evidence.map((f) => <JourneyFactCard key={f.id} fact={f} />)}
+            decision={decisions[i]}
+            onApprove={(why) => actions.approveGate(g.id, { by: data.approver, at: new Date().toLocaleString(), why: why || undefined })}
+            onEdit={(draft) => actions.editGate(g.id, draft)}
+            onReopen={() => actions.reopenGate(g.id)}
+          />
+        ))}
+      </Grid>
+      <JourneyStatusList title="Also drafted for a quick look" rows={data.alsoDrafted} />
+      <ApproveRegisterPanel
+        onChain={data.onChain}
+        approved={decisions.filter(Boolean).length}
+        total={data.gates.length}
+        failure={state === 'error' ? data.registration : undefined}
+        onRegister={() => navigate(flow.nextHref)}
+      />
+    </JourneyStepFrame>
+  );
+}
