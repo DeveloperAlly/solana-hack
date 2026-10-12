@@ -6,6 +6,7 @@ import type { LoopStepState } from '../../domain/loop';
 import type { Post } from '../../domain/post';
 import type { QueueItem } from '../../domain/queue';
 import type { LoopBase } from '../../flows/loop/useLoop';
+import type { Quest } from '../../domain/quest';
 
 /** Where the brand is on one loop step (Today's strip). */
 export interface LoopStepStatus {
@@ -24,6 +25,8 @@ export interface TodayData extends LoopBase {
   /** Why the next step has not started, e.g. "Learn starts after 14 days of results". */
   loopNote: string;
   queue: QueueItem[];
+  /** Quests whose submissions can reach the queue (ambassador posts with a questId). */
+  quests?: Quest[];
   done: string[];
   learned: string;
   next: { when: string; what: string }[];

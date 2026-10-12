@@ -61,9 +61,9 @@ describe('Today', () => {
   });
 });
 
-describe('Today: quest submissions pay through domain/quest.ts', () => {
+describe('Today: quest submissions (ambassador posts with a questId) pay through domain/quest.ts', () => {
   const quest = { id: 'quest-tut', task: '[Quest task]', format: 'tutorial' as const, rewardUsdc: 50, slots: 2, paid: 1, due: null, opens: null, submissionIds: ['q-sub-1', 'q-sub-2'] };
-  const sub = (id: string, who: string) => ({ id, kind: 'questSubmission' as const, chip: 'Quest submission', text: `${who}'s tutorial is verified against your kit`, meta: '50 USDC on approval', questId: 'quest-tut', payout: { amount: 50, unit: 'USDC' as const }, verified: true, disclosure: 'present' as const, open: { label: 'Review', artboard: 'Quests' as const } });
+  const sub = (id: string, who: string) => ({ id, kind: 'ambassadorPost' as const, chip: 'Quest submission', text: `${who}'s tutorial is verified against your kit`, meta: '50 USDC on approval', questId: 'quest-tut', payout: { amount: 50, unit: 'USDC' as const }, verified: true, disclosure: 'present' as const, open: { label: 'Review', artboard: 'Quests' as const } });
   const data = { ...today, quests: [quest], queue: [sub('q-sub-1', '[Creator A]'), sub('q-sub-2', '[Creator B]')] };
 
   it('Approve is blocked once the quest slots are full, and the badge says why', async () => {
@@ -73,7 +73,14 @@ describe('Today: quest submissions pay through domain/quest.ts', () => {
     const second = queueRow(/\[Creator B\]/);
     expect(within(second).getByRole('button', { name: 'Approve and pay' })).toBeDisabled();
     expect(within(second).getByText(/Blocked: All 2 slots are paid; the budget is reached/)).toBeInTheDocument();
-    expect(loopStore.read().questPaid['quest-tut']).toBe(2);
+    expect(Object.keys(loopStore.read().outcomes)).toEqual(['q-sub-1']);
+  });
+
+  it('a submission whose quest is not found is blocked ("Quest not found"), never paid as a seat post', async () => {
+    renderWithRouter(<Today data={{ ...data, quests: [] }} />);
+    const row = queueRow(/\[Creator A\]/);
+    expect(within(row).getByRole('button', { name: 'Approve and pay' })).toBeDisabled();
+    expect(within(row).getByText('Blocked: Quest not found.')).toBeInTheDocument();
   });
 });
 
@@ -130,6 +137,20 @@ describe('Brain and Learn-Rules share the Brain', () => {
     await userEvent.click(screen.getAllByRole('button', { name: 'Reject' })[1]);
     expect(within(screen.getByRole('list', { name: 'Decided' })).getByText(/Post event recaps within 24 hours · rejected/)).toBeInTheDocument();
     expect(loopStore.read().brainVersion).toBeUndefined();
+  });
+
+  it('rejecting on Learn-Rules removes the suggestion from the Brain and drops its waiting count (one record)', async () => {
+    const first = renderWithRouter(<Brain data={brainScreen} />);
+    expect(screen.getByText(/2 suggested, waiting on you/)).toBeInTheDocument();
+    first.unmount();
+    const learn = renderWithRouter(<LearnRules data={learnRules} />);
+    const recaps = screen.getAllByRole('region').find((r) => within(r).queryByRole('heading', { name: 'Post event recaps within 24 hours' }))!;
+    await userEvent.click(within(recaps).getByRole('button', { name: 'Reject' }));
+    learn.unmount();
+    renderWithRouter(<Brain data={brainScreen} />);
+    expect(screen.getByText(/1 suggested, waiting on you/)).toBeInTheDocument();
+    expect(screen.queryByRole('rowheader', { name: 'Post event recaps within 24 hours' })).toBeNull();
+    expect(screen.getByText('Brain v3.1')).toBeInTheDocument();
   });
 
   it('collecting shows nothing to suggest yet', () => {
