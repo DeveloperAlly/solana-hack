@@ -1,0 +1,13 @@
+.gate { display: flex; flex-direction: column; gap: var(--wl-space-4); }
+.head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-3); }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-3); }
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wl-space-3);
+  padding: var(--wl-space-4) var(--wl-space-5);
+  border: var(--wl-border-width-strong) solid var(--wl-border-strong);
+  border-radius: var(--wl-radius-box);
+}

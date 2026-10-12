@@ -1,0 +1,15 @@
+.item { display: inline-flex; align-items: center; gap: var(--wl-space-2); }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--wl-space-6);
+  height: var(--wl-space-6);
+  border: var(--wl-border-width-default) solid;
+  border-radius: var(--wl-radius-control);
+  font-size: var(--wl-chip-font-size);
+  font-weight: var(--wl-font-weight-bold);
+}
+.E { background: var(--wl-bg-inverse); color: var(--wl-text-inverse); border-color: var(--wl-bg-inverse); }
+.I { background: var(--wl-bg-subtle); color: var(--wl-text-primary); border-color: var(--wl-border-input); }
+.M { background: var(--wl-bg-canvas); color: var(--wl-text-primary); border-style: dashed; border-color: var(--wl-border-strong); }

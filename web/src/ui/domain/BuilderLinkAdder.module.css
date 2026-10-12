@@ -1,0 +1,2 @@
+.form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--wl-space-3); }
+.field { flex: 1 1 calc(var(--wl-space-12) * 4); min-width: 0; }

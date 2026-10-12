@@ -1,0 +1,24 @@
+.root { display: flex; flex-direction: column; gap: var(--wl-space-1); }
+.track {
+  position: relative;
+  height: var(--wl-space-2);
+  border: var(--wl-border-width-default) solid var(--wl-border-input);
+  border-radius: var(--wl-radius-pill);
+  background: var(--wl-bg-subtle);
+  overflow: hidden;
+}
+.layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  appearance: none;
+}
+.layer::-webkit-progress-bar { background: transparent; }
+.strong::-webkit-progress-value { background: var(--wl-bg-inverse); }
+.muted::-webkit-progress-value { background: var(--wl-border-input); }
+.strong::-moz-progress-bar { background: var(--wl-bg-inverse); }
+.muted::-moz-progress-bar { background: var(--wl-border-input); }
+.caption { margin: 0; font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
