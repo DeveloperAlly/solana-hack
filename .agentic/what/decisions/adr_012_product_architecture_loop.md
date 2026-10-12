@@ -50,8 +50,8 @@ supersedes: navigation line of ADR-003 (product map) and UI mission requirement 
    | **Brand** (the Brain) | Kit and gates (BB-*, Coverage-Map, Kit-Export, Kit-RegisterFailed), voices (Voice-Templates, Voice-Editor), Founder-Profile, Brand-Switcher, the **Brain** (new) |
    | **Create** | Content-Dashboard(+Empty), Draft-Review(+Beautified, PolishError), Media-Composer and Media-Review, Claims |
    | **Distribute** | Platforms and Platform-Detail (#82), Distribute-Adapt (new: write once, adapt per platform), Publish-Calendar, Settings-Connections (moved) |
-   | **Verify** | Verify-Home (new), Ledger, Verify-1..5, Badge-Embed, Verify-Badge-Landing, Tip-Sheet and Tips-Received (#82), the public check page; public **Events-Board and Event-Rating (roadmap)** |
-   | **Grow** | Grow-Home (new), Ambassadors (Amb-*, M-*, seats plus public campaigns), Campaign-v2-1..6 (moved from Create), **Events and Event-Detail (new)**, Influencer-Setup and Influencer-Queue, Partners, Leads, Engage-Queue and Engage-Rules, Referral, Invite-Team (#82) |
+   | **Verify** | Verify-Home (new), Ledger, Verify-1..5, Badge-Embed, Verify-Badge-Landing, Tip-Sheet and Tips-Received (#82), the public check page |
+   | **Grow** | Grow-Home (new), Ambassadors (Amb-*, M-*, seats plus public campaigns), Campaign-v2-1..6 (moved from Create), **Events and Event-Detail (new)**, Influencer-Setup and Influencer-Queue, Partners, Leads, Engage-Queue and Engage-Rules, Referral and Referral-Landing, Invite-Team (#82), public **Events-Board and Event-Rating (roadmap)** |
    | **Learn** | Analytics(+Empty), Outcome-Log, Learn-Rules (new: suggested rules) |
    | Utilities | Inbox (Inbox-All, NeedsReply, Connect), Settings (Settings-AI, GetKey, Plan, Pricing, Upgrade) |
 3. **A Post shows the whole loop.** The Post is the core object. Every post card and the Post detail screen carry a six-step **lifecycle strip**:
@@ -91,8 +91,8 @@ The data model is decided in [ADR-013](https://github.com/DeveloperAlly/solana-h
 ## Consequences
 - **New screens:** Today and M-Today (replacing Hub-Home), Post-Detail with `PostLifecycle` and Why this?, the Brain, Learn-Rules, Verify-Home, Grow-Home, Distribute-Adapt, Events, Event-Detail, and the public Events-Board and Event-Rating. The UI contracts and how they map to ADR-013's modules are in the [coordination comment on issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90#issuecomment-6126672733).
 - **Moved screens:** Campaigns to Grow; Publish-Calendar and Settings-Connections to Distribute.
-- **Code:** each screen's registry entry gains a `step` field. A test asserts that every screen belongs to exactly one step and that every shell reads `config/nav.ts`.
-- **The canvas is redrawn to the loop** (AGENTS.md rule 8): done in canvas v21, whose pages follow the six steps and whose app boards share one nav. The landing page copy and the deck are rewritten to the six steps.
+- **Code:** every screen has exactly one **home**, which is one of the six steps, Today, a utility (Inbox or Settings) or the first run (landing and Journey), and exactly one **shell** (app, ambassador or public). A screen's home comes from its canvas page, so a public screen still has a step home (Verify-1 is Verify; Events-Board and Referral-Landing are Grow; Invite-Accept is Settings). A test asserts one home and one shell per screen, and that every shell reads `config/nav.ts`.
+- **The canvas is redrawn to the loop** (AGENTS.md rule 8): done in canvas v21, whose pages follow the six steps and whose app boards share one nav. Pending: the landing page copy (`web/src/screens/landing/Landing.tsx` still tells three steps) and the deck text (`.agentic/what/context/pitch_deck_2026_10_06.md` slide 5 still tells Build, Run, Prove, Pay) are to be rewritten to the six steps (decision 9).
 - **Trade-off:** Create and Distribute stay separate steps. Buffer and Sprout merge them as "Publish". Keeping them apart makes "write once, it goes everywhere" visible as a promise. If usage shows people treat them as one job, they merge under Create.
 - **Companion:** [ADR-013](https://github.com/DeveloperAlly/solana-hack/pull/88) decides the system architecture under this UI; the Brain here is its brand intelligence system (X18). The two are ratified together.
 
