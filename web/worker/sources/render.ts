@@ -1,4 +1,4 @@
-import { fetchHop, NOT_READ, pageLinks, readable, readText, tidy, USER_AGENT, type FetchGate } from '../ingest';
+import { hopSession, NOT_READ, pageLinks, readable, readText, tidy, USER_AGENT, type FetchGate, type HopSession, type SessionCookie } from '../ingest';
 
 /**
  * Rendered reading for script-only sites (architecture §6.1 "Source ingestion": "fall back to a plain fetch, then
@@ -12,10 +12,14 @@ import { fetchHop, NOT_READ, pageLinks, readable, readText, tidy, USER_AGENT, ty
  * (https://pptr.dev/api/puppeteer.httprequest), so each hop is checked too:
  *
  * - Every top-level page load (the first one, a redirect, a meta refresh, a script navigation) is checked against
- *   robots.txt and fetched one hop at a time by our own reader (ingest.ts fetchHop), as JamJamBot, with the cookies
- *   the browser holds for it. The browser is handed that response, headers included, so it never fetches a page
- *   itself. A redirect is handed over as the redirect it is, cookies and all, and the browser's next request for the
- *   new address comes back here, is checked again and costs another request from the budget (PR #71 review).
+ *   robots.txt and fetched one hop at a time through the site read's own session (ingest.ts hopSession), as
+ *   JamJamBot: one cookie jar and one request budget for the whole read, direct and rendered (PR #71 review). The
+ *   browser starts with the session's cookies for the page, and before each load the cookies the browser holds for that
+ *   address (set by the page's scripts, say) are copied into the session, so each load carries the current state. The
+ *   browser is handed the response, headers included, so it never fetches a page itself. A redirect is handed over as
+ *   the redirect it is, cookies and all, and the browser's next request for the new address comes back here, is checked
+ *   again and costs another request from the budget. An error response (not 2xx) is refused, never shown, so an error
+ *   page is never read as the page (PR #71 review).
  * - Scripts, stylesheets and data requests go out only after robots.txt for their address allows them, from at most
  *   MAX_ORIGINS origins and MAX_REQUESTS requests a page.
  * - Everything not needed for text is refused without a fetch: images, media, fonts, beacons, prefetches, frames.
@@ -44,7 +48,9 @@ export interface RenderPage {
   on(event: 'request', handler: (request: InterceptedRequest) => void): unknown;
   mainFrame(): unknown;
   /** Cookies the browser would send to these addresses (Page.cookies in @cloudflare/puppeteer 1.4.0). */
-  cookies(...urls: string[]): Promise<{ name: string; value: string }[]>;
+  cookies(...urls: string[]): Promise<SessionCookie[]>;
+  /** Sets cookies in the browser (Page.setCookie, CookieParam, in @cloudflare/puppeteer 1.4.0). */
+  setCookie(...cookies: (SessionCookie & { url?: string })[]): Promise<void>;
   goto(url: string, options: { waitUntil: 'networkidle0'; timeout: number }): Promise<unknown>;
   url(): string;
   title(): Promise<string>;
@@ -119,7 +125,7 @@ function forwarded(res: Response): Record<string, string | string[]> {
  * A renderer over one browser session, launched on first use and closed by `close()`. `launch` opens the browser:
  * in the Worker it is `puppeteer.launch(env.BROWSER)` (see `browserRenderer`); tests pass a fake.
  */
-export function createRenderer(launch: () => Promise<RenderBrowser>, gate: FetchGate, maxPages: number): Renderer {
+export function createRenderer(launch: () => Promise<RenderBrowser>, gate: FetchGate, maxPages: number, session: HopSession = hopSession(maxPages * MAX_REQUESTS)): Renderer {
   let browser: Promise<RenderBrowser> | null = null;
   let rendered = 0;
   let attempts = 0;
@@ -143,6 +149,9 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
       await p.setBypassServiceWorker(true);
       await p.evaluateOnNewDocument(NO_SOCKETS);
       await p.setRequestInterception(true);
+      // The browser starts from the session's cookies for the page, so it is where the direct read left off.
+      const seed = await session.cookies(url);
+      if (seed.length) await p.setCookie(...seed.map((c) => ({ ...c, url: url.toString() })));
       p.on('request', (req) => {
         if (req.isInterceptResolutionHandled()) return;
         void decide(p, req, origins, budget).catch(() => {
@@ -191,10 +200,10 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
       if (!(await gate(u))) return void (await refuse());
       if (budget.left <= 0) return void (await refuse());
       budget.left--;
-      const jar = await page.cookies(u.toString());
       let res: Response;
       try {
-        res = await fetchHop(u, jar.length ? { cookie: jar.map((c) => `${c.name}=${c.value}`).join('; ') } : {});
+        await session.remember(u, await page.cookies(u.toString()));
+        res = await session.hop(u);
       } catch {
         return void (await refuse());
       }
@@ -214,8 +223,9 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
         return void (req.isInterceptResolutionHandled() || (await req.respond({ status: res.status, headers })));
       }
       const contentType = res.headers.get('content-type') ?? '';
-      // Media types are case-insensitive (RFC 9110 §8.3.1).
-      if (!/text\/html/i.test(contentType)) {
+      // Only a successful HTML page is shown; an error page (a rate limiter's, a firewall's, an expired session's) is
+      // refused before its body is read. Media types are case-insensitive (RFC 9110 §8.3.1).
+      if (!res.ok || !/text\/html/i.test(contentType)) {
         await res.body?.cancel().catch(() => undefined);
         return void (await refuse());
       }
@@ -263,10 +273,10 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
 export interface BrowserBinding { fetch: typeof fetch }
 
 /** A renderer on the Browser Run binding, with @cloudflare/puppeteer loaded only when a page is first rendered. */
-export function browserRenderer(binding: BrowserBinding, gate: FetchGate, maxPages: number): Renderer {
+export function browserRenderer(binding: BrowserBinding, gate: FetchGate, maxPages: number, session?: HopSession): Renderer {
   return createRenderer(async () => {
     const puppeteer = (await import('@cloudflare/puppeteer')).default;
     // The structural types above are the subset of Puppeteer's Browser and Page that this module calls.
     return (await puppeteer.launch(binding)) as unknown as RenderBrowser;
-  }, gate, maxPages);
+  }, gate, maxPages, session);
 }
