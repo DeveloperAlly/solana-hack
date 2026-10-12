@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { linkedInDate, parseCsv, parseLinkedInExport, parseXArchive, socialPayload, xDate, xText, ytdArray } from './socialExport';
+import { isoInstant, linkedInDate, noteKey, parseCsv, parseLinkedInExport, parseXArchive, socialPayload, xDate, xText, ytdArray } from './socialExport';
 
 // Synthetic fixtures in the shapes described in socialExport.ts (no real archive is committed: they hold private data).
 const tweet = (id: string, full_text: string, created_at: string, extra: Record<string, unknown> = {}) => ({ tweet: { id_str: id, full_text, created_at, retweeted: false, ...extra } });
@@ -20,7 +20,7 @@ describe('X archive (data/tweets.js, parsed in the browser)', () => {
       { text: 'Every post is checked by a person.', date: '2024-03-06T08:00:00.000Z' },
       { text: 'JamJam started in Melbourne in 2024 & we ship weekly <3', date: '2024-01-15T10:15:00.000Z' },
     ]);
-    expect(r.skipped).toEqual({ reposts: 2, empty: 1, unreadable: 0 });
+    expect(r.skipped).toEqual({ reposts: 2, empty: 1, unreadable: 0, unmatched: 0 });
     expect(socialPayload(r)).toEqual({ platform: 'x', items: r.items.map((i) => ({ text: i.text })) });
   });
 
@@ -33,14 +33,14 @@ describe('X archive (data/tweets.js, parsed in the browser)', () => {
     expect(r.ok && r.items.map((i) => i.text)).toEqual(['Second part post', 'Old style post']);
   });
 
-  it('counts entries it cannot read instead of guessing, and notes that note-tweet.js is not read', () => {
+  it('counts entries it cannot read instead of guessing', () => {
     const r = parseXArchive([
       { name: 'tweets.js', content: tweetsJs(0, [null, { tweet: { id_str: '1' } }, tweet('2', 'Fine', 'bad date')]) },
       { name: 'note-tweet.js', content: 'window.YTD.note_tweet.part0 = []' },
     ]);
-    expect(r.ok && r.skipped).toEqual({ reposts: 0, empty: 0, unreadable: 2 });
+    expect(r.ok && r.skipped).toEqual({ reposts: 0, empty: 0, unreadable: 2, unmatched: 0 });
     expect(r.ok && r.items).toEqual([{ text: 'Fine', date: undefined }]);
-    expect(r.ok && r.notes.join(' ')).toMatch(/note-tweet\.js/);
+    expect(r.ok && r.notes).toEqual([]);
   });
 
   it('refuses a missing posts file or one that is not an archive file, with what to choose', () => {
@@ -56,6 +56,123 @@ describe('X archive (data/tweets.js, parsed in the browser)', () => {
     expect(xDate('Wed Feb 30 20:19:24 +0000 2018')).toBeUndefined();
     expect(xDate('2018-10-10')).toBeUndefined();
     expect(xText('&amp;lt;')).toBe('&lt;');
+  });
+});
+
+// Long posts (data/note-tweet.js), in the two documented shapes: X's README (core.text, createdAt) and the community
+// archive's (noteTweetResults.text, tweetId). Sources are cited at parseXNotes and linkNotes in socialExport.ts.
+const LONG = 'JamJam builds a brand from a short interview and the brand\'s own site. '.repeat(5).trim() + ' Every post is checked by a person before it is registered.';
+const CUT = `${LONG.slice(0, 270)}… https://t.co/AbC123xyz`;
+const coreNote = (noteTweetId: string, text: string, createdAt: string) => ({ noteTweet: { noteTweetId, createdAt, updatedAt: createdAt, lifecycle: { value: 'live' }, core: { text, urls: [], mentions: [] } } });
+const resultsNote = (noteTweetId: string, text: string, tweetId: string) => ({ noteTweet: { noteTweetId, noteTweetResults: { text, entitySet: { hashtags: [], urls: [] } }, tweetId } });
+const notesJs = (entries: unknown[], part = 0) => `window.YTD.note_tweet.part${part} = ${JSON.stringify(entries, null, 2)}`;
+const texts = (r: ReturnType<typeof parseXArchive>) => (r.ok ? r.items.map((i) => i.text) : []);
+
+describe('X long posts (data/note-tweet.js): sent in full, never twice', () => {
+  it('README shape: a post cut short in tweets.js is matched by its time and text, and arrives in full with its own date', () => {
+    const r = parseXArchive([
+      { name: 'data/tweets.js', content: tweetsJs(0, [tweet('10', CUT, 'Wed Oct 10 20:19:24 +0000 2018'), tweet('11', 'A short post.', 'Thu Oct 11 08:00:00 +0000 2018')]) },
+      { name: 'data/note-tweet.js', content: notesJs([coreNote('900', LONG, '2018-10-10T20:19:24.000Z')]) },
+    ]);
+    expect(r.ok && r.items).toEqual([{ text: 'A short post.', date: '2018-10-11T08:00:00.000Z' }, { text: LONG, date: '2018-10-10T20:19:24.000Z' }]);
+    expect(r.ok && r.skipped).toEqual({ reposts: 0, empty: 0, unreadable: 0, unmatched: 0 });
+    // Text only reaches the Worker, and the shortened copy is gone.
+    const sent = socialPayload(r as Extract<typeof r, { ok: true }>);
+    expect(sent).toEqual({ platform: 'x', items: [{ text: 'A short post.' }, { text: LONG }] });
+    expect(JSON.stringify(sent)).not.toContain('t.co');
+  });
+
+  it('community-archive shape: matched by tweetId, even when another post has the same time and a matching start', () => {
+    const r = parseXArchive([
+      { name: 'tweets.js', content: tweetsJs(0, [tweet('20', CUT, 'Wed Oct 10 20:19:24 +0000 2018'), tweet('21', CUT, 'Wed Oct 10 20:19:24 +0000 2018')]) },
+      { name: 'note-tweet.js', content: notesJs([resultsNote('901', LONG, '21')]) },
+    ]);
+    expect(texts(r).sort()).toEqual([LONG, xText(CUT)].sort());
+    expect(texts(r).filter((t) => t === LONG)).toHaveLength(1);
+    expect(r.ok && r.skipped.unmatched).toBe(0);
+  });
+
+  it('a reply\'s note text, which holds no leading @mentions, still matches the reply in tweets.js', () => {
+    const r = parseXArchive([
+      { name: 'tweets.js', content: tweetsJs(0, [tweet('30', `@someone @other ${CUT}`, 'Wed Oct 10 20:19:24 +0000 2018')]) },
+      { name: 'note-tweet.js', content: notesJs([coreNote('902', LONG, '2018-10-10T20:19:24.000Z')]) },
+    ]);
+    expect(texts(r)).toEqual([LONG]);
+  });
+
+  it('matched by text alone when no post has the note\'s time: one candidate is replaced, never doubled', () => {
+    const r = parseXArchive([
+      { name: 'tweets.js', content: tweetsJs(0, [tweet('40', CUT, 'Wed Oct 10 20:19:25 +0000 2018')]) },
+      { name: 'note-tweet.js', content: notesJs([coreNote('903', LONG, 'not a date')]) },
+    ]);
+    expect(texts(r)).toEqual([LONG]);
+    expect(r.ok && r.items[0].date).toBe('2018-10-10T20:19:25.000Z');
+  });
+
+  it('ambiguous: a note two posts could match is left unmatched, counted and noted; both posts keep their text and none is doubled', () => {
+    const r = parseXArchive([
+      { name: 'tweets.js', content: tweetsJs(0, [tweet('50', CUT, 'Wed Oct 10 20:19:24 +0000 2018'), tweet('51', CUT, 'Wed Oct 10 20:19:24 +0000 2018')]) },
+      { name: 'note-tweet.js', content: notesJs([coreNote('904', LONG, '2018-10-10T20:19:24.000Z')]) },
+    ]);
+    expect(texts(r)).toEqual([xText(CUT), xText(CUT)]);
+    expect(r.ok && r.skipped.unmatched).toBe(1);
+    expect(r.ok && r.notes.join(' ')).toMatch(/could not be matched to exactly one post/);
+  });
+
+  it('ambiguous the other way: two notes matching one post by text are both left out; a match by id outranks a match by text', () => {
+    const other = `${LONG} And a different ending.`;
+    const two = parseXArchive([
+      { name: 'tweets.js', content: tweetsJs(0, [tweet('60', CUT, 'Wed Oct 10 20:19:24 +0000 2018')]) },
+      { name: 'note-tweet.js', content: notesJs([coreNote('905', LONG, '2018-10-10T20:19:24.000Z'), coreNote('906', other, '2018-10-10T20:19:24.000Z')]) },
+    ]);
+    expect(texts(two)).toEqual([xText(CUT)]);
+    expect(two.ok && two.skipped.unmatched).toBe(2);
+    const ranked = parseXArchive([
+      { name: 'tweets.js', content: tweetsJs(0, [tweet('61', CUT, 'Wed Oct 10 20:19:24 +0000 2018')]) },
+      { name: 'note-tweet.js', content: notesJs([coreNote('907', LONG, '2018-10-10T20:19:24.000Z'), resultsNote('908', other, '61')]) },
+    ]);
+    expect(texts(ranked)).toEqual([other]);
+    expect(ranked.ok && ranked.skipped.unmatched).toBe(1);
+  });
+
+  it('a note no post matches is a post of its own, dated by its createdAt; a repeated note (split parts, repeated picks) counts once', () => {
+    const solo = 'A long post whose tweets.js copy is not in the files chosen. '.repeat(6).trim();
+    const r = parseXArchive([
+      { name: 'tweets.js', content: tweetsJs(0, [tweet('70', 'A short post.', 'Thu Oct 11 08:00:00 +0000 2018')]) },
+      { name: 'data/note-tweet.js', content: notesJs([coreNote('909', solo, '2018-10-12T01:02:03.000+10:00')]) },
+      { name: 'data/note-tweet-part1.js', content: notesJs([coreNote('909', solo, '2018-10-12T01:02:03.000+10:00')], 1) },
+    ]);
+    expect(r.ok && r.items).toEqual([{ text: solo, date: '2018-10-11T15:02:03.000Z' }, { text: 'A short post.', date: '2018-10-11T08:00:00.000Z' }]);
+  });
+
+  it('unreadable and empty notes are counted, never guessed; a note matched by id to a repost is left out with it; deleted-note-tweet.js is not read', () => {
+    const r = parseXArchive([
+      { name: 'tweets.js', content: tweetsJs(0, [tweet('80', CUT, 'Wed Oct 10 20:19:24 +0000 2018'), tweet('81', 'RT @rival: their long words…', 'Wed Oct 10 21:00:00 +0000 2018')]) },
+      { name: 'note-tweet.js', content: notesJs([null, { noteTweet: { noteTweetId: '1', core: { text: 7 } } }, { noteTweet: { noteTweetId: '2' } }, coreNote('3', '   ', '2018-10-10T20:19:24.000Z'), resultsNote('4', 'Their long words, in full.', '81')]) },
+      { name: 'deleted-note-tweet.js', content: notesJs([coreNote('5', LONG, '2018-10-10T20:19:24.000Z')]) },
+    ]);
+    expect(r.ok && r.skipped).toEqual({ reposts: 1, empty: 1, unreadable: 3, unmatched: 0 });
+    expect(texts(r)).toEqual([xText(CUT)]);
+  });
+
+  it('split posts files (tweets-part1.js) still work with note-tweet.js, and an unreadable note-tweet.js is refused with what to choose', () => {
+    const r = parseXArchive([
+      { name: 'data/tweets.js', content: tweetsJs(0, [tweet('90', 'First part post', 'Fri Jan 01 00:00:00 +0000 2016')]) },
+      { name: 'data/tweets-part1.js', content: tweetsJs(1, [tweet('91', CUT, 'Wed Oct 10 20:19:24 +0000 2018')]) },
+      { name: 'data/note-tweet.js', content: notesJs([resultsNote('910', LONG, '91')]) },
+    ]);
+    expect(texts(r)).toEqual([LONG, 'First part post']);
+    expect(parseXArchive([{ name: 'tweets.js', content: tweetsJs(0, []) }, { name: 'note-tweet.js', content: 'window.YTD.note_tweet.part0 = [{' }]))
+      .toMatchObject({ ok: false, reason: expect.stringMatching(/note-tweet\.js/) });
+  });
+
+  it('noteKey and isoInstant compare only what the evidence supports', () => {
+    expect(noteKey('@a @b Hello &amp; welcome…  https://t.co/x1 ')).toBe('Hello & welcome');
+    expect(noteKey('Line one\n\nline two')).toBe('Line one line two');
+    expect(isoInstant('2018-10-10T20:19:24.000Z')).toBe(Date.UTC(2018, 9, 10, 20, 19, 24));
+    expect(isoInstant('2018-10-10T20:19:24+10:00')).toBe(Date.UTC(2018, 9, 10, 10, 19, 24));
+    expect(isoInstant('2018-02-30T00:00:00Z')).toBeUndefined();
+    expect(isoInstant('Wed Oct 10 20:19:24 +0000 2018')).toBeUndefined();
   });
 });
 
