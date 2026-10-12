@@ -2,9 +2,6 @@ import { useMemo } from 'react';
 import { fingerprintOf, isStale } from '../../domain/approval';
 import { nextBrainVersion, type Brain, type BrainRule } from '../../domain/brain';
 import type { Proposal } from '../../domain/proposal';
-import { questWithPaid, type Quest } from '../../domain/quest';
-import { paySubmission as payQuestSubmission } from './payout';
-import type { Gate } from '../../domain/approval';
 import { loopStore, today } from './store';
 
 /** The loop fixtures a screen starts from: the Brain, the learn loop's proposals, and who approves. */
@@ -13,8 +10,6 @@ export interface LoopBase {
   proposals: Proposal[];
   /** The signed-in owner, bracketed in fixtures. */
   approver: string;
-  /** Quests whose submissions can reach the queue. */
-  quests?: Quest[];
 }
 
 export interface LoopFlow {
@@ -36,10 +31,8 @@ export interface LoopFlow {
   /** Records an irreversible outcome (sent, paid). */
   finish: (id: string, outcome: string) => void;
   outcome: (id: string) => string | undefined;
-  /** A quest with this session's paid slots. */
-  quest: (id: string) => Quest | undefined;
-  /** Approves a paid submission through domain/quest.ts `approveSubmission` (the one payout path). */
-  paySubmission: (itemId: string, gate: Gate, questId: string | undefined, payout: { amount: number; unit: 'USDC' }) => void;
+  /** Every recorded outcome, by item id (quests count their payouts from it). */
+  outcomes: Record<string, string>;
 }
 
 /**
@@ -51,26 +44,35 @@ export function useLoop(base: LoopBase): LoopFlow {
   const [state, set] = loopStore.use();
   const version = state.brainVersion ?? base.brain.version;
 
-  const brain = useMemo<Brain>(() => ({
-    ...base.brain,
-    version,
-    rules: base.brain.rules.map((r) => (state.rules[r.id] ? { ...r, ...state.rules[r.id] } : r)),
-    history: [...state.history, ...base.brain.history],
-  }), [base.brain, version, state.rules, state.history]);
-
   const proposals = useMemo(() => base.proposals.map((p) => ({ ...p, ...state.proposals[p.id] })), [base.proposals, state.proposals]);
+
+  // A suggested rule is its proposal: its status is derived from the proposal, never stored twice, so rejecting on
+  // Learn-Rules or approving on Today shows the same on the Brain (Codex review on PR 111). A rejected suggestion
+  // never entered the Brain, so it leaves the list; an approved one is active. Retiring an active rule is a Brain
+  // change of its own (state.rules).
+  const brain = useMemo<Brain>(() => {
+    const fromProposal = (r: BrainRule): BrainRule[] => {
+      const p = r.status === 'suggested' ? proposals.find((x) => x.ruleId === r.id) : undefined;
+      if (p?.status === 'rejected') return [];
+      if (p?.status === 'approved') return [{ ...r, status: 'active', decided: { by: base.approver, at: p.decided?.at ?? '' } }];
+      return [r];
+    };
+    return {
+      ...base.brain,
+      version,
+      rules: base.brain.rules.flatMap(fromProposal).map((r) => (state.rules[r.id] ? { ...r, ...state.rules[r.id] } : r)),
+      history: [...state.history, ...base.brain.history],
+    };
+  }, [base.brain, base.approver, version, proposals, state.rules, state.history]);
+
   const proposal = (id: string) => proposals.find((p) => p.id === id);
 
-  function changeRule(rule: { id: string; text: string }, status: 'active' | 'retired', extra: Partial<typeof state> = {}) {
+  /** A Brain change: the next Brain version and its history line, with the record that changed. */
+  function bump(summary: string, change: (at: string) => Partial<typeof state>) {
     const s = loopStore.read();
     const next = nextBrainVersion(s.brainVersion ?? base.brain.version);
     const at = today();
-    set({
-      ...extra,
-      brainVersion: next,
-      rules: { ...s.rules, [rule.id]: { status, decided: { by: base.approver, at } } },
-      history: [{ version: next, summary: `Rule "${rule.text}" ${status === 'active' ? 'approved' : 'retired'} by ${base.approver}`, at }, ...s.history],
-    });
+    set({ ...change(at), brainVersion: next, history: [{ version: next, summary: `${summary} by ${base.approver}`, at }, ...s.history] });
   }
   const setProposal = (p: Proposal, change: object) => {
     const s = loopStore.read();
@@ -84,12 +86,12 @@ export function useLoop(base: LoopBase): LoopFlow {
     proposal,
     approveProposal: (p) => {
       const rule = base.brain.rules.find((r) => r.id === p.ruleId);
-      if (rule) changeRule(rule, 'active', setProposal(p, { status: 'approved', decided: { at: today() } }));
+      if (rule) bump(`Rule "${rule.text}" approved`, (at) => setProposal(p, { status: 'approved', decided: { at } }));
     },
     rejectProposal: (p) => set(setProposal(p, { status: 'rejected', decided: { at: today() } })),
     trialProposal: (p) => set(setProposal(p, { status: 'trial' })),
     recheckProposal: (p) => set(setProposal(p, { brainVersion: version })),
-    retireRule: (r) => changeRule(r, 'retired'),
+    retireRule: (r) => bump(`Rule "${r.text}" retired`, (at) => ({ rules: { ...loopStore.read().rules, [r.id]: { status: 'retired', decided: { by: base.approver, at } } } })),
     approveItem: (id, inputs) => set({ approvals: { ...loopStore.read().approvals, [id]: { by: base.approver, at: today(), fingerprint: fp(inputs) } } }),
     approvalOf: (id, inputs) => {
       const a = state.approvals[id];
@@ -97,13 +99,6 @@ export function useLoop(base: LoopBase): LoopFlow {
     },
     finish: (id, outcome) => set({ outcomes: { ...loopStore.read().outcomes, [id]: outcome } }),
     outcome: (id) => state.outcomes[id],
-    quest: (id) => {
-      const q = base.quests?.find((x) => x.id === id);
-      return q && questWithPaid(q, state.questPaid);
-    },
-    paySubmission: (itemId, gate, questId, payout) => {
-      const q = questId ? base.quests?.find((x) => x.id === questId) : undefined;
-      payQuestSubmission(itemId, gate, questId, q && questWithPaid(q, loopStore.read().questPaid), payout);
-    },
+    outcomes: state.outcomes,
   };
 }

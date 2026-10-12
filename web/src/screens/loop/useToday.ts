@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Gate } from '../../domain/approval';
 import { nextBrainVersion, rulesWith } from '../../domain/brain';
 import { gateFor, primaryActions, type QueueItem, type QueueKind } from '../../domain/queue';
+import { approveSubmission, payoutOutcome, questWithPayouts } from '../../domain/quest';
 import { stageById } from '../../config/nav';
 import { loopProgressLabel, type LoopStepState } from '../../domain/loop';
 import type { TimelineStep, TimelineStepState } from '../../ui/composites/StatusTimeline';
@@ -67,12 +68,23 @@ function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | '
 export function useToday(data: TodayData) {
   const loop = useLoop(data);
   const [filter, setFilter] = useState<QueueFilter>('all');
-  const ctx = { brainVersion: loop.brain.version, proposal: loop.proposal, quest: loop.quest };
+  const submissions = data.queue.flatMap((i) => (i.kind === 'ambassadorPost' ? [{ id: i.id, questId: i.questId }] : []));
+  const quest = (id: string) => {
+    const q = data.quests?.find((x) => x.id === id);
+    return q && questWithPayouts(q, submissions, loop.outcomes);
+  };
+  const ctx = { brainVersion: loop.brain.version, proposal: loop.proposal, quest };
   const acts: Partial<Record<QueueKind, (item: QueueItem) => void>> = {
     draft: (i) => loop.approveItem(i.id, i.text),
     reply: (i) => loop.finish(i.id, primaryActions.reply?.done ?? ''),
-    ambassadorPost: (i) => i.kind === 'ambassadorPost' && loop.paySubmission(i.id, gateFor(i, ctx), undefined, i.payout),
-    questSubmission: (i) => i.kind === 'questSubmission' && loop.paySubmission(i.id, gateFor(i, ctx), i.questId, i.payout),
+    // Every payout goes through domain/quest.ts: a quest submission through approveSubmission (it re-runs the quest
+    // gate), a seat post through its gate and the shared payout outcome. Today builds no payout path of its own.
+    ambassadorPost: (i) => {
+      if (i.kind !== 'ambassadorPost') return;
+      const gate = gateFor(i, ctx);
+      const outcome = i.questId ? approveSubmission(i, quest(i.questId), gate) : !gate.blocking && payoutOutcome(i.payout);
+      if (outcome) loop.finish(i.id, outcome);
+    },
     learnedRule: (i) => {
       const p = i.kind === 'learnedRule' && loop.proposal(i.proposalId);
       if (p) loop.approveProposal(p);

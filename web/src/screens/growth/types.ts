@@ -12,7 +12,7 @@ import type { Post } from '../../domain/post';
 import type { BoardEventKind, BrandEvent } from '../../domain/event';
 import type { EventRating, OrganiserReply, RatingSummary } from '../../domain/rating';
 import type { Quest, QuestDraft } from '../../domain/quest';
-import type { QuestSubmissionItem } from '../../domain/queue';
+import type { AmbassadorPostItem } from '../../domain/queue';
 
 export type { ApprovedPost, IsoDateTime };
 
@@ -311,8 +311,8 @@ export interface EventRatingData extends EventsBoardData {
 
 export interface QuestsData {
   quests: Quest[];
-  /** Submissions, as items of the one approval queue (domain/queue.ts `questSubmission`), the union Today uses. */
-  submissions: QuestSubmissionItem[];
+  /** Submissions, as items of the one approval queue (domain/queue.ts): ambassador posts with a payout, tagged questId. */
+  submissions: AmbassadorPostItem[];
   /** USDC paid this month before this session. */
   paidThisMonth: number;
   /** Quests suggested from the kit, for the empty state (canvas note: "suggest three from the kit"). */

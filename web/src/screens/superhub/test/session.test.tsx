@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderScreen } from './renderScreen';
+import { stageById } from '../../../config/nav';
 
 // What a person changes on one screen shows on the later screens (hub session); fixtures are only the defaults.
 describe('Superhub: changes carry to later screens', () => {
@@ -23,7 +24,8 @@ describe('Superhub: changes carry to later screens', () => {
     await userEvent.clear(reply);
     await userEvent.type(reply, 'Yes, there is.');
     await userEvent.click(screen.getByRole('button', { name: 'Send on WhatsApp' }));
-    await userEvent.click(screen.getByRole('link', { name: /Needs reply/ }));
+    // The Inbox tabs (config/nav.ts) and the folder rail both link Needs reply, as canvas Inbox-All draws them; use the tab.
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Inbox' })).getByRole('link', { name: 'Needs reply' }));
     expect(screen.getAllByRole('article')).toHaveLength(4);
     expect(screen.getByText('[Customer]: replied.')).toBeInTheDocument();
   });
@@ -109,7 +111,12 @@ describe('Review round 2 (Codex on PR #81)', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: /Blog/ }));
     await userEvent.click(screen.getByRole('radio', { name: 'Both' }));
     await userEvent.click(screen.getByRole('link', { name: 'Cancel' }));
-    await userEvent.click(screen.getByRole('link', { name: 'Campaigns' }));
+    // Cancel goes to Content-Dashboard (canvas Campaign-v2-1-Goal); campaigns now sit under Grow › Campaigns (config/nav.ts),
+    // whose tab opens Campaign-v2-1-Goal. Come back to it in the same session.
+    expect(screen.getByRole('heading', { level: 1, name: /Content/ })).toBeInTheDocument();
+    expect(stageById('grow').tabs.find((tab) => tab.id === 'campaigns')?.artboard).toBe('Campaign-v2-1-Goal');
+    cleanup();
+    renderScreen('Campaign-v2-1-Goal', undefined, undefined, { freshSession: false });
     expect(screen.getByRole('textbox', { name: 'Campaign name' })).toHaveValue('Spring launch');
     expect(screen.getByRole('textbox', { name: 'Dates' })).toHaveValue('1–7 Nov');
     expect(screen.getByRole('textbox', { name: 'Describe it' })).toHaveValue('Partner week');
