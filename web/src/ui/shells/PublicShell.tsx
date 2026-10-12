@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { publicNav } from '../../config/routes';
 import { Button } from '../primitives/Button';
+import { Logo } from '../brand/Logo';
 import { useAuth } from '../../lib/auth';
 import styles from './PublicShell.module.css';
 
@@ -23,7 +24,7 @@ export function PublicShell({ children }: PublicShellProps) {
       <header className={styles.header}>
         <nav className={styles.nav} aria-label="Main">
           <RouterLink to="/" className={styles.logo}>
-            JamJam
+            <Logo />
           </RouterLink>
           <ul className={styles.links}>
             {links.map((item) => (

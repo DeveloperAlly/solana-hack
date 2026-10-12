@@ -3,6 +3,7 @@ import { NavLink, Link as RouterLink, useNavigate } from 'react-router';
 import { hubNav } from '../../config/routes';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../primitives/Button';
+import { Logo } from '../brand/Logo';
 import styles from './AppShell.module.css';
 
 const tagLabel: Record<string, string> = { 'COMING SOON': 'soon', ROADMAP: 'roadmap', EXPERIMENTAL: 'beta' };
@@ -22,7 +23,7 @@ export function AppShell({ brandName, children, preview = false, brandSlot }: { 
       <header className={styles.header}>
         <div className={styles.bar}>
           <RouterLink to="/home" className={styles.logo}>
-            JamJam{brandName && <span className={styles.brand}>{brandName}</span>}
+            <Logo />{brandName &&<span className={styles.brand}>{brandName}</span>}
           </RouterLink>
           <nav aria-label={preview ? `Hub preview${brandName ? `, ${brandName}` : ''}` : 'Hub'}>
             <ul className={styles.links}>
