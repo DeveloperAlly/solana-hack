@@ -255,6 +255,10 @@ describe('first post with no brief (J6)', () => {
     const res = await call('perm', 'POST', `/api/brands/${b.id}/posts`, {});
     expect(res.status).toBe(201);
     expect((res.body.post as { brief: string }).brief).toBe(FIRST_POST_BRIEF);
+    // Only the first post: a later post with no brief is refused as before, with no model call.
+    const calls = prompts.length;
+    expect((await call('perm', 'POST', `/api/brands/${b.id}/posts`, { brief: '  ' })).status).toBe(400);
+    expect(prompts.length).toBe(calls);
   });
 });
 

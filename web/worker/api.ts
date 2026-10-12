@@ -493,8 +493,14 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     }
     if (p.length === 4 && m === 'POST') {
       const b = await body(req);
-      // No brief: the first post is written from the kit (journey J6, "no blank brief").
-      const brief = str(b.brief, 1000) || FIRST_POST_BRIEF;
+      // No brief: only the brand's first post is written from the kit (journey J6, "no blank brief"); any later post
+      // still needs one, as the Create screen asks.
+      let brief = str(b.brief, 1000);
+      if (!brief) {
+        const [any] = await db.select<{ id: string }>(env, 'posts', `${db.eq('brand_id', brand.id)}&select=id&limit=1`);
+        if (any) throw new HttpError(400, 'say what the post is about');
+        brief = FIRST_POST_BRIEF;
+      }
       return json({ post: await draftPost(env, brand, brief, str(b.channel, 40)) }, 201);
     }
     const [post] = p[4] && /^[0-9a-f-]{36}$/.test(p[4]) ? await db.select<Post>(env, 'posts', `${db.eq('id', p[4])}&${db.eq('brand_id', brand.id)}`) : [];
