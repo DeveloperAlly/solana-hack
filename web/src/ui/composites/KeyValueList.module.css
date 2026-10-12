@@ -1,0 +1,14 @@
+.list { margin: 0; display: flex; flex-direction: column; }
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, calc(var(--wl-space-12) * 4)) minmax(0, 1fr);
+  gap: var(--wl-space-1) var(--wl-space-4);
+  padding: var(--wl-space-2-5) var(--wl-space-2);
+  border-bottom: var(--wl-border-width-default) solid var(--wl-border-rule);
+}
+.label { color: var(--wl-text-secondary); font-weight: var(--wl-font-weight-semibold); }
+.value { margin: 0; overflow-wrap: anywhere; }
+/* Custom properties cannot be used in media queries; 30rem is the breakpoint.sm token (480 at the 16 root size). */
+@media (max-width: 30rem) {
+  .row { grid-template-columns: minmax(0, 1fr); }
+}
