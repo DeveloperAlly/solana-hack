@@ -281,7 +281,11 @@ export async function saveAnswer(env: Env, brand: Brand, step: string, data: Rec
   // Interview rows only: an owner's edit of a source fact (journey.ts editFact, edited_from set) is not an answer.
   const evFilter = `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}&edited_from=is.null`;
   const existing = await db.select<{ id: string; claim: string }>(env, 'evidence', `${evFilter}&select=id,claim`);
-  const wanted = skipped ? [] : Object.entries(data).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`);
+  // The voice sample is a style example (typed, or a generated paragraph the owner picked in journey J4), never a fact
+  // about the brand: it stays in the answer for drafting the voice section, but never becomes approved evidence that
+  // could back a claim.
+  const NOT_EVIDENCE = step === 'voice' ? ['sample'] : [];
+  const wanted = skipped ? [] : Object.entries(data).filter(([k, v]) => v && !NOT_EVIDENCE.includes(k)).map(([k, v]) => `${k}: ${v}`);
   const kept = new Set<string>();
   const removed: string[] = [];
   for (const e of existing) {

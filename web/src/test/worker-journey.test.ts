@@ -238,6 +238,13 @@ describe('voice by example (J4)', () => {
     llm = () => ({ samples: [sample('friendly')] });
     expect((await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 })).status).toBe(502);
   });
+  it('a picked sample is kept in the voice answer but never becomes evidence', async () => {
+    const b = brandRow('p-1');
+    tables.brands = [b];
+    await call('perm', 'PUT', `/api/brands/${b.id}/answers/voice`, { data: { ...voiceAnswerFor('friendly'), sample: 'Acme serves 10,000 towns.' }, skipped: false });
+    expect((tables.answers[0].data as Record<string, string>).sample).toBe('Acme serves 10,000 towns.');
+    expect(tables.evidence.some((e) => String(e.claim).includes('10,000'))).toBe(false);
+  });
   it('a pick saves as the Voice answer the kit policy reads (template, dials, claims gate)', () => {
     const a = voiceAnswerFor('efficient');
     expect(a).toMatchObject({ template: 'efficient', claims: '4', formality: '3', sentence_length: '1' });
