@@ -14,7 +14,7 @@ export const campaignLaunch: CampaignLaunchData = {
   metric: '[metric]',
   plan: '[n] brand posts · [n] ambassador pieces',
   balance: '[n]',
-  overBalance: false,
+  balanceCheck: null,
 };
 
-export const campaignLaunchBlocked: CampaignLaunchData = { ...campaignLaunch, overBalance: true };
+export const campaignLaunchBlocked: CampaignLaunchData = { ...campaignLaunch, balanceCheck: { checkedCap: '500', over: true } };

@@ -1,3 +1,4 @@
+import type { BalanceCheck } from '../../flows/campaign/balanceCheck';
 // Data shapes for the "Coming soon" canvas page (issue #51). Screens, fixtures and data contracts import from here.
 // Field sources are in each screen's Data contract comment (backend map §4, .agentic/what/context/backend_map.md).
 import type { SoonStatusId } from './status';
@@ -100,8 +101,8 @@ export interface CampaignBudgetData {
   payouts: PayoutRow[];
   noXNote: string;
   balance: Bracketed;
-  /** Server check: the cap is above the brand wallet's USDC balance (D31 over-balance). */
-  overBalance: boolean;
+  /** The server's last check of a cap against the brand wallet's USDC balance (D31 over-balance), or none yet. */
+  balanceCheck: BalanceCheck | null;
 }
 export interface CampaignLaunchData {
   /** The audience segments and plan items (their fixtures), to name what earlier steps chose. */
@@ -112,7 +113,8 @@ export interface CampaignLaunchData {
   metric: Bracketed;
   plan: Bracketed;
   balance: Bracketed;
-  overBalance: boolean;
+  /** The server's last balance check of a cap (D31); launch is blocked while the draft's cap is over by it. */
+  balanceCheck: BalanceCheck | null;
 }
 
 /* Publishing calendar (D8) */

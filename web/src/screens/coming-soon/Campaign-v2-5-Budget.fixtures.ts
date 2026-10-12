@@ -11,7 +11,7 @@ export const campaignBudget: CampaignBudgetData = {
   ],
   noXNote: 'No X formats: X bans paying for posts (ADR-002); the API rejects a paid X format (backend map).',
   balance: '[n]',
-  overBalance: false,
+  balanceCheck: null,
 };
 
-export const campaignBudgetOverBalance: CampaignBudgetData = { ...campaignBudget, overBalance: true };
+export const campaignBudgetOverBalance: CampaignBudgetData = { ...campaignBudget, balanceCheck: { checkedCap: '500', over: true } };

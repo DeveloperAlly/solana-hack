@@ -296,6 +296,23 @@ describe('Campaign v2 flow (steps 2, 4, 5, 6 here; 1 and 3 on Superhub)', () => 
     expect(screen.getByText(/Blocked: the cap is above your wallet balance/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Launch campaign' })).toBeDisabled();
   });
+
+  it('lowering the cap below the over-balance cap clears the check; raising it back flags it again (Codex review on PR #79)', async () => {
+    const user = at('/screens/Campaign-v2-5-Budget?state=error');
+    const cap = screen.getByLabelText(/^Spending cap/);
+    expect(screen.getByText(/The cap is above your wallet balance/)).toBeInTheDocument();
+    await user.clear(cap);
+    await user.type(cap, '200');
+    expect(screen.queryByText(/The cap is above your wallet balance/)).not.toBeInTheDocument();
+    cleanup();
+    at('/screens/Campaign-v2-6-Launch?state=error');
+    expect(screen.queryByText(/Blocked: the cap is above your wallet balance/)).not.toBeInTheDocument();
+    cleanup();
+    const again = at('/screens/Campaign-v2-5-Budget?state=error');
+    await again.clear(screen.getByLabelText(/^Spending cap/));
+    await again.type(screen.getByLabelText(/^Spending cap/), '600');
+    expect(screen.getByText(/The cap is above your wallet balance/)).toBeInTheDocument();
+  });
 });
 
 describe('Publishing calendar', () => {

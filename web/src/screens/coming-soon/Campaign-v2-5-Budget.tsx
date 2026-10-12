@@ -10,7 +10,7 @@
  * | noXNote          | Static copy (canvas)                                           | never                |
  * | cap              | campaigns: spending cap in USDC                                | never (default)      |
  * | balance          | RPC USDC balance of brands.payout_wallet                       | no wallet: "[n]"     |
- * | overBalance      | Server check: cap > balance                                    | within balance       |
+ * | balanceCheck     | Server check of a cap against the balance; holds for that cap and above | none, or within balance |
  *
  * Flow: flows/campaign (step 5 of 6, draft.budget). Back goes to Campaign-v2-4-Plan, Next to Campaign-v2-6-Launch;
  * Next waits for steps 1 to 4, valid payouts and cap, and a cap within the balance.
@@ -22,15 +22,16 @@ import { SoonPayoutTable, payoutError } from '../../ui/domain/SoonPayoutTable';
 import { SoonSpendingCapField, capError } from '../../ui/domain/SoonSpendingCapField';
 import { CampaignStepFrame } from '../../flows/campaign/CampaignStepFrame';
 import { campaignStore } from '../../flows/campaign/draft';
+import { isOverBalance } from '../../flows/campaign/balanceCheck';
 import { useCampaignFlow } from '../../flows/campaign/useCampaignFlow';
 import { SoonPage } from './SoonPage';
 import type { CampaignBudgetData } from './types';
 
-export function CampaignBudget({ data, state = 'success' }: { data: CampaignBudgetData; state?: ScreenState }) {
+export function CampaignBudget({ data }: { data: CampaignBudgetData; state?: ScreenState }) {
   const budget = campaignStore.use().draft.budget;
   // The draft's values win; the fixture fills formats the draft has no value for.
   const payouts = data.payouts.map((p) => ({ ...p, payout: budget.payouts[p.id] ?? p.payout }));
-  const overBalance = state === 'error' || data.overBalance;
+  const overBalance = isOverBalance(budget.cap, data.balanceCheck);
   const valid = payouts.every((p) => !payoutError(p.payout)) && !capError(budget.cap) && !overBalance;
   // INTEGRATION: PATCH /api/campaigns/:id { payouts, cap }; the server re-checks the cap against the wallet balance.
   const flow = useCampaignFlow('budget', { stepComplete: valid });

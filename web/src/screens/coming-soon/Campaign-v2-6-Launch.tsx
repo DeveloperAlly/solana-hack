@@ -11,7 +11,7 @@
  * | plan         | counts from POST …/plan (step 4)                          | never at this step    |
  * | cap          | campaigns spending cap (step 5)                           | never at this step    |
  * | balance      | RPC USDC balance of brands.payout_wallet                  | no wallet: "[n]"      |
- * | overBalance  | Server check: cap > balance; blocks launch                | within balance        |
+ * | balanceCheck | Server check of a cap against the balance; blocks launch at that cap or above | none, or within balance |
  *
  * Flow: flows/campaign (step 6 of 6): the summary reads the shared draft (goal, audience, metric, plan, cap), with
  * the fixtures only as defaults. Launch waits for steps 1 to 5 and the cap approval (draft.approval).
@@ -25,15 +25,16 @@ import { StatePanel } from '../../ui/composites/StatePanel';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { CampaignStepFrame } from '../../flows/campaign/CampaignStepFrame';
 import { campaignStore } from '../../flows/campaign/draft';
+import { isOverBalance } from '../../flows/campaign/balanceCheck';
 import { useCampaignFlow } from '../../flows/campaign/useCampaignFlow';
 import { SoonPage } from './SoonPage';
 import { useSoonRoutes } from './routes';
 import type { CampaignLaunchData } from './types';
 
-export function CampaignLaunch({ data, state = 'success' }: { data: CampaignLaunchData; state?: ScreenState }) {
+export function CampaignLaunch({ data }: { data: CampaignLaunchData; state?: ScreenState }) {
   const routes = useSoonRoutes();
   const { draft } = campaignStore.use();
-  const blocked = state === 'error' || data.overBalance;
+  const blocked = isOverBalance(draft.budget.cap, data.balanceCheck);
   // INTEGRATION: POST …/launch; the server re-checks the cap against the wallet balance.
   const flow = useCampaignFlow('launch', { stepComplete: draft.approval.capApproved && !blocked });
   const cap = `${draft.budget.cap} USDC`;
