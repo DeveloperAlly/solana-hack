@@ -42,11 +42,19 @@ describe('document adapter', () => {
     const stamped = await readDocument({ AI: ai({ name: 's1.pdf', format: 'markdown', data: '# s1.pdf\n## Metadata\n- Producer=Scanner\n\n## Contents\n### Page 1\n- 1 -\n' }) }, { name: 's1.pdf', bytes });
     expect(stamped).toMatchObject({ ok: false, code: 'needs_ocr' });
   });
-  it('returns needs_ocr when only a running header or footer comes through on every page', async () => {
-    const pages = Array.from({ length: 10 }, (_, i) => `### Page ${i + 1}\nCONFIDENTIAL\nPage ${i + 1} of 10`).join('\n');
+  it('returns needs_ocr when only page labels come through', async () => {
+    const pages = Array.from({ length: 10 }, (_, i) => `### Page ${i + 1}\nPage ${i + 1} of 10`).join('\n');
     const data = `# s.pdf\n## Metadata\n- Producer=Scanner\n\n## Contents\n${pages}`;
     const r = await readDocument({ AI: ai({ name: 's.pdf', format: 'markdown', data }) }, { name: 's.pdf', bytes });
     expect(r).toMatchObject({ ok: false, code: 'needs_ocr' });
+  });
+  it('keeps text repeated word for word on every page, such as a repeated form or terms (PR #71 review)', async () => {
+    const pages = Array.from({ length: 3 }, (_, i) => `### Page ${i + 1}\nPayment terms: 30 days from invoice.\nPage ${i + 1} of 3`).join('\n');
+    const data = `# t.pdf\n## Metadata\n- Producer=Word\n\n## Contents\n${pages}`;
+    const r = await readDocument({ AI: ai({ name: 't.pdf', format: 'markdown', data }) }, { name: 't.pdf', bytes });
+    expect(r).toMatchObject({ ok: true, meta: { pages: 3 } });
+    expect(r.ok && r.text).toContain('Payment terms');
+    expect(r.meta.notes.join(' ')).toMatch(/only \d+ letters came through/);
   });
   it('keeps one numeric row per page, which differ only in their figures (PR #71 review)', async () => {
     const data = '# r.pdf\n## Metadata\n- Producer=Xero\n\n## Contents\n### Page 1\n2026-10-01 | $1,000\n### Page 2\n2026-10-08 | $2,500\n';

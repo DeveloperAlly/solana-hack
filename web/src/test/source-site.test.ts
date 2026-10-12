@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readSite, siteUrl, SITE_DEFAULTS } from '../../worker/sources/site';
-import { allowedBy, normalisePath, parseRobots, readCapped, ROBOTS_MAX_BYTES } from '../../worker/sources/robots';
+import { allowedBy, normalisePath, parseRobots, readCapped, ROBOTS_MAX_BYTES, ruleMatches } from '../../worker/sources/robots';
 
 // Site adapter (issue #33). Exa and the site are mocked; each test sets what they answer. Any call to Cloudflare's
 // page renderer is recorded too, to show none is made.
@@ -41,9 +41,33 @@ describe('site adapter: Exa first', () => {
     expect(r.text).toContain('Free plan.');
     const exa = calls.filter((c) => c.url === 'https://api.exa.ai/contents');
     expect(exa).toHaveLength(2);
-    expect(exa[0].body).toEqual({ urls: ['https://jamjam.tech/'], text: { maxCharacters: SITE_DEFAULTS.maxCharacters }, extras: { links: 100 } });
-    // Exa's own subpage crawl is never asked for; the chosen links are named, ranked by the key-page terms.
-    expect(exa[1].body).toEqual({ urls: ['https://jamjam.tech/about', 'https://jamjam.tech/pricing'], text: { maxCharacters: SITE_DEFAULTS.maxCharacters } });
+    expect(exa[0].body).toEqual({ urls: ['https://jamjam.tech/'], text: { maxCharacters: SITE_DEFAULTS.maxCharacters }, extras: { links: 100 }, maxAgeHours: -1 });
+    // Exa's own subpage crawl is never asked for; the chosen links are named, ranked by the key-page terms. Every call
+    // is cache-only (maxAgeHours -1), so our request never makes Exa fetch a page (PR #71 review).
+    expect(exa[1].body).toEqual({ urls: ['https://jamjam.tech/about', 'https://jamjam.tech/pricing'], text: { maxCharacters: SITE_DEFAULTS.maxCharacters }, maxAgeHours: -1 });
+  });
+  it('reads a chosen page Exa has not cached with our own gated reader (PR #71 review)', async () => {
+    const calls = stub({
+      robots: () => new Response('User-agent: *\nDisallow: /private\n'),
+      // Exa has the home page and /about cached, not /pricing.
+      exa: exaSite([{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://jamjam.tech/about', title: 'About', text: 'About us.' }], 0.009, ['https://jamjam.tech/about', 'https://jamjam.tech/pricing']),
+      page: (u) => (u === 'https://jamjam.tech/pricing' ? html('Pricing', 'Free plan for every brand, with a paid plan for teams.') : new Response('', { status: 200 })),
+    });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/', { website: 'jamjam.tech' });
+    expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/about', 'https://jamjam.tech/pricing']);
+    expect(calls.filter((c) => c.url.startsWith('https://api.exa.ai/')).every((c) => (c.body as { maxAgeHours?: number }).maxAgeHours === -1)).toBe(true);
+  });
+  it('without Exa, reads the home page and its key subpages from its own links (PR #71 review)', async () => {
+    const home = `<html><title>JamJam</title><body><p>${LONG}</p><a href="/about">About</a> <a href="/private/x">x</a> <a href="https://elsewhere.test/">e</a></body></html>`;
+    const calls = stub({
+      robots: () => new Response('User-agent: *\nDisallow: /private\n'),
+      page: (u) => (u === 'https://jamjam.tech/' ? new Response(home, { headers: { 'content-type': 'text/html' } }) : html('About', 'JamJam was started in Melbourne to help brands prove what they say.')),
+    });
+    const r = await readSite({}, 'https://jamjam.tech/', { website: 'jamjam.tech' });
+    expect(r).toMatchObject({ ok: true, meta: { via: 'fetch', pages: 2 } });
+    expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/about']);
+    expect(calls.map((c) => c.url)).not.toContain('https://jamjam.tech/private/x');
+    expect(calls.map((c) => c.url)).not.toContain('https://elsewhere.test/');
   });
   it('gives Exa only addresses whose every redirect hop robots.txt allows (PR #71 review)', async () => {
     // The home link redirects into a disallowed path: Exa is not asked for either address.
@@ -279,6 +303,20 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     const filler = `# ${'x'.repeat(505_000)}\n`;
     stub({ robots: () => new Response(`User-agent: *\n${filler}Disallow: /late\n`) });
     expect(await readSite({}, 'https://x.test/late')).toMatchObject({ ok: false, code: 'robots_disallowed' });
+  });
+  it('matches wildcards without regular expressions, in linear time (PR #71 review)', () => {
+    const hostile = `/a${'*a'.repeat(400)}*b$`;
+    const path = `/${'a'.repeat(20_000)}`;
+    const t0 = Date.now();
+    expect(ruleMatches(hostile, path)).toBe(false);
+    expect(Date.now() - t0).toBeLessThan(200);
+    // Semantics unchanged: * spans any run, $ anchors the end, pieces are found in order.
+    expect(ruleMatches('/a*b*c', '/axxbyyc/z')).toBe(true);
+    expect(ruleMatches('/a*b*c$', '/axxbyyc/z')).toBe(false);
+    expect(ruleMatches('/a*bc$', '/abcbc')).toBe(true);
+    expect(ruleMatches('/*.pdf$', '/x.pdf')).toBe(true);
+    expect(ruleMatches('/ab$', '/ab')).toBe(true);
+    expect(ruleMatches('/a*a$', '/a')).toBe(false);
   });
   it('ranks rules by path octets, not counting * or $ (RFC 9309 §2.2.2; PR #71 review)', () => {
     const rules = parseRobots('User-agent: *\nAllow: /foo*$\nDisallow: /foob\n');

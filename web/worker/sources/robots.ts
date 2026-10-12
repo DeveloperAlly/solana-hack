@@ -65,10 +65,25 @@ export function normalisePath(p: string): string {
     .replace(/[^\x00-\x7F]+/gu, (run) => encodeURIComponent(run));
 }
 
-function ruleMatches(rulePath: string, path: string) {
+/**
+ * Whether a rule path matches, with "*" for any run of characters and a closing "$" for the end of the path. Matched
+ * without regular expressions, in linear passes: each literal piece between wildcards is found at its leftmost place
+ * after the previous one, which never needs backtracking, so a hostile robots.txt cannot burn the Worker's CPU
+ * (PR #71 review).
+ */
+export function ruleMatches(rulePath: string, path: string): boolean {
   const anchored = rulePath.endsWith('$');
-  const body = (anchored ? rulePath.slice(0, -1) : rulePath).split('*').map((p) => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*');
-  return new RegExp(`^${body}${anchored ? '$' : ''}`).test(path);
+  const parts = (anchored ? rulePath.slice(0, -1) : rulePath).split('*');
+  if (!path.startsWith(parts[0])) return false;
+  let pos = parts[0].length;
+  if (parts.length === 1) return anchored ? path.length === pos : true;
+  for (let i = 1; i < parts.length - 1; i++) {
+    const at = path.indexOf(parts[i], pos);
+    if (at === -1) return false;
+    pos = at + parts[i].length;
+  }
+  const last = parts[parts.length - 1];
+  return anchored ? path.length - last.length >= pos && path.endsWith(last) : path.indexOf(last, pos) !== -1;
 }
 
 /** True when the rules allow this path (path plus query, as in the URL). */

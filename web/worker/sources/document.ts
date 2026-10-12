@@ -31,19 +31,12 @@ export const MIN_LETTERS = 200;
 const PAGE_LABEL = /^[\s\p{P}]*(?:page|pg\.?|p\.)?\s*\d{1,4}(?:\s*(?:of|\/|\|)\s*\d{1,4})?[\s\p{P}]*$/iu;
 
 /**
- * Letters and digits in the lines that are the document's own text, so a text PDF of only numbers and symbols (an
- * invoice table, a price sheet) counts as text (PR #71 review). Not counted: a page label (PAGE_LABEL), and, in a PDF
- * of two or more pages, a line found word for word on every page, which is a running header or footer a scanner can
- * stamp on pages with no text layer. Lines are compared exactly, page by page, so rows that differ only in their
- * figures (one invoice row per page) stay content (PR #71 review).
+ * Letters and digits in the document's text, page labels aside (PAGE_LABEL). A PDF counts as having no text layer
+ * only when this is zero: repeated or sparse lines are still real selectable text (a repeated form, a terms sheet,
+ * one figure per page), so they are kept, with a note when sparse (PR #71 review).
  */
-export function contentChars(pageTexts: string[]): number {
-  const own = (page: string) => page.split('\n').map((l) => l.trim()).filter((l) => l && !PAGE_LABEL.test(l));
-  const pages = pageTexts.map(own);
-  if (pages.length < 2) return contentCount(pages.flat().join('\n'));
-  const sets = pages.map((p) => new Set(p));
-  const onEvery = (l: string) => sets.every((set) => set.has(l));
-  return contentCount(pages.flat().filter((l) => !onEvery(l)).join('\n'));
+export function contentChars(body: string): number {
+  return contentCount(body.split('\n').map((l) => l.trim()).filter((l) => l && !PAGE_LABEL.test(l)).join('\n'));
 }
 
 export interface DocumentInput { name: string; bytes: ArrayBuffer | Uint8Array; maxBytes?: number }
@@ -60,27 +53,20 @@ const ext = (name: string) => name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ??
  * (PR #67 review), and output without the wrapper (DOCX, XLSX, or a changed layout) is kept whole as one page.
  * Metadata letters (title, producer) must not make a scan look like it has text, which is why the wrapper is removed.
  */
-export function readableText(markdown: string, name: string): { body: string; pages: number; wrapped: boolean; pageTexts: string[] } {
+export function readableText(markdown: string, name: string): { body: string; pages: number; wrapped: boolean } {
   const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
-  const whole = { body: markdown.trim(), pages: 1, wrapped: false, pageTexts: [markdown.trim()] };
+  const whole = { body: markdown.trim(), pages: 1, wrapped: false };
   if (lines[0]?.trim() !== `# ${name}` || lines[1]?.trim() !== '## Metadata') return whole;
   let i = 2;
   for (; i < lines.length && lines[i].trim() !== '## Contents'; i++) if (lines[i].trim() && !lines[i].startsWith('- ')) return whole;
   if (i >= lines.length) return whole;
   let pages = 0;
   const body: string[] = [];
-  // Text per page, so a running header can be told from content page by page; text before "### Page 1" joins page 1.
-  const perPage: string[][] = [[]];
   for (const line of lines.slice(i + 1)) {
-    if (line.trim() === `### Page ${pages + 1}`) {
-      pages++;
-      if (pages > 1) perPage.push([]);
-      continue;
-    }
+    if (line.trim() === `### Page ${pages + 1}`) { pages++; continue; }
     body.push(line);
-    perPage[perPage.length - 1].push(line);
   }
-  return { body: body.join('\n').trim(), pages: pages || 1, wrapped: true, pageTexts: perPage.map((p) => p.join('\n').trim()) };
+  return { body: body.join('\n').trim(), pages: pages || 1, wrapped: true };
 }
 
 export async function readDocument(env: SourceEnv, input: DocumentInput): Promise<SourceResult> {
@@ -115,11 +101,11 @@ export async function readDocument(env: SourceEnv, input: DocumentInput): Promis
   }
   if (!out || out.format === 'error' || typeof out.data !== 'string') return fail('unreadable', `We could not read this ${type.label}; export it again, or paste the key points.`);
   // The converter echoes the input name (ConversionResult.name, binding docs above).
-  const { body, pages, pageTexts } = readableText(out.data, out.name || name);
+  const { body, pages } = readableText(out.data, out.name || name);
   const letters = letterCount(body);
   if (extension === 'pdf') {
-    // needs_ocr only when no text of the document's own came through; sparse text is kept (PR #71 review).
-    if (contentChars(pageTexts) === 0) {
+    // needs_ocr only when no text came through apart from page labels; sparse text is kept (PR #71 review).
+    if (contentChars(body) === 0) {
       return fail('needs_ocr', 'This file has no readable text (it looks like a scan). Export it with text, or paste the key points.', pages);
     }
     if (letters < MIN_LETTERS || letters / pages < MIN_LETTERS_PER_PAGE) {

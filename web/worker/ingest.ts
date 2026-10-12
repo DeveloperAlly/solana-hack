@@ -74,7 +74,7 @@ export async function resolveRedirects(url: URL, gate: FetchGate): Promise<URL> 
 }
 
 /** Fetches one public http(s) page and returns its title and readable text. */
-export async function readPage(raw: string, gate?: FetchGate): Promise<{ url: string; title: string; text: string }> {
+export async function readPage(raw: string, gate?: FetchGate): Promise<{ url: string; title: string; text: string; links: string[] }> {
   let url: URL;
   try {
     url = new URL(raw.includes('://') ? raw : `https://${raw}`);
@@ -99,5 +99,16 @@ export async function readPage(raw: string, gate?: FetchGate): Promise<{ url: st
     .replace(/\n\s*\n+/g, '\n')
     .trim();
   if (text.length < 40) throw new HttpError(422, 'that page has almost no readable text');
-  return { url: landed.toString(), title, text };
+  // The page's own links (absolute http(s), at most 200), so a reader can choose subpages without another service.
+  const links: string[] = [];
+  for (const m of body.matchAll(/<a\s[^>]*?href\s*=\s*["']([^"'#]+)/gi)) {
+    if (links.length >= 200) break;
+    try {
+      const u = new URL(decode(m[1].trim()), landed);
+      if ((u.protocol === 'https:' || u.protocol === 'http:') && !links.includes(u.toString())) links.push(u.toString());
+    } catch {
+      // not a usable address
+    }
+  }
+  return { url: landed.toString(), title, text, links };
 }
