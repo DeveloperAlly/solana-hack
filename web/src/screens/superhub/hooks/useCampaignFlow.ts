@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { useHubLinks, type HubLink } from '../paths';
-import type { CampaignData } from '../types';
+import type { CampaignData, CampaignValues } from '../types';
+import { useHubSession } from './useHubSession';
 
 /**
  * The Campaign v2 wizard, in the one order the canvas stepper draws (boards Campaign-v2-1-Goal and -2-Measure):
@@ -37,68 +38,59 @@ export function stepNav(step: CampaignStep) {
 /** Most supporting metrics allowed (n-c2 1). */
 export const MAX_SUPPORTING = 3;
 
-/** What step 1 hands to the next step through router state; a step is reached only after the one before finished. */
-export interface CampaignHandoff {
-  campaignName: string;
-}
-
 /**
- * Campaign v2 flow state (n-c1, n-c2). Nothing is chosen for the person: purpose, platforms, who posts and the main
- * metric start empty (the canvas values are placeholders). Next stays disabled, with the reason shown, until the step
- * is complete; it then moves on and hands the campaign name to the next step.
+ * Campaign v2 flow state (n-c1, n-c2): every wizard field in one object in the hub session, so Back and Next keep what
+ * was entered. Nothing is chosen for the person: the canvas values are placeholders. Next stays disabled, with the
+ * reason shown, until the step is complete.
  */
 export function useCampaignFlow(step: CampaignStep, data: CampaignData) {
   const nav = stepNav(step);
   const navigate = useNavigate();
   const links = useHubLinks();
-  const handoff = useLocation().state as CampaignHandoff | null;
-  const [name, setName] = useState('');
-  const [dates, setDates] = useState('');
-  const [purpose, setPurpose] = useState('');
-  const [customPurpose, setCustomPurpose] = useState('');
-  const [platforms, setPlatforms] = useState<string[]>([]);
-  const [poster, setPoster] = useState('');
-  const [mainMetric, setMainMetric] = useState('');
-  const [supporting, setSupporting] = useState<string[]>([]);
-  const [targets, setTargets] = useState<Record<string, string>>({});
+  const [{ campaign: v }, update] = useHubSession();
   const [limitError, setLimitError] = useState<string | null>(null);
+  const set = (change: Partial<CampaignValues>) => update((s) => ({ ...s, campaign: { ...s.campaign, ...change } }));
+  const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
 
   const missing = (step === 'goal'
     ? [
-        !purpose && 'choose a purpose',
-        purpose === 'custom' && !customPurpose.trim() && 'describe the purpose',
-        !name.trim() && 'name the campaign',
-        !dates.trim() && 'add the dates',
-        platforms.length === 0 && 'pick at least one platform',
-        !poster && 'choose who posts',
+        !v.purpose && 'choose a purpose',
+        v.purpose === 'custom' && !v.customPurpose.trim() && 'describe the purpose',
+        !v.name.trim() && 'name the campaign',
+        !v.dates.trim() && 'add the dates',
+        v.platforms.length === 0 && 'pick at least one platform',
+        !v.poster && 'choose who posts',
       ]
-    : [!mainMetric && 'choose the main goal', mainMetric && !targets[mainMetric]?.trim() && 'set a target for the main goal']
+    : [!v.mainMetric && 'choose the main goal', v.mainMetric && !v.targets[v.mainMetric]?.trim() && 'set a target for the main goal']
   ).filter(Boolean) as string[];
 
   function next() {
     if (missing.length) return;
     // INTEGRATION: POST …/campaigns (step 1) or PATCH /api/campaigns/:id (step 3), backend map row "Campaign-v2-1, Campaign-v2-2".
-    navigate(links[nav.next], { state: { campaignName: name.trim() || handoff?.campaignName } satisfies Partial<CampaignHandoff> });
+    navigate(links[nav.next]);
   }
 
   function toggleSupporting(id: string) {
-    if (supporting.includes(id)) return setSupporting((s) => s.filter((x) => x !== id));
-    if (supporting.length >= MAX_SUPPORTING) return setLimitError(`Pick up to ${MAX_SUPPORTING} supporting numbers.`);
+    if (v.supporting.includes(id)) return set({ supporting: v.supporting.filter((x) => x !== id) });
+    if (v.supporting.length >= MAX_SUPPORTING) return setLimitError(`Pick up to ${MAX_SUPPORTING} supporting numbers.`);
     setLimitError(null);
-    setSupporting((s) => [...s, id]);
+    set({ supporting: [...v.supporting, id] });
   }
 
   return {
     ...nav, back: links[nav.back], steps: campaignSteps.map((s) => ({ label: s.label })),
-    hrefFor: (i: number) => (i < nav.current ? links[campaignSteps[i].link] : undefined), missing, next, campaignName: handoff?.campaignName,
-    name, setName, dates, setDates, purpose, setPurpose, customPurpose, setCustomPurpose,
-    platforms, togglePlatform: (id: string) => setPlatforms((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])),
-    poster, setPoster,
+    hrefFor: (i: number) => (i < nav.current ? links[campaignSteps[i].link] : undefined), missing, next,
+    campaignName: v.name.trim() || undefined,
+    name: v.name, setName: (name: string) => set({ name }), dates: v.dates, setDates: (dates: string) => set({ dates }),
+    purpose: v.purpose, setPurpose: (purpose: string) => set({ purpose }),
+    customPurpose: v.customPurpose, setCustomPurpose: (customPurpose: string) => set({ customPurpose }),
+    platforms: v.platforms, togglePlatform: (id: string) => set({ platforms: toggle(v.platforms, id) }),
+    poster: v.poster, setPoster: (poster: string) => set({ poster }),
     // X is for the brand's own posts only; it is never a paid ambassador format (n-c1 4, ADR-002).
-    xWarning: poster !== '' && poster !== 'brand' && platforms.includes('x'),
-    mainMetric, setMainMetric: (id: string) => { setMainMetric(id); setSupporting((s) => s.filter((x) => x !== id)); },
-    supporting, toggleSupporting, limitError,
-    targetOf: (id: string) => targets[id] ?? '', setTarget: (id: string, v: string) => setTargets((t) => ({ ...t, [id]: v })),
+    xWarning: v.poster !== '' && v.poster !== 'brand' && v.platforms.includes('x'),
+    mainMetric: v.mainMetric, setMainMetric: (id: string) => set({ mainMetric: id, supporting: v.supporting.filter((x) => x !== id) }),
+    supporting: v.supporting, toggleSupporting, limitError,
+    targetOf: (id: string) => v.targets[id] ?? '', setTarget: (id: string, t: string) => set({ targets: { ...v.targets, [id]: t } }),
     examples: { name: data.name, dates: data.dates },
   };
 }

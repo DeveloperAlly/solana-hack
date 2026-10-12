@@ -251,6 +251,19 @@ export interface CampaignMetric {
   measurable: boolean;
 }
 
+/** Everything a person enters across the campaign wizard steps. */
+export interface CampaignValues {
+  name: string;
+  dates: string;
+  purpose: string;
+  customPurpose: string;
+  platforms: string[];
+  poster: string;
+  mainMetric: string;
+  supporting: string[];
+  targets: Record<string, string>;
+}
+
 export interface CampaignData {
   purposes: { id: string; label: string; description: string }[];
   platforms: { id: string; label: string; detail?: string }[];

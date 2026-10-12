@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import { demoBrands } from '../../../ui/domain/demoBrands';
-import type { DraftStatus } from '../types';
+import type { CampaignValues, DraftStatus } from '../types';
 
 /** What a person changes on one Superhub screen that later screens must show (fixtures are only the defaults). */
 export interface HubSession {
@@ -12,11 +12,16 @@ export interface HubSession {
   drafts: Record<string, DraftStatus>;
   /** Engagement rules switched off (their items leave the reply queue). */
   rulesOff: string[];
+  /** The campaign being set up, all wizard fields in one object (kept when moving Back and Next). */
+  campaign: CampaignValues;
   /** The persona created in Influencer-Setup. */
   persona?: { name: string; line: string; voice: string };
 }
 
-const initial: HubSession = { brand: 'adna', inbox: {}, drafts: {}, rulesOff: [] };
+/** A new campaign: nothing chosen for the person. */
+export const blankCampaign: CampaignValues = { name: '', dates: '', purpose: '', customPurpose: '', platforms: [], poster: '', mainMetric: '', supporting: [], targets: {} };
+
+const initial: HubSession = { brand: 'adna', inbox: {}, drafts: {}, rulesOff: [], campaign: blankCampaign };
 let session = initial;
 const listeners = new Set<() => void>();
 

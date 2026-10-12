@@ -74,8 +74,11 @@ export function useDraftReview(data: DraftReviewData, busy = false) {
 
   function undo(id: string) {
     if (locked) return;
-    // INTEGRATION: POST /api/drafts/:id/polish/undo.
-    const rest = versions.filter((v) => v.id !== id);
+    // INTEGRATION: POST /api/drafts/:id/polish/undo. Undoing a version also drops every version made after it, so the
+    // draft goes back to the version before the one undone and the history never keeps versions built on it.
+    const at = versions.findIndex((v) => v.id === id);
+    if (at <= 0) return;
+    const rest = versions.slice(0, at);
     setVersions(rest);
     changeText(rest.at(-1)?.text ?? '');
   }

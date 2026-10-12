@@ -23,6 +23,7 @@ import { HubPage } from './parts/HubPage';
 import { PageHeader } from './parts/PageHeader';
 import { ReplyCard, type ReplyOutcome } from './parts/ReplyCard';
 import { WorthEngaging } from './parts/WorthEngaging';
+import { StatusNote } from './parts/StatusNote';
 import { useReviewQueue } from './hooks/useReviewQueue';
 import { useHubLinks } from './paths';
 import { useOutcomes } from './hooks/useOutcomes';
@@ -40,7 +41,8 @@ export function EngageQueue({ data }: { data: EngageQueueData }) {
   const routed = data.queue.filter((q) => !session.rulesOff.includes(q.rule));
   const hidden = data.queue.length - routed.length;
   const sent = routed.filter((q) => queue.outcomeOf(q.id) === 'sent');
-  const waiting = routed.filter((q) => queue.outcomeOf(q.id) !== 'sent');
+  const waiting = routed.filter((q) => !queue.outcomeOf(q.id));
+  const skipped = routed.filter((q) => queue.outcomeOf(q.id) === 'skipped');
   const list = (items: typeof data.queue, empty: string) =>
     items.length ? <Stack gap={4}>{items.map((q) => <ReplyCard key={q.id} item={q} queue={queue} />)}</Stack> : <EmptyState level={3} title={empty} />;
   return (
@@ -61,7 +63,7 @@ export function EngageQueue({ data }: { data: EngageQueueData }) {
           value={tab}
           onChange={setTab}
           items={[
-            { id: 'queue', label: 'Reply queue', count: waiting.length, panel: <>{hidden > 0 && <Text variant="small" tone="secondary">{hidden} hidden by rules that are off.</Text>}{list(waiting, 'Nothing to reply to')}</> },
+            { id: 'queue', label: 'Reply queue', count: waiting.length, panel: <>{hidden > 0 && <Text variant="small" tone="secondary">{hidden} hidden by rules that are off.</Text>}{skipped.map((q) => <StatusNote key={q.id} onUndo={() => queue.undo(q.id)}>{`Skipped: ${q.author}.`}</StatusNote>)}{list(waiting, 'Nothing to reply to')}</> },
             { id: 'worth', label: 'Worth engaging', count: data.suggestions.length, panel: <WorthEngaging {...worth} level={3} /> },
             { id: 'lists', label: 'Suggested lists', count: data.listsCount, panel: <Button variant="secondary" href={links.engageRules}>Review suggested lists</Button> },
             { id: 'sent', label: 'Sent', count: sent.length, panel: list(sent, 'Nothing sent yet') },

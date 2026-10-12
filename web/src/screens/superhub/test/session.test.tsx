@@ -98,3 +98,45 @@ describe('Superhub: changes carry to later screens', () => {
     expect(csv).toBe('"Lead","Fit","Why","Status"\n"\'=HYPERLINK(""x"")","High","w","Draft in queue"');
   });
 });
+
+describe('Review round 2 (Codex on PR #81)', () => {
+  it('Campaign: going on and coming Back keeps everything entered on Goal', async () => {
+    renderScreen('Campaign-v2-1-Goal');
+    await userEvent.click(screen.getByRole('radio', { name: /Custom/ }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Describe it' }), 'Partner week');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Campaign name' }), 'Spring launch');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Dates' }), '1–7 Nov');
+    await userEvent.click(screen.getByRole('checkbox', { name: /Blog/ }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Both' }));
+    await userEvent.click(screen.getByRole('link', { name: 'Cancel' }));
+    await userEvent.click(screen.getByRole('link', { name: 'Campaigns' }));
+    expect(screen.getByRole('textbox', { name: 'Campaign name' })).toHaveValue('Spring launch');
+    expect(screen.getByRole('textbox', { name: 'Dates' })).toHaveValue('1–7 Nov');
+    expect(screen.getByRole('textbox', { name: 'Describe it' })).toHaveValue('Partner week');
+    expect(screen.getByRole('checkbox', { name: /Blog/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Both' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Next: audience' })).toBeEnabled();
+  });
+
+  it('Draft-Review: undoing an older version drops the versions made after it and restores the text before it', async () => {
+    renderScreen('Draft-Review');
+    const before = (screen.getByRole('textbox', { name: 'Post (editable)' }) as HTMLTextAreaElement).value;
+    await userEvent.click(screen.getByRole('button', { name: 'Clarify' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Shorten' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Undo v3 · Clarify' }));
+    expect(screen.queryByText('v3 · Clarify')).toBeNull();
+    expect(screen.queryByText('v4 · Shorten')).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Post (editable)' })).toHaveValue(before);
+    await userEvent.click(screen.getByRole('button', { name: 'Review' }));
+    expect(screen.getByText('v5 · Review')).toBeInTheDocument();
+  });
+
+  it('Engage-Queue: Skip takes the reply out of the queue, with Undo', async () => {
+    renderScreen('Engage-Queue');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Skip' })[0]);
+    expect(screen.getByRole('tab', { name: 'Reply queue (2)' })).toBeInTheDocument();
+    expect(screen.getByText('Skipped: @[handle].')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.getByRole('tab', { name: 'Reply queue (3)' })).toBeInTheDocument();
+  });
+});

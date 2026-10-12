@@ -8,7 +8,7 @@
  * | metrics[]       | Metric catalogue with data source; default main metric from step 1's purpose (n-c1 1)       |
  * | metrics[].measurable | False when a platform does not share the number: shown "not available" (n-c2 2)        |
  * | (chosen here)   | campaigns success metrics: one main + up to 3 supporting, each with a target (n-c2 1)        |
- * | campaign name   | Handed over from step 1 through router state (the step is reached only from a finished step)|
+ * | campaign name   | From step 1, through the hub session (every wizard field is kept across Back and Next)       |
  * | plan[]          | `POST …/plan` draft content plan, day × brand / ambassadors (generated next, n-c2 3)        |
  * | budget          | Preview of step 5: spending cap, slots (campaigns; payouts in USDC)                         |
  *
