@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Gate } from '../../domain/approval';
-import { rulesWith } from '../../domain/brain';
+import { brainRules } from '../../domain/brain';
 import { proposalNote } from '../../domain/proposal';
 import { gateFor, primaryActions, type DraftItem, type QueueItem, type QueueKind } from '../../domain/queue';
 import { approveSubmission, payoutOutcome, questWithPayouts } from '../../domain/quest';
@@ -103,7 +103,7 @@ export function useToday(data: TodayData) {
   const shown = needsYou.filter((r) => filter === 'all' || r.item.kind === filter);
 
   const brand = loop.brain;
-  const detail = (s: TodayData['loop'][number]) => (s.stage === 'brand' ? `Kit v${brand.kit.version} · ${brand.voices.length} voices · ${rulesWith(brand, 'active').length} active rules` : s.detail);
+  const detail = (s: TodayData['loop'][number]) => (s.stage === 'brand' ? `Kit v${brand.kit.version} · ${brand.voices.length} voices · ${brainRules(brand).activeLearned} learned rules` : s.detail);
   const steps: (TimelineStep & { href: TodayData['loop'][number]['link'] })[] = data.loop.map((s) => ({
     label: `${stageById(s.stage).step} ${stageById(s.stage).label}`,
     state: stepLook[s.state],

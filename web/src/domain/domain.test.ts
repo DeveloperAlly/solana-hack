@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { approve, isStale } from '../lib/approval';
-import { nextBrainVersion } from './brain';
+import { brainRules, nextBrainVersion } from './brain';
+import { adnaBrain, firstRunBrain } from './fixtures/brain';
 import { approvalState, lifecycleSteps } from './post';
 import { proposalGate, proposalNote } from './proposal';
 import { approveSubmission, paidCount, questWithPayouts, submissionGate } from './quest';
@@ -120,5 +121,18 @@ describe('domain: quest slots are counted from payout records', () => {
     expect(submissionGate(ok, item, announced)).toEqual({ blocking: true, label: 'Not open yet (Opens Mon 3 Nov): nothing is paid before the quest opens.' });
     expect(approveSubmission(item, announced, ok)).toBeNull();
     expect(approveSubmission(item, quest, ok)).toBe('Approved. The 50 USDC payout is queued.');
+  });
+});
+
+describe('domain: brainRules splits learned rules from kit gates and your edits', () => {
+  it('counts only learned rules as learned; kit gates and owner edits are standing rules', () => {
+    const adna = brainRules(adnaBrain);
+    expect(adna.learned.map((r) => r.id)).toEqual(['r-problem-x', 'r-recaps', 'r-lead']);
+    expect(adna.activeLearned).toBe(1);
+    expect(adna.waiting).toBe(2);
+    expect(adna.standing.map((r) => r.origin)).toEqual(['kit', 'owner', 'kit']);
+    const first = brainRules(firstRunBrain('GamersLab', '[domain]'));
+    expect(first.activeLearned).toBe(0);
+    expect(first.standing.every((r) => r.origin === 'kit')).toBe(true);
   });
 });

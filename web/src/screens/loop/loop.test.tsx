@@ -218,22 +218,24 @@ describe('Brain and Learn-Rules share the Brain', () => {
     expect(within(screen.getByRole('list', { name: 'Decided' })).getByText(/Open X threads with the problem, not the product · retired/)).toBeInTheDocument();
   });
 
-  it('loop data follows the active brand: GamersLab shows its own Brain, and approving writes GamersLab state', async () => {
+  it('loop data follows the active brand: GamersLab shows its own Brain; kit gates are read-only, not learned rules', () => {
     const entry = screens.find((s) => s.artboard === 'Brain')!;
     act(() => selectBrand('gamerslab'));
     const { unmount } = renderWithRouter(entry.render('success'));
-    expect(screen.getByRole('heading', { level: 1, name: 'The Brain' })).toBeInTheDocument();
     expect(screen.getByText(/Everything JamJam knows about GamersLab/)).toBeInTheDocument();
     expect(screen.getByText('Brain v1')).toBeInTheDocument();
     expect(screen.queryByText(/Every agent reads the folder first/)).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Retire: Never claim a user count without a source' }));
-    expect(screen.getByText('Brain v1.1')).toBeInTheDocument();
-    expect(loopStore.read().brainVersion).toBe('1.1');
+    const learned = screen.getByRole('table', { name: 'Learned rules, their evidence and status' });
+    expect(within(learned).queryAllByRole('rowheader')).toHaveLength(0);
+    expect(screen.getByText(/active · 0 suggested, waiting on you/)).toBeInTheDocument();
+    const gates = screen.getByRole('table', { name: 'Kit gates and your edits, and their status' });
+    const gate = within(gates).getByRole('rowheader', { name: 'Never claim a user count without a source' }).closest('tr')!;
+    expect(within(gate).getByText('From the approved kit')).toBeInTheDocument();
+    expect(within(gate).queryByRole('button', { name: /Retire/ })).toBeNull();
     unmount();
     act(() => selectBrand('adna'));
     renderWithRouter(entry.render('success'));
     expect(screen.getByText('Brain v3.1')).toBeInTheDocument();
-    expect(loopStore.read().brainVersion).toBeUndefined();
   });
 
   it('a brand with no loop data says so, never showing another brand', () => {

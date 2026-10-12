@@ -93,5 +93,19 @@ export function nextBrainVersion(version: string): string {
 
 export const formatBrainVersion = (version: string) => `Brain v${version}`;
 
-/** Rules by status, in the Brain's order. */
-export const rulesWith = (brain: Brain, status: RuleStatus) => brain.rules.filter((r) => r.status === status);
+
+/**
+ * The Brain's rules in their two kinds, the one selector every screen reads (Codex review on PR 111): `learned` are
+ * the rules Learn proposed and the owner decides (counted as learned, approvable and retirable); `standing` are the
+ * kit's gates, which come from the approved, registered kit and only change with a new kit version, and the owner's
+ * own edits (ADR-012: learned rules stay out of the registered kit).
+ */
+export function brainRules(brain: Brain) {
+  const learned = brain.rules.filter((r) => r.origin === 'learn');
+  return {
+    learned,
+    standing: brain.rules.filter((r) => r.origin !== 'learn'),
+    activeLearned: learned.filter((r) => r.status === 'active').length,
+    waiting: learned.filter((r) => r.status === 'suggested').length,
+  };
+}

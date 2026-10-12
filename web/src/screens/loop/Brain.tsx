@@ -23,7 +23,7 @@ import { StateView } from '../../ui/composites/StateView';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { Columns } from '../../ui/layouts/Columns';
 import { PageHeader } from '../../ui/layouts/PageHeader';
-import { rulesWith } from '../../domain/brain';
+import { brainRules } from '../../domain/brain';
 import { useLoop, type LoopBase } from '../../flows/loop/useLoop';
 import { BrainRules } from './BrainRules';
 import { LoopFrame } from '../../ui/shells/LoopFrame';
@@ -39,7 +39,7 @@ export function Brain({ data, state = 'success' }: { data: LoopBase; state?: Scr
   const loop = useLoop(data);
   const { links } = useLoopLinks();
   const b = loop.brain;
-  const waiting = rulesWith(b, 'suggested').length;
+  const rules = brainRules(b);
   return (
     <LoopFrame artboard="Brain" tag="COMING SOON" brandName={b.brandName}>
       <PageHeader
@@ -54,7 +54,7 @@ export function Brain({ data, state = 'success' }: { data: LoopBase; state?: Scr
             <StatTile label="Kit" value={`v${b.kit.version}`} sub={`${b.kit.registered ? 'registered on Solana' : 'not registered'} · ${b.kit.sections} sections`} href={links.kit} sample />
             <StatTile label="Voices" value={String(b.voices.length)} sub={b.voices.map((v) => v.name.replace(' voice', '')).join(', ')} href={links.voices} sample />
             <StatTile label="Facts with receipts" value={String(b.kit.factCount)} sub={`from ${b.kit.sources} ${b.kit.sources === 1 ? 'source' : 'sources'} · ${b.kit.expiringFacts} expire this month`} href={links.claims} sample />
-            <StatTile label="Learned rules" value={String(rulesWith(b, 'active').length)} sub={`active · ${waiting} suggested, waiting on you`} sample />
+            <StatTile label="Learned rules" value={String(rules.activeLearned)} sub={`active · ${rules.waiting} suggested, waiting on you`} sample />
           </Grid>
           <Card labelledBy="flow-h" header={<Heading level={2} size="lg" id="flow-h">How the Brain is used</Heading>}>
             <Grid min="md" gap={4}>
@@ -62,7 +62,10 @@ export function Brain({ data, state = 'success' }: { data: LoopBase; state?: Scr
             </Grid>
           </Card>
           <Card labelledBy="rules-h" header={<><Heading level={2} size="lg" id="rules-h">Learned rules</Heading><Text as="span" variant="small" tone="secondary">Every rule names the results it came from and can be retired. Rules change the Brain, never the registered kit.</Text></>}>
-            <BrainRules loop={loop} />
+            <BrainRules loop={loop} rules={rules.learned} caption="Learned rules, their evidence and status" empty="Rules appear after 14 days of results. Until then, drafts follow the kit and your voices." />
+          </Card>
+          <Card labelledBy="gates-h" header={<><Heading level={2} size="lg" id="gates-h">Kit gates and your edits</Heading><Text as="span" variant="small" tone="secondary">Kit gates come from the approved kit and change only with a new kit version.</Text></>}>
+            <BrainRules loop={loop} rules={rules.standing} caption="Kit gates and your edits, and their status" empty="No kit gates yet: they come with the first approved kit." />
           </Card>
           <Columns ratio="1-1" end={
             <Card labelledBy="hist-h" header={<Heading level={2} size="lg" id="hist-h">Change history</Heading>}>
