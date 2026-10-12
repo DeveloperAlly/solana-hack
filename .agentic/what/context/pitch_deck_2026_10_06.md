@@ -21,7 +21,7 @@ Speaker notes are the [pitch script](./pitch_script_2026_10_12.md), word for wor
 
 | # | Slide | On screen | Sources |
 |---|---|---|---|
-| 1 | Cover | JamJam. "Your brand team, in one app." Build your brand. Run it. Prove it. Brand kit v1 card | |
+| 1 | Cover | JamJam. "Your brand team, in one app. Every post provably yours." Build your brand. Run it. Prove it on Solana. Brand kit v1 card | |
 | 2 | Problem | "Every founder needs a brand team. Few can afford one." Agency · DIY · AI writer ("I end up changing 90% of what is generated") | The headline is the pitch's positioning premise (owner-approved, 2026-10-12), not a measured fact; agency cost is not sourced. Support: solo founders stitch point tools at $10–65 each because no product does the brand team's job ([research 04](./research/04_brand_hub_landscape.md) §5a–b, §6). Quote: Blaze review on [Capterra](https://www.capterra.com/p/10013921/Blaze/reviews/), via research 04 §3 |
 | 3 | Solution | "JamJam does the brand team's job." Strategy without the agency · content that sounds like you and never lies for you · everywhere, provably yours · a community that sells for you (ambassadors post from the kit as seats; the brand approves; every post is verified as the brand's) | [ADR-002](../decisions/adr_002_purpose_build_run_prove.md), [ADR-003](../decisions/adr_003_superhub_business_model.md) |
 | 4 | How it works | "It reads before it asks." A found fact with its quote from jamjam.tech; found: confirm · missing: we ask · you sign off | [Brand Builder architecture](./brand_builder_architecture.md) |
