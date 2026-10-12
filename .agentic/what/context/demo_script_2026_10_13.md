@@ -14,7 +14,7 @@ tags: [demo, script, colosseum]
 
 **Demo brand:** JamJam builds its own brand (compendium §4, decided). One critical path; every wait is cut, and the voice-over says so.
 
-**Voice-over:** 261 words over 3:00, about 110 words a minute, leaving room for the screen.
+**Voice-over:** 268 words over 3:00, about 110 words a minute, leaving room for the screen.
 
 ## 0. Who this is for
 
@@ -125,7 +125,7 @@ Route `/build/purpose (Gate 1)` · depends on P0: AI MODEL · placeholder: wiref
 
 **Who cares, and why:** Founders, because they keep the final say and can see nothing was invented. Judges, because a person approving each step is what makes the proof mean something.
 
-**Say:** Now it drafts our purpose, and shows me exactly where it got it from. Nothing is invented. I approve it, and that decision is recorded. Positioning and voice work the same way.
+**Say:** Now it drafts our purpose, and shows me exactly where it got it from. Anything it had to guess is marked as a guess. I approve it, and that decision is recorded. Positioning and voice work the same way.
 
 **Recording:** Needs OPENROUTER_API_KEY live (aiConfigured unconfirmed in STATE.md). Free model can return 'busy': retry, keep the best take.
 
@@ -222,7 +222,7 @@ Route `end card (edited, not app copy)` · depends on NO DEPENDENCY · placehold
 
 **0:36** A few quick questions, and it already knows half the answers. I pick a voice, Candid founder, and set it to strict: no claim goes out without proof.
 
-**0:52** Now it drafts our purpose, and shows me exactly where it got it from. Nothing is invented. I approve it, and that decision is recorded. Positioning and voice work the same way.
+**0:52** Now it drafts our purpose, and shows me exactly where it got it from. Anything it had to guess is marked as a guess. I approve it, and that decision is recorded. Positioning and voice work the same way.
 
 **1:15** That's our brand, approved. One click puts it on Solana: a fingerprint anyone can check, while the words stay private. Here's the transaction.
 
