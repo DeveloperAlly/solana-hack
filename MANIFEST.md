@@ -59,10 +59,12 @@ The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [A
 | [.agentic/what/context/research/09_demo_brands.md](./.agentic/what/context/research/09_demo_brands.md) | active | Demo brands: public presence and what is ingested vs asked |
 | [.agentic/what/context/research/10_competitor_onboarding_pricing.md](./.agentic/what/context/research/10_competitor_onboarding_pricing.md) | active | Competitor onboarding and pricing review (59 products) against the full build plan; adopt / do-better proposals |
 | [.agentic/what/context/research/10_competitor_detail/](./.agentic/what/context/research/10_competitor_detail/) | active | Per-competitor detail for research 10, one file per segment (A to F) |
+| [.agentic/what/context/research/11_media_formats.md](./.agentic/what/context/research/11_media_formats.md) | active | Media formats per platform, competitor media, platform and legal rules for AI media |
+| [.agentic/what/context/research/11_media_detail/](./.agentic/what/context/research/11_media_detail/) | active | Media generation stack, licences, evaluation thresholds and provenance |
 | [.agentic/how/AGENTS.md](./.agentic/how/AGENTS.md) | active | What belongs in `how/` (process) |
 | [.agentic/how/missions/mission_hackathon_submission.md](./.agentic/how/missions/mission_hackathon_submission.md) | active | Mission: submit to Colosseum, phases A to E |
 | [.agentic/how/missions/mission_ui_build.md](./.agentic/how/missions/mission_ui_build.md) | proposed | Mission: UI build in timed chunks, slices S0 to S8 along the critical path |
-| [.agentic/how/backlog/backlog.md](./.agentic/how/backlog/backlog.md) | active | Product-map items with build tags |
+| [.agentic/how/backlog/backlog.md](./.agentic/how/backlog/backlog.md) | active | Every JamJam component: status on main, tag, plan tier, reuse, done check, source; launch checks; build order |
 | [.agentic/how/templates/template_adr.md](./.agentic/how/templates/template_adr.md) | active | ADR template |
 | [.agentic/how/sessions/AGENTS.md](./.agentic/how/sessions/AGENTS.md) | active | Sessions folder (stub) |
 | [.agentic/who/AGENTS.md](./.agentic/who/AGENTS.md) | active | What belongs in `who/` (people and authority) |
