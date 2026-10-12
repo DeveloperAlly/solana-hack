@@ -1,7 +1,7 @@
 // The one navigation (ADR-012 decision 2, PR #86; owner rulings in issue #90). Every shell reads its stages, tabs and
-// mobile tabs from here; no nav markup is hand-written. The labels and targets are the canvas v22 boards' own nav:
+// mobile tabs from here; no nav markup is hand-written. The labels and targets are the canvas v24 boards' own nav:
 // the main nav (Today · Brand · Create · Distribute · Verify · Grow · Learn | Inbox · Settings), each step's subnav,
-// and the M-Today tab bar (canvas.json version 1791817328-4e15, https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn).
+// and the M-Today tab bar (canvas.json version 1791818793-e756, https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn).
 //
 // Each target names its canvas artboard (the gallery route) and, where one exists, the live route (config/routes.ts).
 // The live hub nav (`hubNav`) and the live routes are unchanged; moving the live hub onto this nav is a later step.
@@ -185,7 +185,7 @@ const pageHome: Record<Exclude<ProductPageId, 'utilities'>, HomeId> = {
  * The home of a canvas board, from its canvas page (ADR-012). Each page is one home (`loop` is Today, `public` is
  * Verify); the utilities page splits by board: Inbox-* boards are Inbox, the rest Settings. Public screens keep the
  * home of their step's page (Verify-1 is Verify; Events-Board and Referral-Landing are Grow). Invite-Accept and
- * Invite-Team are on the Grow page in canvas v22, so their home is Grow; a different home is a canvas move, never an
+ * Invite-Team are on the Grow page in canvas v24, so their home is Grow; a different home is a canvas move, never an
  * override here. The nav stage a screen highlights is its own (AppShell `stage`) and can differ from its home: the
  * Brain is on the loop page (home Today) and is drawn as Brand's tab.
  */

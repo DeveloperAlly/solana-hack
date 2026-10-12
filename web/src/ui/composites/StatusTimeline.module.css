@@ -11,7 +11,7 @@
   color: var(--wl-text-secondary);
 }
 .vertical .step { border-top: 0; border-left: var(--wl-border-width-indicator) solid var(--wl-border-subtle); padding: var(--wl-space-1) 0 var(--wl-space-3) var(--wl-space-3); }
-.done, .current, .failed { border-color: var(--wl-border-strong); color: var(--wl-text-primary); }
+.done, .current, .failed, .blocked { border-color: var(--wl-border-strong); color: var(--wl-text-primary); }
 .current { border-top-style: dashed; }
 .vertical .current { border-top: 0; border-left-style: dashed; }
 .failed { border-top-width: calc(var(--wl-border-width-indicator) * 2); }
@@ -19,3 +19,5 @@
 .label { display: inline-flex; align-items: center; gap: var(--wl-space-1); font-weight: var(--wl-font-weight-bold); }
 .todo .label { font-weight: var(--wl-font-weight-semibold); }
 .note { font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
+.blocked { border-top-style: dotted; border-top-width: calc(var(--wl-border-width-indicator) * 2); }
+.vertical .blocked { border-top: 0; border-left-style: dotted; border-left-width: calc(var(--wl-border-width-indicator) * 2); }

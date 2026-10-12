@@ -25,6 +25,8 @@ export interface AppShellProps {
   brandName?: string;
   /** Slot before Sign out: the D48 BrandSwitcher (or any control). */
   brandSlot?: ReactNode;
+  /** Chips after the brand name: the screen's canvas tag (D56 ComingSoonFlag). */
+  flags?: ReactNode;
   /** Slot under the top bar: section tabs. */
   subnav?: ReactNode;
   /** Nav items (default: the M1 hub nav). */
@@ -74,7 +76,7 @@ function useSignOut(preview: boolean) {
 }
 
 /** The loop shell: one main nav, the stage's tabs, or the mobile tab bar at phone width (config/nav.ts). */
-function LoopShell({ children, brandName, brandSlot, subnav, preview = false, stage, tab, width = 'app' }: AppShellProps & { stage: StageId }) {
+function LoopShell({ children, brandName, brandSlot, flags, subnav, preview = false, stage, tab, width = 'app' }: AppShellProps & { stage: StageId }) {
   const signOut = useSignOut(preview);
   const href = useNavHref();
   const phone = width === 'phone';
@@ -86,6 +88,7 @@ function LoopShell({ children, brandName, brandSlot, subnav, preview = false, st
       width={width}
       bodyPadding={phone ? 'page' : 'none'}
       context={brandName}
+      flags={flags}
       nav={phone ? { label, placement: 'tabs', current: mobileTabFor(stage).id, items: mobileTabs.map((t) => ({ id: t.id, label: t.label, href: href(t) })) } : undefined}
       actions={
         <>
@@ -102,7 +105,7 @@ function LoopShell({ children, brandName, brandSlot, subnav, preview = false, st
 }
 
 /** The live hub shell: the M1 hub nav (config/routes.ts `hubNav`), routed through `navHref`. */
-function HubShell({ children, brandName, brandSlot, subnav, nav = hubNav, navHref = livePath, activePath, preview = false }: AppShellProps) {
+function HubShell({ children, brandName, brandSlot, flags, subnav, nav = hubNav, navHref = livePath, activePath, preview = false }: AppShellProps) {
   const signOut = useSignOut(preview);
   const items = nav.map((item) => ({
     id: item.path,
@@ -120,6 +123,7 @@ function HubShell({ children, brandName, brandSlot, subnav, nav = hubNav, navHre
       preview={preview}
       bodyPadding="none"
       context={brandName}
+      flags={flags}
       nav={{ label: preview ? `Hub preview${brandName ? `, ${brandName}` : ''}` : 'Hub', items, current: activePath }}
       actions={
         <>
