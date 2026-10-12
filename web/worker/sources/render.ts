@@ -26,6 +26,13 @@ import { hopSession, NOT_READ, pageLinks, readable, readText, tidy, USER_AGENT, 
  * - What request interception cannot see is switched off. The page is served with a Content-Security-Policy that
  *   blocks frames, workers and plugins (https://www.w3.org/TR/CSP3/), service workers are bypassed, and WebSocket,
  *   WebTransport and WebRTC are removed before any page script runs.
+ * - No page exists but the one being read, since another page's requests would pass no check (PR #71 review). Three
+ *   layers: the CSP's sandbox leaves out allow-popups, so the browser itself refuses window.open, target=_blank links
+ *   and forms (CSP3 sandbox directive; HTML "sandboxed auxiliary navigation browsing context flag":
+ *   https://html.spec.whatwg.org/multipage/browsers.html#sandboxed-auxiliary-navigation-browsing-context-flag);
+ *   window.open returns null before any page script runs; and any page the browser reports that this renderer did not
+ *   open is closed at once (Browser "targetcreated", emitted "when a new page is opened by window.open", BrowserEvent
+ *   in @cloudflare/puppeteer 1.4.0 lib/types.d.ts).
  */
 
 /** The parts of a Puppeteer request this module uses (HTTPRequest in @cloudflare/puppeteer). */
@@ -58,8 +65,14 @@ export interface RenderPage {
   evaluate(expression: string): Promise<unknown>;
   close(): Promise<void>;
 }
+/** The parts of a Puppeteer target this module uses (Target in @cloudflare/puppeteer 1.4.0: page() is null for a
+ * target that is not a page). */
+export interface RenderTarget {
+  page(): Promise<RenderPage | null>;
+}
 export interface RenderBrowser {
   newPage(): Promise<RenderPage>;
+  on(event: 'targetcreated', handler: (target: RenderTarget) => void): unknown;
   close(): Promise<void>;
 }
 export interface RenderedPage { url: string; title: string; text: string; links: string[] }
@@ -77,6 +90,8 @@ export interface Renderer {
   readonly rendered: number;
   /** Set when the browser could not be launched; no later read tries again. */
   readonly unavailable: RenderUnavailable | null;
+  /** Pages the browser opened that this renderer did not (popups), each closed at once. */
+  readonly closedStrays: number;
   close(): Promise<void>;
 }
 
@@ -101,9 +116,13 @@ const NOT_FORWARDED = new Set(['content-encoding', 'content-length', 'transfer-e
 /** How long a page may take to load and settle. Browser Run's free plan allows 60 seconds per browser. */
 export const RENDER_TIMEOUT_MS = 15_000;
 // https://www.w3.org/TR/CSP3/#directives-fetch: frames, workers and plugins load outside request interception's reach.
-export const RENDER_CSP = "frame-src 'none'; child-src 'none'; worker-src 'none'; object-src 'none'";
+// https://www.w3.org/TR/CSP3/#directive-sandbox: scripts run with the page's own origin (so its cookies and storage
+// work), and nothing else is allowed: no popups, no new windows, no forms, no top-level navigation of other contexts.
+export const RENDER_CSP = "frame-src 'none'; child-src 'none'; worker-src 'none'; object-src 'none'; sandbox allow-scripts allow-same-origin";
 // Network APIs whose traffic request interception does not see: removed before any page script runs.
-const NO_SOCKETS = `(() => { for (const k of ['WebSocket', 'WebTransport', 'RTCPeerConnection', 'webkitRTCPeerConnection']) { try { Object.defineProperty(globalThis, k, { value: undefined, configurable: false, writable: false }); } catch {} } })();`;
+// window.open is replaced by one that opens nothing and returns null, as a blocked popup does
+// (https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-open).
+export const PRE_SCRIPT = `(() => { for (const k of ['WebSocket', 'WebTransport', 'RTCPeerConnection', 'webkitRTCPeerConnection']) { try { Object.defineProperty(globalThis, k, { value: undefined, configurable: false, writable: false }); } catch {} } try { Object.defineProperty(globalThis, 'open', { value: () => null, configurable: false, writable: false }); } catch {} })();`;
 /**
  * The text the page shows, as readPage takes it. innerText already leaves out what is not rendered (scripts, styles,
  * templates, hidden elements: https://html.spec.whatwg.org/multipage/dom.html#the-innertext-idl-attribute), so only
@@ -130,6 +149,21 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
   let rendered = 0;
   let attempts = 0;
   let unavailable: RenderUnavailable | null = null;
+  // The pages this renderer opened, and whether it is opening one now; any other page is closed (see above).
+  const own = new Set<RenderPage>();
+  let opening = false;
+  let closedStrays = 0;
+  const watch = (b: RenderBrowser) => {
+    b.on('targetcreated', (target) => {
+      // Pages are opened one at a time, after the previous one is closed, so a page created while one is being opened
+      // is that page; at any other time it can only come from the page being read.
+      if (opening) return;
+      void target.page().then((stray) => {
+        if (stray && !own.has(stray)) { closedStrays++; return stray.close(); }
+      }).catch(() => undefined);
+    });
+    return b;
+  };
 
   const read = async (url: URL): Promise<RenderedPage | null> => {
     if (!readable(url) || attempts >= maxPages) return null;
@@ -137,17 +171,24 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
     let page: RenderPage | null = null;
     try {
       // One launch per renderer: a refused launch is remembered, so a used-up quota is not asked again per page.
-      browser ??= launch().catch((e: unknown) => {
+      browser ??= launch().then(watch).catch((e: unknown) => {
         unavailable = launchFailure(e);
         throw e;
       });
-      page = await (await browser).newPage();
+      const b = await browser;
+      opening = true;
+      try {
+        page = await b.newPage();
+      } finally {
+        opening = false;
+      }
+      own.add(page);
       const p = page;
       const origins = new Set<string>();
       const budget = { left: MAX_REQUESTS };
       await p.setUserAgent(USER_AGENT);
       await p.setBypassServiceWorker(true);
-      await p.evaluateOnNewDocument(NO_SOCKETS);
+      await p.evaluateOnNewDocument(PRE_SCRIPT);
       await p.setRequestInterception(true);
       // The browser starts from the session's cookies for the page, so it is where the direct read left off.
       const seed = await session.cookies(url);
@@ -175,6 +216,7 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
     } catch {
       return null;
     } finally {
+      if (page) own.delete(page);
       await page?.close().catch(() => undefined);
     }
   };
@@ -261,6 +303,9 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
     },
     get unavailable() {
       return unavailable;
+    },
+    get closedStrays() {
+      return closedStrays;
     },
     async close() {
       if (!browser) return;

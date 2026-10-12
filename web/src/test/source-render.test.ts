@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createRenderer, launchFailure, MAX_ORIGINS, MAX_REQUESTS, PAGE_TEXT, RENDER_CSP, type InterceptedRequest, type RenderBrowser, type RenderPage } from '../../worker/sources/render';
+import { createRenderer, launchFailure, MAX_ORIGINS, MAX_REQUESTS, PAGE_TEXT, PRE_SCRIPT, RENDER_CSP, type InterceptedRequest, type RenderBrowser, type RenderPage, type RenderTarget } from '../../worker/sources/render';
 import { BROWSER_UNAVAILABLE, readSite } from '../../worker/sources/site';
 import { fetchRobots, robotsAllows } from '../../worker/sources/robots';
 import { MAX_BYTES } from '../../worker/ingest';
@@ -47,13 +47,25 @@ type Outcome = { url: string; type: string; how: 'continue' | 'abort' | 'respond
  * behaviour (`after`) runs: further requests (scripts, frames, a client-side navigation). A 302 answer is followed,
  * as a browser does, with a new request. `text` is what the page shows once rendered.
  */
-function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' | 'child') => Promise<Outcome>) => Promise<void> = async () => undefined, text = 'JamJam renders on the client, and this is the text the page shows once its scripts have run.') {
+type Popup = () => Promise<{ closed: () => boolean }>;
+function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' | 'child') => Promise<Outcome>, popup: Popup) => Promise<void> = async () => undefined, text = 'JamJam renders on the client, and this is the text the page shows once its scripts have run.') {
   const outcomes: Outcome[] = [];
   let launched = 0;
   let closed = 0;
   const main = { name: 'main' };
   const child = { name: 'child' };
+  // "targetcreated" listeners, told of every page the browser opens, as Puppeteer's Browser does.
+  const listeners: ((t: RenderTarget) => void)[] = [];
+  const created = (page: RenderPage) => { for (const l of listeners) l({ page: async () => page }); };
+  // A page the browser opens on its own (a popup): only its close is observable.
+  const popup: Popup = async () => {
+    let isClosed = false;
+    created({ close: async () => { isClosed = true; } } as unknown as RenderPage);
+    await new Promise((r) => setTimeout(r, 0));
+    return { closed: () => isClosed };
+  };
   const browser: RenderBrowser = {
+    on(_event, handler) { listeners.push(handler); },
     async newPage() {
       let handler: ((r: InterceptedRequest) => void) | null = null;
       let current = 'about:blank';
@@ -117,7 +129,7 @@ function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' |
               return o;
             }
             return issue(u, type, frame);
-          });
+          }, popup);
           return null;
         },
         url: () => current,
@@ -126,6 +138,7 @@ function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' |
         evaluate: async () => text,
         close: async () => undefined,
       };
+      created(page);
       return page;
     },
     async close() { closed++; },
@@ -444,5 +457,28 @@ describe('renderer: one session with the site read, and only successful pages (P
     expect(await createRenderer(b.launch, gate(), 9, session).read(new URL('https://a.test/'))).not.toBeNull();
     expect(session.left).toBe(0);
     expect(await createRenderer(fakeBrowser().launch, gate(), 9, session).read(new URL('https://a.test/'))).toBeNull();
+  });
+});
+
+describe('renderer: no page but the one being read (PR #71 review)', () => {
+  it('closes a page the browser opens on its own, and keeps its own page', async () => {
+    network({ 'https://a.test/': { body: APP } });
+    let pop: { closed: () => boolean } | null = null;
+    const b = fakeBrowser(async (_issue, popup) => { pop = await popup(); });
+    const r = createRenderer(b.launch, gate(), 9);
+    const page = await r.read(new URL('https://a.test/'));
+    expect(page).toMatchObject({ url: 'https://a.test/' });
+    expect(pop!.closed()).toBe(true);
+    expect(r.closedStrays).toBe(1);
+  });
+  it('serves every page with a sandbox that does not allow popups', () => {
+    const sandbox = RENDER_CSP.split(';').map((d) => d.trim()).find((d) => d.startsWith('sandbox'));
+    expect(sandbox?.split(/\s+/).sort()).toEqual(['allow-same-origin', 'allow-scripts', 'sandbox']);
+  });
+  it('makes window.open open nothing, before any page script runs', () => {
+    const g: Record<string, unknown> = { open: () => ({ name: 'a window' }), WebSocket: class {} };
+    new Function('globalThis', PRE_SCRIPT)(g);
+    expect((g.open as () => unknown)()).toBeNull();
+    expect(g.WebSocket).toBeUndefined();
   });
 });

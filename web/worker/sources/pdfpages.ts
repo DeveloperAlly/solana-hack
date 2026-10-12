@@ -197,16 +197,20 @@ interface Indexed { num: number; pos: number; dict: PdfDict; data?: { start: num
 function scanFile(text: string): { objects: Indexed[]; trailers: { pos: number; dict: PdfDict }[] } {
   const objects: Indexed[] = [];
   const trailers: { pos: number; dict: PdfDict }[] = [];
-  const header = /(\d+)[\0\t\n\f\r ]+(\d+)[\0\t\n\f\r ]+obj(?![A-Za-z0-9])/y;
+  // The next token's word at `at`, past white-space and comments (a comment is white-space, §7.2.3), or null.
+  const wordAfter = (at: number) => readWord(text, skipSpace(text, at));
   // ISO 32000-1 §7.3.8.1: "stream" is followed by CRLF or LF, "and not by a CARRIAGE RETURN alone". A lone CR is
   // still accepted when the next byte is not LF, where it cannot be misread, as other readers do for files that break
   // the rule (pdf-lib: https://github.com/Hopding/pdf-lib/issues/59) (PR #71 review).
-  const kw = /[\0\t\n\f\r ]*stream(\r\n|\n|\r(?!\n))/y;
-  const boundary = (i: number) => i === 0 || !regular(text[i - 1]);
+  const dataStart = (afterKeyword: number) => {
+    if (text.startsWith('\r\n', afterKeyword)) return afterKeyword + 2;
+    return text[afterKeyword] === '\n' || text[afterKeyword] === '\r' ? afterKeyword + 1 : null;
+  };
   let i = 0;
   while (i < text.length) {
+    i = skipSpace(text, i);
     const ch = text[i];
-    if (WHITE.has(ch) || ch === '%') { i = skipSpace(text, i); continue; }
+    if (ch === undefined) break;
     if (ch === '(') { const end = skipLiteral(text, i); i = end < 0 ? text.length : end; continue; }
     if (ch === '<') {
       // A dictionary or hex string is stepped over whole; a malformed one is passed one byte at a time.
@@ -214,35 +218,33 @@ function scanFile(text: string): { objects: Indexed[]; trailers: { pos: number; 
       i = o ? o.end : i + 1;
       continue;
     }
-    if (ch === 't' && boundary(i) && text.startsWith('trailer', i) && !regular(text[i + 7])) {
-      const d = dictAt(text, i + 7);
-      if (d) { trailers.push({ pos: i, dict: d.dict }); i = d.end; } else i += 7;
+    if (ch === '/') { i = readName(text, i).end; continue; }
+    const w = readWord(text, i);
+    if (!w) { i++; continue; }
+    if (w.word === 'trailer') {
+      const d = dictAt(text, w.end);
+      if (d) { trailers.push({ pos: i, dict: d.dict }); i = d.end; } else i = w.end;
       continue;
     }
-    if (ch >= '0' && ch <= '9' && boundary(i)) {
-      header.lastIndex = i;
-      const m = header.exec(text);
-      if (m) {
-        const found = dictAt(text, header.lastIndex);
-        if (!found) { i = header.lastIndex; continue; }
-        const entry: Indexed = { num: Number(m[1]), pos: i, dict: found.dict };
-        kw.lastIndex = found.end;
-        i = found.end;
-        if (kw.exec(text)) {
-          const start = kw.lastIndex;
-          const length = int(found.dict, 'Length');
-          const end = length !== null && start + length <= text.length ? start + length : text.indexOf('endstream', start);
-          if (end < start) { objects.push(entry); break; }
-          entry.data = { start, end };
-          i = end;
-        }
-        objects.push(entry);
-        continue;
-      }
-      while (i < text.length && text[i] >= '0' && text[i] <= '9') i++;
-      continue;
+    // An object header is three tokens, "N G obj" (§7.3.10), with any white-space or comments between them.
+    const gen = nonNegativeInt(w.word) ? wordAfter(w.end) : null;
+    const obj = gen && nonNegativeInt(gen.word) ? wordAfter(gen.end) : null;
+    if (!obj || obj.word !== 'obj') { i = w.end; continue; }
+    const found = dictAt(text, obj.end);
+    if (!found) { i = obj.end; continue; }
+    const entry: Indexed = { num: Number(w.word), pos: i, dict: found.dict };
+    i = found.end;
+    // A stream's dictionary is followed by the "stream" keyword, as a token like any other (§7.3.8.1).
+    const kw = wordAfter(found.end);
+    const start = kw && kw.word === 'stream' ? dataStart(kw.end) : null;
+    if (start !== null) {
+      const length = int(found.dict, 'Length');
+      const end = length !== null && start + length <= text.length ? start + length : text.indexOf('endstream', start);
+      if (end < start) { objects.push(entry); break; }
+      entry.data = { start, end };
+      i = end;
     }
-    i++;
+    objects.push(entry);
   }
   return { objects, trailers };
 }

@@ -249,6 +249,18 @@ describe('declared PDF page count', () => {
     expect(parseObject('<< 1 2 >>', 0)).toBeNull();
     expect(parseObject('['.repeat(200) + ']'.repeat(200), 0)).toBeNull();
   });
+  it('treats a comment as white-space between every token: object headers and the stream keyword (PR #71 review)', async () => {
+    const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+    const objs = '<< /Type /Catalog /Pages 2 0 R >> << /Type /Pages /Kids [] /Count 4 >>';
+    const head = `1 0 2 ${objs.indexOf('<< /Type /Pages')} `;
+    const data = await deflate(head + objs);
+    const pdf = join(
+      enc(`%PDF-1.5\n5 % object number, then generation\n0 obj\n<< /Type /ObjStm /N 2 /First ${head.length} /Filter /FlateDecode /Length ${data.length} >>\n% a comment before the keyword\nstream\n`),
+      data,
+      enc('\nendstream\nendobj\n6 0 obj << /Type /XRef /Root 1 0 R /Size 7 /W [1 2 1] /Length 0 >> % xref\nstream\n\nendstream\nendobj\n%%EOF\n'),
+    );
+    expect(await pdfPageCount(pdf)).toBe(4);
+  });
   it('inflates object streams only within a fixed budget', async () => {
     const { pdfPageCount, MAX_INFLATE } = await import('../../worker/sources/pdfpages');
     // A small stream that inflates to far more than the budget, claiming its objects start past the budget.
