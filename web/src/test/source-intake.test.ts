@@ -17,7 +17,7 @@ const { READERS, readSource, SOURCE_READ_LIMIT } = await import('../../worker/en
 const { EXTRACT_FACTS, FIND_COMPETITORS } = await import('../../worker/engine/seed');
 const { SOURCE_TYPES } = await import('../../worker/sources/registry');
 const { readSocial, SOCIAL_LIMIT, SOCIAL_MAX_ITEMS } = await import('../../worker/sources/social');
-const { readSearch, readCompetitors, EXA_SEARCH, EXA_FIND_SIMILAR, COMPETITOR_CANDIDATES } = await import('../../worker/sources/search');
+const { readSearch, readCompetitors, EXA_SEARCH, EXA_SEARCH_PRICE, COMPETITOR_CANDIDATES, COMPETITOR_RESULTS } = await import('../../worker/sources/search');
 const { readStored } = await import('../../worker/sources/stored');
 const { readBodyCapped, MULTIPART_OVERHEAD } = await import('../../worker/intake');
 const { DOC_MAX_BYTES } = await import('../../worker/sources/document');
@@ -46,7 +46,7 @@ beforeEach(async () => {
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'u', email: 'o@example.com' }));
     if (url.startsWith('https://db.test')) return fakeDbResponse(url, init);
-    if (url === EXA_SEARCH || url === EXA_FIND_SIMILAR) {
+    if (url.startsWith('https://api.exa.ai/')) {
       const body = JSON.parse(String(init!.body)) as Record<string, unknown>;
       exaCalls.push({ url, body });
       return exaReply ? exaReply(url, body) : new Response('{}', { status: 500 });
@@ -408,7 +408,7 @@ describe('Exa search (#35): web research on the brand, third-party, never pre-ap
     expect((await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' })).status).toBe(202);
   });
 
-  it('Codex review on PR #100: a malformed Exa reply (results an object, or a null entry) is a typed unreadable failure, for search and findSimilar', async () => {
+  it('Codex review on PR #100: a malformed Exa reply (results an object, or a null entry) is a typed unreadable failure, for search and competitors', async () => {
     for (const bad of [{ results: { url: 'https://a.example/' } }, { results: [null] }, { results: [{ url: 7, text: 'x' }] }, { results: [{ url: 'https://a.example/', text: 3 }] }, [], null]) {
       exaReply = () => new Response(JSON.stringify(bad));
       expect(await readSearch(envWith, { brandName: 'JamJam' })).toMatchObject({ ok: false, code: 'unreadable', reason: expect.stringMatching(/unexpected shape/) });
@@ -419,8 +419,11 @@ describe('Exa search (#35): web research on the brand, third-party, never pre-ap
     const r = await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' });
     const done = run((r.body.run as Row).id);
     expect(done).toMatchObject({ status: 'failed', error_code: 422 });
-    // Six direct reads above, one for the run: the run's read was made once.
-    expect(exaCalls.filter((c) => c.url === EXA_SEARCH)).toHaveLength(7);
+    // Six direct brand searches above, one for the run: the run's read was made once. (The six competitor reads are
+    // /search calls too, told apart by their "pages similar to" query.)
+    const brandSearches = exaCalls.filter((c) => c.url === EXA_SEARCH && !String(c.body.query).startsWith('pages similar to '));
+    expect(brandSearches).toHaveLength(7);
+    expect(exaCalls).toHaveLength(13);
   });
 
   it('Codex review on PR #100: each Exa failure is classified where it happens: transient ones retryable (503), the rest not (422)', async () => {
@@ -522,7 +525,14 @@ describe('competitor candidates (#35): three, with sources, for the positioning 
     expect(r.status).toBe(202);
     const done = run((r.body.run as Row).id);
     expect(done).toMatchObject({ status: 'done', kind: 'find_competitors' });
-    expect(exaCalls[0]).toMatchObject({ url: EXA_FIND_SIMILAR, body: { url: 'https://jamjam.tech/', excludeDomains: ['jamjam.tech'], contents: { maxAgeHours: -1 } } });
+    // Exa's replacement for its deprecated findSimilar: /search with "pages similar to <url>" (exa-py 2.25.0).
+    expect(exaCalls).toHaveLength(1);
+    expect(exaCalls[0]).toEqual({ url: EXA_SEARCH, body: {
+      query: 'pages similar to https://jamjam.tech/', type: 'auto', numResults: COMPETITOR_RESULTS, excludeDomains: ['jamjam.tech'],
+      contents: { text: { maxCharacters: 1500 }, maxAgeHours: -1 },
+    } });
+    // Within the 10 results the /search base price covers (https://exa.ai/docs/admin/pricing).
+    expect(COMPETITOR_RESULTS).toBeLessThanOrEqual(10);
     const out = done.output as { candidates: { url: string; title: string; excerpt: string }[]; cost: number };
     expect(out.candidates.map((c) => c.title)).toEqual(['Rival One', 'Rival Two', 'Rival Three']);
     expect(out.candidates).toHaveLength(COMPETITOR_CANDIDATES);
@@ -545,23 +555,33 @@ describe('competitor candidates (#35): three, with sources, for the positioning 
       exaResult('https://github.com/rival/kit', 'A rival on the same host.', 'rival/kit'),
     ]);
     const r = await readCompetitors(envWith, { brandName: 'Acme', website: 'https://github.com/acme' });
-    expect(exaCalls[0].body).toMatchObject({ url: 'https://github.com/acme', excludeDomains: ['github.com/acme'] });
+    expect(exaCalls[0]).toMatchObject({ url: EXA_SEARCH, body: { query: 'pages similar to https://github.com/acme', excludeDomains: ['github.com/acme'] } });
     expect(r.ok && r.pages!.map((p) => p.url)).toEqual(['https://github.com/rival/kit']);
     await readSearch(envWith, { brandName: 'Acme', website: 'github.com/acme' });
     expect(exaCalls[1].body).toMatchObject({ query: 'Acme (github.com/acme)', excludeDomains: ['github.com/acme'] });
   });
 
-  it('Codex review on PR #100: a findSimilar reply without costDollars records the cost as unknown, never the /search price', async () => {
-    exaReply = () => new Response(JSON.stringify({ results: [exaResult('https://rival.example/', 'Rival.', 'Rival')] }));
-    const r = await readCompetitors(envWith, { brandName: 'JamJam', website: 'https://jamjam.tech' });
-    expect(r).toMatchObject({ ok: true, meta: { cost: null } });
-    expect(r.meta.notes.join(' ')).toMatch(/recorded as unknown/);
-    const done = run((await api('POST', `/brands/${BRAND}/competitors`, {})).body.run && db.tables.runs[0].id);
-    expect(done.output).toMatchObject({ cost: null });
-    expect(db.tables.run_steps.find((s) => s.run_id === done.id && s.step === 'read')).toMatchObject({ cost_usd: null });
+  it('only the public address is put in the query: user name, password, query string and fragment never reach Exa', async () => {
+    exaReply = () => exaOk([exaResult('https://rival.example/', 'Rival.', 'Rival')]);
+    await readCompetitors(envWith, { brandName: 'Acme', website: 'https://user:secret@acme.example/shop?ref=x#top' });
+    expect(exaCalls[0].body).toMatchObject({ query: 'pages similar to https://acme.example/shop', excludeDomains: ['acme.example/shop'] });
+    expect(JSON.stringify(exaCalls[0].body)).not.toMatch(/secret|user|ref=x|#top/);
   });
 
-  it('Codex review on PR #100: the paid findSimilar step is metered, so a brand over its budget or spend is refused before any Exa call', async () => {
+  it('a competitor read records Exa\'s costDollars.total, and the published /search list price when the reply has none', async () => {
+    exaReply = () => exaOk([exaResult('https://rival.example/', 'Rival.', 'Rival')], 0.0042);
+    expect(await readCompetitors(envWith, { brandName: 'JamJam', website: 'https://jamjam.tech' })).toMatchObject({ ok: true, meta: { cost: 0.0042 } });
+    exaReply = () => new Response(JSON.stringify({ results: [exaResult('https://rival.example/', 'Rival.', 'Rival')] }));
+    const r = await readCompetitors(envWith, { brandName: 'JamJam', website: 'https://jamjam.tech' });
+    expect(EXA_SEARCH_PRICE).toBe(0.007);
+    expect(r).toMatchObject({ ok: true, meta: { cost: EXA_SEARCH_PRICE } });
+    expect(r.meta.notes.join(' ')).toMatch(/list price/);
+    const done = run((await api('POST', `/brands/${BRAND}/competitors`, {})).body.run && db.tables.runs[0].id);
+    expect(done.output).toMatchObject({ cost: EXA_SEARCH_PRICE });
+    expect(db.tables.run_steps.find((s) => s.run_id === done.id && s.step === 'read')).toMatchObject({ cost_usd: EXA_SEARCH_PRICE });
+  });
+
+  it('Codex review on PR #100: the paid competitor search step is metered, so a brand over its budget or spend is refused before any Exa call', async () => {
     expect(FIND_COMPETITORS.steps.find((x) => x.id === 'read')).toMatchObject({ metered: 1 });
     exaReply = () => exaOk([exaResult('https://rival.example/', 'Rival.', 'Rival')]);
     db.tables.engine_config.push({ key: 'metered_call_budget', value: { permanent: 0, anonymous: 0 } });
@@ -577,11 +597,11 @@ describe('competitor candidates (#35): three, with sources, for the positioning 
     expect(db.tables.runs.filter((r) => r.kind === 'find_competitors')).toHaveLength(0);
   });
 
-  it('a findSimilar whose cost Exa did not report still uses up its metered call', async () => {
+  it('a competitor search whose cost Exa did not report still uses up its metered call', async () => {
     db.tables.engine_config.push({ key: 'metered_call_budget', value: { permanent: 1, anonymous: 1 } });
     exaReply = () => new Response(JSON.stringify({ results: [exaResult('https://rival.example/', 'Rival.', 'Rival')] }));
     const first = await api('POST', `/brands/${BRAND}/competitors`, {});
-    expect(run((first.body.run as Row).id)).toMatchObject({ status: 'done', output: { cost: null } });
+    expect(run((first.body.run as Row).id)).toMatchObject({ status: 'done', output: { cost: EXA_SEARCH_PRICE } });
     const second = await api('POST', `/brands/${BRAND}/competitors`, {});
     expect(second).toMatchObject({ status: 429, body: { error: expect.stringMatching(/metered calls/) } });
     expect(exaCalls).toHaveLength(1);
