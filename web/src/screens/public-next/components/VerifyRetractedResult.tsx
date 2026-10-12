@@ -13,13 +13,15 @@ export function VerifyRetractedResult({ post }: { post: ApprovedPost }) {
       <Text variant="small">
         Approved {formatDateTime(post.approvedAt)}, retracted {formatDateTime(retraction?.at ?? null)}. Reason: "{retraction?.reason ?? '[reason]'}".
       </Text>
+      {/* The registration is the SAS transaction from registerPost (web/worker/posts.ts); approval has no transaction. */}
       <Text variant="small" tone="secondary">
-        Both the approval and the retraction are on the public record.
+        The registration stays on the public record; the retraction changes its status.
       </Text>
       <KeyValueList
         label="Transactions"
         items={[
-          { label: 'Approval', value: <VerifyReceiptLink signature={post.signature}>Approval transaction</VerifyReceiptLink> },
+          { label: 'Registered', value: <VerifyReceiptLink signature={post.signature}>Registration transaction</VerifyReceiptLink> },
+          // INTEGRATION: the retraction endpoint is not built (no retraction in web/worker); its transaction comes from it.
           { label: 'Retraction', value: <VerifyReceiptLink signature={retraction?.signature ?? null}>Retraction transaction</VerifyReceiptLink> },
         ]}
       />

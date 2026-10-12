@@ -29,7 +29,7 @@ export function VerifyMatchResult({ post }: { post: ApprovedPost }) {
           { label: 'Kit', value: `v${post.kitVersion}` },
           { label: 'Approved by', value: `${brand.name} · ${post.approver} · ${formatDateTime(post.approvedAt)}` },
           { label: 'Published', value: where },
-          { label: 'Receipt', value: <VerifyReceiptLink signature={post.signature}>Approval transaction</VerifyReceiptLink> },
+          { label: 'Receipt', value: <VerifyReceiptLink signature={post.signature}>Registration transaction</VerifyReceiptLink> },
         ]}
       />
       <Stack gap={1}>

@@ -181,19 +181,21 @@ describe('Ledger: filter, sort, paginate and check', () => {
 });
 
 describe('receipts on results (Codex review, PR #68)', () => {
-  it('a match links the approval transaction, or shows [tx] while pending', () => {
+  it('a match links the registration transaction, or shows [tx] while pending', () => {
     const { unmount } = renderWithRouter(<VerifyMatchResult post={{ ...adnaLaunchPost, signature: 'ApproveSig' }} />);
-    expect(screen.getByRole('link', { name: /Approval transaction/ })).toHaveAttribute('href', 'https://explorer.solana.com/tx/ApproveSig?cluster=devnet');
+    expect(screen.getByRole('link', { name: /Registration transaction/ })).toHaveAttribute('href', 'https://explorer.solana.com/tx/ApproveSig?cluster=devnet');
     unmount();
     renderWithRouter(<VerifyMatchResult post={adnaLaunchPost} />);
-    expect(screen.queryByRole('link', { name: /Approval transaction/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Registration transaction/ })).toBeNull();
     expect(screen.getByText('[tx]')).toBeInTheDocument();
   });
-  it('a retraction links both the approval and the retraction transactions', () => {
+  it('a retraction links both the registration and the retraction transactions', () => {
     const post = { ...jamjamRetractedPost, signature: 'ApproveSig', retraction: { at: null, reason: '[reason]', signature: 'RetractSig' } };
     renderWithRouter(<VerifyRetractedResult post={post} />);
-    expect(screen.getByRole('link', { name: /Approval transaction/ })).toHaveAttribute('href', 'https://explorer.solana.com/tx/ApproveSig?cluster=devnet');
+    expect(screen.getByRole('link', { name: /Registration transaction/ })).toHaveAttribute('href', 'https://explorer.solana.com/tx/ApproveSig?cluster=devnet');
     expect(screen.getByRole('link', { name: /Retraction transaction/ })).toHaveAttribute('href', 'https://explorer.solana.com/tx/RetractSig?cluster=devnet');
+    expect(screen.getByText('Registered')).toBeInTheDocument();
+    expect(screen.getByText('The registration stays on the public record; the retraction changes its status.')).toBeInTheDocument();
   });
 });
 
