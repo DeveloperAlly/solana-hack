@@ -2,7 +2,7 @@
 type: manifest
 status: active
 created: 2026-10-06
-updated: 2026-10-12
+updated: 2026-10-13
 last_edited_by: agent
 tags: [manifest, index]
 ---
