@@ -10,7 +10,9 @@ tags: [pitch, script, colosseum]
 
 # Pitch script: JamJam
 
-Total: 445 words, about 2:47 at 160 words a minute.
+**How to read it (owner direction, 2026-10-12, [teardown](../../../audits/2026-10-12_pitch-vc-teardown.md#owner-direction-2026-10-12-after-the-teardown)):** the pitch is for the judges and sells the product as it will be built, in plain words about what a founder gets. The demo video shows what runs today; live status is in STATE.md; the appendix talking points carry the detail for Q&A.
+
+Total: 447 words, about 2:48 at 160 words a minute.
 
 ## 1. The story in one line per slide
 
@@ -33,125 +35,125 @@ Problem (a founder needs a brand team; every option hurts) → solution (JamJam 
 
 ## 2. Dot points per slide
 
-**1. Cover** (0:00–0:05)
+**1. Cover** (0:00–0:11)
 - JamJam: your verifiable brand and content team, in one app
 - Build, create, distribute, verify, grow, learn
 
-**2. Problem** (0:05–0:23)
+**2. Problem** (0:11–0:29)
 - Every founder needs a brand team; every option hurts
 - Time-consuming: do it yourself, every week
 - Costly: an agency budget you don't have
 - Scattered: none of 59 products does the whole job
 - Sloppy: "I end up changing 90% of what is generated"
 
-**3. Solution** (0:23–0:39)
+**3. Solution** (0:29–0:44)
 - The brand team you need: available, affordable, streamlined, verifiable
 - Build your brand and voice from facts quoted from your sources; assumptions labelled
 - Create posts in your voice; claims checked as strictly as you set
 - Distribute, verify, grow, learn: one app
 
-**4. How it works** (0:39–0:54)
+**4. How it works** (0:44–0:59)
 - Each step has a check other tools skip
 - Build: a fact stays only if its quote is in your source
 - Create: a claim needs your evidence at the strictness you set; you approve every post
 - Verify: official only if you approved it, on Solana
 - What runs today: shown in the demo video; status in STATE.md
 
-**5. Why now** (0:54–1:18)
+**5. Why now** (0:59–1:18)
 - Fakes: $3.5B US imposter-scam losses reported in 2025, about $1B business impersonators
 - Platforms: X barred apps that reward posting (Jan 2026)
 - Agents: x402 lets AI agents pay per request; first US stablecoin law (Jul 2025)
 - Copy: some slop patterns appear 1,000x more often in LLM output (Antislop)
 
-**6. Why Solana** (1:18–1:35)
+**6. Why Solana** (1:18–1:34)
 - A chain only where trust and money move
 - Trust: posts, yours and your ambassadors', on a public record; verified accounts and AI persona next
 - Money: USDC tips; rewards for disclosed, approved content
 - Your voice earns: agents pay per call; stablecoin plans
 
-**7. Solana integration** (1:35–1:44)
+**7. Solana integration** (1:34–1:46)
 - Today: Solana Attestation Service registry, signed by the Registrar; email sign-in; Verify page (current status: STATE.md)
 - Next: verified accounts; USDC ambassador payouts; open record
 - Later: USDC tips; voice licensing; stablecoin plans
 
-**8. Go to market** (1:44–1:59)
+**8. Go to market** (1:46–2:01)
 - First customers: web3 founders and creators; crypto impersonation scams +1,400%
 - Customer zero: JamJam and my own brand
 - Beta: aDNA.network, film.fun, GamersLab and Altumera agreed to test at a reduced price
 - Growth: referral and rewards programs; partners for features
 
-**9. Competition** (1:59–2:08)
+**9. Competition** (2:01–2:10)
 - 59 products checked; the best do two of four
 - Others build, create, prove or pay; JamJam is built for all four, pay next
 - Works with your tools: export your kit to any AI agent
 
-**10. Business model** (2:08–2:22)
+**10. Business model** (2:10–2:24)
 - Free: build your brand kit
 - Solo $39 and Team $199 a month (launch prices)
 - 3% on tips and rewards paid through JamJam
 - Every check runs on a public JamJam Verify page
 - Refer a friend: you both get 2 months free (proposed, ADR-014)
 
-**11. Roadmap** (2:22–2:31)
+**11. Roadmap** (2:24–2:32)
 - Now: your brand kit
 - Next: content you approve unedited
 - Then: publish direct; tips and fan rewards
 - Later: monetise your voice
 
-**12. Team and ask** (2:31–2:47)
+**12. Team and ask** (2:32–2:48)
 - Founded Lilypad; built the original Waterlily.ai
 - Developer communities at IBM and Filecoin Foundation
 - Ask: your vote, to take JamJam to mainnet and its first paying brands
 
 ## 3. Full script (every spoken word)
 
-**1. Cover** · 0:00–0:05 · 14 words
+**1. Cover** · 0:00–0:11 · 29 words
 
-I'm Ally Haire. JamJam is your verifiable brand and content team, in one app.
+I'm Ally Haire. Every founder needs a brand team, and most can't afford one. JamJam is that team, in one app, and every post it makes is provably yours.
 
-**2. Problem** · 0:05–0:23 · 47 words
+**2. Problem** · 0:11–0:29 · 48 words
 
-Every founder needs a brand team, and every option hurts. Do it yourself and it eats your week. An agency costs a budget you don't have. And AI writers miss your voice. As one user put it: I end up changing ninety percent of what is generated.
+Today you have three bad options. Do it yourself, and your brand eats every week. Hire an agency, and it eats your runway. Use an AI writer, and you sound like everyone else. As one user put it: I end up changing ninety percent of what is generated.
 
-**3. Solution** · 0:23–0:39 · 44 words
+**3. Solution** · 0:29–0:44 · 40 words
 
-I built JamJam to be that team. It builds your brand and voice from facts it can quote, writes posts in your voice, and proves them on a public record. Next, it publishes them, grows your reach through ambassadors and learns from what works.
+JamJam replaces all three. Paste your website and you get a brand strategy that sounds like you, because it's built from your own words. Then it writes your posts, publishes them, grows your reach through ambassadors, and learns what works.
 
-**4. How it works** · 0:39–0:54 · 38 words
+**4. How it works** · 0:44–0:59 · 40 words
 
-Every step has a check other tools skip. A fact stays only if its quote is in your source. A claim needs your evidence, as strictly as you set. A post is official only if you approved it.
+Here's the difference. Other AI tools make things up about you. JamJam won't. Everything it says comes from your own words. It won't let you post a claim you can't back up. And nothing goes out until you approve it.
 
-**5. Why now** · 0:54–1:18 · 66 words
+**5. Why now** · 0:59–1:18 · 51 words
 
-Four things changed. Americans reported three and a half billion dollars lost to imposter scams last year. X cut off apps that pay people to post. AI agents can now pay per request, in stablecoins. And some AI phrases show up a thousand times more than in human writing. Each needs proof a post is yours, or a way to pay for real work. That's JamJam.
+Why now. Imposter scams cost Americans three and a half billion dollars last year. X just banned apps that pay people to post. AI agents now pay for things in stablecoins. And some AI phrases show up a thousand times more than in human writing. Brands need content they can prove.
 
-**6. Why Solana** · 1:18–1:35 · 45 words
+**6. Why Solana** · 1:18–1:34 · 42 words
 
-We use a blockchain only where trust and money move. Every post you approve and register goes on Solana, and anyone can check it. The same rail will move money: fan tips in USDC, rewards for approved content, and agents paying to use your voice.
+That's why Solana. Fakes are cheap; proof isn't. Every post you approve is recorded on Solana, so anyone can check it really came from you. And the same rails pay people: USDC tips, ambassador rewards, and agents paying to use your voice.
 
-**7. Solana integration** · 1:35–1:44 · 24 words
+**7. Solana integration** · 1:34–1:46 · 33 words
 
-Every record goes through the Solana Attestation Service, signed by our Registrar, so you sign in with email, no wallet. USDC payouts are next.
+This already works on devnet. You sign in with just an email, no wallet and no seed phrase, and JamJam records every approved kit and post on Solana for you. Payouts are next.
 
-**8. Go to market** · 1:44–1:59 · 39 words
+**8. Go to market** · 1:46–2:01 · 40 words
 
-We start with web3 founders and creators. In crypto, impersonation scams grew fourteen hundred percent in a year. Customer zero is me: JamJam markets itself with JamJam. Four brands have agreed to beta test it at a reduced price.
+We start where the pain is sharpest: web3 founders and creators. In crypto, impersonation scams grew fourteen hundred percent in a year. Customer zero is me: JamJam markets itself, with JamJam. And four brands have agreed to beta test it.
 
-**9. Competition** · 1:59–2:08 · 25 words
+**9. Competition** · 2:01–2:10 · 24 words
 
-We checked fifty-nine products. The best do two of the four jobs. JamJam is built to do all four in one flow, with pay next.
+We looked at fifty-nine products. The best do two of the four jobs. Nobody builds, creates, proves and pays in one place. JamJam does.
 
-**10. Business model** · 2:08–2:22 · 38 words
+**10. Business model** · 2:10–2:24 · 38 words
 
-Your brand kit is free. Solo is thirty-nine dollars a month, Team one ninety-nine, and we take three percent on tips and rewards. Every fan who checks a post on Verify sees JamJam. That is how it spreads.
+Your brand kit is free. Solo is thirty-nine dollars a month, Team one ninety-nine, and we take three percent on tips and rewards. Every time a fan checks a post, they land on JamJam. That's how we grow.
 
-**11. Roadmap** · 2:22–2:31 · 22 words
+**11. Roadmap** · 2:24–2:32 · 19 words
 
-Next comes content you approve without editing, then direct publishing and fan rewards, and later, getting paid when agents use your voice.
+Next: posts you approve without touching, direct publishing, fan rewards, and getting paid when AI agents use your voice.
 
-**12. Team and ask** · 2:31–2:47 · 43 words
+**12. Team and ask** · 2:32–2:48 · 43 words
 
-I founded Lilypad, a decentralised AI compute network, and built the original Waterlily, AI art that paid its artists. I'm building the brand team I needed as a founder. I'm asking for your vote to take JamJam to mainnet. Every post provably yours.
+I founded Lilypad, a decentralised AI compute network, and built the original Waterlily, AI art that paid its artists. Now I'm building the brand team every founder needs. I'm asking for your vote to take JamJam to mainnet. JamJam. Every post provably yours.
 
 ## 4. Appendix talking points (Q&A, not spoken in the 3:00)
 
