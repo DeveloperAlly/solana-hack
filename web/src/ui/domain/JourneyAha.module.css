@@ -1,0 +1,25 @@
+.aha {
+  margin: 0;
+  display: flex;
+  gap: var(--wl-space-2-5);
+  align-items: baseline;
+  padding: var(--wl-space-3);
+  border: var(--wl-border-width-strong) solid var(--wl-border-strong);
+  border-radius: var(--wl-radius-box);
+  background: var(--wl-bg-surface);
+  color: var(--wl-text-primary);
+}
+.label {
+  font-size: var(--wl-font-size-xs);
+  letter-spacing: var(--wl-font-letterSpacing-heading);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.default {}
+.inverse {
+  padding: var(--wl-space-4);
+  background: var(--wl-bg-inverse);
+  color: var(--wl-text-inverse);
+  border-color: var(--wl-bg-inverse);
+}
+.inverse .text { font-size: var(--wl-font-size-lg); }

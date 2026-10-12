@@ -46,6 +46,8 @@ export interface InlineFormProps {
   surface?: 'plain' | 'card';
   /** Clears the fields after a valid submit (an "Add a link" row that stays open). */
   resetOnSubmit?: boolean;
+  /** id of the form, so a submit button elsewhere on the page (`form="…"`) submits this same form (canvas Main repeats "Read my site"). */
+  id?: string;
   /**
    * Starts collapsed behind a secondary button with this label (e.g. "Add a brand"). The form opens in place and
    * closes on a valid submit or on Cancel (Cancel is added automatically).
@@ -55,7 +57,7 @@ export interface InlineFormProps {
 
 const initial = (fields: InlineFormField[]) => Object.fromEntries(fields.map((f) => [f.name, f.defaultValue ?? '']));
 
-function FormBody({ label, fields, submitLabel, submitVariant = 'primary', onSubmit, onCancel, cancelLabel = 'Cancel', busy = false, busyLabel, errors: outside, validateOnMount = false, layout = 'stacked', surface = 'plain', resetOnSubmit = false }: Omit<InlineFormProps, 'triggerLabel'>) {
+function FormBody({ label, fields, submitLabel, submitVariant = 'primary', onSubmit, onCancel, cancelLabel = 'Cancel', busy = false, busyLabel, errors: outside, validateOnMount = false, layout = 'stacked', surface = 'plain', resetOnSubmit = false, id }: Omit<InlineFormProps, 'triggerLabel'>) {
   const check = (f: InlineFormField, v: string) => f.validate?.(v.trim()) ?? null;
   const [values, setValues] = useState<Record<string, string>>(() => initial(fields));
   const [errors, setErrors] = useState<Record<string, string | null>>(() =>
@@ -88,7 +90,7 @@ function FormBody({ label, fields, submitLabel, submitVariant = 'primary', onSub
   }
 
   const form = (
-    <form aria-label={label} aria-busy={busy || undefined} onSubmit={submit} noValidate className={`${styles.form} ${styles[layout]}`}>
+    <form id={id} aria-label={label} aria-busy={busy || undefined} onSubmit={submit} noValidate className={`${styles.form} ${styles[layout]}`}>
       {fields.map((f) => (
         <div key={f.name} className={styles.field}>
           {f.multiline ? (

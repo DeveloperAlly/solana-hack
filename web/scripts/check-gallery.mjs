@@ -95,11 +95,18 @@ try {
   // own first link to another screen if it has one, and the document must still carry that theme.
   const persist = themes[themes.length - 1];
   await load(page, `/screens?theme=${persist}`);
+  const indexHeading = page.getByRole('heading', { level: 1, name: 'Screens' });
   await page.locator('main a[href^="/screens/"]').first().click();
+  // React Router changes the URL at once but renders the next screen in a transition, so the index's <main> can still
+  // be in the DOM here. Wait until it is gone; otherwise the next locator finds the index's own links, and clicking one
+  // of them races the swap ("element was detached") and, when the screen has no link of its own, waits until timeout.
+  await indexHeading.waitFor({ state: 'detached' });
   await page.locator('main').first().waitFor();
   const inScreen = page.locator('main a[href^="/screens/"]').first();
   if (await inScreen.count()) {
+    const from = await page.evaluate(() => location.pathname + location.search);
     await inScreen.click();
+    await page.waitForURL((u) => u.pathname + u.search !== from);
     await page.locator('main').first().waitFor();
   }
   const kept = await page.evaluate(() => [document.documentElement.getAttribute('data-theme'), location.pathname + location.search]);
