@@ -1,0 +1,25 @@
+/* D103 EventRatingFields: the five questions and the line in a wrapping grid, Register under them. Tokens only. */
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--wl-space-4);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--wl-space-12) * 3), 1fr));
+  gap: var(--wl-space-4);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--wl-space-2);
+  font-size: var(--wl-font-size-sm);
+  font-weight: var(--wl-font-weight-semibold);
+}

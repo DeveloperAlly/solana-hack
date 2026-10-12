@@ -1,0 +1,340 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes } from 'react-router';
+import { GalleryScreen } from '../../gallery/Gallery';
+import { screenPath } from '../../gallery/screenPath';
+import { planTemplates } from '../../domain/event';
+import { growthSession } from './session';
+import { growthArtboards } from './paths';
+
+vi.mock('../../lib/supabase', () => ({ supabase: null }));
+
+// Flow tests for the ADR-012 loop screens built on the growth page (Grow-Home, Distribute-Adapt, Events, Event-Detail,
+// Events-Board, Event-Rating). Nothing may touch the network (issue #45).
+let fetchSpy: ReturnType<typeof vi.fn>;
+beforeEach(() => {
+  growthSession.reset();
+  fetchSpy = vi.fn(() => { throw new Error('the loop screens must not call fetch'); });
+  vi.stubGlobal('fetch', fetchSpy);
+});
+afterEach(() => {
+  expect(fetchSpy).toHaveBeenCalledTimes(0);
+  vi.unstubAllGlobals();
+});
+
+function at(path: string) {
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/screens/:artboard" element={<GalleryScreen />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  return user;
+}
+
+const h1 = (name: string | RegExp) => screen.getByRole('heading', { level: 1, name });
+const withParam = (artboard: Parameters<typeof screenPath>[0], key: string, value: string) => `${screenPath(artboard)}${screenPath(artboard).includes('?') ? '&' : '?'}${key}=${value}`;
+
+describe('Grow-Home', () => {
+  it('uses the Grow stage with Overview current, and every card opens its board', async () => {
+    const user = at(screenPath('Grow-Home'));
+    expect(h1('Grow your reach')).toBeInTheDocument();
+    const tabs = screen.getByRole('navigation', { name: 'Grow' });
+    expect(within(tabs).getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
+    const events = screen.getByRole('region', { name: 'Events' });
+    await user.click(within(events).getByRole('link', { name: 'Events' }));
+    expect(h1('Events')).toBeInTheDocument();
+  });
+
+  it('every card link points at a typed board', () => {
+    at(screenPath('Grow-Home'));
+    for (const name of ['Ambassadors', 'Campaigns', 'Engage', 'Partners and leads', 'Referrals and team']) {
+      for (const link of within(screen.getByRole('region', { name })).getAllByRole('link')) expect(link.getAttribute('href')).toMatch(/^\/screens\//);
+    }
+  });
+
+  it('the Events tile counts the events Events shows, including one added there', async () => {
+    const user = at(screenPath('Grow-Home'));
+    expect(screen.getByText('next: Tue, you’re attending')).toBeInTheDocument();
+    const tile = () => screen.getByText(/^next: /).closest('a')!;
+    const before = Number(within(tile()).getByText(/^\d+$/).textContent);
+    await user.click(within(screen.getByRole('region', { name: 'Events' })).getByRole('link', { name: 'Events' }));
+    await user.click(screen.getByRole('button', { name: 'Add an event' }));
+    await user.type(screen.getByLabelText('Event name'), '[[Meetup] agent night');
+    await user.type(screen.getByLabelText(/^Place/), 'Online');
+    await user.type(screen.getByLabelText('Date'), '2026-12-01');
+    await user.type(screen.getByLabelText('Starts at'), '18:00');
+    await user.selectOptions(screen.getByLabelText('Your role'), 'hosting');
+    await user.click(screen.getByRole('button', { name: 'Add event' }));
+    await user.click(within(screen.getByRole('navigation', { name: 'Grow' })).getByRole('link', { name: 'Overview' }));
+    expect(within(tile()).getByText(String(before + 1))).toBeInTheDocument();
+  });
+
+  it('first run teaches each card’s first action', () => {
+    at(screenPath('Grow-Home', 'empty'));
+    expect(screen.getByText('Add your first event to get a content plan for it.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Add an event' })).toBeInTheDocument();
+    expect(screen.getByText('None coming up')).toBeInTheDocument();
+  });
+});
+
+describe('Distribute-Adapt', () => {
+  it('Schedule waits for every version to be approved and free of conflicts, then schedules', async () => {
+    const user = at(screenPath('Distribute-Adapt'));
+    expect(within(screen.getByRole('navigation', { name: 'Distribute' })).getByRole('link', { name: 'Adapt and schedule' })).toHaveAttribute('aria-current', 'page');
+    const schedule = screen.getByRole('button', { name: 'Schedule 3' });
+    expect(schedule).toBeDisabled();
+    expect(schedule).toHaveAccessibleDescription('Approve LinkedIn, Threads first.');
+    await user.click(screen.getByRole('button', { name: 'Approve LinkedIn' }));
+    await user.click(screen.getByRole('button', { name: 'Approve Threads' }));
+    expect(schedule).toHaveAccessibleDescription(/LinkedIn: Tue 09:30 \(best time\) is taken by another aDNA post/);
+    expect(screen.getByText('Taken by another aDNA post. Pick another time.')).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('When on LinkedIn'), 'Tue 13:00');
+    expect(schedule).toBeEnabled();
+    await user.click(schedule);
+    expect(screen.getByText('Scheduled')).toBeInTheDocument();
+  });
+
+  it('editing the original makes every approval stale and the original needs approving again', async () => {
+    const user = at(screenPath('Distribute-Adapt'));
+    const x = screen.getByRole('region', { name: 'X' });
+    expect(within(x).getByText('Approved')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Edit original' }));
+    await user.type(screen.getByLabelText('Original post'), ' Try it.');
+    await user.click(screen.getByRole('button', { name: 'Save original' }));
+    expect(within(screen.getByRole('region', { name: 'X' })).getByText('Stale: approve again')).toBeInTheDocument();
+    expect(screen.getByText('Edited: needs approval')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Schedule 3' })).toHaveAccessibleDescription('The original changed. Approve it again first.');
+    await user.click(screen.getByRole('button', { name: 'Approve original' }));
+    expect(screen.getByRole('button', { name: 'Schedule 3' })).toHaveAccessibleDescription(/^Approve X, LinkedIn, Threads first/);
+  });
+
+  it('a version failing a check shows the blocked badge and a disabled Approve', async () => {
+    const user = at(screenPath('Distribute-Adapt'));
+    await user.click(screen.getByRole('checkbox', { name: /Bluesky/ }));
+    const bluesky = screen.getByRole('region', { name: 'Bluesky' });
+    expect(within(bluesky).getByText('Blocked: 1 claim has no source')).toBeInTheDocument();
+    expect(within(bluesky).getByRole('button', { name: 'Approve Bluesky' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Schedule 4' })).toHaveAccessibleDescription('Fix the Bluesky version first.');
+  });
+
+  it('an X version over 280 is blocked, counted the way X counts', async () => {
+    const user = at(screenPath('Distribute-Adapt'));
+    await user.click(screen.getByRole('button', { name: 'Edit X version' }));
+    await user.type(screen.getByLabelText('X version'), ` ${'a'.repeat(120)}`);
+    await user.click(screen.getByRole('button', { name: 'Save X version' }));
+    const x = screen.getByRole('region', { name: 'X' });
+    expect(within(x).getByText(/^Blocked: \d+ over X’s 280 limit$/)).toBeInTheDocument();
+    expect(within(x).getByRole('button', { name: 'Approve X' })).toBeDisabled();
+  });
+
+  it('with no platforms chosen, Schedule is disabled', async () => {
+    const user = at(screenPath('Distribute-Adapt'));
+    for (const name of ['X', 'LinkedIn', 'Threads']) await user.click(screen.getByRole('checkbox', { name: new RegExp(`^${name}`) }));
+    expect(screen.getByRole('button', { name: 'Schedule 0' })).toHaveAccessibleDescription('Choose at least one platform.');
+    expect(screen.getByRole('heading', { name: 'No platforms chosen' })).toBeInTheDocument();
+  });
+
+  it('the error state shows the publish failed alert', () => {
+    at(screenPath('Distribute-Adapt', 'error'));
+    expect(screen.getByText('LinkedIn did not publish')).toBeInTheDocument();
+  });
+});
+
+describe('Events', () => {
+  it('switches Upcoming and Past, filters by role, and opens an event', async () => {
+    const user = at(screenPath('Events'));
+    const table = () => screen.getByRole('table');
+    expect(within(table()).getByRole('link', { name: '[Conference] side event: agent tooling night' })).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Role'), 'hosting');
+    expect(within(table()).queryByRole('link', { name: '[Conference] side event: agent tooling night' })).toBeNull();
+    expect(within(table()).getByRole('link', { name: '[City] builders meetup' })).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Role'), 'all');
+    await user.click(screen.getByRole('button', { name: /^Past/ }));
+    expect(within(table()).getByText('6 posts verified · 4 leads')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^Upcoming/ }));
+    await user.click(within(table()).getByRole('link', { name: '[Conference] side event: agent tooling night' }));
+    expect(h1('[Conference] side event: agent tooling night')).toBeInTheDocument();
+  });
+
+  it('accepting a Luma event asks for the role, and the role picks its plan', async () => {
+    const user = at(screenPath('Events'));
+    await user.click(screen.getByRole('button', { name: 'Accept [Summit] side event' }));
+    expect(screen.getByRole('button', { name: 'Accept' })).toBeDisabled();
+    await user.selectOptions(screen.getByLabelText('Your role at [Summit] side event'), 'attending');
+    await user.click(screen.getByRole('button', { name: 'Accept' }));
+    expect(screen.queryByRole('heading', { name: 'New from your Luma calendar' })).toBeNull();
+    await user.click(within(screen.getByRole('table')).getByRole('link', { name: '[Summit] side event' }));
+    expect(screen.getAllByRole('region', { name: /^(Countdown|Recap|Follow up)$/ })).toHaveLength(planTemplates.attending.length);
+  });
+
+  it('Add an event validates on the client', async () => {
+    const user = at(screenPath('Events'));
+    await user.click(screen.getByRole('button', { name: 'Add an event' }));
+    await user.click(screen.getByRole('button', { name: 'Add event' }));
+    expect(screen.getByText('Name the event.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByText('Name the event.')).toBeNull();
+  });
+
+  it('empty and error states', () => {
+    at(screenPath('Events', 'empty'));
+    expect(screen.getByRole('heading', { name: 'No events yet' })).toBeInTheDocument();
+  });
+
+  it('error says Luma is disconnected and the Luma card says what connecting needs', () => {
+    at(screenPath('Events', 'error'));
+    expect(screen.getByText('Luma is disconnected')).toBeInTheDocument();
+    expect(screen.getByText(/Importing needs Luma Plus/)).toBeInTheDocument();
+  });
+});
+
+describe('Event-Detail', () => {
+  it('the role select swaps the plan template; drafts keep their phase', async () => {
+    const user = at(screenPath('Event-Detail'));
+    expect(screen.getByRole('region', { name: 'Announce' })).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Countdown' })).getByText('Needs you · 1 of 3 ready')).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText(/^Change role/), 'attending');
+    expect(screen.queryByRole('region', { name: 'Announce' })).toBeNull();
+    expect(within(screen.getByRole('region', { name: 'Countdown' })).getByText('Needs you · 1 of 3 ready')).toBeInTheDocument();
+    expect(screen.getByText(/you’re attending/)).toBeInTheDocument();
+  });
+
+  it('drafting a plan item makes ordinary drafts and the item takes their status', async () => {
+    const user = at(withParam('Event-Detail', 'event', 'ev-meetup'));
+    const announce = screen.getByRole('region', { name: 'Announce' });
+    expect(within(announce).getByText('Not drafted')).toBeInTheDocument();
+    await user.click(within(announce).getByRole('button', { name: 'Draft the post' }));
+    expect(within(screen.getByRole('region', { name: 'Announce' })).getByText('Needs you')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review 1 post' })).toBeInTheDocument();
+  });
+
+  it('on the day and after are their own events; after shows results', () => {
+    at(withParam('Event-Detail', 'event', 'ev-main-stage'));
+    expect(screen.getByText('This event has ended')).toBeInTheDocument();
+    expect(screen.getByText('Not available')).toBeInTheDocument();
+  });
+
+  it('error is Luma cancelling the event; empty makes the plan', async () => {
+    at(screenPath('Event-Detail', 'error'));
+    expect(screen.getByText('Luma says this event was cancelled')).toBeInTheDocument();
+  });
+
+  it('plan empty: Make the plan builds it from the role', async () => {
+    const user = at(screenPath('Event-Detail', 'empty'));
+    await user.click(screen.getByRole('button', { name: 'Make the plan' }));
+    expect(screen.getByRole('region', { name: 'Announce' })).toBeInTheDocument();
+  });
+
+  it('rate this event opens the event’s rating page', async () => {
+    const user = at(screenPath('Event-Detail'));
+    await user.click(screen.getByRole('link', { name: 'Rate this event' }));
+    expect(h1('[Conference] side event: agent tooling night')).toBeInTheDocument();
+    expect(screen.getByText('Rating opens after the event ends.')).toBeInTheDocument();
+  });
+});
+
+describe('Events-Board (public, roadmap)', () => {
+  it('searches, filters by kind, sorts and opens an event', async () => {
+    const user = at(screenPath('Events-Board'));
+    expect(screen.getByRole('status')).toHaveTextContent('5 events');
+    await user.type(screen.getByLabelText('Search events'), 'melbourne');
+    expect(screen.getByRole('status')).toHaveTextContent('1 event');
+    await user.clear(screen.getByLabelText('Search events'));
+    await user.selectOptions(screen.getByLabelText('Kind'), 'side-event');
+    expect(screen.getByRole('status')).toHaveTextContent('2 events');
+    await user.selectOptions(screen.getByLabelText('Kind'), 'all');
+    await user.selectOptions(screen.getByLabelText('Sort'), 'lowest');
+    const rows = within(screen.getByRole('table')).getAllByRole('row');
+    expect(within(rows[1]).getByRole('link')).toHaveTextContent('[Summit] VIP dinner');
+    await user.click(within(rows[1]).getByRole('link'));
+    expect(h1('[Summit] VIP dinner')).toBeInTheDocument();
+  });
+
+  it('empty state: no ratings yet', () => {
+    at(screenPath('Events-Board', 'empty'));
+    expect(screen.getByRole('heading', { name: 'No ratings yet' })).toBeInTheDocument();
+  });
+});
+
+describe('Event-Rating (public, roadmap)', () => {
+  it('shows the organiser reply under the rating it answers', () => {
+    at(screenPath('Event-Rating'));
+    expect(screen.getByText(/next year the investor table will be curated/)).toBeInTheDocument();
+  });
+
+  it('is locked until attendance is proven; a failed proof can be retried', async () => {
+    const user = at(screenPath('Event-Rating'));
+    expect(screen.getByLabelText('Talks worth it')).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Prove I went with Luma' }));
+    expect(screen.getByRole('button', { name: 'Prove I went with Luma' })).toBeDisabled();
+    expect(await screen.findByText('We couldn’t confirm you went')).toBeInTheDocument();
+    expect(screen.getByLabelText('Talks worth it')).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Try another way' }));
+    expect(screen.getByRole('button', { name: 'Prove I went with Luma' })).toBeEnabled();
+  });
+
+  it('after proof, Register waits for all five ratings, none pre-selected, then counts the rating', async () => {
+    const user = at(withParam('Event-Rating', 'event', 'b-demo'));
+    expect(screen.getAllByText(/96 registered · 96 shown/)[0]).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Guest-list email'), 'attendee@example.com');
+    await user.click(screen.getByRole('button', { name: 'Check the guest list' }));
+    expect(await screen.findByText('You went')).toBeInTheDocument();
+    const register = screen.getByRole('button', { name: 'Register my rating' });
+    for (const label of ['Talks worth it', 'Well run', 'Right people', 'Sponsor value', 'Would go again']) {
+      expect(screen.getByLabelText(label)).toHaveValue('');
+      expect(register).toBeDisabled();
+      await user.selectOptions(screen.getByLabelText(label), '5');
+    }
+    await user.type(screen.getByLabelText('In a line'), 'Worth it');
+    await user.click(register);
+    expect(screen.getByText('You rated it 5.0 of 5')).toBeInTheDocument();
+    expect(screen.getAllByText(/97 registered · 97 shown/)[0]).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Edit my rating' }));
+    expect(screen.getByLabelText('Talks worth it')).toHaveValue('5');
+  });
+
+  it('an edit adds a version and keeps the old one; it never counts twice', async () => {
+    const user = at(withParam('Event-Rating', 'event', 'b-demo'));
+    const rateAll = async (score: string) => {
+      for (const label of ['Talks worth it', 'Well run', 'Right people', 'Sponsor value', 'Would go again']) await user.selectOptions(screen.getByLabelText(label), score);
+    };
+    await user.type(screen.getByLabelText('Guest-list email'), 'attendee@example.com');
+    await user.click(screen.getByRole('button', { name: 'Check the guest list' }));
+    await screen.findByText('You went');
+    await rateAll('5');
+    await user.type(screen.getByLabelText('In a line'), 'First take');
+    await user.click(screen.getByRole('button', { name: 'Register my rating' }));
+    await user.click(screen.getByRole('button', { name: 'Edit my rating' }));
+    await rateAll('3');
+    await user.clear(screen.getByLabelText('In a line'));
+    await user.type(screen.getByLabelText('In a line'), 'Second take');
+    await user.click(screen.getByRole('button', { name: 'Register my edit' }));
+    expect(screen.getByText('You rated it 3.0 of 5')).toBeInTheDocument();
+    expect(screen.getByText('Edited, see earlier versions (1)')).toBeInTheDocument();
+    expect(screen.getByText('“First take”')).toBeInTheDocument();
+    expect(screen.getAllByText(/97 registered · 97 shown/)[0]).toBeInTheDocument();
+  });
+
+  it('a removed rating shows as a tombstone with its date and reason, and still counts as registered', () => {
+    at(screenPath('Event-Rating'));
+    expect(screen.getByText(/^Removed \[date\]: Named a private person/)).toBeInTheDocument();
+    expect(screen.getByText(/41 registered · 40 shown/, { selector: 'p' })).toBeInTheDocument();
+  });
+
+  it('an upcoming event does not open rating yet', () => {
+    at(withParam('Event-Rating', 'event', 'b-night'));
+    expect(screen.getByText('Rating opens after the event ends.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Register my rating' })).toBeNull();
+  });
+
+  it('links back to the board', async () => {
+    const user = at(screenPath('Event-Rating'));
+    await user.click(screen.getByRole('link', { name: 'All events' }));
+    expect(h1('Is this event worth it?')).toBeInTheDocument();
+    expect(growthArtboards.eventsBoard).toBe('Events-Board');
+  });
+});

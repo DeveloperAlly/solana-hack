@@ -1,0 +1,17 @@
+/* D93 DistributeSourcePost: the original's text keeps its line breaks; actions wrap. Tokens only. */
+.text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wl-space-2);
+}
+
+.chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--wl-space-2);
+}

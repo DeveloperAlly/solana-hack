@@ -1,0 +1,19 @@
+/* D100 EventRatingSummary: the overall score in display type beside its count. Tokens only. */
+.score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--wl-space-3);
+  margin: 0;
+}
+
+.big {
+  font-family: var(--wl-font-display);
+  font-size: var(--wl-font-size-4xl);
+  font-weight: var(--wl-font-weight-bold);
+  line-height: var(--wl-font-lineHeight-heading);
+}
+
+.out {
+  color: var(--wl-text-secondary);
+}

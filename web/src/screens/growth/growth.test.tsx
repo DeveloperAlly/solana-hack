@@ -40,10 +40,11 @@ function at(path: string) {
 const main = () => screen.getByRole('main');
 
 describe('Growth registry (issue #82)', () => {
-  it('registers all ten screens on their canvas pages, each COMING SOON', () => {
+  it('registers every growth screen on its canvas page: COMING SOON, the public events board ROADMAP', () => {
     expect(screens.map((s) => s.artboard)).toEqual(Object.values(growthArtboards));
     for (const s of screens) expect(s.page).toBe(artboardPages[s.artboard]);
-    expect(new Set(screens.map((s) => s.tag))).toEqual(new Set(['COMING SOON']));
+    const roadmap: string[] = [growthArtboards.eventsBoard, growthArtboards.eventRating];
+    for (const s of screens) expect(s.tag).toBe(roadmap.includes(s.artboard) ? 'ROADMAP' : 'COMING SOON');
   });
   it('no platform is Live: nothing in the worker publishes yet', () => {
     expect(platforms.filter((p) => p.status === 'live')).toEqual([]);

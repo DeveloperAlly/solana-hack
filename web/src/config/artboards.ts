@@ -1,4 +1,4 @@
-// Every non-archived artboard on the wireframe canvas, generated from its canvas.json (version 1791817328-4e15,
+// Every non-archived artboard on the wireframe canvas, generated from its canvas.json (version 1791818793-e756,
 // https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn; issue #46). The Archive page ("licensee") is not built (issue #45).
 // Links between screens take an ArtboardName (screenPath, useScreenHref, ScreenLink), so a misspelled or missing
 // board fails typecheck (Codex review on PR #80). Regenerate when the canvas adds or renames a board.
@@ -98,6 +98,7 @@ export const artboardPages = {
   'Post-Detail': 'loop',
   'Pricing': 'utilities',
   'Publish-Calendar': 'distribute',
+  'Quests': 'grow',
   'Referral': 'grow',
   'Referral-Landing': 'grow',
   'Settings-AI': 'utilities',

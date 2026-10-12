@@ -1,0 +1,7 @@
+/* D90 GrowAreaCard: links sit at the foot of the card and wrap. Tokens only. */
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wl-space-2);
+  margin-top: auto;
+}

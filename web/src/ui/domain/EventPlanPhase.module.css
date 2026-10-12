@@ -1,0 +1,32 @@
+/* D97 EventPlanPhase: phase header, then one ruled row per item. Tokens only. */
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--wl-space-2);
+}
+
+.items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wl-space-3);
+  padding: var(--wl-space-3) 0;
+  border-bottom: var(--wl-border-width-default) solid var(--wl-border-rule);
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.brief {
+  flex: 1 1 calc(var(--wl-space-12) * 4);
+  min-width: 0;
+}

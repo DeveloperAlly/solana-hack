@@ -1,0 +1,4 @@
+/* D99 EventResultsCard: the link sits under the results. Tokens only. */
+.link {
+  font-size: var(--wl-font-size-sm);
+}

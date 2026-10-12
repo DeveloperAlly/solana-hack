@@ -3,7 +3,32 @@
 // demo state) plus the person's own actions gives what they expect to see. In memory for the tab only: nothing is
 // persisted and nothing calls the network (each write names its future endpoint in an INTEGRATION comment).
 import { createStore } from '../../lib/createStore';
+import type { Approval } from '../../domain/approval';
+import type { BrandEvent, EventRole, EventStatus, EventPlanItem } from '../../domain/event';
+import type { Post } from '../../domain/post';
+import type { EventRating } from '../../domain/rating';
 import type { BadgeStyle, ConnectionState, Invite, Member, Referral, Tip } from './types';
+
+/** What a person changed on one adapted post (Distribute-Adapt), over its fixture. */
+export interface AdaptEdits {
+  /** The original's text after an edit here; its approval goes stale. */
+  original?: string;
+  /** The original re-approved after an edit. */
+  originalApproval?: Approval;
+  chosen?: string[];
+  texts: Record<string, string>;
+  approvals: Record<string, Approval>;
+  when: Record<string, string>;
+  /** Platforms sent to the calendar, with their slots. */
+  scheduled?: Record<string, string>;
+}
+
+/** What a person changed on one brand event (Events, Event-Detail), over its fixture. */
+export interface EventEdit {
+  status?: EventStatus;
+  role?: EventRole;
+  plan?: EventPlanItem[];
+}
 
 export interface GrowthSession {
   /** Preview connections by platform id (Platform-Detail Connect; Platforms reads them). */
@@ -20,6 +45,16 @@ export interface GrowthSession {
   invitesClosed: string[];
   /** People who accepted an invite (Invite-Accept); Invite-Team lists them as members. */
   membersAdded: Member[];
+  /** Distribute-Adapt edits, by post id. */
+  adapt: Record<string, AdaptEdits>;
+  /** Events added by hand on Events, newest first. */
+  eventsAdded: BrandEvent[];
+  /** Accept, skip, role and plan changes, by event id (Events, Event-Detail; Grow-Home counts them). */
+  eventEdits: Record<string, EventEdit>;
+  /** Drafts made from an event's plan: ordinary drafts (the shared Post type), newest first. */
+  draftsAdded: Post[];
+  /** The viewer's own rating, by board event id (Event-Rating; Events-Board counts it). */
+  myRatings: Record<string, EventRating>;
 }
 
 export const growthSession = createStore<GrowthSession>({
@@ -30,6 +65,11 @@ export const growthSession = createStore<GrowthSession>({
   invitesAdded: [],
   invitesClosed: [],
   membersAdded: [],
+  adapt: {},
+  eventsAdded: [],
+  eventEdits: {},
+  draftsAdded: [],
+  myRatings: {},
 });
 
 /** "2026-10-13T09:41" for now, in the viewer's local time (the format the date formatter reads). */
