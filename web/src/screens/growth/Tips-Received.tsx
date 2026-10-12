@@ -26,7 +26,7 @@ export function TipsReceived({ data, state = 'success' }: ScreenProps<TipsReceiv
   const flow = useTipsReceived(data);
   return (
     <GrowthFrame
-      section="tips"
+      artboard="Tips-Received"
       title="Tips received"
       tag="COMING SOON"
       intro={`Fans tip your verified posts in USDC, straight to your own wallet. JamJam’s fee is ${formatRate(data.feeRate)}.`}

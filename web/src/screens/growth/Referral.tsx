@@ -31,7 +31,7 @@ export function Referral({ data, state = 'success' }: ScreenProps<ReferralData>)
   const preview = <ScreenLink artboard={growthArtboards.referralLanding}>See what your friend sees</ScreenLink>;
   return (
     <GrowthFrame
-      section="referral"
+      artboard="Referral"
       title="Refer a friend"
       tag="COMING SOON"
       intro="Share your link. When a friend joins, you both get 2 months free."

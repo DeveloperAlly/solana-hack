@@ -69,17 +69,19 @@ describe('registry', () => {
 });
 
 describe('Settings flow', () => {
-  it('tabs move between AI, Connections and Plan; connect and back work', async () => {
+  it('the Settings tabs (config/nav.ts) move between AI model, Plan and seats and Connections; connect and back work', async () => {
     const user = at('/screens/Settings-AI');
-    await user.click(screen.getByRole('link', { name: 'Connections' }));
-    expect(screen.getByRole('heading', { name: 'Publishing' })).toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'Plan' }));
-    expect(screen.getByRole('heading', { name: 'Invoices' })).toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'AI and keys' }));
+    const tabs = () => screen.getByRole('navigation', { name: 'Settings' });
     await user.click(screen.getByRole('link', { name: 'Connect OpenRouter' }));
     expect(h1('Get an AI key in a minute')).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: '← Back to AI settings' }));
     expect(screen.getByRole('heading', { name: 'Model source, in order' })).toBeInTheDocument();
+    await user.click(within(tabs()).getByRole('link', { name: 'Plan and seats' }));
+    expect(screen.getByRole('heading', { name: 'Invoices' })).toBeInTheDocument();
+    await user.click(within(tabs()).getByRole('link', { name: 'Connections' }));
+    expect(screen.getByRole('heading', { name: 'Publishing' })).toBeInTheDocument();
+    // Settings-Connections sits on the Distribute page (canvas v24), so the main nav marks Distribute.
+    expect(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Distribute' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('Settings-AI: adds an endpoint with validation, tests and removes the key', async () => {
@@ -415,7 +417,7 @@ describe('upstream values flow downstream', () => {
     await user.click(screen.getByRole('button', { name: 'Pay [Team price] and upgrade' }));
     expect(screen.getByRole('heading', { name: "You're on Team" })).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'See your plan' }));
-    expect(screen.getByText('Team')).toBeInTheDocument();
+    expect(within(screen.getByRole('main')).getByText('Team')).toBeInTheDocument();
     expect(screen.queryByText('[Plan name]')).not.toBeInTheDocument();
   });
 

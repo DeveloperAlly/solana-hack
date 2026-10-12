@@ -32,7 +32,7 @@ export function PlatformDetail({ data, state = 'success' }: ScreenProps<Platform
   const { platform } = flow;
   return (
     <GrowthFrame
-      section="platforms"
+      artboard="Platform-Detail"
       title={platform.name}
       tag="COMING SOON"
       back={{ href: links.to(growthArtboards.platforms), label: 'All platforms' }}

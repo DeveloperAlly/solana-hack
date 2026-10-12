@@ -26,7 +26,7 @@ import type { PartnersData } from './types';
 export function Partners({ data }: { data: PartnersData }) {
   const form = usePartnerInvite(data);
   return (
-    <HubPage section="grow" sub="partners">
+    <HubPage artboard="Partners">
       <PageHeader badges={<ComingSoonFlag tag="ROADMAP" />} title="Partners" intro={data.intro} />
       <Card labelledBy="partner-invite" header={<Heading level={2} size="lg" id="partner-invite">Invite a partner</Heading>}>
         <Grid min="sm" gap={3}>

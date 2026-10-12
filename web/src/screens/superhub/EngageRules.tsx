@@ -28,7 +28,7 @@ export function EngageRules({ data }: { data: EngageRulesData }) {
   const links = useHubLinks();
   const state = useEngageRules(data);
   return (
-    <HubPage section="grow" sub="engagement">
+    <HubPage artboard="Engage-Rules">
       <PageHeader badges={<ComingSoonFlag tag="ROADMAP" />} title="Rules, lists and auto-replies" back={{ href: links.engageQueue, label: '← Reply queue' }} />
       <RuleTable state={state} />
       <AutoReplyCard autoReply={data.autoReply} state={state} />

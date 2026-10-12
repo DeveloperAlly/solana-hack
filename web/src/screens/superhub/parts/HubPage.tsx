@@ -1,43 +1,22 @@
 import type { ReactNode } from 'react';
-import { AppShell } from '../../../ui/shells/AppShell';
-import { TabNav } from '../../../ui/composites/TabNav';
-import { Container, Stack } from '../../../ui/primitives';
-import { useHubLinks, type HubLink } from '../paths';
-import { hubSubnav, hubTopNav, sectionLink, type HubSection } from './hubNav';
+import type { ArtboardName } from '../../../config/artboards';
+import { LoopFrame } from '../../../ui/shells/LoopFrame';
 import { useActiveBrand } from '../../../flows/brand/activeBrand';
 import { ActiveBrandSwitcher } from '../../../flows/brand/ActiveBrandSwitcher';
 
 export interface HubPageProps {
-  section: HubSection;
-  /** Current second-level tab id (Brand, Create, Grow). */
-  sub?: string;
+  /** The board this screen is; its stage and tab come from config/nav.ts `navForArtboard`. */
+  artboard: ArtboardName;
   /** Wizard screens use the narrower container. */
   width?: 'app' | 'wizard';
   children: ReactNode;
 }
 
 /**
- * The Superhub frame for every screen on this page: L1 AppShell with the canvas top nav (nav paths are link keys that
- * `navHref` turns into gallery screen paths; the logo's /home goes to Hub-Home), the brand switcher (D48; the choice is
- * kept for every later screen), the section's sub-tabs, and the content container. Sign out is inert in the gallery.
+ * The Superhub frame for every screen on this page: the loop frame (L1 AppShell on the one nav; ADR-012) with the
+ * brand switcher (D48; the choice is kept for every later screen). Sign out is inert in the gallery.
  */
-export function HubPage({ section, sub, width = 'app', children }: HubPageProps) {
-  const links = useHubLinks();
+export function HubPage({ artboard, width = 'app', children }: HubPageProps) {
   const brand = useActiveBrand();
-  const subnav = hubSubnav[section];
-  const navHref = (path: string) => (path === '/home' ? links.home : links[path as HubLink]);
-  return (
-    <AppShell
-      nav={hubTopNav.map((n) => ({ path: n.link, label: n.label, tag: n.tag }))}
-      navHref={navHref}
-      activePath={sectionLink[section]}
-      brandName={brand.name}
-      brandSlot={<ActiveBrandSwitcher />}
-      subnav={subnav && <TabNav label={subnav.label} items={subnav.items.map((i) => ({ ...i, href: links[i.link] }))} value={sub ?? ''} />}
-    >
-      <Container width={width}>
-        <Stack gap={6}>{children}</Stack>
-      </Container>
-    </AppShell>
-  );
+  return <LoopFrame artboard={artboard} container={width} brandName={brand.name} brandSlot={<ActiveBrandSwitcher />}>{children}</LoopFrame>;
 }

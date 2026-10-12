@@ -49,7 +49,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
     setFixing(null);
   };
   return (
-    <SoonPage header={{ title: `Review your ${kindLabel}`, intro: 'Every slide passes the same checks as a post before you can approve it.', definedIn: 'ChecksPanel D3 in the component inventory; no backend row yet (proposed in issue #51)' }}>
+    <SoonPage artboard="Media-Review" header={{ title: `Review your ${kindLabel}`, intro: 'Every slide passes the same checks as a post before you can approve it.', definedIn: 'ChecksPanel D3 in the component inventory; no backend row yet (proposed in issue #51)' }}>
       {media.approved ? (
         // INTEGRATION: POST /api/drafts/:id/approve, then the Registrar's SAS content attestation.
         <StatePanel kind="success" title="Approved and registered" body={`Every slide passed its checks. Anyone can now check this ${kindLabel} on Verify.`} actions={<Button href={routes.publishCalendar}>Schedule it</Button>} />

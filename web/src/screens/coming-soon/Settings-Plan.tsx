@@ -21,7 +21,6 @@ import { DataTable } from '../../ui/composites/DataTable';
 import { KeyValueList } from '../../ui/composites/KeyValueList';
 import { SoonPage } from './SoonPage';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { SettingsNav } from './SettingsNav';
 import { useSoonRoutes } from './routes';
 import { downloadText } from './download';
 import { tableState } from './tableState';
@@ -37,7 +36,7 @@ export function SettingsPlan({ data, state = 'success' }: { data: SettingsPlanDa
   // INTEGRATION: the billing provider's invoice PDF (G-BILLING); until then a text summary is saved locally.
   const download = (inv: Invoice) => downloadText(`jamjam-invoice-${inv.id}.txt`, `JamJam invoice\nDate: ${inv.date}\nAmount: ${inv.amount}\n`);
   return (
-    <SoonPage header={{ title: 'Settings', intro: 'Your plan, seats and billing.', definedIn: 'component inventory D55; backend map, Settings › Plan; G-BILLING (provider not chosen)' }} nav={<SettingsNav value="plan" />}>
+    <SoonPage artboard="Settings-Plan" header={{ title: 'Settings', intro: 'Your plan, seats and billing.', definedIn: 'component inventory D55; backend map, Settings › Plan; G-BILLING (provider not chosen)' }}>
       <Card>
         <KeyValueList
           label="Plan and billing"

@@ -46,7 +46,7 @@ export function BrandSwitcherScreen({ data, state = 'success' }: { data: BrandSw
     set({ addedBrands: [...(session.addedBrands ?? []), { id: uniqueId('brand'), name: v.name, detail: v.domain, status: 'self-declared' }] });
   };
   return (
-    <SoonPage header={{ title: 'Your brands', intro: 'Switch brand, or add another. Each brand has its own kit, posts and record.', definedIn: 'component inventory D48 BrandSwitcher, D36; architecture §3 (Brand, founder link)' }}>
+    <SoonPage artboard="Brand-Switcher" header={{ title: 'Your brands', intro: 'Switch brand, or add another. Each brand has its own kit, posts and record.', definedIn: 'component inventory D48 BrandSwitcher, D36; architecture §3 (Brand, founder link)' }}>
       <StateView state={state} loading={{ title: 'Loading your brands', body: 'Reading the brands on your account.' }}>
         <Card>
           <List label="Brands">

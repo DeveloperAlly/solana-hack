@@ -45,11 +45,11 @@ export function DraftReview({ data, state = 'success', boardDraftId }: DraftRevi
   // A fixture draft, or one created on another screen (Leads' Draft outreach) and held in the hub session.
   const draft = draftId === undefined ? undefined : data.drafts[draftId] ?? session.created[draftId]?.content;
   const toContent = <Button href={links.contentEmpty}>Go to content</Button>;
-  if (state === 'empty') return <HubPage section="create" sub="content"><EmptyState level={1} title="Nothing to review" body="Drafts land here after the brand and slop checks." actions={toContent} /></HubPage>;
+  if (state === 'empty') return <HubPage artboard="Draft-Review"><EmptyState level={1} title="Nothing to review" body="Drafts land here after the brand and slop checks." actions={toContent} /></HubPage>;
   // No content for this id: say so, with no editor or decisions, rather than show another draft.
-  if (!draft || draftId === undefined) return <HubPage section="create" sub="content"><EmptyState level={1} title="Draft not found" body="This draft is not in your drafts any more." actions={<Button href={links.content}>Back to content</Button>} /></HubPage>;
+  if (!draft || draftId === undefined) return <HubPage artboard="Draft-Review"><EmptyState level={1} title="Draft not found" body="This draft is not in your drafts any more." actions={<Button href={links.content}>Back to content</Button>} /></HubPage>;
   return (
-    <HubPage section="create" sub="content">
+    <HubPage artboard="Draft-Review">
       <DraftReviewBody key={draftId} data={data} draftId={draftId} draft={draft} state={state} drawnDraft={draftId === boardDraftId} />
     </HubPage>
   );

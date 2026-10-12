@@ -36,7 +36,7 @@ export function InboxConnect({ data }: { data: InboxConnectData }) {
     return <Menu trigger="Settings" triggerLabel={`${s.name} settings`} items={[{ id: 'disconnect', label: 'Disconnect' }]} onSelect={() => disconnect(s.id)} align="end" />;
   };
   return (
-    <HubPage section="inbox">
+    <HubPage artboard="Inbox-Connect">
       <PageHeader badges={<ComingSoonFlag tag="STRETCH" />} title="Bring your messages into one inbox" intro="Connect each place people message you. We show exactly what each connection can see." />
       <ConnectionBanner message={banner} onReconnect={reconnectFailed} />
       <Card as="div">

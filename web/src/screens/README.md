@@ -58,6 +58,13 @@ export const screens: ScreenEntry[] = [
 
 Artboard names must be unique. The gallery throws on a duplicate when it loads.
 
+## Navigation, home and shell
+Added for the loop architecture ([ADR-012](https://github.com/DeveloperAlly/solana-hack/pull/86); contracts in [issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90)).
+- **One nav.** [`../config/nav.ts`](../config/nav.ts) holds the stages (Today, Brand, Create, Distribute, Verify, Grow, Learn, then Inbox and Settings), each stage's tabs exactly as the canvas subnav draws them, and the mobile tabs (Today, Create, Verify, Grow, More). No screen writes its own nav array or `navHref` map.
+- **A signed-in screen passes `stage` and `tab`** to L1 `AppShell` (or to its page frame, which passes them on): `<AppShell stage="brand" tab="brain">`. The shell renders L2 StageNav and L3 StageTabs; `width="phone"` renders L4 MobileTabBar instead. Use the stage and tab the screen's own canvas board marks as current.
+- **Home.** Every screen has one home, derived from its canvas page by `homeForPage` (loop is Today, public is Verify, Inbox-* boards are Inbox, the other utilities Settings). Never write it in a registry entry.
+- **Shell.** Every screen has one shell: `app`, `ambassador` or `public`. AppShell and AppFrame mark theirs (`AppFrame shell="ambassador"` for ambassador seats) and PublicShell marks `public`; set `ScreenEntry.shell` only when the frame cannot say. `src/config/nav.test.ts` checks one home and one shell per screen (the archive excluded).
+
 ## Shared components: use these, don't re-create
 Added in [issue #46](https://github.com/DeveloperAlly/solana-hack/issues/46) after six page branches built the same components under page prefixes. Before you build a component, check this table and the [component inventory](../../../.agentic/what/context/component_inventory.md) (§6.9). If a shared one is close but not quite right, add a prop to it in `src/ui`; never copy it under a page prefix.
 

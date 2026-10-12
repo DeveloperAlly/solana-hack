@@ -39,7 +39,7 @@ export function Platforms({ data, state = 'success' }: ScreenProps<PlatformsData
   const noMatch = <EmptyState title={copy.title} body={copy.body} actions={<Button variant="secondary" onClick={clear}>Show all platforms</Button>} />;
   return (
     <GrowthFrame
-      section="platforms"
+      artboard="Platforms"
       title="Platforms"
       tag="COMING SOON"
       intro="Every place your brand can post, grouped by kind. Each shows its status, what JamJam plans to do there and how to connect."

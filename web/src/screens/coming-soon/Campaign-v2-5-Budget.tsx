@@ -37,7 +37,7 @@ export function CampaignBudget({ data }: { data: CampaignBudgetData; state?: Scr
   const flow = useCampaignFlow('budget', { stepComplete: valid });
   const setPayout = (id: string, v: string) => flow.set('budget', { ...budget, payouts: { ...budget.payouts, [id]: v } });
   return (
-    <SoonPage header={{ title: 'New campaign: people and budget', definedIn: 'component inventory, Campaign v2 step 5 (D26, D31, D25); ADR-006' }}>
+    <SoonPage artboard="Campaign-v2-5-Budget" header={{ title: 'New campaign: people and budget', definedIn: 'component inventory, Campaign v2 step 5 (D26, D31, D25); ADR-006' }}>
       <CampaignStepFrame flow={flow} title="Payout per approved piece" titleLevel={2} missing={['fix the payouts and the spending cap']}>
         <Stack gap={5}>
           <SoonPayoutTable caption="Payout per approved piece" rows={payouts} onChange={setPayout} />

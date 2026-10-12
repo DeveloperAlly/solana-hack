@@ -29,7 +29,7 @@ export function PublicShell({ children, navHref = livePath, actions }: PublicShe
   const signIn = publicNav[publicNav.length - 1];
   const cta = session ? { path: '/home', label: 'Your brand' } : signIn;
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} data-shell="public">
       <a className={styles.skip} href="#main">
         Skip to content
       </a>

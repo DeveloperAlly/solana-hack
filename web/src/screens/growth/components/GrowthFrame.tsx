@@ -1,19 +1,15 @@
 import type { ReactNode } from 'react';
 import type { RouteTag } from '../../../config/routes';
 import type { ArtboardName } from '../../../config/artboards';
-import { AppShell } from '../../../ui/shells/AppShell';
-import { PageHeader } from '../../../ui/layouts/PageHeader';
+import { LoopFrame } from '../../../ui/shells/LoopFrame';
 import { ComingSoonFlag } from '../../../ui/domain/ComingSoonFlag';
-import { Container, Stack } from '../../../ui/primitives';
-import { growthArtboards, useGrowthLinks } from '../paths';
 import { useActiveBrand } from '../../../flows/brand/activeBrand';
-import { GrowthNav, type GrowthSection } from './GrowthNav';
-
-/** Hub nav paths that have a gallery screen; the rest keep their live route. */
-const galleryBoards: Record<string, ArtboardName> = { '/grow': growthArtboards.platforms, '/ledger': 'Ledger' };
 
 export interface GrowthFrameProps {
-  section: GrowthSection;
+  /** The board this screen is; its stage and tab come from config/nav.ts `navForArtboard`. */
+  artboard: ArtboardName;
+  /** The board whose tab is current, when the canvas draws this one under another. */
+  under?: ArtboardName;
   title: string;
   tag: RouteTag;
   intro?: ReactNode;
@@ -24,19 +20,12 @@ export interface GrowthFrameProps {
   children: ReactNode;
 }
 
-/** The signed-in Growth page frame: hub shell on Grow, the Growth tabs, and a page header with the canvas tag. */
-export function GrowthFrame({ section, title, tag, intro, meta, back, actions, children }: GrowthFrameProps) {
-  const links = useGrowthLinks();
+/** The signed-in Growth page frame: the loop frame on the board's own stage and tab, with a page header and the canvas tag. */
+export function GrowthFrame({ artboard, under, title, tag, intro, meta, back, actions, children }: GrowthFrameProps) {
   const brand = useActiveBrand();
-  const navHref = (path: string) => (galleryBoards[path] ? links.to(galleryBoards[path]) : path);
   return (
-    <AppShell brandName={brand.name} navHref={navHref} activePath="/grow" subnav={<GrowthNav current={section} />}>
-      <Container width="app">
-        <Stack gap={6}>
-          <PageHeader title={title} badges={<ComingSoonFlag tag={tag} />} intro={intro} meta={meta} back={back} actions={actions} />
-          {children}
-        </Stack>
-      </Container>
-    </AppShell>
+    <LoopFrame artboard={artboard} under={under} brandName={brand.name} header={{ title, badges: <ComingSoonFlag tag={tag} />, intro, meta, back, actions }}>
+      {children}
+    </LoopFrame>
   );
 }

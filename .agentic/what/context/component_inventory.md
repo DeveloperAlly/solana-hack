@@ -2,7 +2,7 @@
 type: spec
 status: proposed
 created: 2026-10-06
-updated: 2026-10-12
+updated: 2026-10-13
 last_edited_by: agent
 tags: [ui, components, design-tokens, inventory, dry]
 ---
@@ -153,9 +153,9 @@ Generic combinations; still no JamJam data types.
 | ID | Component | Variants and props | States | Used by |
 |---|---|---|---|---|
 | L1 | AppShell | TopNav + optional SubNav + main + MobileTabBar; skip link; brand switcher slot | desktop, mobile (tab bar), loading (skeleton body) | all hub screens |
-| L2 | TopNav | items from route config (M1); tag badges | active item, collapsed (menu button on narrow screens) | AppShell |
-| L3 | SubNav | children of the active section | active item, hidden (section has no children) | AppShell |
-| L4 | MobileTabBar | items from route config | active item | AppShell on mobile, ambassador mobile |
+| L2 | StageNav (was TopNav) | the one main nav from M9 `config/nav.ts` (ADR-012 decision 2): Today and the six loop steps, a divider, then Inbox and Settings; `current`, `label` (`layouts/StageNav.tsx`) | active stage | AppShell `stage` mode, every loop screen |
+| L3 | StageTabs (was SubNav) | a stage's tabs exactly as the canvas subnav draws them, from M9, on C4 TabNav; one row that scrolls sideways (`layouts/StageTabs.tsx`) | active tab, hidden (Today has no tabs) | AppShell `stage` mode |
+| L4 | MobileTabBar | `label`, `items`, `current` (or matched from the URL); at most five tabs (`layouts/MobileTabBar.tsx`) | active item | AppShell `stage` + `width="phone"` (M9 mobile tabs: Today, Create, Verify, Grow, More), AppFrame `placement: 'tabs'` (ambassador mobile) |
 | L5 | PageHeader | back link, title, meta line, status badges, actions | actions wrap on narrow screens | all screens |
 | L6 | WizardLayout | Stepper (C8) with time estimate ("about 15 minutes in all"), body, footer (Back / Skip for now / Continue), "Save and finish later" in the header, Unverified flag slot (D36) | first step, middle, last step, resumed (opens at last saved step), saving, step error | sign in and domain, Brand Builder intake and gates, campaign v2 |
 | L7 | SplitPane | rail + list + reader | three panes (desktop), list only and reader only (mobile), empty reader | inbox |
@@ -298,6 +298,19 @@ Kept page-specific (not duplicates of each other or of the foundation): SoonHubF
 
 Layer notes: C30, C31 and L11 are new IDs (the next free in their layers). P24 and P25 keep their P IDs but live in `composites/` because they share one drawn bar (`composites/BarTrack.tsx`, internal, hidden from assistive tech) with C22. D51 stays in `domain/`: it is a JamJam data type and composes D57, and a composite may not import a domain pattern (§1, "Layers depend downwards only").
 
+### 6.10 The loop ([ADR-012](https://github.com/DeveloperAlly/solana-hack/pull/86), [issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90))
+Built for the loop screens on the domain types in M10 (`web/src/domain/`). Each reads its data through one typed contract, so layers 2 and 3 of ADR-013 ([PR #88](https://github.com/DeveloperAlly/solana-hack/pull/88)) replace fixtures without changing the component.
+
+| ID | Component (path under `web/src/ui/`) | Variants and props | States | Used by |
+|---|---|---|---|---|
+| D70 | PostLifecycle (`domain/PostLifecycle.tsx`) | `post`, `brainVersion`, per-step `actions`, `variant` full / compact, `label`; a C9 StatusTimeline preset. Steps: drafted, approved, published, verified, amplified, results | per step done / current / failed / blocked (approval stale) / to do | Post-Detail, every post card |
+| D71 | WhyThis (`domain/WhyThis.tsx`) | `provenance` (the draft's one provenance row: kit and Brain versions, evidence ids, rule ids, voice, prompt, model), `brain` (to resolve the ids), `level`, `footer`; shows nothing outside the row | fact or rule no longer in the Brain (named, not dropped) | Post-Detail, Draft-Review |
+| D72 | DecisionQueue (`domain/DecisionQueue.tsx`) | `title`, `count`, `intro`, kind `filter`, `empty`, `footer`, anchor `id` | items, empty (all clear) | Today, M-Today |
+| D73 | QueueItem (`domain/QueueItem.tsx`) | `item` (the queue union: draft, reply, ambassador post, event content, learned rule, campaign decision), `gate` `{ blocking, label }`, `openHref`, `whyHref`, `onAct`, `outcome`, `status`, `surface` row / card; on D1 ApprovalItem | pending, blocked (action disabled, badge says why), stale approval, done | Today, M-Today |
+| D74 | RuleProposal (`domain/RuleProposal.tsx`) | `proposal` (cites outcomes, signal source, evaluator, small-sample flag, Brain version), `gate`, `brainVersion`, `nextVersion`, `citesHref`, `onApprove`, `onReject`, `onTrial`, `onRecheck`, `emphasis` | pending, trial on half of drafts, out of date (Approve blocked, Check it again) | Learn-Rules |
+
+C9 StatusTimeline gains a `blocked` step state (listed in C9 above) for an approval gone stale.
+
 ## 7. Shared config and data modules
 Not visual, but they are what keeps the UI DRY.
 
@@ -311,6 +324,8 @@ Not visual, but they are what keeps the UI DRY.
 | M6 | Domain types: Brand, Person, Source, Evidence, KitVersion, KitSection, Claim, Voice, Audience, Decision, Registration ([architecture §3](./brand_builder_architecture.md)), plus Draft, Campaign, Payout, Thread, Message, Lead, Persona | all D components |
 | M7 | Data adapters: one interface, `mock` (fixtures for JamJam, aDNA, film.fun, GamersLab) and `live` | all screens |
 | M8 | Formatters: USDC amounts, relative times, receipt URLs, percentages | everywhere |
+| M9 | One navigation, `web/src/config/nav.ts` (ADR-012 decision 2): stages, each stage's tabs, mobile tabs, `homeForPage` (every screen's home from its canvas page) and the shells by role | L1, L2, L3, L4; the one-home, one-shell test |
+| M10 | Loop domain types, `web/src/domain/`: `post.ts` (Post, PostLifecycle, DraftProvenance), `brain.ts` (Brain, rules, facts, history; ADR-013 X18), `proposal.ts` (Proposal; ADR-013 N5), `queue.ts` (the approval-queue union and its gates), `approval.ts` (Approval with fingerprint, Gate) | D70 to D74, Today, Post-Detail, Brain, Learn-Rules |
 
 ## 8. Screen-to-component map
 Every screen below is a composition of inventory items only. Tags follow the canvas: H = HACKATHON, H(thin) = HACKATHON (THIN), E = EXPERIMENTAL, CS = COMING SOON, R = ROADMAP. **Slice** is the [mission](../../how/missions/mission_ui_build.md) slice that builds the screen; "batch n" names the canvas rework batch that draws the screen; the slice waits for it.
@@ -354,7 +369,13 @@ Every screen below is a composition of inventory items only. Tags follow the can
 | Amb-3-Generate, M-3 | H | S7 | L10 | D5, D3, D4, C18 (mobile flags) |
 | Amb-4-Publish, M-4 | H | S7 | L10 | D30, D52, D10 |
 | Amb-5a/b/c/d, M-5 | H | S7 | L10 | D29, C2, C11, D32 |
-| Hub-Home | H | S7 | L1 | L5, C12 ×4, D1 (compact) / D40, D24, D25, D18, D47 |
+| Hub-Home (REPLACED by Today, ADR-012; kept as archive) | H | S7 | L1 | L5, C12 ×4, D1 (compact) / D40, D24, D25, D18, D47 |
+| Today | CS | loop | L1 (`stage` today) | L5, C9 (loop strip), D72, D73 (on D1), C1 ×4 (aside), C35 |
+| M-Today | CS | loop | L1 (`stage` today, `width="phone"`, L4) | D72, D73 (card surface), C35 |
+| Post-Detail | CS | loop | L1 (`stage` create, tab post) | L5, P13 (post picker), D70, D71, C10 (where it went), C31 (amplified by), L9, C35 |
+| Brain | CS | loop | L1 (`stage` brand, tab brain) | L5, C12 ×4, C1, C10 (learned rules with approve and retire), L9, C35 |
+| Learn-Rules | CS | loop | L1 (`stage` learn, tab rules) | L5, D74, C31 (decided), C3, C35 |
+| Verify-Home | CS | loop | L1 (`stage` verify, tab proof) | L5, C12 ×4, P13 (filter), C10, C31 (no-match checks), C35 |
 | Quests | CS | S8 (batch 4) | L1 | D53, C3 |
 | Settings: AI model; plan and seats | H(thin) | S8 (batch 4) | L1 | D54, D55 |
 | Leads | E | S8 | L1 | D44, C10, D1 (outreach) |
