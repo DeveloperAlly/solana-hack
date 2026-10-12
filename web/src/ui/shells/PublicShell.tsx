@@ -2,15 +2,28 @@ import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { publicNav } from '../../config/routes';
 import { Button } from '../primitives/Button';
+import { Logo } from '../brand/Logo';
 import { useAuth } from '../../lib/auth';
 import styles from './PublicShell.module.css';
 
+const livePath = (path: string) => path;
+
 export interface PublicShellProps {
   children?: ReactNode;
+  /**
+   * Maps each nav path (and the logo's "/") to its link target. The screen gallery points them at /screens/<Artboard>
+   * so a composed screen's links stay inside the gallery (issue #48). Defaults to the live routes.
+   */
+  navHref?: (path: string) => string;
+  /**
+   * Replaces the nav links with other header content, e.g. a sign-in status chip and "Save and exit" on the
+   * first-run Journey steps (canvas boards J1 to J7, issue #48).
+   */
+  actions?: ReactNode;
 }
 
-/** L10 PublicShell: public nav from M1 plus a main slot. Signed-out state only in S0. */
-export function PublicShell({ children }: PublicShellProps) {
+/** L10 PublicShell: public nav from M1 plus a main slot; optional header actions in place of the links. */
+export function PublicShell({ children, navHref = livePath, actions }: PublicShellProps) {
   const links = publicNav.slice(0, -1);
   const { session } = useAuth();
   const signIn = publicNav[publicNav.length - 1];
@@ -22,23 +35,27 @@ export function PublicShell({ children }: PublicShellProps) {
       </a>
       <header className={styles.header}>
         <nav className={styles.nav} aria-label="Main">
-          <RouterLink to="/" className={styles.logo}>
-            JamJam
+          <RouterLink to={navHref('/')} className={styles.logo}>
+            <Logo />
           </RouterLink>
-          <ul className={styles.links}>
-            {links.map((item) => (
-              <li key={item.path}>
-                <RouterLink to={item.path} className={styles.link}>
-                  {item.label}
-                </RouterLink>
+          {actions ? (
+            <div className={styles.links}>{actions}</div>
+          ) : (
+            <ul className={styles.links}>
+              {links.map((item) => (
+                <li key={item.path}>
+                  <RouterLink to={navHref(item.path)} className={styles.link}>
+                    {item.label}
+                  </RouterLink>
+                </li>
+              ))}
+              <li>
+                <Button href={navHref(cta.path)} variant="secondary">
+                  {cta.label}
+                </Button>
               </li>
-            ))}
-            <li>
-              <Button href={cta.path} variant="secondary">
-                {cta.label}
-              </Button>
-            </li>
-          </ul>
+            </ul>
+          )}
         </nav>
       </header>
       <main id="main" tabIndex={-1} className={styles.main}>

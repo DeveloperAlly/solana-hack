@@ -5,3 +5,4 @@ src/tokens/tokens.ts
 .dev.vars*
 .env*
 .wrangler/
+proof/gallery-check.txt

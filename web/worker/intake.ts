@@ -155,7 +155,7 @@ export interface Candidate { sourceId: string; url: string; title: string; excer
 const EXCERPT = 300;
 
 /**
- * GET /api/brands/:id/competitors: the candidates of the brand's latest find_competitors run that finished (spec/db/014
+ * GET /api/brands/:id/competitors: the candidates of the brand's latest find_competitors run that finished (spec/db/012
  * competitor_candidates, the only read path), each with its page as the source. A run still going, or one that failed,
  * never replaces a finished set (Codex review on PR #100).
  */
@@ -166,7 +166,7 @@ export async function listCompetitors(env: Env, brand: Pick<BrandRef, 'id'>) {
 
 /**
  * The find_competitors save step: the run's own candidates, inserted as competitor_page sources tagged with its run
- * (spec/db/014 save_competitor_candidates). Rows are keyed by run and address, so a retried step writes nothing new,
+ * (spec/db/012 save_competitor_candidates). Rows are keyed by run and address, so a retried step writes nothing new,
  * and a save never decides about another run's set: which set is shown is decided at read time (listCompetitors). Its
  * output is the run's: the candidates, and Exa's cost for the request (null when Exa gave none; also metered on the
  * read step's cost_usd).
@@ -200,7 +200,7 @@ for (const kind of ['document', 'social_export'] as const) {
 
 /**
  * Web research on the brand (#35): one search_result source per brand at a time, held by the database
- * (spec/db/014 sources_one_search, a unique index, and reserve_search_source, which inserts with ON CONFLICT DO
+ * (spec/db/012 sources_one_search, a unique index, and reserve_search_source, which inserts with ON CONFLICT DO
  * NOTHING), so two requests at once can never both start a paid search (Codex review on PR #100). The request that
  * gets no row answers 409 with the search already listed and starts nothing. A failed search does not hold the place;
  * removing a listed one (DELETE /sources/:id, which removes its facts) allows a new one.

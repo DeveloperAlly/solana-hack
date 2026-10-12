@@ -1,0 +1,8 @@
+2026-10-12T12:57:33.113Z check-gallery: http://127.0.0.1:47811, themes wireframe, wireframe-dark
+2026-10-12T12:57:36.876Z 15 screens, 42 views, 84 checks (views x themes)
+2026-10-12T12:57:37.227Z PASS: deep link /screens/J1-Read loads, in-app link to /screens works, back returns to /screens/J1-Read
+2026-10-12T12:57:37.674Z PASS: theme wireframe-dark kept after in-gallery navigation to /screens/Main?theme=wireframe-dark
+2026-10-12T13:00:14.856Z PASS: /system workbench, theme wireframe, axe 0
+2026-10-12T13:00:35.407Z PASS: /system workbench, theme wireframe-dark, axe 0
+2026-10-12T13:00:35.408Z axe (colour contrast on): 86 of 86 checks with 0 violations (screens and /system, every theme); /api calls: 0
+2026-10-12T13:00:35.408Z check-gallery PASS

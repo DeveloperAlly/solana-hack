@@ -47,7 +47,7 @@ const runOrder = (a: Row, b: Row) => String(a.created_at).localeCompare(String(b
 /** The brand's latest find_competitors run whose status is 'done', by (created_at, id). */
 const latestDoneCompetitors = (brand: string) => db.tables.runs.filter((r) => r.brand_id === brand && r.kind === 'find_competitors' && r.status === 'done').sort(runOrder).at(-1);
 
-/** Same semantics as spec/db/014 save_competitor_candidates (checked against Postgres 16): insert this run's rows,
+/** Same semantics as spec/db/012 save_competitor_candidates (checked against Postgres 16): insert this run's rows,
  * keyed by id (a retry inserts nothing), then prune the rows of runs older than the brand's latest done run. */
 function saveCompetitorCandidates({ p_brand, p_run, p_rows }: { p_brand: string; p_run: string; p_rows: Row[] }) {
   if (!db.tables.runs.some((r) => r.id === p_run && r.brand_id === p_brand && r.kind === 'find_competitors')) throw new Error(`run ${p_run} is not a find_competitors run of brand ${p_brand}`);
@@ -68,13 +68,13 @@ function saveCompetitorCandidates({ p_brand, p_run, p_rows }: { p_brand: string;
   return inserted;
 }
 
-/** Same semantics as spec/db/014 competitor_candidates: the rows of the brand's latest done find_competitors run. */
+/** Same semantics as spec/db/012 competitor_candidates: the rows of the brand's latest done find_competitors run. */
 function competitorCandidates({ p_brand }: { p_brand: string }) {
   const done = latestDoneCompetitors(p_brand);
   return done ? db.tables.sources.filter((s) => s.brand_id === p_brand && s.kind === 'competitor_page' && s.run_id === done.id) : [];
 }
 
-/** Same semantics as spec/db/014 reserve_search_source and its unique index sources_one_search (checked against
+/** Same semantics as spec/db/012 reserve_search_source and its unique index sources_one_search (checked against
  * Postgres 16): a pending reservation whose run failed or was superseded, or that no run owns after two minutes, is
  * reclaimed first. */
 export const SEARCH_RESERVATION_TTL_MS = 2 * 60_000;

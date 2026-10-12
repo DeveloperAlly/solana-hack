@@ -1,0 +1,49 @@
+/* Check-it badge (issue #82): wireframe chip, tokens only, so every theme restyles it. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wl-space-2);
+  max-width: 100%;
+  padding: var(--wl-space-2) var(--wl-space-3);
+  border: var(--wl-border-width-strong) solid var(--wl-border-strong);
+  border-radius: var(--wl-radius-box);
+  font-family: var(--wl-font-body);
+  line-height: var(--wl-font-lineHeight-body);
+  vertical-align: middle;
+}
+
+.outline {
+  background: var(--wl-bg-canvas);
+  color: var(--wl-text-primary);
+}
+
+.solid {
+  background: var(--wl-bg-inverse);
+  border-color: var(--wl-bg-inverse);
+  color: var(--wl-text-inverse);
+}
+
+.compact {
+  gap: var(--wl-space-1);
+  padding: var(--wl-space-1) var(--wl-space-2);
+  border-width: var(--wl-border-width-default);
+  border-radius: var(--wl-radius-pill);
+  background: var(--wl-bg-canvas);
+  color: var(--wl-text-primary);
+  font-size: var(--wl-font-size-sm);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.line {
+  font-weight: var(--wl-font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.sub {
+  font-size: var(--wl-font-size-sm);
+}
