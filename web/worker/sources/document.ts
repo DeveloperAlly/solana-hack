@@ -1,3 +1,4 @@
+import { pdfPageCount } from './pdfpages';
 import { factTrust } from './registry';
 import { clock, contentCount, letterCount, type ConversionResult, type SourceEnv, type SourceResult } from './types';
 
@@ -58,9 +59,12 @@ const ext = (name: string) => name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ??
  * line up to the first "## Contents" must be a "- " metadata entry, and page headings are removed only as
  * "### Page 1", "### Page 2", ... in order. A document's own "Contents" or "Page" heading anywhere else is kept
  * (PR #67 review), and output without the wrapper (DOCX, XLSX, or a changed layout) is kept whole as one page.
+ * `declaredPages` is the page count the PDF itself declares (pdfpages.ts): no heading past it is removed, so a
+ * document whose own text reads "### Page 2" keeps it when the PDF has one page (PR #71 review). Without it (the count
+ * could not be read), every heading in the sequence is removed.
  * Metadata letters (title, producer) must not make a scan look like it has text, which is why the wrapper is removed.
  */
-export function readableText(markdown: string, name: string): { body: string; pages: number; wrapped: boolean; pageTexts: string[] } {
+export function readableText(markdown: string, name: string, declaredPages: number | null = null): { body: string; pages: number; wrapped: boolean; pageTexts: string[] } {
   const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
   const whole = { body: markdown.trim(), pages: 1, wrapped: false, pageTexts: [markdown.trim()] };
   if (lines[0]?.trim() !== `# ${name}` || lines[1]?.trim() !== '## Metadata') return whole;
@@ -72,7 +76,7 @@ export function readableText(markdown: string, name: string): { body: string; pa
   // Text per page, so a page number can be checked against the page it is on; text before "### Page 1" joins page 1.
   const perPage: string[][] = [[]];
   for (const line of lines.slice(i + 1)) {
-    if (line.trim() === `### Page ${pages + 1}`) {
+    if (line.trim() === `### Page ${pages + 1}` && (declaredPages === null || pages < declaredPages)) {
       pages++;
       if (pages > 1) perPage.push([]);
       continue;
@@ -117,7 +121,9 @@ export async function readDocument(env: SourceEnv, input: DocumentInput): Promis
   }
   if (!out || out.format === 'error' || typeof out.data !== 'string') return fail('unreadable', `We could not read this ${type.label}; export it again, or paste the key points.`);
   // The converter echoes the input name (ConversionResult.name, binding docs above).
-  const { body, pages, pageTexts } = readableText(out.data, out.name || name);
+  // The PDF's own page count bounds which "### Page N" headings are the converter's (PR #71 review).
+  const declared = extension === 'pdf' ? await pdfPageCount(bytes) : null;
+  const { body, pages, pageTexts } = readableText(out.data, out.name || name, declared);
   const letters = letterCount(body);
   if (extension === 'pdf') {
     // needs_ocr only when no text came through apart from page labels; sparse text is kept (PR #71 review).

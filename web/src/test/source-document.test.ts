@@ -140,3 +140,48 @@ describe('document adapter', () => {
     expect(r.ok && r.text).toContain(prose);
   });
 });
+
+// The PDF's own page tree bounds which "### Page N" headings are the converter's (PR #71 review).
+describe('declared PDF page count', () => {
+  const enc = (s: string) => new TextEncoder().encode(s);
+  const join = (...parts: Uint8Array[]) => {
+    const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+    let at = 0;
+    for (const p of parts) { out.set(p, at); at += p.length; }
+    return out;
+  };
+  const plainPdf = (count: number, extra = '') => enc(`%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count ${count}${extra} >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n`);
+  const compressedPdf = async (count: number) => {
+    const { deflateSync } = await import('node:zlib');
+    const objects = `2 0 3 44 << /Type /Pages /Kids [3 0 R] /Count ${count} >> << /Type /Page /Parent 2 0 R >>`;
+    const data = new Uint8Array(deflateSync(Buffer.from(objects, 'latin1')));
+    return join(
+      enc('%PDF-1.5\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n'),
+      enc(`5 0 obj\n<< /Type /ObjStm /N 2 /First 10 /Filter /FlateDecode /Length ${data.length} >>\nstream\n`),
+      data,
+      enc('\nendstream\nendobj\n%%EOF\n'),
+    );
+  };
+  const out = (name: string, contents: string) => ({ AI: ai({ name, format: 'markdown', data: `# ${name}\n## Metadata\n- Producer=Writer\n\n## Contents\n${contents}` }) });
+
+  it('reads the root page count, from plain objects and from compressed object streams', async () => {
+    const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+    expect(await pdfPageCount(plainPdf(1))).toBe(1);
+    expect(await pdfPageCount(plainPdf(12))).toBe(12);
+    expect(await pdfPageCount(await compressedPdf(3))).toBe(3);
+    // A count inside a nested dictionary is not the node's own.
+    expect(await pdfPageCount(plainPdf(1, ' /X << /Count 7 >>'))).toBe(1);
+    expect(await pdfPageCount(new Uint8Array([37, 80, 68, 70]))).toBeNull();
+  });
+  it('keeps a "### Page 2" line that is the text of a one-page PDF, instead of calling it a scan', async () => {
+    const r = await readDocument(out('h.pdf', '### Page 1\n### Page 2\n'), { name: 'h.pdf', bytes: plainPdf(1) });
+    expect(r).toMatchObject({ ok: true, meta: { pages: 1 } });
+    expect(r.ok && r.text).toContain('### Page 2');
+    const z = await readDocument(out('z.pdf', '### Page 1\n### Page 2\n'), { name: 'z.pdf', bytes: await compressedPdf(1) });
+    expect(z).toMatchObject({ ok: true, meta: { pages: 1 } });
+  });
+  it('still returns needs_ocr for a two-page scan whose PDF declares two pages', async () => {
+    const r = await readDocument(out('s2.pdf', '### Page 1\n### Page 2\n'), { name: 's2.pdf', bytes: plainPdf(2) });
+    expect(r).toMatchObject({ ok: false, code: 'needs_ocr', meta: { pages: 2 } });
+  });
+});
