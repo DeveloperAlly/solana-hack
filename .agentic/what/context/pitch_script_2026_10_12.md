@@ -38,21 +38,21 @@ Total: 472 words, about 2:57 at 160 words a minute.
 - Next: USDC per verified piece
 - Four steps live today
 
-**5. Check a post** (1:09–1:19)
+**5. Check a post** (1:09–1:18)
 - The moment that matters
 - Anyone pastes a post, gets a straight answer
-- Checked against Solana, not our database
+- Confirmed on Solana before it says official
 
-**6. Why Solana** (1:19–1:40)
+**6. Why Solana** (1:18–1:39)
 - Solana's 2026 push: stablecoin payments
 - New USDC flow: brands pay ambassadors worldwide, inside a cap
 - Public record any wallet, exchange or app can check
 - Ordinary businesses onboarded to Solana
 
-**7. First customers** (1:40–1:57)
+**7. First customers** (1:39–1:57)
 - Crypto and developer brands feel it most
 - Impersonation +1,400%
-- 2,730+ Superteam sponsors already pay communities
+- 2,730+ sponsor accounts on Superteam Earn
 - X's ban freed creator budgets
 - Starting with aDNA, film.fun, GamersLab (case studies, not yet paying)
 
@@ -93,17 +93,17 @@ Brands answer with ambassador programs, but those run on trust nobody can check.
 
 JamJam runs the whole program in one place. Paste your site and it builds your brand kit, every fact showing its source. You approve it once. Posts are drafted in your voice, claims checked, and nothing goes out without you. Approved posts are recorded on Solana. Next, ambassadors get paid in USDC for each verified piece. The first four steps are live today.
 
-**5. Check a post** · 1:09–1:19 · 27 words
+**5. Check a post** · 1:09–1:18 · 25 words
 
-This is the moment that matters. Anyone can paste a post and get a straight answer: official, from this brand kit, checked against Solana, not our database.
+This is the moment that matters. Anyone can paste a post and get a straight answer: official, from this brand kit, and confirmed on Solana.
 
-**6. Why Solana** · 1:19–1:40 · 56 words
+**6. Why Solana** · 1:18–1:39 · 56 words
 
 Why Solana? Solana's big push this year is stablecoin payments. JamJam adds a new flow: brands paying ambassadors worldwide in USDC, per verified piece, inside a budget cap. Every approved post is a public record that any wallet, exchange or app can check. And these are ordinary businesses, brought onto Solana by signing in with email.
 
-**7. First customers** · 1:40–1:57 · 47 words
+**7. First customers** · 1:39–1:57 · 49 words
 
-We start with crypto and developer brands. Impersonation is up fourteen hundred percent. More than twenty-seven hundred sponsors already pay their communities on Superteam Earn. And X's ban left those budgets looking for a home. We're starting with aDNA, film.fun and GamersLab, brands we already work with.
+We start with crypto and developer brands. Impersonation is up fourteen hundred percent. More than twenty-seven hundred sponsor accounts are registered on Superteam Earn, Solana's bounty board. And X's ban left creator budgets looking for a home. We're starting with aDNA, film.fun and GamersLab, brands we already work with.
 
 **8. Competition** · 1:57–2:14 · 45 words
 
