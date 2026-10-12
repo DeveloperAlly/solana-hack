@@ -157,12 +157,12 @@ Route `/ledger (public)` · depends on AFTER BEATS 06-07 · placeholder: wirefra
 
 **Must come up:**
 - H1: "Ledger"
-- "Brand kits (1)": "JamJam · kit v1 · {date}" with hash and Explorer link
-- "Posts (1)": "JamJam · post on kit v1 · {date}"
+- "Brand kits (n)" includes "JamJam · kit v1 · {date}" with hash and Explorer link
+- "Posts (n)" includes "JamJam · post on kit v1 · {date}" (rehearsal rows from the rehearsal brand may also show)
 
 **Say:** The public ledger lists the latest registered kits and posts, each with its transaction.
 
-**Recording:** Record after the post is registered so both rows show.
+**Recording:** Record after the post is registered. Counts include the rehearsal brand; point at JamJam's rows.
 
 ### Beat 10 · 2:50–3:00 · What's next, then the line
 
@@ -190,7 +190,7 @@ Route `/grow (coming soon), then /` · depends on NO DEPENDENCY · placeholder: 
 
 ## 4. Recording runbook
 
-- **Gate:** no take until the whole path has run once live and its kit and post transactions are posted on [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) (STATE.md Next, item 3).
+- **Gate:** rehearse the whole path once live on a separate rehearsal brand (a second sign-in), so JamJam's own kit is still v1 for the take; post the rehearsal's kit and post transactions on [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) (STATE.md Next, item 3) before recording. The take then registers JamJam's kit v1 and first post; the Ledger also lists the rehearsal brand's rows.
 - **Before:** pre-answer the question steps; approve Gates 2 and 3 in that run. Sign in by the emailed link (sign-in by code is not exercised live).
 - **During:** cut every wait: the page read (12 s timeout, `ingest.ts`), drafting (up to about a minute), registration (confirmation poll up to 45 s, `registry.ts`). Keep the approved post text exactly as registered, because Verify hashes the text. Edited text hides Approve until "Save edits" is pressed. Explorer links open a new tab; cut to it and back.
 - **Fallback:** the free model can answer "busy": wait and retry. If a registration outcome is unknown, use "Check registration". Keep a second full take.
