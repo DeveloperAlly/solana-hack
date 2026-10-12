@@ -82,6 +82,15 @@ describe('site adapter: trust follows the brand website (PR #63 review)', () => 
 });
 
 describe('site adapter: untrusted Exa output', () => {
+  it('turns any unexpected reply shape into a typed fallback, never a throw (PR #67 review)', async () => {
+    for (const reply of [null, 42, [], { results: 'x' }, { results: [null] }, { results: [{ url: 'https://a.test/', text: 7, title: 9 }], statuses: 'bad' }, { results: [{ url: 'https://a.test/', text: LONG, title: 9, subpages: [null, 5, { url: 'https://a.test/b', text: ['x'] }] }], statuses: [null, { status: 'error', error: 'x' }], costDollars: { total: 'free' } }]) {
+      stub({ exa: () => new Response(JSON.stringify(reply)), page: () => html('A', LONG) });
+      const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/');
+      expect(r.ok).toBe(true);
+    }
+    stub({ exa: () => new Response(JSON.stringify({ results: [{ url: 'https://a.test/', text: LONG, title: 9, subpages: [null, 5] }], costDollars: { total: 'free' } })) });
+    expect(await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/')).toMatchObject({ ok: true, title: 'a.test', meta: { via: 'exa', pages: 1, cost: 0.001 } });
+  });
   it('skips relative, malformed and non-http page URLs instead of throwing (PR #67 review)', async () => {
     stub({ exa: () => new Response(JSON.stringify({ results: [{ url: 'https://a.test/', title: '', text: LONG, subpages: [{ url: '/about', title: '', text: 'x' }, { url: 'http://[bad', title: '', text: 'y' }, { url: 'javascript:alert(1)', title: '', text: 'z' }, { url: 42, text: 'n' }] }] })) });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/');
@@ -163,13 +172,40 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     stub({ exa: () => exaReply([{ url: 'https://news.test/a', title: 'News', text: LONG }, { url: 'https://other.test/b', title: 'Other', text: 'x' }]) });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://news.test/a', { website: 'jamjam.tech' });
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://news.test/a']);
-    stub({
+  });
+});
+
+describe('site adapter: redirects are checked before they are followed (PR #67 review)', () => {
+  const redirect = (to: string, status = 301) => new Response(null, { status, headers: { location: to } });
+  it('never requests a redirect destination whose robots.txt disallows it', async () => {
+    const calls = stub({
       robots: (u) => new Response(u.startsWith('https://blocked.test') ? 'User-agent: *\nDisallow: /\n' : ''),
-      page: () => Object.defineProperty(html('B', LONG), 'url', { value: 'https://blocked.test/' }),
+      page: (u) => (u.startsWith('https://open.test/') ? redirect('https://blocked.test/landing') : html('B', LONG)),
     });
     const f = await readSite({}, 'https://open.test/go');
-    expect(f).toMatchObject({ ok: false, code: 'unreadable' });
-    expect(f.meta.notes.join(' ')).toMatch(/robots\.txt does not let us read/);
+    expect(f).toMatchObject({ ok: false, code: 'robots_disallowed', reason: expect.stringContaining('blocked.test') });
+    expect(calls.some((c) => c.url === 'https://blocked.test/landing')).toBe(false);
+    expect(calls.some((c) => c.url === 'https://blocked.test/robots.txt')).toBe(true);
+  });
+  it('follows allowed redirects hop by hop, relative ones included, and reads the final page', async () => {
+    const calls = stub({
+      page: (u) => (u === 'https://jamjam.tech/' ? redirect('https://www.jamjam.tech/start') : u === 'https://www.jamjam.tech/start' ? redirect('/home', 302) : html('JamJam', LONG)),
+    });
+    const r = await readSite({}, 'https://jamjam.tech/', { website: 'jamjam.tech' });
+    expect(r).toMatchObject({ ok: true, kind: 'site', url: 'https://www.jamjam.tech/home', meta: { via: 'fetch' } });
+    expect(calls.filter((c) => !c.url.endsWith('/robots.txt')).map((c) => c.url)).toEqual(['https://jamjam.tech/', 'https://www.jamjam.tech/start', 'https://www.jamjam.tech/home']);
+  });
+  it('stops a redirect loop and a redirect to a non-http address, with a reason', async () => {
+    stub({ page: () => redirect('https://loop.test/') });
+    const loop = await readSite({}, 'https://loop.test/');
+    expect(loop).toMatchObject({ ok: false, code: 'unreadable' });
+    expect(loop.meta.notes.join(' ')).toMatch(/redirected more than 10 times/);
+    stub({ page: () => redirect('ftp://files.test/a') });
+    expect((await readSite({}, 'https://x.test/')).meta.notes.join(' ')).toMatch(/cannot read/);
+  });
+  it('splits lines on CR, LF and CRLF (RFC 9309 §2.2; PR #67 review)', () => {
+    expect(allowedBy(parseRobots('User-agent: *\rDisallow: /\r'), '/a')).toBe(false);
+    expect(allowedBy(parseRobots('User-agent: *\r\nDisallow: /x\r\n'), '/x')).toBe(false);
   });
   it('a Sitemap record does not end a group (RFC 9309 §2.2.4; PR #67 review)', () => {
     // JamJamBot and OtherBot share one group: the Sitemap line between their user-agent lines must not split it.

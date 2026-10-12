@@ -1,4 +1,4 @@
-import { readPage } from '../ingest';
+import { pageFromResponse } from '../ingest';
 import { factTrust, urlKind } from './registry';
 import { fetchRobots, robotsAllows, USER_AGENT, type RobotsCheck } from './robots';
 import { clock, type SourceEnv, type SourcePage, type SourceResult } from './types';
@@ -38,8 +38,11 @@ const EXA_CONTENTS = 'https://api.exa.ai/contents';
 // carries no costDollars.
 const EXA_PER_PAGE = 0.001;
 
-interface ExaPage { url?: string; title?: string | null; text?: string | null; subpages?: ExaPage[] }
-interface ExaResponse { results?: ExaPage[]; statuses?: { id?: string; status?: string; error?: { tag?: string; httpStatusCode?: number } }[]; costDollars?: { total?: number } }
+// Provider replies are untrusted input: every field is checked for its type before use, so an unexpected shape
+// becomes a typed failure or a skipped page, never a thrown error (PR #67 review).
+const obj = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
+const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
 /** Host without a leading "www.", so an apex-to-www redirect stays on the same site. */
 const hostKey = (u: URL) => u.hostname.toLowerCase().replace(/^www\./, '');
@@ -82,23 +85,57 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS): Promis
   }
   // Logging policy: the status only; Exa's message could echo the request.
   if (!res.ok) return { error: `Exa answered HTTP ${res.status}` };
-  let data: ExaResponse;
-  try { data = (await res.json()) as ExaResponse; } catch { return { error: 'Exa sent an unreadable reply' }; }
-  const top = data.results?.[0];
-  const failed = data.statuses?.find((s) => s.status === 'error');
-  if (!top?.text?.trim()) return { error: failed ? `Exa could not read the page (${failed.error?.tag ?? 'error'})` : 'Exa returned no text for the page' };
+  let data: Record<string, unknown> | null;
+  try { data = obj(await res.json()); } catch { return { error: 'Exa sent an unreadable reply' }; }
+  if (!data) return { error: 'Exa sent an unreadable reply' };
+  const top = obj(list(data.results)[0]);
+  const failed = list(data.statuses).map(obj).find((st) => st?.status === 'error');
+  if (!top || !text(top.text)) return { error: failed ? `Exa could not read the page (${text(obj(failed.error)?.tag) || 'error'})` : 'Exa returned no text for the page' };
   const seen = new Set<string>();
   const pages: SourcePage[] = [];
-  for (const p of [top, ...(top.subpages ?? [])]) {
-    const text = p.text?.trim();
-    // Provider output is untrusted: only an absolute http(s) URL is used (PR #67 review).
-    const u = absoluteUrl(p.url);
-    if (!u || !text || seen.has(u.toString())) continue;
+  for (const p of [top, ...list(top.subpages).map(obj)]) {
+    const body = text(p?.text);
+    // Only an absolute http(s) URL is used.
+    const u = absoluteUrl(p?.url);
+    if (!p || !u || !body || seen.has(u.toString())) continue;
     seen.add(u.toString());
-    pages.push({ url: u.toString(), title: (p.title ?? '').trim().slice(0, 200) || u.hostname, text });
+    pages.push({ url: u.toString(), title: text(p.title).slice(0, 200) || u.hostname, text: body });
   }
-  const cost = typeof data.costDollars?.total === 'number' ? data.costDollars.total : pages.length * EXA_PER_PAGE;
+  const total = obj(data.costDollars)?.total;
+  const cost = typeof total === 'number' && Number.isFinite(total) && total >= 0 ? total : pages.length * EXA_PER_PAGE;
   return { pages, cost };
+}
+
+/** Most redirects followed for one page read: a cap of our own choosing, so a redirect loop ends. */
+export const MAX_REDIRECTS = 10;
+
+/**
+ * Fetches a page one redirect at a time, checking each destination before it is requested, so a redirect into an
+ * address robots.txt disallows is never fetched at all (RFC 9309 §2.2.2: the rules govern access to matching URIs;
+ * PR #67 review). Only http(s) on default ports is followed (siteUrl). Never throws.
+ */
+export async function fetchAllowed(start: URL, allowed: (u: URL) => Promise<boolean>): Promise<{ res: Response; url: URL } | { blocked: URL } | { error: string }> {
+  let u = start;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    if (!(await allowed(u))) return { blocked: u };
+    let res: Response;
+    try {
+      res = await fetch(u.toString(), { redirect: 'manual', signal: AbortSignal.timeout(12_000), headers: { 'user-agent': USER_AGENT } });
+    } catch {
+      return { error: 'the site did not answer in time' };
+    }
+    const location = res.headers.get('location');
+    if (res.status >= 300 && res.status < 400 && location) {
+      try { await res.body?.cancel(); } catch { /* nothing to release */ }
+      let next: URL | null = null;
+      try { next = siteUrl(new URL(location, u).toString()); } catch { next = null; }
+      if (!next) return { error: 'the site redirected to an address we cannot read' };
+      u = next;
+      continue;
+    }
+    return { res, url: u };
+  }
+  return { error: `the site redirected more than ${MAX_REDIRECTS} times` };
 }
 
 // Cloudflare Browser Run /markdown renders the page in a browser and returns Markdown: POST
@@ -118,9 +155,10 @@ async function viaRendered(env: SourceEnv, url: URL): Promise<{ text: string; fi
     });
     if (!res.ok) return { error: res.status === 429 ? 'the page renderer is at its limit for now' : `the page renderer answered HTTP ${res.status}` };
     // meta.finalUrl is the address the browser ended on after redirects (API reference above).
-    const data = (await res.json()) as { success?: boolean; result?: string; meta?: { finalUrl?: string } };
-    const text = data.success ? (data.result ?? '').trim() : '';
-    return text.length >= 40 ? { text, finalUrl: data.meta?.finalUrl } : { error: 'the rendered page has almost no readable text' };
+    const data = obj(await res.json());
+    const markdown = data?.success === true ? text(data.result) : '';
+    const finalUrl = obj(data?.meta)?.finalUrl;
+    return markdown.length >= 40 ? { text: markdown, finalUrl: typeof finalUrl === 'string' ? finalUrl : undefined } : { error: 'the rendered page has almost no readable text' };
   } catch {
     return { error: 'the page renderer did not answer in time' };
   }
@@ -186,24 +224,35 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     c.notes.push('Exa is not configured (EXA_API_KEY), so only the home page was read');
   }
 
-  // 2. Plain fetch of the home page (the existing reader).
+  // 2. Plain fetch of the home page, following redirects one hop at a time with robots.txt checked before each.
   let fetchError = '';
-  try {
-    // readPage follows redirects (ingest.ts). If the final page's origin disallows it, its text is not used.
-    const page = await readPage(url.toString());
-    const kept = await admit([{ url: page.url, title: page.title, text: page.text }]);
-    if (kept.length) return ok(kept, cost, 'fetch');
-    fetchError = 'the page redirected to an address its robots.txt does not let us read';
-    c.notes.push(`direct read refused: ${fetchError}`);
-  } catch (e) {
-    fetchError = e instanceof Error ? e.message : 'reading the page failed';
+  let landed = url;
+  const got = await fetchAllowed(url, allowedHere);
+  if ('blocked' in got) {
+    return { ok: false, kind: kindOf(got.blocked.toString()), code: 'robots_disallowed', reason: `This page redirects to ${got.blocked.hostname}, whose robots.txt asks crawlers not to read it, so we did not. Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0, cost) };
+  }
+  if ('error' in got) {
+    fetchError = got.error;
     c.notes.push(`direct read failed: ${fetchError}`);
+  } else {
+    landed = got.url;
+    try {
+      // The same title and text extraction as the existing reader (ingest.ts).
+      const page = await pageFromResponse(got.res, got.url);
+      const kept = await admit([{ url: page.url, title: page.title, text: page.text }]);
+      if (kept.length) return ok(kept, cost, 'fetch');
+    } catch (e) {
+      fetchError = e instanceof Error ? e.message : 'reading the page failed';
+      c.notes.push(`direct read failed: ${fetchError}`);
+    }
   }
 
-  // 3. Rendered Markdown, for sites that only show text after their scripts run.
-  const rendered = await viaRendered(env, url);
+  // 3. Rendered Markdown, for sites that only show text after their scripts run. It renders the address the plain
+  // fetch landed on (already checked hop by hop). Redirects the browser makes itself, by script, are outside our
+  // control; their final address is checked again below and the text is dropped if robots.txt disallows it.
+  const rendered = await viaRendered(env, landed);
   if ('text' in rendered) {
-    const final = absoluteUrl(rendered.finalUrl) ?? url;
+    const final = absoluteUrl(rendered.finalUrl) ?? landed;
     const kept = await admit([{ url: final.toString(), title: final.hostname, text: rendered.text }]);
     if (kept.length) return ok(kept, cost, 'rendered');
     c.notes.push('rendered page refused: it ended on an address its robots.txt does not let us read');

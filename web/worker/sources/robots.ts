@@ -26,7 +26,8 @@ export function parseRobots(body: string, token = BOT_TOKEN): Rule[] {
   // A group is one or more user-agent lines followed by rules; it ends only at a user-agent line that comes after a
   // rule (RFC 9309 §2.1). Other records, such as Sitemap, never end a group (§2.2.4).
   let sawRule = false;
-  for (const raw of body.split(/\r?\n/)) {
+  // EOL is CR, LF or CRLF (RFC 9309 §2.2 ABNF: NL = %x0D / %x0A / %x0D.0A).
+  for (const raw of body.split(/\r\n|\r|\n/)) {
     const line = raw.replace(/#.*$/, '').trim();
     const m = line.match(/^([A-Za-z-]+)\s*:\s*(.*)$/);
     if (!m) continue;

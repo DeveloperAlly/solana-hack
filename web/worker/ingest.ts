@@ -34,6 +34,14 @@ export async function readPage(raw: string): Promise<{ url: string; title: strin
   } catch {
     throw new HttpError(502, 'the site did not answer in time');
   }
+  return pageFromResponse(res, new URL(res.url || url.toString()));
+}
+
+/**
+ * Title and readable text of a fetched page. Shared by readPage and the site adapter (sources/site.ts), which follows
+ * redirects itself so it can check robots.txt before each request.
+ */
+export async function pageFromResponse(res: Response, url: URL): Promise<{ url: string; title: string; text: string }> {
   if (!res.ok) throw new HttpError(502, `the site answered with HTTP ${res.status}`);
   const type = res.headers.get('content-type') ?? '';
   if (!/text\/html|text\/plain|markdown/.test(type)) throw new HttpError(415, 'that link is not a web page or text file');
@@ -49,5 +57,5 @@ export async function readPage(raw: string): Promise<{ url: string; title: strin
     .replace(/\n\s*\n+/g, '\n')
     .trim();
   if (text.length < 40) throw new HttpError(422, 'that page has almost no readable text');
-  return { url: res.url || url.toString(), title, text };
+  return { url: url.toString(), title, text };
 }
