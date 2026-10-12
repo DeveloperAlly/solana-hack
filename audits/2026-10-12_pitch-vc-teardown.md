@@ -54,7 +54,7 @@ Brands sign in with email, so a business that never touches crypto still ends up
 - the inbox and analytics;
 - community payouts.
 
-That is backlog phases 2 to 4 (slide 10). Competitors meter by seats or credits; JamJam includes approvals on every plan, where rivals sell them as an upgrade ([research 10](../.agentic/what/context/research/10_competitor_onboarding_pricing.md) §1.5).
+That is backlog phases 2 to 4 (slide 10). Competitors meter by seats or credits; JamJam includes approvals on every plan, where rivals sell them as an upgrade ([research 10](../.agentic/what/context/research/10_competitor_onboarding_pricing.md), summary item 5).
 
 ## 5. The problem slide criticises tools, not a customer's pain
 
@@ -72,7 +72,7 @@ That is backlog phases 2 to 4 (slide 10). Competitors meter by seats or credits;
 - **What we have:** solo founders already pay for three or four point tools at $10–65 each ([research 04](../.agentic/what/context/research/04_brand_hub_landscape.md) §5b, §6).
 - **Why joining them matters:** you can only pay for work you can prove, and only prove what was approved against the kit.
 
-**Open:** whether buyers want the steps joined up is validated in the design-partner interviews ([go-to-market](../.agentic/what/context/gtm_2026_10_12.md) §7).
+**Open:** whether buyers want the steps joined up is to be tested in the planned founder interviews ([go-to-market](../.agentic/what/context/gtm_2026_10_12.md) §8).
 
 ## 7. The tagline is a feature list
 
