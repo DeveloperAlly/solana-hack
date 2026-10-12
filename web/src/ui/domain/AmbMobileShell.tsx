@@ -14,19 +14,21 @@ export function AmbMobileShell({ nav, active, homeHref, account, signInHref, fla
   return (
     <div className={`${styles.mobile} ${preview ? styles.preview : ''}`}>
       {!preview && <a className={styles.skip} href="#main">Skip to content</a>}
-      <header className={styles.topbar}>
-        {back ? (
-          <RouterLink to={back.href} className={styles.back} aria-label={back.label}><span aria-hidden="true">←</span></RouterLink>
-        ) : (
-          <RouterLink to={homeHref} className={styles.logo}><Logo /></RouterLink>
-        )}
-        {title && <span className={styles.bartitle}>{title}</span>}
-        {flag}
-        {!back && <span className={styles.end}><AmbAccountChip account={account} signInHref={signInHref} withName={false} /></span>}
+      <header className={styles.top}>
+        <div className={styles.topbar}>
+          {back ? (
+            <RouterLink to={back.href} className={styles.back} aria-label={back.label}><span aria-hidden="true">←</span></RouterLink>
+          ) : (
+            <RouterLink to={homeHref} className={styles.logo}><Logo /></RouterLink>
+          )}
+          {title && <span className={styles.bartitle}>{title}</span>}
+          {flag}
+          {!back && <span className={styles.end}><AmbAccountChip account={account} signInHref={signInHref} withName={false} /></span>}
+        </div>
+        {pinned && <div className={styles.pinned}>{pinned}</div>}
       </header>
-      {pinned && <div className={styles.pinned}>{pinned}</div>}
       <Body id={preview ? undefined : 'main'} tabIndex={preview ? undefined : -1} className={styles.body}>{children}</Body>
-      {footer && <div className={styles.footer}>{footer}</div>}
+      {footer && <footer className={styles.footer}>{footer}</footer>}
       {tabs && <AmbTabBar items={nav} active={active} label={preview ? 'Ambassador preview, mobile' : 'Ambassador'} />}
     </div>
   );

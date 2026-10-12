@@ -20,7 +20,7 @@ import { Card } from '../../ui/composites/Card';
 import { DataTable } from '../../ui/composites/DataTable';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { AmbShell } from '../../ui/domain/AmbShell';
-import { AmbColumns } from '../../ui/domain/AmbColumns';
+import { HubColumns } from '../../ui/domain/HubColumns';
 import { AmbBudgetBar } from '../../ui/domain/AmbBudgetBar';
 import { AmbCollapsibleText } from '../../ui/domain/AmbCollapsibleText';
 import { AmbInlineForm } from '../../ui/domain/AmbInlineForm';
@@ -83,14 +83,17 @@ export function AmbDetail({ data, device }: AmbDetailProps) {
           chips={[campaign.timeLeft, campaign.slots, desktop ? data.reviewNote : undefined].filter((c): c is string => Boolean(c))}
         />
         {desktop ? (
-          <AmbColumns layout="main-aside">
+          <HubColumns
+            end={
+              <>
+                {budget}
+                <InfoCard title="How you get paid"><Text variant="small">{data.howPaid}</Text></InfoCard>
+                {join}
+              </>
+            }
+          >
             {main}
-            <Stack gap={4}>
-              {budget}
-              <InfoCard title="How you get paid"><Text variant="small">{data.howPaid}</Text></InfoCard>
-              {join}
-            </Stack>
-          </AmbColumns>
+          </HubColumns>
         ) : (
           <Stack gap={5}>{main}{budget}</Stack>
         )}

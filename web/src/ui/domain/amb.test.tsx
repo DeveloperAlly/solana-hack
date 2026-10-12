@@ -11,13 +11,11 @@ import { AmbBudgetBar, budgetLevel } from './AmbBudgetBar';
 import { AmbCampaignCard } from './AmbCampaignCard';
 import { AmbChecksList } from './AmbChecksList';
 import { AmbCollapsibleText } from './AmbCollapsibleText';
-import { AmbColumns } from './AmbColumns';
 import { AmbDraftEditor, highlightRuns } from './AmbDraftEditor';
 import { AmbInlineForm } from './AmbInlineForm';
 import { AmbNotifyButton } from './AmbNotifyButton';
 import { AmbOnBrandMeter } from './AmbOnBrandMeter';
 import { AmbPublishRouteCard } from './AmbPublishRouteCard';
-import { AmbSelect } from './AmbSelect';
 import { AmbSheet } from './AmbSheet';
 import { AmbShell } from './AmbShell';
 import { AmbStatusTimeline } from './AmbStatusTimeline';
@@ -178,18 +176,14 @@ describe('P17 AmbInlineForm', () => {
   });
 });
 
-describe('P13 AmbSelect and P8 AmbNotifyButton', () => {
-  it('changes value and toggles notify', async () => {
-    const onChange = vi.fn();
+describe('P8 AmbNotifyButton', () => {
+  it('toggles notify', async () => {
     const onToggle = vi.fn();
     const { container } = renderWithRouter(
       <>
-        <AmbSelect label="Sort" layout="inline" value="ending" onChange={onChange} options={[{ value: 'ending', label: 'Ending soonest' }, { value: 'payout', label: 'Highest payout' }]} />
         <AmbNotifyButton brand="aDNA" on={false} onToggle={onToggle} />
       </>,
     );
-    await userEvent.selectOptions(screen.getByLabelText('Sort'), 'payout');
-    expect(onChange).toHaveBeenCalledWith('payout');
     await userEvent.click(screen.getByRole('button', { name: 'Notify me about aDNA' }));
     expect(onToggle).toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Notify me about aDNA' })).toHaveAttribute('aria-pressed', 'false');
@@ -197,17 +191,17 @@ describe('P13 AmbSelect and P8 AmbNotifyButton', () => {
   });
 });
 
-describe('D24 AmbCampaignCard, D30 AmbPublishRouteCard, L9 AmbColumns', () => {
+describe('D24 AmbCampaignCard and D30 AmbPublishRouteCard', () => {
   it('renders open and closed campaign rows, a stacked link card, a route card and columns', async () => {
     const { container } = renderWithRouter(
-      <AmbColumns layout="main-aside">
+      <>
         <div>
           <AmbCampaignCard {...sampleCampaign} action={<Button href="/x">View</Button>} />
           <AmbCampaignCard {...sampleClosedCampaign} />
           <AmbCampaignCard {...sampleCampaign} layout="stack" href="/detail" />
         </div>
         <AmbPublishRouteCard title="Post to LinkedIn for me" badge="Fastest · for this post" selected><Button>Post now</Button></AmbPublishRouteCard>
-      </AmbColumns>,
+      </>,
     );
     expect(screen.getByText('budget 39% used')).toBeInTheDocument();
     expect(screen.getAllByText('Budget reached')).toHaveLength(1);

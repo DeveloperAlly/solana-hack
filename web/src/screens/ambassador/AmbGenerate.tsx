@@ -20,7 +20,7 @@
 import { Button, Field, Stack } from '../../ui/primitives';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { AmbShell } from '../../ui/domain/AmbShell';
-import { AmbColumns } from '../../ui/domain/AmbColumns';
+import { HubColumns } from '../../ui/domain/HubColumns';
 import { AmbOnBrandMeter } from '../../ui/domain/AmbOnBrandMeter';
 import { AmbChecksList } from '../../ui/domain/AmbChecksList';
 import { AmbSheet } from '../../ui/domain/AmbSheet';
@@ -51,11 +51,12 @@ export function AmbGenerate({ data, device, state = 'success' }: AmbGenerateProp
       <AmbShell {...flow.shell} account={data.account}>
         <Stack gap={5}>
           <PageTitle title="Write your piece" context={data.pieceLabel} back={{ href: flow.back('generate'), label: data.campaignTitle }} />
-          <AmbColumns layout="rail-main-rail">
-            <GenerateControls draft={draft} formats={data.formats} />
+          <HubColumns
+            start={<GenerateControls draft={draft} formats={data.formats} />}
+            end={<ChecksPanel draft={draft} threshold={data.threshold} publishHref={flow.paths.publish} onPublish={() => flow.go('publish')} />}
+          >
             {editor}
-            <ChecksPanel draft={draft} threshold={data.threshold} publishHref={flow.paths.publish} onPublish={() => flow.go('publish')} />
-          </AmbColumns>
+          </HubColumns>
         </Stack>
       </AmbShell>
     );
