@@ -10,7 +10,7 @@ tags: [pitch, script, colosseum]
 
 # Pitch script: JamJam
 
-Total: 472 words, about 2:57 at 160 words a minute.
+Total: 473 words, about 2:57 at 160 words a minute.
 
 ## 1. Dot points per slide
 
@@ -35,7 +35,7 @@ Total: 472 words, about 2:57 at 160 words a minute.
 **4. How it works** (0:48–0:59)
 - One app, four steps; every step checked where others guess
 - Build: a fact stays only if its quote is in your source
-- Run: posts in your voice, you approve, it learns what works; every claim checked against your evidence
+- Create: posts in your voice, you approve, it learns what works; every claim checked against your evidence
 - Grow (next): team and ambassadors post from your kit, you approve
 - Prove: paste any text, the public record answers
 - Email sign-in, no wallet
@@ -120,9 +120,9 @@ Today the Solana registry is live on devnet, with email sign-in. Next: verified 
 
 Our first customers are web3 founders and creators, where impersonation is up fourteen hundred percent. Then everyone who is their own brand. Comparable AI writing tools list at twenty to forty-nine dollars a month. Customer zero is me.
 
-**9. Competition** · 2:00–2:15 · 38 words
+**9. Competition** · 2:00–2:15 · 39 words
 
-We checked fifty-nine products. The best do two of the four steps. JamJam is the only one we found that builds the brand, runs it, proves it and pays for the work, and it exports to your tools.
+We checked fifty-nine products. The best do two of the four steps. JamJam is the only one we found that builds the brand, creates the content, proves it and pays for the work, and it exports to your tools.
 
 **10. Business model** · 2:15–2:33 · 48 words
 
