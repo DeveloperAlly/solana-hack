@@ -126,10 +126,21 @@ export const RENDER_TIMEOUT_MS = 15_000;
 // https://www.w3.org/TR/CSP3/#directive-sandbox: scripts run with the page's own origin (so its cookies and storage
 // work), and nothing else is allowed: no popups, no new windows, no forms, no top-level navigation of other contexts.
 export const RENDER_CSP = "frame-src 'none'; child-src 'none'; worker-src 'none'; object-src 'none'; sandbox allow-scripts allow-same-origin";
-// Network APIs whose traffic request interception does not see: removed before any page script runs.
-// window.open is replaced by one that opens nothing and returns null, as a blocked popup does
-// (https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-open).
-export const PRE_SCRIPT = `(() => { for (const k of ['WebSocket', 'WebTransport', 'RTCPeerConnection', 'webkitRTCPeerConnection']) { try { Object.defineProperty(globalThis, k, { value: undefined, configurable: false, writable: false }); } catch {} } try { Object.defineProperty(globalThis, 'open', { value: () => null, configurable: false, writable: false }); } catch {} })();`;
+// Network APIs outside request interception are blocked before page scripts run. WebSocket keeps its constructor
+// shape for runtime detection (Supabase otherwise aborts SPA initialization; #114), but every use fails before I/O.
+// window.open returns null, as a blocked popup does: https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-open
+export const PRE_SCRIPT = `(() => {
+  class BlockedWebSocket {
+    static CONNECTING = 0; static OPEN = 1; static CLOSING = 2; static CLOSED = 3;
+    constructor() { throw new DOMException('WebSocket is blocked by the source reader', 'SecurityError'); }
+  }
+  Object.freeze(BlockedWebSocket.prototype); Object.freeze(BlockedWebSocket);
+  try { Object.defineProperty(globalThis, 'WebSocket', { value: BlockedWebSocket, configurable: false, writable: false }); } catch {}
+  for (const k of ['WebTransport', 'RTCPeerConnection', 'webkitRTCPeerConnection']) {
+    try { Object.defineProperty(globalThis, k, { value: undefined, configurable: false, writable: false }); } catch {}
+  }
+  try { Object.defineProperty(globalThis, 'open', { value: () => null, configurable: false, writable: false }); } catch {}
+})();`;
 /**
  * What the reader takes from a rendered page, worked out inside the browser and capped there, so the Worker never
  * receives more than these bounds whatever the page grew its DOM to (PR #71 review): the title (MAX_TITLE characters),

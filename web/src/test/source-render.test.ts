@@ -501,11 +501,25 @@ describe('renderer: no page but the one being read (PR #71 review)', () => {
     const sandbox = RENDER_CSP.split(';').map((d) => d.trim()).find((d) => d.startsWith('sandbox'));
     expect(sandbox?.split(/\s+/).sort()).toEqual(['allow-same-origin', 'allow-scripts', 'sandbox']);
   });
+  it('preserves WebSocket detection while rejecting every constructor use before network access', () => {
+    const native = vi.fn();
+    const g: Record<string, unknown> = { WebSocket: native };
+    new Function('globalThis', PRE_SCRIPT)(g);
+    const socket = g.WebSocket as { new (url: string): unknown; CONNECTING: number; OPEN: number; CLOSING: number; CLOSED: number };
+    expect(typeof socket).toBe('function');
+    expect([socket.CONNECTING, socket.OPEN, socket.CLOSING, socket.CLOSED]).toEqual([0, 1, 2, 3]);
+    expect(() => new socket('wss://example.test/socket')).toThrowError(expect.objectContaining({ name: 'SecurityError' }));
+    expect(native).not.toHaveBeenCalled();
+    expect(Object.getOwnPropertyDescriptor(g, 'WebSocket')).toMatchObject({ writable: false, configurable: false });
+    expect(Object.isFrozen(socket)).toBe(true);
+    expect(g.WebTransport).toBeUndefined();
+    expect(g.RTCPeerConnection).toBeUndefined();
+  });
   it('makes window.open open nothing, before any page script runs', () => {
     const g: Record<string, unknown> = { open: () => ({ name: 'a window' }), WebSocket: class {} };
     new Function('globalThis', PRE_SCRIPT)(g);
     expect((g.open as () => unknown)()).toBeNull();
-    expect(g.WebSocket).toBeUndefined();
+    expect(typeof g.WebSocket).toBe('function');
   });
 });
 
