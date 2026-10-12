@@ -16,6 +16,7 @@ const { runWorkflow } = await import('../../worker/engine/runner');
 const { localDeps } = await import('../../worker/engine/executor');
 const { db: rest } = await import('../../worker/db');
 const { coverageMap } = await import('../../worker/prefill/coverage');
+const { FIELDS } = await import('../../worker/prefill/fields');
 const { readData, confirmData, gapsData, journeySources, sourceStatus } = await import('../../worker/prefill/journey');
 const { decideFact, parseRecord, resolveConflict } = await import('../../worker/prefill/decide');
 const { quoteOnPage, normalisePage } = await import('../../worker/quote');
@@ -186,6 +187,45 @@ describe('the routes return #75\'s shapes when wired to the prefill module', () 
     await decideFact(envWith, user, brand, c.voice.id, { decision: 'rejected' }, ops);
     // Only with no live voice fact left does the "nothing says how you sound" item appear.
     expect(confirmData(await state()).voice).toMatchObject({ id: 'voice', status: 'needs-you' });
+  });
+
+  it('a proposed third-party fact gives one card and no missing question for what it answers (PR #101 review)', async () => {
+    await decideFact(envWith, user, brand, byClaim('Tidewater is built for independent roasters with fewer than ten staff.').id, { decision: 'rejected' }, ops);
+    db.tables.evidence.push({ id: 'a2000000-0000-4000-8000-000000000001', brand_id: BRAND, source_id: db.tables.sources[0].id, section: 'audience', claim: 'Tidewater is for small-batch roasters.', quote: 'Note 1 on roasting', origin: 'source', trust: 'third_party', review_status: 'proposed', match: 'exact', confidence: 'medium' });
+    const s = await state();
+    const c = confirmData(s);
+    expect(c.facts.filter((f) => f.id === 'a2000000-0000-4000-8000-000000000001')).toHaveLength(1);
+    expect(c.missing.statement).not.toContain('Whose opinion matters most?');
+    expect(coverageMap(s).fields.find((f) => f.id === 'audience.who')).toMatchObject({ status: 'partly', basis: 'pending confirmation' });
+  });
+
+  it('ConfirmData and the coverage map agree on every question', async () => {
+    // The fixture brand, with a disagreement and a fact waiting for review added.
+    await read('https://news.example/tidewater');
+    // The audience question's only evidence becomes a fact waiting for review.
+    await decideFact(envWith, user, brand, byClaim('Tidewater is built for independent roasters with fewer than ten staff.').id, { decision: 'rejected' }, ops);
+    db.tables.evidence.push({ id: 'a2000000-0000-4000-8000-000000000002', brand_id: BRAND, source_id: db.tables.sources[0].id, section: 'audience', claim: 'Tidewater wants roasters to keep their margin.', quote: 'Note 2 on roasting', origin: 'source', trust: 'third_party', review_status: 'proposed', match: 'exact', confidence: 'medium' });
+    const s = await state();
+    const m = coverageMap(s);
+    const c = confirmData(s);
+    const shown = new Set([...c.facts.map((f) => f.id), c.voice.id]);
+    const sides = new Set(c.conflicts.flatMap((x) => x.sides.map((y) => y.id)));
+    const byId = new Map(evidence().map((e) => [e.id, e]));
+    const asked = new Set(m.questions.filter((q) => q.kind === 'missing').map((q) => q.field));
+    for (const f of m.fields.filter((x) => x.id !== 'voice.template')) {
+      // Pending a card: one of its facts is on a card. Pending a conflict: its facts are sides. Missing: in the
+      // missing card, and no card holds a fact that answers it.
+      if (f.basis === 'pending confirmation' || f.basis === 'evidence') expect(f.factIds.some((id) => shown.has(id))).toBe(true);
+      if (f.basis === 'pending conflict') expect(f.conflictIds.length).toBeGreaterThan(0);
+      const answering = [...shown, ...sides].filter((id) => byId.has(id) && (FIELDS.find((x) => x.id === f.id)!.answeredBy as readonly string[]).includes(byId.get(id)!.section));
+      if (asked.has(f.id)) {
+        expect(answering).toEqual([]);
+        if (!f.optional) expect(c.missing.statement).toContain(f.question);
+      }
+    }
+    // Every card is a fact some question or section counts.
+    for (const id of shown) if (byId.has(id)) expect(m.sections.find((x) => x.section === byId.get(id)!.section)!.facts).toBeGreaterThan(0);
+    expect(c.questionsLeft).toBe(m.questionsLeft);
   });
 
   it('the gaps: J4\'s questions for the brand, with the ranked list', async () => {

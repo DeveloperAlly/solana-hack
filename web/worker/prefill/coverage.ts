@@ -50,13 +50,14 @@ export interface FieldCoverage {
   key: string;
   question: string;
   status: EvidenceStatus;
+  basis: FieldBasis;
   /** The owner answered it: nothing left to confirm. */
   confirmed: boolean;
   /** The owner skipped this step; it is not asked again unless they come back to it. */
   skipped: boolean;
   optional: boolean;
   answer?: string;
-  /** Facts that stand in for the answer, best first: usable, not disputed, in a section that answers the question. */
+  /** Facts that stand in for the answer, best first: live, quoted, not disputed, in a section that answers it. */
   factIds: string[];
   /** Open conflicts whose facts are its only evidence: it is partly found, pending them, and asked through them. */
   conflictIds: string[];
@@ -167,30 +168,54 @@ const answerOf = (answers: CoverageAnswer[], f: FieldSpec) => {
   return { text: (a.data?.[f.key] ?? '').trim(), skipped: false };
 };
 
+/** Why a question has its state (FieldState.basis). */
+export type FieldBasis = 'answer' | 'evidence' | 'pending confirmation' | 'pending conflict' | 'skipped' | 'none';
+export interface FieldState { status: EvidenceStatus; basis: FieldBasis; factIds: string[]; conflictFactIds: string[] }
+
+/**
+ * The one rule for a question's state, which the coverage map, the counts and the Journey cards all read, so a
+ * question is counted once whatever its state (PR #101 review). `candidates` are the live facts that could answer it:
+ * read from a source, quoted, not rejected, in a section that answers the question (fields.ts answeredBy). By
+ * architecture §12.3 rule 1, applied per question:
+ * - the owner's answer: found ('answer');
+ * - a step the owner skipped: needs you, not asked again ('skipped');
+ * - a candidate that is Evidenced (evidences(): high confidence, an owner statement, or owner-approved): found;
+ * - otherwise a candidate not in an open conflict, usable or waiting for review: partly, pending the owner's
+ *   confirmation on its card. A proposed fact counts here as pending coverage only; it never backs a kit until approved,
+ *   since usableFact stays the gate for drafting and registration (ADR-011);
+ * - only candidates in open conflicts: partly, pending the conflict, asked once as that conflict;
+ * - nothing: needs you.
+ */
+export function fieldState(answer: string, skipped: boolean, candidates: CoverageFact[], contested: ReadonlySet<string>): FieldState {
+  if (answer) return { status: 'found', basis: 'answer', factIds: [], conflictFactIds: [] };
+  if (skipped) return { status: 'needs-you', basis: 'skipped', factIds: [], conflictFactIds: [] };
+  const order = compareFacts(contested);
+  const free = candidates.filter((x) => !contested.has(x.id)).sort(order);
+  const disputed = candidates.filter((x) => contested.has(x.id)).map((x) => x.id).sort();
+  if (free.some((x) => evidences(x, contested))) return { status: 'found', basis: 'evidence', factIds: free.map((x) => x.id), conflictFactIds: disputed };
+  if (free.length) return { status: 'partly', basis: 'pending confirmation', factIds: free.map((x) => x.id), conflictFactIds: disputed };
+  if (disputed.length) return { status: 'partly', basis: 'pending conflict', factIds: [], conflictFactIds: disputed };
+  return { status: 'needs-you', basis: 'none', factIds: [], conflictFactIds: [] };
+}
+
+/** A fact that can answer a question: read from a source (an owner statement answers no particular question), quoted,
+ * and not rejected. Its review status and disputes are weighed by fieldState. */
+export const candidateFact = (f: CoverageFact) => f.review_status !== 'rejected' && !isOwnerRow(f) && !!f.quote;
+
 export function coverageMap(input: CoverageInput): CoverageMap {
   const live = input.evidence.filter((f) => f.review_status !== 'rejected');
   const liveIds = new Set(live.map((f) => f.id));
   const conflicts = input.conflicts.filter((c) => (c.status ?? 'open') === 'open' && c.evidence_ids.some((id) => liveIds.has(id)));
   const contested = new Set(conflicts.flatMap((c) => c.evidence_ids));
-  const order = compareFacts(contested);
-  // Facts that can stand in for an answer: usable, read from a source (an owner statement is not a stand-in for a
-  // particular question), and not disputed.
-  const standIns = live.filter((f) => usableFact(f) && !isOwnerRow(f) && !contested.has(f.id) && !!f.quote).sort(order);
+  const candidates = live.filter(candidateFact);
 
   const fields: FieldCoverage[] = FIELDS.map((f) => {
     const { text: answer, skipped } = answerOf(input.answers, f);
-    const facts = standIns.filter((x) => (f.answeredBy as readonly string[]).includes(x.section));
-    // Open conflicts on facts that would stand in for this question. When they are its only evidence, the question is
-    // answered pending the conflict: partly found, and asked once, as the conflict, never again as missing; settling
-    // the conflict prefills it (PR #101 review).
-    const conflictIds = answer || facts.length || skipped ? [] : conflicts.filter((c) => c.evidence_ids.some((id) => {
-      const x = live.find((y) => y.id === id);
-      return !!x && !isOwnerRow(x) && !!x.quote && (f.answeredBy as readonly string[]).includes(x.section);
-    })).map((c) => c.id);
-    const status: EvidenceStatus = answer ? 'found' : !skipped && (facts.length || conflictIds.length) ? 'partly' : 'needs-you';
+    const st = fieldState(answer, skipped, candidates.filter((x) => (f.answeredBy as readonly string[]).includes(x.section)), contested);
+    const conflictIds = st.basis === 'pending conflict' ? conflicts.filter((c) => c.evidence_ids.some((id) => st.conflictFactIds.includes(id))).map((c) => c.id) : [];
     return {
-      id: f.id, step: f.step, key: f.key, question: f.question, status, confirmed: !!answer, skipped: skipped && !answer, optional: f.optional,
-      ...(answer ? { answer } : {}), factIds: answer ? [] : facts.map((x) => x.id), conflictIds, prefilled: !answer && !skipped && facts.length > 0,
+      id: f.id, step: f.step, key: f.key, question: f.question, status: st.status, basis: st.basis, confirmed: st.basis === 'answer', skipped: st.basis === 'skipped', optional: f.optional,
+      ...(answer ? { answer } : {}), factIds: st.factIds, conflictIds, prefilled: st.basis === 'evidence' || st.basis === 'pending confirmation',
     };
   });
   const fieldOf = new Map(fields.map((f) => [f.id, f]));
@@ -244,13 +269,14 @@ export function coverageMap(input: CoverageInput): CoverageMap {
     const spec = FIELDS.find((x) => x.id === f.id)!;
     // Weak: the only stand-ins are fuzzily located or never support-checked (read before #64), and the owner has not
     // approved any of them, so the owner is asked rather than shown a card to confirm.
-    const weak = f.status === 'partly' && !f.conflictIds.length && f.factIds.every((id) => rank(byId.get(id)!.confidence) < 2 && !ownerApproved(byId.get(id)!));
-    const kind: GapKind | null = f.status === 'needs-you' && !f.skipped ? 'missing' : weak ? 'weak' : null;
+    // Proposed facts are decided on their cards, so a question with one is never also asked as weak.
+    const weak = f.basis === 'pending confirmation' && f.factIds.every((id) => { const x = byId.get(id)!; return usableFact(x) && rank(x.confidence) < 2 && !ownerApproved(x); });
+    const kind: GapKind | null = f.basis === 'none' ? 'missing' : weak ? 'weak' : null;
     if (!kind) continue;
     questions.push({ id: f.id, kind, question: f.question, field: f.id, step: f.step, sections: [spec.asks], optional: f.optional, minutes: spec.minutes, score: rankScore(kind, fieldValue(spec), spec.minutes), factIds: kind === 'weak' ? f.factIds : [] });
   }
   for (const c of conflicts) {
-    const facts = c.evidence_ids.map((id) => byId.get(id)).filter((x): x is CoverageFact => !!x).sort(order);
+    const facts = c.evidence_ids.map((id) => byId.get(id)).filter((x): x is CoverageFact => !!x).sort(compareFacts(contested));
     const secs = [...new Set(facts.map((x) => x.section).filter((s): s is SectionId => s in SECTIONS))];
     const value = secs.reduce((n, s) => n + gateWeight(s), 0) || 1;
     const sides = new Map<string, { value: string; ids: string[] }>();

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STEPS as SCREEN_STEPS } from '../screens/build/steps';
 import { SECTIONS } from '../../worker/kit';
-import { coverageMap, evidences, fieldValue, rankScore, statusAccuracy, type CoverageFact, type CoverageInput } from '../../worker/prefill/coverage';
+import { coverageMap, evidences, fieldState, fieldValue, rankScore, statusAccuracy, type CoverageFact, type CoverageInput } from '../../worker/prefill/coverage';
 import { FIELDS, fieldById, readers } from '../../worker/prefill/fields';
 
 // The coverage map and its ranking (issue #34; architecture §6.1 "Coverage map", §12.3 rule 1). Pure functions, so
@@ -65,6 +65,45 @@ describe('§12.3 rule 1: Evidenced is a high-confidence owned fact or a direct o
   });
 });
 
+describe('one rule for a question\'s state (fieldState, PR #101 review)', () => {
+  const ev = { trust: 'owned', review_status: 'approved', confidence: 'high' } as const;
+  // Every combination: answer, skipped, and candidates that are Evidenced, usable, proposed, disputed, or none.
+  const cases: [string, Partial<CoverageFact>[], boolean, string, string, string][] = [
+    // name, candidates (disputed: the first one listed when the flag is set), dispute first, answer, expected status, basis
+    ['nothing', [], false, '', 'needs-you', 'none'],
+    ['an Evidenced fact', [ev], false, '', 'found', 'evidence'],
+    ['a usable fact, medium', [{ confidence: 'medium' }], false, '', 'partly', 'pending confirmation'],
+    ['a usable fact, unscored', [{ confidence: null, match: null }], false, '', 'partly', 'pending confirmation'],
+    ['a proposed third-party fact', [{ trust: 'third_party', review_status: 'proposed' }], false, '', 'partly', 'pending confirmation'],
+    ['a proposed fuzzy owned fact', [{ review_status: 'proposed', match: 'fuzzy', confidence: 'low' }], false, '', 'partly', 'pending confirmation'],
+    ['an owner-approved third-party fact', [{ trust: 'third_party', review_status: 'approved' }], false, '', 'found', 'evidence'],
+    ['only a disputed fact', [{ confidence: 'high' }], true, '', 'partly', 'pending conflict'],
+    ['a disputed and a free fact', [{ confidence: 'high' }, { confidence: 'medium' }], true, '', 'partly', 'pending confirmation'],
+    ['an answer, whatever the facts', [ev], true, 'x', 'found', 'answer'],
+  ];
+  it.each(cases)('%s', (_name, over, dispute, answer, status, basis) => {
+    const facts = over.map((o) => fact(o));
+    const contested = new Set(dispute ? [facts[0].id] : []);
+    expect(fieldState(answer, false, facts, contested)).toMatchObject({ status, basis });
+  });
+  it('a skipped step needs the owner and is not asked, whatever the facts', () => {
+    expect(fieldState('', true, [fact(ev)], new Set())).toEqual({ status: 'needs-you', basis: 'skipped', factIds: [], conflictFactIds: [] });
+  });
+  it('every question is counted once: missing, pending a card, or pending a conflict, never two of these', () => {
+    const a = fact({ section: 'origin', slot: 'founded', slot_value: '1', review_status: 'proposed' });
+    const b = fact({ section: 'origin', slot: 'founded', slot_value: '2', review_status: 'proposed' });
+    const m = coverageMap(input({
+      evidence: [a, b, fact({ section: 'audience', trust: 'third_party', review_status: 'proposed' }), fact({ section: 'positioning' })],
+      conflicts: [{ id: 'c', slot: 'founded', evidence_ids: [a.id, b.id], question: 'q' }],
+    }));
+    for (const f of m.fields) {
+      const asked = m.questions.filter((q) => q.field === f.id && q.kind !== 'weak');
+      expect(asked.length).toBe(f.basis === 'none' ? 1 : 0);
+    }
+    expect(m.questionsLeft).toBe(m.fields.filter((f) => f.basis === 'none' && !f.optional).length + 1);
+  });
+});
+
 describe('coverage map', () => {
   it('with nothing read, every section and question needs the owner and readiness is 0', () => {
     const m = coverageMap(input());
@@ -92,15 +131,18 @@ describe('coverage map', () => {
     // Never inferred from the brand's own copy.
     expect(field(m, 'alternatives.instead')).toMatchObject({ status: 'needs-you', prefilled: false });
   });
-  it('only the allow-list stands in: proposed, rejected and unquoted facts and owner rows do not prefill', () => {
+  it('rejected and unquoted facts and owner rows never answer a question; a proposed fact is pending, never usable', () => {
+    const proposed = fact({ trust: 'third_party', review_status: 'proposed' });
     const m = coverageMap(input({ evidence: [
-      fact({ trust: 'third_party', review_status: 'proposed' }),
+      proposed,
       fact({ review_status: 'rejected' }),
       fact({ quote: null }),
       fact({ origin: 'owner_answer', trust: 'owner_answer', section: 'origin', quote: null }),
     ] }));
-    expect(field(m, 'origin.broken')).toMatchObject({ status: 'needs-you', factIds: [] });
-    // The proposed fact counts in the section's facts but is not usable; the rejected one is not counted at all.
+    // Only the proposed fact answers: pending the owner's confirmation on its card, counted once, not asked as missing.
+    expect(field(m, 'origin.broken')).toMatchObject({ status: 'partly', basis: 'pending confirmation', factIds: [proposed.id] });
+    expect(m.questions.some((q) => q.step === 'origin')).toBe(false);
+    // The proposed fact counts in the section's facts but is not usable: the allow-list still gates drafting.
     expect(section(m, 'origin')).toMatchObject({ facts: 3, usable: 2 });
   });
   it('the owner\'s answer finds a question and confirms it; a fully answered step is done', () => {
