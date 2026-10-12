@@ -1,0 +1,15 @@
+.text { margin: 0; font-size: var(--wl-font-size-lg); line-height: var(--wl-font-lineHeight-body); }
+.claim {
+  display: inline;
+  padding: 0 var(--wl-space-half);
+  border: 0;
+  border-bottom: var(--wl-border-width-strong) solid var(--wl-border-strong);
+  border-radius: 0;
+  background: var(--wl-flag-highlight);
+  color: var(--wl-text-primary);
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+.claim:hover { border-bottom-width: var(--wl-border-width-indicator); }
+.selected { outline: var(--wl-border-width-default) solid var(--wl-border-strong); }

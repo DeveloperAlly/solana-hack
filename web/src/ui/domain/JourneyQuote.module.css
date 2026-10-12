@@ -1,0 +1,9 @@
+.quote {
+  margin: 0;
+  padding: var(--wl-space-1) 0 var(--wl-space-1) var(--wl-space-3);
+  border-left: var(--wl-border-width-indicator) solid var(--wl-border-strong);
+  font-style: italic;
+  color: var(--wl-text-primary);
+}
+.sm { font-size: var(--wl-font-size-sm); }
+.xs { font-size: var(--wl-font-size-xs); }

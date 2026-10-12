@@ -1,0 +1,19 @@
+.button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--wl-control-height-md);
+  min-width: var(--wl-control-target-min);
+  padding: 0 var(--wl-control-padX);
+  border: var(--wl-border-width-default) solid var(--wl-action-secondary-border);
+  border-radius: var(--wl-radius-control);
+  background: var(--wl-action-secondary-bg);
+  color: var(--wl-action-secondary-fg);
+  font-weight: var(--wl-font-weight-semibold);
+  cursor: pointer;
+}
+.button:hover { background: var(--wl-bg-subtle); }
+.button:focus-within { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); outline-offset: var(--wl-border-width-focus); }
+/* Visually hidden but focusable: the label shows the focus ring through :focus-within. */
+.input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }

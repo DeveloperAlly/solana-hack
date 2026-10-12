@@ -1,0 +1,2 @@
+.root { display: inline-flex; flex-direction: column; gap: var(--wl-space-1); }
+.failed { font-size: var(--wl-font-size-sm); color: var(--wl-status-danger-fg); }

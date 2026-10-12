@@ -1,0 +1,18 @@
+.root { display: flex; flex-direction: column; gap: var(--wl-space-2); min-width: 0; }
+.label { color: var(--wl-text-primary); }
+.hint { font-size: var(--wl-font-size-xs); color: var(--wl-text-secondary); }
+.bar {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: var(--wl-space-2-5);
+  border: 0;
+  border-radius: var(--wl-radius-pill);
+  overflow: hidden;
+  background: var(--wl-bg-subtle);
+  color: var(--wl-bg-inverse);
+  box-shadow: inset 0 0 0 var(--wl-border-width-default) var(--wl-border-default);
+}
+.bar::-webkit-progress-bar { background: var(--wl-bg-subtle); }
+.bar::-webkit-progress-value { background: var(--wl-bg-inverse); }
+.bar::-moz-progress-bar { background: var(--wl-bg-inverse); }
