@@ -39,6 +39,14 @@ export function useTipFlow(data: TipSheetData, state: ScreenState): TipFlow {
   const [open, setOpen] = useState(true);
   const [step, setStep] = useState<TipStep>(startStep[state]);
   const [raw, setRaw] = useState('');
+  /** Opening the sheet after a sent tip starts a new tip: amount step, empty amount (Codex review on PR #89). */
+  function openSheet(next: boolean) {
+    if (next && step === 'sent') {
+      setStep('amount');
+      setRaw('');
+    }
+    setOpen(next);
+  }
   const check = firstBlocking([walletCheck(data.creator.wallet), tipAmountCheck(raw)], 'Ready to review.');
   const amount = check.blocking ? null : Number(raw.trim());
   function confirm() {
@@ -51,7 +59,7 @@ export function useTipFlow(data: TipSheetData, state: ScreenState): TipFlow {
   return {
     post,
     open,
-    setOpen,
+    setOpen: openSheet,
     step,
     raw,
     setRaw,

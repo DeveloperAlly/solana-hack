@@ -39,9 +39,9 @@ function at(path: string) {
 const main = () => screen.getByRole('main');
 
 describe('Growth registry (issue #82)', () => {
-  it('registers all ten screens on the growth page, each COMING SOON', () => {
+  it('registers all ten screens, each COMING SOON (their canvas pages are checked in links.test)', () => {
     expect(screens.map((s) => s.artboard)).toEqual(Object.values(growthArtboards));
-    expect(new Set(screens.map((s) => `${s.page} ${s.tag}`))).toEqual(new Set(['growth COMING SOON']));
+    expect(new Set(screens.map((s) => s.tag))).toEqual(new Set(['COMING SOON']));
   });
   it('no platform is Live: nothing in the worker publishes yet', () => {
     expect(platforms.filter((p) => p.status === 'live')).toEqual([]);
@@ -158,6 +158,19 @@ describe('Fan tips', () => {
     const table = screen.getByRole('table', { name: 'Tips received' });
     expect(within(table).getByText('10.00 USDC')).toBeInTheDocument();
     expect(within(table).getByText('[your wallet]')).toBeInTheDocument();
+  });
+
+  it('reopening the sheet after a sent tip starts a new tip (Codex review on PR #89)', async () => {
+    const user = at(screenPath('Tip-Sheet'));
+    await user.type(screen.getByLabelText('Amount (USDC)'), '10');
+    await user.click(screen.getByRole('button', { name: 'Review tip' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm and send' }));
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Tip aDNA in USDC' }));
+    const sheet = screen.getByRole('dialog', { name: 'Tip aDNA' });
+    expect(within(sheet).getByLabelText('Amount (USDC)')).toHaveValue('');
+    expect(within(sheet).getByRole('button', { name: 'Review tip' })).toBeDisabled();
   });
 
   it('rejects a bad amount and closes and reopens the sheet', async () => {
