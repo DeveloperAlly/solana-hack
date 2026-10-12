@@ -79,7 +79,10 @@ if (!sourceFacts.length) fail('no facts were read from the site');
 const noQuote = sourceFacts.filter((e) => !e.quote);
 out(`J1 facts with a quote: ${sourceFacts.length - noQuote.length}/${sourceFacts.length}`);
 if (noQuote.length) fail(`${noQuote.length} facts have no quote`);
-for (const e of sourceFacts.slice(0, 5)) out(`  fact [${e.section}] ${e.claim} | quote: "${e.quote}"`);
+// Counts only: the proof is posted to a public issue (and Actions logs are public), so no page text, claim or quote is
+// printed (AGENTS.md rule 5). The facts themselves are in the brand's state for anyone signed in as its owner.
+const bySection = sourceFacts.reduce((m, e) => ({ ...m, [e.section]: (m[e.section] ?? 0) + 1 }), {});
+out(`J1 facts by section: ${Object.entries(bySection).map(([k, v]) => `${k}=${v}`).join(', ')}`);
 out(`J1 coverage ${state.coverage.covered}/${state.coverage.total}: ${state.coverage.sections.map((s) => `${s.section}=${s.status}`).join(', ')}`);
 
 // J2: save. A saved account (created here in place of the emailed code), then the anonymous brand is claimed.
@@ -120,10 +123,11 @@ out(`J5 attestation: ${kit.attestationExplorer}`);
 
 // J6: the first post, with no brief, approved and registered.
 const { post } = await must('draft first post', api(token, 'POST', `/brands/${brand.id}/posts`, {}));
-out(`J6 first post drafted (kit v${post.kit_version}): ${post.body.slice(0, 160).replace(/\n/g, ' ')}...`);
+out(`J6 first post drafted (kit v${post.kit_version}, ${post.body.length} characters)`);
 const cm = await must('claims on the draft', api(token, 'POST', `/brands/${brand.id}/posts/${post.id}/claims`, { rev: post.rev }));
-for (const c of cm.claimMap.items) out(`  J6 claim [${c.status}] ${c.text}${c.facts[0] ? ` <- "${c.facts[0].quote ?? c.facts[0].claim}"` : ''}`);
-out(`J6 claims: ${cm.claimMap.items.length} listed, ${cm.claimMap.unsupported} unsupported`);
+// Counts only, no claim text (the proof is public): how many claims, and how many rest on a fact with its quote.
+const withQuote = cm.claimMap.items.filter((c) => c.facts.some((f) => f.quote)).length;
+out(`J6 claims: ${cm.claimMap.items.length} listed, ${cm.claimMap.items.filter((c) => c.status === 'supported').length} supported (${withQuote} with a quote), ${cm.claimMap.unsupported} unsupported`);
 const approved = await must('approve post', api(token, 'POST', `/brands/${brand.id}/posts/${post.id}/approve`, { rev: post.rev }));
 const reg = await must('register post', api(token, 'POST', `/brands/${brand.id}/posts/${post.id}/register`, { rev: approved.post.rev }));
 out(`J6 post registered: ${reg.explorer ?? JSON.stringify(reg).slice(0, 200)}`);

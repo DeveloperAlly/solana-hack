@@ -1,7 +1,8 @@
 name: journey e2e
 # The first-run journey, J0 to J7, run against the deployed site (web/scripts/journey-e2e.mjs): read a site before
 # sign-in, save, confirm, voice by example, register kit v1 on devnet, the first post registered, Verify says Official.
-# Run by hand (each run registers a kit and a post on devnet and shows them on the public ledger). Proof goes to issue 4.
+# Run by hand (each run registers a kit and a post on devnet and shows them on the public ledger). Proof goes to issue 4:
+# counts, statuses and explorer links only, never page text (AGENTS.md rule 5). Run it after the deploy you mean to prove.
 # Needs: anonymous sign-ins on (supabase-auth-config workflow), migrations 009 and 012 applied before the Worker that
 # uses them was deployed (010 and 011 too once the workflow engine is merged), secret SUPABASE_SECRET_KEY,
 # variables SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (shared with the deploy workflow).
@@ -41,5 +42,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           test -f proof/journey-e2e.txt || exit 0
-          { echo "Journey J0 to J7, end to end on jamjam.tech, run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} (commit ${{ github.sha }}):"; echo; echo '```'; cat proof/journey-e2e.txt; echo '```'; } > "$RUNNER_TEMP/comment.md"
+          { echo "Journey J0 to J7, end to end against the live deployment at jamjam.tech (whatever revision is deployed there; this run did not check it). Script from commit ${{ github.sha }}, run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}:"; echo; echo '```'; cat proof/journey-e2e.txt; echo '```'; } > "$RUNNER_TEMP/comment.md"
           gh issue comment 4 --repo "${{ github.repository }}" --body-file "$RUNNER_TEMP/comment.md"
