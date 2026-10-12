@@ -39,6 +39,36 @@ async function waitFor(url, ms = 30000) {
   throw new Error(`server not ready: ${url}`);
 }
 
+/**
+ * With EXPECT_BUILD set (the preview workflow passes the commit it built), wait for a positive signal before checking
+ * a deployed URL: the served index carries that build id (<meta name="jamjam-build">, stamped by vite.config.ts) and
+ * every script and stylesheet it references is served. Then the checks run once. Why: the preview run on 7af126d
+ * (https://github.com/DeveloperAlly/solana-hack/actions/runs/38315349588) printed "Deployed jamjam-preview triggers"
+ * at 22:13:19, started checking at 22:13:43, and its first page never rendered ("waiting for locator('main').first()
+ * to be visible"); nothing in that run showed which build the preview was serving.
+ */
+async function waitForBuild(expected, ms = 120000) {
+  const end = Date.now() + ms;
+  let seen = 'nothing';
+  while (Date.now() < end) {
+    try {
+      const html = await (await fetch(`${base}/screens`, { cache: 'no-store' })).text();
+      seen = /<meta name="jamjam-build" content="([^"]*)"/.exec(html)?.[1] ?? 'no build id';
+      if (seen === expected) {
+        const assets = [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((m) => m[1]);
+        const missing = [];
+        for (const a of assets) if (!(await fetch(base + a, { cache: 'no-store' })).ok) missing.push(a);
+        if (!missing.length) return log(`deployed build ${expected} is served with its ${assets.length} assets`);
+        seen = `${expected}, assets not served yet: ${missing.join(', ')}`;
+      }
+    } catch (e) {
+      seen = String(e);
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  throw new Error(`${base} never served build ${expected} (last seen: ${seen})`);
+}
+
 async function load(page, path) {
   const res = await page.goto(base + path, { waitUntil: 'load', timeout: 30000 });
   if (!res || !res.ok()) throw new Error(`${path}: HTTP ${res ? res.status() : 'none'}`);
@@ -61,6 +91,7 @@ try {
     await waitFor(base + '/');
   }
   log(`check-gallery: ${base}, themes ${themes.join(', ')}`);
+  if (external && process.env.EXPECT_BUILD) await waitForBuild(process.env.EXPECT_BUILD);
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   // The gallery makes no network calls of its own; any /api request is a failure.

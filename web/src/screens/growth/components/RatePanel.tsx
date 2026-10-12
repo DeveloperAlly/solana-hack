@@ -11,6 +11,10 @@ export function RatePanel({ flow }: { flow: EventRatingFlow }) {
   const id = useId();
   const body = () => {
     if (!flow.open) return <Text tone="secondary">Rating opens after the event ends.</Text>;
+    if (flow.mine?.removal) {
+      const r = flow.mine.removal;
+      return <Alert tone="warning" title="Your rating was removed">Removed {r.at} after a report, reviewed by a person: {r.reason} It stays on the record as a public note; it can’t be edited back.</Alert>;
+    }
     if (flow.mine && !flow.editing) {
       return (
         <>
