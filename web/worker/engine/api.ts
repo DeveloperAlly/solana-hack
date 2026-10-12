@@ -6,7 +6,7 @@
 //                                             "still reading"
 import { db } from '../db';
 import { HttpError, type Env } from '../env';
-import { checkExecutor, engineConfig, launch, waitForRun, type WaitUntil } from './executor';
+import { checkExecutor, engineConfig, launch, waitForRun, type ExecutorName, type WaitUntil } from './executor';
 import { progressAt } from './runner';
 import { admissionLimits, checkStart, type Caller } from './guards';
 import { KINDS, type BrandRef } from './kinds';
@@ -37,49 +37,99 @@ export async function activeDef(env: Env, kind: string): Promise<WorkflowSpec> {
   throw any ? new HttpError(410, `${kind} is retired; new runs use ${SOURCE_RUN_KIND}`) : new HttpError(503, `${kind} is not set up in this database yet (its migration in spec/db has not been applied)`);
 }
 
-/** Starts a run: pins the active definition's version, writes the run row with its first progress, hands it to the executor. */
-export async function startRun(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, kind: string, body: Record<string, unknown>) {
-  return (await start(env, ctx, user, brand, kind, body)).run;
+/**
+ * A run's place, held after admission and before its work starts (spec/db/011 admit_run): the run row in status
+ * 'reserved', with the definition version and executor pinned at admission. Its capacity counts against the brand's
+ * caps until it starts, is released, or expires (RESERVATION_TTL_S).
+ */
+export interface Reservation { runId: string; brandId: string; kind: string; workflowVersion: number; executor: ExecutorName; expiresAt: string }
+
+/** How long a reservation holds capacity before it lapses on its own: enough for pre-work such as converting an upload. */
+export const RESERVATION_TTL_S = 600;
+
+/**
+ * Admits a run, atomically (spec/db/011 admit_run): the anonymous caller's network cap, the brand's run rate, its daily
+ * spend allowance and its metered-call budget are checked and the reservation written in one transaction. Call it
+ * before any expensive pre-work; a refusal is an HttpError (429 over a cap; 404 unknown kind; 410 retired; 503 not
+ * set up or no executor) and writes nothing.
+ */
+export async function admit(env: Env, a: { brand: BrandRef; kind: string; actor: { id: string; isAnonymous?: boolean }; ip?: string | null }): Promise<Reservation> {
+  if (!Object.hasOwn(KINDS, a.kind)) throw new HttpError(404, `unknown run kind ${a.kind}`);
+  const caller: Caller = { ...a.actor, ip: a.ip ?? null };
+  const [spec, config] = await Promise.all([activeDef(env, a.kind), engineConfig(env)]);
+  checkExecutor(env, config.executor, spec);
+  await checkStart(env, caller, a.brand, spec);
+  const limits = await admissionLimits(env, caller, spec);
+  const row = await db.rpc<RunRow & { reserved_until: string }>(env, 'admit_run', {
+    p_brand: a.brand.id, p_kind: a.kind, p_version: spec.version, p_executor: config.executor, p_progress: progressAt(spec, 0),
+    p_created_by: a.actor.id, p_planned: limits.planned, p_budget: limits.budget, p_run_rate: limits.runRate,
+    p_spend_cap: limits.spendCap, p_client_key: await clientKey(env, caller), p_client_cap: limits.clientCap, p_ttl_s: RESERVATION_TTL_S,
+  });
+  return { runId: row.id, brandId: row.brand_id, kind: row.kind, workflowVersion: row.workflow_version, executor: row.executor, expiresAt: row.reserved_until };
 }
 
-async function start(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, kind: string, body: Record<string, unknown>) {
-  const prepare = Object.hasOwn(KINDS, kind) ? KINDS[kind] : undefined;
-  if (!prepare) throw new HttpError(404, `unknown run kind ${kind}`);
-  const [spec, config] = await Promise.all([activeDef(env, kind), engineConfig(env)]);
-  const { executor } = config;
-  checkExecutor(env, executor, spec);
-  await checkStart(env, user, brand, spec);
-  // Admission is the first write (spec/db/011 admit_run): the run rate and the metered-call budget are checked and the
-  // run row is written as the reservation in one transaction, serialised per brand. A refusal (429) writes nothing.
-  const limits = await admissionLimits(env, user, spec);
-  let run = await db.rpc<RunRow>(env, 'admit_run', {
-    p_brand: brand.id, p_kind: kind, p_version: spec.version, p_executor: executor, p_progress: progressAt(spec, 0),
-    p_created_by: user.id, p_planned: limits.planned, p_budget: limits.budget, p_run_rate: limits.runRate, p_spend_cap: limits.spendCap,
-  });
+/** Gives a reservation's capacity back (pre-work failed or was abandoned). Only a reservation not yet started is removed. */
+export async function release(env: Env, r: Reservation): Promise<void> {
+  await db.del(env, 'runs', `${db.eq('id', r.runId)}&${db.eq('brand_id', r.brandId)}&status=eq.reserved`);
+}
+
+/**
+ * Starts an admitted run: prepares its input (engine/kinds.ts), turns the reservation into the run (status 'running')
+ * and hands it to its executor. It never checks the caps again and never reserves again: the reservation is the charge.
+ * A reservation that lapsed or was released is refused (409); a request prepare() cannot use releases the reservation.
+ */
+export async function start(env: Env, ctx: WaitUntil | undefined, r: Reservation, brand: BrandRef, body: Record<string, unknown>) {
+  const prepare = KINDS[r.kind];
+  const [[def], config] = await Promise.all([
+    db.select<{ spec: WorkflowSpec }>(env, 'workflow_defs', `${db.eq('id', r.kind)}&version=eq.${r.workflowVersion}&select=spec`),
+    engineConfig(env),
+  ]);
+  if (!def || !prepare) { await release(env, r).catch(() => undefined); throw new HttpError(503, `${r.kind} v${r.workflowVersion} is not available`); }
+  const spec = def.spec;
   let input: Record<string, unknown>;
   try {
     input = await prepare(env, brand, body);
   } catch (e) {
-    // The request was not usable (or prepare failed): release the reservation, so nothing of this start remains.
-    await db.del(env, 'runs', `${db.eq('id', run.id)}&${db.eq('brand_id', brand.id)}`).catch(() => undefined);
+    await release(env, r).catch(() => undefined);
     throw e instanceof HttpError ? e : new HttpError(503, 'the run could not start, try again');
   }
-  // Everything after prepare() is in one cleanup path (PR #70 review): if writing the input, superseding or handing the
-  // run to the executor fails, the run and any source prepare() created are marked failed, so no pending source is left
+  // Everything after prepare() is in one cleanup path (PR #70 review): if starting, superseding or handing the run to
+  // the executor fails, the run and any source prepare() created are marked failed, so no pending source is left
   // without a run to finish it. Cleanup is best effort: the database may be the thing that failed.
+  let run: RunRow | undefined;
   try {
-    [run] = await db.update<RunRow>(env, 'runs', db.eq('id', run.id), { input, updated_at: new Date().toISOString() });
+    [run] = await db.update<RunRow>(env, 'runs', `${db.eq('id', r.runId)}&status=eq.reserved&reserved_until=gt.${encodeURIComponent(new Date().toISOString())}`, { status: 'running', input, updated_at: new Date().toISOString() });
+    if (!run) throw new HttpError(409, 'this start was held too long and lapsed; start it again');
     if (spec.concurrency === 'supersede') {
-      await db.update(env, 'runs', `${db.eq('brand_id', brand.id)}&${db.eq('kind', kind)}&id=neq.${run.id}&status=in.(running,paused)`, { status: 'superseded', updated_at: new Date().toISOString() });
+      await db.update(env, 'runs', `${db.eq('brand_id', brand.id)}&${db.eq('kind', r.kind)}&id=neq.${run.id}&status=in.(running,paused)`, { status: 'superseded', updated_at: new Date().toISOString() });
     }
     await launch(env, ctx, run);
   } catch (e) {
     const note = 'the run could not start';
-    await db.update(env, 'runs', db.eq('id', run.id), { status: 'failed', error: note, error_code: 503, updated_at: new Date().toISOString() }).catch(() => undefined);
+    if (run) await db.update(env, 'runs', db.eq('id', run.id), { status: 'failed', error: note, error_code: 503, updated_at: new Date().toISOString() }).catch(() => undefined);
+    else await release(env, r).catch(() => undefined);
     if (typeof input.sourceId === 'string') await db.update(env, 'sources', `${db.eq('id', input.sourceId)}&${db.eq('brand_id', brand.id)}`, { status: 'failed', error: note }).catch(() => undefined);
     throw e instanceof HttpError ? e : new HttpError(503, 'the run could not start, try again');
   }
   return { run, config };
+}
+
+/** Admit, then start: for callers with no pre-work between the two. */
+export async function startRun(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, kind: string, body: Record<string, unknown>) {
+  return (await admitAndStart(env, ctx, user, brand, kind, body)).run;
+}
+async function admitAndStart(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, kind: string, body: Record<string, unknown>) {
+  const r = await admit(env, { brand, kind, actor: user, ip: user.ip });
+  return start(env, ctx, r, brand, body);
+}
+
+/** An anonymous caller's network, as a key the database can count by without holding the IP: HMAC-SHA-256 of the IP
+ * under the Worker's secret key (Web Crypto, https://developers.cloudflare.com/workers/runtime-apis/web-crypto/). */
+async function clientKey(env: Env, c: Caller): Promise<string | null> {
+  if (!c.isAnonymous) return null;
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.SUPABASE_SECRET_KEY), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(c.ip ?? 'unknown')));
+  return [...mac].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /** The newest run that is still running or paused, for a reload to show its progress. */
@@ -111,7 +161,7 @@ export const STILL_READING = 'Still reading your source. It will appear in your 
  * this never shows "undefined facts" (PR #70 review); GET /api/runs/:id follows the run from there.
  */
 export async function ingestSource(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, body: Record<string, unknown>, kind: string = SOURCE_RUN_KIND) {
-  const { run, config } = await start(env, ctx, user, brand, kind, body);
+  const { run, config } = await admitAndStart(env, ctx, user, brand, kind, body);
   const done = await waitForRun(env, run, config.ingestWaitMs);
   if (done.status === 'done') return { status: 201, body: { ...(done.output as object), runId: run.id } };
   if (done.status === 'failed') throw new HttpError(done.error_code && done.error_code >= 400 ? done.error_code : 502, done.error ?? 'reading the page failed');
