@@ -242,3 +242,17 @@ describe('Verify-4: account, kit version or claim', () => {
     expect(screen.getByRole('heading', { name: 'Brand-approved: yes' })).toBeInTheDocument();
   });
 });
+
+describe('public nav stays inside the gallery (Codex review on PR #85)', () => {
+  it('points the logo and header links at gallery artboards and keeps the theme', () => {
+    at(`${screenPath(verifyArtboards.ledger)}?theme=wireframe-dark`);
+    const header = screen.getByRole('banner');
+    const hrefs = within(header).getAllByRole('link').map((a) => a.getAttribute('href') ?? '');
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const h of hrefs) {
+      expect(h.startsWith('/screens')).toBe(true);
+      expect(h).toContain('theme=wireframe-dark');
+    }
+    expect(hrefs).toContain(`/screens/${verifyArtboards.ledger}?theme=wireframe-dark`);
+  });
+});
