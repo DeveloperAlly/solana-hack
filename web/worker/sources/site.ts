@@ -1,6 +1,6 @@
 import { hopSession, readCapped, readPage, resolveRedirects, type FetchGate } from '../ingest';
 import { factTrust, urlKind } from './registry';
-import { browserRenderer, type Renderer } from './render';
+import { browserRenderer, type Renderer, type RenderUnavailable } from './render';
 import { fetchRobots, robotsAllows, type RobotsCheck } from './robots';
 import { clock, type SourceEnv, type SourcePage, type SourceResult } from './types';
 
@@ -208,6 +208,18 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (
   return { pages, cost, missing, linksOk };
 }
 
+/**
+ * What the adapter says when a script-only page could not be rendered because no browser could be had. Browser Run is
+ * billed by browser time: Workers Free includes 10 minutes a day, Workers Paid 10 hours a month and then $0.09 an hour
+ * (https://developers.cloudflare.com/browser-run/pricing/). The read then ends in the same "paste instead" result as
+ * any page that cannot be read.
+ */
+export const BROWSER_UNAVAILABLE: Record<RenderUnavailable, string> = {
+  quota: "script-only pages could not be rendered: today's Browser Run time is used up (Workers Free allows 10 minutes a day, until 00:00 UTC)",
+  rate_limited: 'script-only pages could not be rendered: Browser Run refused a new browser just now (too many browsers started)',
+  failed: 'script-only pages could not be rendered: the browser could not be started',
+};
+
 /** How a script-only page is rendered: the Browser Run binding in the Worker, a fake in tests. */
 export type RendererFactory = (gate: FetchGate, maxPages: number) => Renderer;
 
@@ -271,6 +283,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
       const pages = read.map((p) => (p.text.length > opts.maxCharacters ? (cut++, { ...p, text: p.text.slice(0, opts.maxCharacters) }) : p));
       if (cut) c.notes.push(`${cut} page(s) cut to ${opts.maxCharacters} characters`);
       if (renderer?.rendered) c.notes.push(`${renderer.rendered} script-only page(s) rendered in a browser, with robots.txt checked before every request`);
+      if (renderer?.unavailable) c.notes.push(BROWSER_UNAVAILABLE[renderer.unavailable]);
       const kind = kindOf(pages[0].url);
       return { ok: true, kind, trust: factTrust(kind).trust, url: pages[0].url, title: pages[0].title, text: pages.map((p) => p.text).join('\n\n'), pages, meta: c.meta(pages.length, cost, via) };
     };
@@ -431,6 +444,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     }
 
     // 3. Nothing worked: ask for the text instead.
+    if (renderer?.unavailable) c.notes.push(BROWSER_UNAVAILABLE[renderer.unavailable]);
     return { ok: false, kind: kindOf(url.toString()), code: 'unreadable', reason: `We could not read ${url.hostname} (${fetchError}). Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0, cost) };
   } finally {
     await renderer?.close();

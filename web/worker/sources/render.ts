@@ -57,12 +57,29 @@ export interface RenderBrowser {
   close(): Promise<void>;
 }
 export interface RenderedPage { url: string; title: string; text: string; links: string[] }
+/**
+ * Why no browser could be had, from the launch error (Browser Run limits,
+ * https://developers.cloudflare.com/browser-run/limits/): `quota` is "429 Browser time limit exceeded for today", the
+ * Workers Free daily allowance of 10 browser minutes, used up until the next UTC day; `rate_limited` is any other 429
+ * (too many new or concurrent browsers); `failed` is anything else.
+ */
+export type RenderUnavailable = 'quota' | 'rate_limited' | 'failed';
 export interface Renderer {
   /** The page as a browser shows it, or null when it cannot be rendered or robots.txt refuses it. */
   read(url: URL): Promise<RenderedPage | null>;
   /** Pages rendered so far, for the adapter's notes. */
   readonly rendered: number;
+  /** Set when the browser could not be launched; no later read tries again. */
+  readonly unavailable: RenderUnavailable | null;
   close(): Promise<void>;
+}
+
+/** Classifies a launch error. The binding's error carries `status` and a message of the form "code: 429: message: ...". */
+export function launchFailure(e: unknown): RenderUnavailable {
+  const status = (e as { status?: unknown } | null)?.status;
+  const message = e instanceof Error ? e.message : String(e);
+  if (/browser time limit exceeded/i.test(message)) return 'quota';
+  return status === 429 || /\bcode:\s*429\b/.test(message) ? 'rate_limited' : 'failed';
 }
 
 /** Request types read only to render text. Anything else is refused without a fetch. */
@@ -106,13 +123,18 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
   let browser: Promise<RenderBrowser> | null = null;
   let rendered = 0;
   let attempts = 0;
+  let unavailable: RenderUnavailable | null = null;
 
   const read = async (url: URL): Promise<RenderedPage | null> => {
     if (!readable(url) || attempts >= maxPages) return null;
     attempts++;
     let page: RenderPage | null = null;
     try {
-      browser ??= launch();
+      // One launch per renderer: a refused launch is remembered, so a used-up quota is not asked again per page.
+      browser ??= launch().catch((e: unknown) => {
+        unavailable = launchFailure(e);
+        throw e;
+      });
       page = await (await browser).newPage();
       const p = page;
       const origins = new Set<string>();
@@ -226,6 +248,9 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
     read,
     get rendered() {
       return rendered;
+    },
+    get unavailable() {
+      return unavailable;
     },
     async close() {
       if (!browser) return;

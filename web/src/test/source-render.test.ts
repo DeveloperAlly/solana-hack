@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createRenderer, MAX_ORIGINS, MAX_REQUESTS, PAGE_TEXT, RENDER_CSP, type InterceptedRequest, type RenderBrowser, type RenderPage } from '../../worker/sources/render';
-import { readSite } from '../../worker/sources/site';
+import { createRenderer, launchFailure, MAX_ORIGINS, MAX_REQUESTS, PAGE_TEXT, RENDER_CSP, type InterceptedRequest, type RenderBrowser, type RenderPage } from '../../worker/sources/render';
+import { BROWSER_UNAVAILABLE, readSite } from '../../worker/sources/site';
 import { fetchRobots, robotsAllows } from '../../worker/sources/robots';
 import { MAX_BYTES } from '../../worker/ingest';
 
@@ -357,4 +357,31 @@ describe('site adapter: a shell whose only text is not shown is rendered (PR #71
       expect(r.meta.notes.join(' ')).toContain('1 script-only page(s) rendered in a browser');
     });
   }
+});
+
+describe('site adapter: no browser to be had (Browser Run limits)', () => {
+  // The launch error Browser Run gives once the Workers Free daily browser time is used up
+  // (https://developers.cloudflare.com/browser-run/limits/, "429 Browser time limit exceeded for today").
+  const quotaError = () => Object.assign(new Error('Error processing the request: Unable to create new browser: code: 429: message: Browser time limit exceeded for today'), { status: 429 });
+  it('ends a script-only site in "paste instead", says why, and does not launch again for each page', async () => {
+    network({ 'https://a.test/': { body: '<html><title>A</title><body><div id="app"></div><a href="/about">About</a></body></html>' }, 'https://a.test/about': { body: APP } });
+    let launches = 0;
+    const r = await readSite({}, 'https://a.test/', { website: 'a.test' }, (g, max) => createRenderer(async () => { launches++; throw quotaError(); }, g, max));
+    expect(r).toMatchObject({ ok: false, code: 'unreadable' });
+    expect(r.ok ? '' : r.reason).toMatch(/Paste the key text/);
+    expect(r.meta.notes).toContain(BROWSER_UNAVAILABLE.quota);
+    expect(launches).toBe(1);
+  });
+  it('tells a used-up daily quota from a refused new browser and from any other launch failure', () => {
+    expect(launchFailure(quotaError())).toBe('quota');
+    expect(launchFailure(Object.assign(new Error('Unable to create new browser: code: 429: message: Too many browsers already running'), { status: 429 }))).toBe('rate_limited');
+    expect(launchFailure(new Error('Unable to create new browser: code: 429: message: Rate limit exceeded'))).toBe('rate_limited');
+    expect(launchFailure(new Error('socket hang up'))).toBe('failed');
+  });
+  it('still reads pages that need no browser when the browser is unavailable, and notes it', async () => {
+    network({ 'https://a.test/': { body: `<html><title>A</title><body><p>JamJam helps brands prove what they say, with every fact tied to a quote.</p><a href="/app">App</a></body></html>` }, 'https://a.test/app': { body: APP } });
+    const r = await readSite({}, 'https://a.test/', { website: 'a.test' }, (g, max) => createRenderer(async () => { throw quotaError(); }, g, max));
+    expect(r).toMatchObject({ ok: true, meta: { pages: 1 } });
+    expect(r.meta.notes).toContain(BROWSER_UNAVAILABLE.quota);
+  });
 });
