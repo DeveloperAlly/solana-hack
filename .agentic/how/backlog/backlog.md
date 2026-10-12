@@ -216,6 +216,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 | S4 | Connections (X, LinkedIn) | | spec | coming soon | Solo | | | backend map |
 | S5 | Payout wallet (owner only; signMessage) | Only needed to pay ambassadors | spec | coming soon | Team | | | ADR-006 |
 | S6 | Plan and billing; pricing page; trial without card auto-charge; pay in stablecoins option; payout fee as a second revenue line | Pays in one page | spec | | Free to Team | Billing provider not chosen | U9 | G-BILLING, research 10 N12 to N14, deck slide 10 |
+| S6a | Referral credits: a referral link per account, attribution at sign-up, both accounts get 2 months free when the referred founder subscribes to Solo or Team | Brands bring brands, and the reward is applied without anyone chasing it | spec (proposed 2026-10-13 from the pitch's refer-a-friend offer; owner to accept) | roadmap | Solo | S6 billing provider (not chosen) | A referred subscription credits both accounts with no manual step | [GTM](../../what/context/gtm_2026_10_12.md) §5 |
 
 ## 12. Shared modules (built once, reused across JamJam and other products)
 
