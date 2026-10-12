@@ -57,6 +57,17 @@ describe('site adapter: Exa first', () => {
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/about', 'https://jamjam.tech/pricing']);
     expect(calls.filter((c) => c.url.startsWith('https://api.exa.ai/')).every((c) => (c.body as { maxAgeHours?: number }).maxAgeHours === -1)).toBe(true);
   });
+  it('takes the links from the page itself when Exa returns the home page without them (PR #71 review)', async () => {
+    const home = `<html><title>JamJam</title><body><p>${LONG}</p><a href="/about">About</a></body></html>`;
+    stub({
+      exa: () => new Response(JSON.stringify({ results: [{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }] })),
+      page: (u) => (u === 'https://jamjam.tech/' ? new Response(home, { headers: { 'content-type': 'text/html' } }) : html('About', 'JamJam was started in Melbourne to help brands prove what they say.')),
+    });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/', { website: 'jamjam.tech' });
+    expect(r).toMatchObject({ ok: true, meta: { via: 'exa' } });
+    expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/about']);
+    expect(r.meta.notes.join(' ')).toMatch(/Exa returned no links/);
+  });
   it('without Exa, reads the home page and its key subpages from its own links (PR #71 review)', async () => {
     const home = `<html><title>JamJam</title><body><p>${LONG}</p><a href="/about">About</a> <a href="/private/x">x</a> <a href="https://elsewhere.test/">e</a></body></html>`;
     const calls = stub({

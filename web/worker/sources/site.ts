@@ -114,7 +114,7 @@ const exaCost = (data: ExaResponse, pages: number) => {
  * Reads the home page and its links with Exa, lets `pick` choose which links may be read (robots.txt, same site,
  * ranking), then reads only those. Provider output is untrusted: only an absolute http(s) URL is used (PR #67 review).
  */
-async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (links: URL[]) => Promise<URL[]>): Promise<{ pages: SourcePage[]; cost: number; missing: URL[] } | { error: string }> {
+async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (links: URL[]) => Promise<URL[]>): Promise<{ pages: SourcePage[]; cost: number; missing: URL[]; linksOk: boolean } | { error: string }> {
   const text = { maxCharacters: opts.maxCharacters };
   const home = await exaContents(key, { urls: [url.toString()], text, extras: { links: EXA_LINKS }, maxAgeHours: EXA_CACHE_ONLY });
   if ('error' in home && typeof home.error === 'string') return { error: home.error };
@@ -135,7 +135,9 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (
   add(top);
   let cost = exaCost(data, 1);
   const rawLinks = top?.extras?.links;
-  const links = (Array.isArray(rawLinks) ? rawLinks : []).map(absoluteUrl).filter((u): u is URL => !!u);
+  // Missing or malformed link metadata is a partial failure: the caller then takes the links from the page itself.
+  const linksOk = Array.isArray(rawLinks);
+  const links = (linksOk ? (rawLinks as unknown[]) : []).map(absoluteUrl).filter((u): u is URL => !!u);
   const chosen = opts.subpages > 0 ? await pick(links) : [];
   if (chosen.length) {
     const more = await exaContents(key, { urls: chosen.map((u) => u.toString()), text, maxAgeHours: EXA_CACHE_ONLY });
@@ -147,7 +149,7 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (
   }
   // Chosen pages Exa has no cached copy of: the caller reads them with its own gated reader.
   const missing = chosen.filter((u) => !seen.has(u.toString()));
-  return { pages, cost, missing };
+  return { pages, cost, missing, linksOk };
 }
 
 /** Reads a brand's website: home page plus key subpages. */
@@ -282,6 +284,18 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
       for (const m of exa.missing) {
         const p = await readOwn(m);
         if (p && !exa.pages.some((x) => x.url === p.url)) exa.pages.push(p);
+      }
+      // Exa gave the home page without its links: take them from the page with our own reader, then read the key
+      // subpages the same way, so a missing field never silently cuts the read to one page (PR #71 review).
+      if (!exa.linksOk && opts.subpages > 0) {
+        c.notes.push('Exa returned no links for the home page; the key subpages were found with our own reader');
+        let ownLinks: string[] = [];
+        try {
+          ownLinks = (await readPage(url.toString(), allowedHere)).links;
+        } catch {
+          // the home page cannot be read directly; keep what Exa gave
+        }
+        exa.pages.push(...(await readOwnSubpages(ownLinks, new Set(exa.pages.map((x) => x.url).concat(url.toString())))));
       }
       const allowed = await admit(exa.pages);
       if (allowed.length) return ok(allowed, cost, 'exa');
