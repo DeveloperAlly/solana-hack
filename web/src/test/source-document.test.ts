@@ -143,28 +143,32 @@ describe('document adapter', () => {
 
 // The PDF's own page tree bounds which "### Page N" headings are the converter's (PR #71 review).
 describe('declared PDF page count', () => {
-  const enc = (s: string) => new TextEncoder().encode(s);
+  const enc = (s: string) => new Uint8Array(Buffer.from(s, 'latin1'));
   const join = (...parts: Uint8Array[]) => {
     const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
     let at = 0;
     for (const p of parts) { out.set(p, at); at += p.length; }
     return out;
   };
-  const plainPdf = (count: number, extra = '') => enc(`%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count ${count}${extra} >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n`);
+  const catalog = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n';
+  const plainPdf = (count: number, extra = '') => enc(`%PDF-1.4\n${catalog}2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count ${count}${extra} >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> >>\nendobj\ntrailer\n<< /Size 5 /Root 1 0 R >>\n%%EOF\n`);
+  const deflate = async (s: string | Buffer) => new Uint8Array((await import('node:zlib')).deflateSync(typeof s === 'string' ? Buffer.from(s, 'latin1') : s));
+  // Catalog and page tree inside a Flate object stream, found through a cross-reference stream's /Root (PDF 1.5).
   const compressedPdf = async (count: number) => {
-    const { deflateSync } = await import('node:zlib');
-    const objects = `2 0 3 44 << /Type /Pages /Kids [3 0 R] /Count ${count} >> << /Type /Page /Parent 2 0 R >>`;
-    const data = new Uint8Array(deflateSync(Buffer.from(objects, 'latin1')));
+    const objs = `<< /Type /Catalog /Pages 2 0 R >> << /Type /Pages /Kids [3 0 R] /Count ${count} >>`;
+    const second = objs.indexOf('<< /Type /Pages');
+    const head = `1 0 2 ${second} `;
+    const data = await deflate(head + objs);
     return join(
-      enc('%PDF-1.5\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n'),
-      enc(`5 0 obj\n<< /Type /ObjStm /N 2 /First 10 /Filter /FlateDecode /Length ${data.length} >>\nstream\n`),
+      enc('%PDF-1.5\n'),
+      enc(`5 0 obj\n<< /Type /ObjStm /N 2 /First ${head.length} /Filter /FlateDecode /Length ${data.length} >>\nstream\n`),
       data,
-      enc('\nendstream\nendobj\n%%EOF\n'),
+      enc('\nendstream\nendobj\n6 0 obj\n<< /Type /XRef /Root 1 0 R /Size 7 /W [1 2 1] /Length 0 >>\nstream\n\nendstream\nendobj\n%%EOF\n'),
     );
   };
   const out = (name: string, contents: string) => ({ AI: ai({ name, format: 'markdown', data: `# ${name}\n## Metadata\n- Producer=Writer\n\n## Contents\n${contents}` }) });
 
-  it('reads the root page count, from plain objects and from compressed object streams', async () => {
+  it('follows the catalog to the page tree, in plain objects and in compressed object streams', async () => {
     const { pdfPageCount } = await import('../../worker/sources/pdfpages');
     expect(await pdfPageCount(plainPdf(1))).toBe(1);
     expect(await pdfPageCount(plainPdf(12))).toBe(12);
@@ -172,6 +176,42 @@ describe('declared PDF page count', () => {
     // A count inside a nested dictionary is not the node's own.
     expect(await pdfPageCount(plainPdf(1, ' /X << /Count 7 >>'))).toBe(1);
     expect(await pdfPageCount(new Uint8Array([37, 80, 68, 70]))).toBeNull();
+  });
+  it('reads the newest page tree after an incremental update, not a stale or unreferenced larger one', async () => {
+    const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+    // Pages deleted in an update: the old tree said 3, the newest says 1.
+    const updated = join(plainPdf(3), enc('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\ntrailer\n<< /Size 5 /Root 1 0 R /Prev 9 >>\n%%EOF\n'));
+    expect(await pdfPageCount(updated)).toBe(1);
+    // A larger page tree the catalog does not point to.
+    const stray = join(plainPdf(1), enc('9 0 obj\n<< /Type /Pages /Kids [] /Count 5 >>\nendobj\n'));
+    expect(await pdfPageCount(stray)).toBe(1);
+    // Object and trailer tokens inside a content stream are not objects.
+    const body = '9 0 obj << /Type /Pages /Count 9 >> endobj trailer << /Root 9 0 R >>';
+    const inStream = join(plainPdf(1).subarray(0, plainPdf(1).length - 6), enc(`7 0 obj\n<< /Length ${body.length} >>\nstream\n${body}\nendstream\nendobj\n%%EOF\n`));
+    expect(await pdfPageCount(inStream)).toBe(1);
+  });
+  it('inflates object streams only within a fixed budget', async () => {
+    const { pdfPageCount, MAX_INFLATE } = await import('../../worker/sources/pdfpages');
+    // A small stream that inflates to far more than the budget, claiming its objects start past the budget.
+    const bomb = await deflate(Buffer.alloc(MAX_INFLATE * 8));
+    expect(bomb.length).toBeLessThan(200_000);
+    const pdf = join(
+      enc('%PDF-1.5\n'),
+      enc(`5 0 obj\n<< /Type /ObjStm /N 2 /First ${MAX_INFLATE * 4} /Filter /FlateDecode /Length ${bomb.length} >>\nstream\n`),
+      bomb,
+      enc('\nendstream\nendobj\n6 0 obj\n<< /Type /XRef /Root 1 0 R /Size 7 /W [1 2 1] /Length 0 >>\nstream\n\nendstream\nendobj\n%%EOF\n'),
+    );
+    expect(await pdfPageCount(pdf)).toBeNull();
+    // A page tree that can only be reached by inflating past the budget is not read: no count rather than the memory.
+    const pad = ' '.repeat(MAX_INFLATE + 1024);
+    const deep = await deflate(`2 ${pad.length} ${pad}<< /Type /Pages /Kids [] /Count 1 >>`);
+    const far = join(
+      enc(`%PDF-1.5\n${catalog}`),
+      enc(`5 0 obj\n<< /Type /ObjStm /N 1 /First ${`2 ${pad.length} `.length} /Filter /FlateDecode /Length ${deep.length} >>\nstream\n`),
+      deep,
+      enc('\nendstream\nendobj\ntrailer\n<< /Size 6 /Root 1 0 R >>\n%%EOF\n'),
+    );
+    expect(await pdfPageCount(far)).toBeNull();
   });
   it('keeps a "### Page 2" line that is the text of a one-page PDF, instead of calling it a scan', async () => {
     const r = await readDocument(out('h.pdf', '### Page 1\n### Page 2\n'), { name: 'h.pdf', bytes: plainPdf(1) });
