@@ -16,6 +16,7 @@ import { randomBytes } from 'node:crypto';
 
 const BASE = (process.env.BASE_URL || 'https://jamjam.tech').replace(/\/$/, '');
 const SITE = process.env.SITE || 'https://adna.network';
+const PASTED_TEXT = process.env.PASTED_TEXT?.trim();
 const SB = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const PK = process.env.SUPABASE_PUBLISHABLE_KEY || '';
 const SK = process.env.SUPABASE_SECRET_KEY || '';
@@ -84,7 +85,11 @@ out(`J0 anonymous session ${anon.user.id}`);
 const host = new URL(SITE).hostname.replace(/^www\./, '');
 const { brand } = await must('create brand', api(anonToken, 'POST', '/brands', { name: host.split('.')[0], website: SITE }));
 out(`J0 brand ${brand.id} (${brand.name})`);
-let read = await must('read site', api(anonToken, 'POST', `/brands/${brand.id}/sources`, { url: SITE }), [200, 201, 202, 409]);
+let read = PASTED_TEXT
+  ? await must('read supplied pasted source', api(anonToken, 'POST', `/brands/${brand.id}/runs`, { kind: 'extract_facts', reader: 'paste', text: PASTED_TEXT, name: `${host} website text` }), [200, 201, 202])
+  : await must('read site', api(anonToken, 'POST', `/brands/${brand.id}/sources`, { url: SITE }), [200, 201, 202, 409]);
+if (PASTED_TEXT) out(`J1 using real pasted source (${PASTED_TEXT.length} characters); website-reader success is not claimed`);
+read.runId ||= read.run?.id;
 // Accepted workflow reads return 202; legacy 409 responses also name a run (issue #114).
 if (read.runId && read.facts === undefined) {
   out(`J1 still reading (run ${read.runId}); polling`);

@@ -12,6 +12,9 @@ on:
       site:
         description: Site to read
         default: https://adna.network
+      source_text:
+        description: Optional real pasted source text; uses the existing paste-source path
+        default: ''
       record_demo:
         description: Record honest playback of live results and labeled product previews
         type: boolean
@@ -43,6 +46,7 @@ jobs:
         env:
           BASE_URL: https://jamjam.tech
           SITE: ${{ inputs.site }}
+          PASTED_TEXT: ${{ inputs.source_text }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
