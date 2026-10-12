@@ -50,6 +50,12 @@ create index if not exists evidence_brand_slot on public.evidence(brand_id, slot
 -- reported usage.cost, 0 for free models; null when not reported), so a brand's cost is a sum over its runs' steps.
 -- record_run_step (spec/db/010) is redefined to store it; everything else it does is unchanged.
 alter table public.run_steps add column if not exists cost_usd numeric;
+-- metered_calls: the metered calls the attempt made (its step's `metered` count, types.ts StepBase), recorded for every
+-- attempt, failed ones included, whatever its cost; a call whose provider reports no cost is still counted.
+alter table public.run_steps add column if not exists metered_calls int;
+do $$ begin
+  alter table public.run_steps add constraint run_steps_metered_calls_check check (metered_calls is null or metered_calls >= 0);
+exception when duplicate_object then null; end $$;
 do $$ begin
   alter table public.run_steps add constraint run_steps_cost_check check (cost_usd is null or cost_usd >= 0);
 exception when duplicate_object then null; end $$;
@@ -57,9 +63,9 @@ create or replace function public.record_run_step(p_run uuid, p_step jsonb, p_pa
 returns boolean language plpgsql security invoker set search_path = public as $fn$
 begin
   if p_step is not null and jsonb_typeof(p_step) = 'object' then
-    insert into public.run_steps (run_id, step, attempt, type, outcome, prompt_key, prompt_version, prompt_hash, model, tokens_in, tokens_out, cost_usd, duration_ms, error)
-    select p_run, x.step, coalesce(x.attempt, 1), x.type, x.outcome, x.prompt_key, x.prompt_version, x.prompt_hash, x.model, x.tokens_in, x.tokens_out, x.cost_usd, coalesce(x.duration_ms, 0), x.error
-    from jsonb_to_record(p_step) as x(step text, attempt int, type text, outcome text, prompt_key text, prompt_version int, prompt_hash text, model text, tokens_in int, tokens_out int, cost_usd numeric, duration_ms int, error text);
+    insert into public.run_steps (run_id, step, attempt, type, outcome, prompt_key, prompt_version, prompt_hash, model, tokens_in, tokens_out, cost_usd, metered_calls, duration_ms, error)
+    select p_run, x.step, coalesce(x.attempt, 1), x.type, x.outcome, x.prompt_key, x.prompt_version, x.prompt_hash, x.model, x.tokens_in, x.tokens_out, x.cost_usd, x.metered_calls, coalesce(x.duration_ms, 0), x.error
+    from jsonb_to_record(p_step) as x(step text, attempt int, type text, outcome text, prompt_key text, prompt_version int, prompt_hash text, model text, tokens_in int, tokens_out int, cost_usd numeric, metered_calls int, duration_ms int, error text);
   end if;
   update public.runs set
     status = coalesce(p_patch->>'status', status),
@@ -265,19 +271,42 @@ create trigger evidence_rederive_after_review after update on public.evidence
 revoke all on function public.rederive_conflicts_after_delete() from public, anon, authenticated;
 revoke all on function public.rederive_conflicts_after_review() from public, anon, authenticated;
 
--- Admits a run atomically (engine/api.ts start(); design review and Codex review on PR #91, Codex review on PR #100):
--- one transaction per brand, serialised by a transaction-scoped advisory lock on the brand, checks the run rate (runs
--- started in the last hour), then, for a run with metered steps, the brand's spend today (UTC: the sum of run_steps.
--- cost_usd, failed attempts included) against its daily allowance, and the metered-call budget (metered calls made
--- today plus the calls still planned by the brand's runs going plus this run's plan), then writes the run row as the
--- reservation. The Worker computes the
--- caps and the plan (engine/guards.ts); two starts at the edge cannot both pass. Refusals are PT429.
+-- Admission (engine/api.ts admit; design review and Codex reviews on PR #91 and PR #100): one transaction, serialised
+-- by transaction-scoped advisory locks on the brand and, for an anonymous caller, on its network key, that checks every
+-- cap and then writes the run row as a reservation ('reserved', reserved_until = now + p_ttl_s). Checks, in order: the
+-- anonymous caller's runs from its network in the last hour (p_client_key is an HMAC of the IP computed by the Worker,
+-- never the IP itself); the brand's run rate (runs started in the last hour); and, for a run with metered steps, the
+-- brand's spend today (UTC: the sum of run_steps.cost_usd, failed attempts included) against its daily allowance and
+-- the metered-call budget (metered calls made today, plus what runs still going or reserved have not used of their
+-- plan, plus this run's plan). The Worker computes the caps and the plan (engine/guards.ts). A reservation becomes the
+-- run when engine/api.ts start writes its input (status 'running'); released, it is deleted; expired, it is ignored by
+-- every count and deleted at the brand's next admission, so abandoned work frees its capacity. Refusals are PT429.
 alter table public.runs add column if not exists metered_planned int check (metered_planned is null or metered_planned >= 0);
-create or replace function public.admit_run(p_brand uuid, p_kind text, p_version int, p_executor text, p_progress jsonb, p_created_by uuid, p_planned int, p_budget int, p_run_rate int, p_spend_cap numeric)
+alter table public.runs add column if not exists reserved_until timestamptz;
+alter table public.runs add column if not exists client_key text;
+do $$ begin
+  alter table public.runs drop constraint if exists runs_status_check;
+  alter table public.runs add constraint runs_status_check check (status in ('reserved','running','paused','done','failed','superseded'));
+end $$;
+create index if not exists runs_client_recent on public.runs(client_key, created_at) where client_key is not null;
+drop function if exists public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric);
+create or replace function public.admit_run(p_brand uuid, p_kind text, p_version int, p_executor text, p_progress jsonb, p_created_by uuid,
+  p_planned int, p_budget int, p_run_rate int, p_spend_cap numeric, p_client_key text, p_client_cap int, p_ttl_s int)
 returns jsonb language plpgsql security invoker set search_path = public as $fn$
-declare v_today timestamptz := date_trunc('day', now(), 'UTC'); v_recent int; v_used int := 0; v_reserved int := 0; v_spent numeric := 0; v_run public.runs;
+declare
+  v_today timestamptz := date_trunc('day', now(), 'UTC'); v_recent int; v_used int := 0; v_reserved int := 0; v_spent numeric := 0;
+  v_run public.runs;
 begin
   perform pg_advisory_xact_lock(hashtextextended('admit_run:' || p_brand::text, 0));
+  if p_client_key is not null then perform pg_advisory_xact_lock(hashtextextended('admit_client:' || p_client_key, 0)); end if;
+  delete from public.runs where brand_id = p_brand and status = 'reserved' and reserved_until <= now();
+  if p_client_key is not null then
+    select count(*) into v_recent from public.runs where client_key = p_client_key and created_at >= now() - interval '1 hour'
+      and (status <> 'reserved' or reserved_until > now());
+    if v_recent >= p_client_cap then
+      raise sqlstate 'PT429' using message = 'too many reads from your network; wait a little and try again';
+    end if;
+  end if;
   select count(*) into v_recent from public.runs where brand_id = p_brand and created_at >= now() - interval '1 hour';
   if v_recent >= p_run_rate then
     raise sqlstate 'PT429' using message = format('this brand has started %s runs in the last hour; wait a little and try again', p_run_rate);
@@ -288,22 +317,26 @@ begin
     if v_spent >= p_spend_cap then
       raise sqlstate 'PT429' using message = format('this brand has spent $%s of its $%s daily allowance for paid services; try again after 00:00 UTC', trim_scale(round(v_spent, 4)), trim_scale(p_spend_cap));
     end if;
-    select count(*) into v_used from public.run_steps s join public.runs r on r.id = s.run_id
-    where r.brand_id = p_brand and s.created_at >= v_today and (s.type = 'llm' or s.cost_usd is not null);
+    -- Calls made: each attempt's metered_calls; for a trace written without it, 1 for a model call or a costed call.
+    select coalesce(sum(coalesce(s.metered_calls, case when s.type = 'llm' or s.cost_usd is not null then 1 else 0 end)), 0) into v_used
+    from public.run_steps s join public.runs r on r.id = s.run_id
+    where r.brand_id = p_brand and s.created_at >= v_today;
     select coalesce(sum(greatest(r.metered_planned - (
-      select count(*) from public.run_steps s where s.run_id = r.id and (s.type = 'llm' or s.cost_usd is not null)), 0)), 0)
-    into v_reserved from public.runs r where r.brand_id = p_brand and r.status in ('running','paused') and r.metered_planned is not null;
+      select coalesce(sum(coalesce(s.metered_calls, case when s.type = 'llm' or s.cost_usd is not null then 1 else 0 end)), 0)
+      from public.run_steps s where s.run_id = r.id), 0)), 0)
+    into v_reserved from public.runs r
+    where r.brand_id = p_brand and r.metered_planned is not null and (r.status in ('running','paused') or (r.status = 'reserved' and r.reserved_until > now()));
     if v_used + v_reserved + p_planned > p_budget then
       raise sqlstate 'PT429' using message = format('this brand has used its %s metered calls for today (%s made, %s reserved by runs still going, %s needed); try again after 00:00 UTC', p_budget, v_used, v_reserved, p_planned);
     end if;
   end if;
-  insert into public.runs (brand_id, kind, workflow_version, executor, status, input, progress, created_by, metered_planned)
-  values (p_brand, p_kind, p_version, p_executor, 'running', '{}'::jsonb, p_progress, p_created_by, p_planned)
+  insert into public.runs (brand_id, kind, workflow_version, executor, status, input, progress, created_by, metered_planned, reserved_until, client_key)
+  values (p_brand, p_kind, p_version, p_executor, 'reserved', '{}'::jsonb, p_progress, p_created_by, p_planned, now() + make_interval(secs => p_ttl_s), p_client_key)
   returning * into v_run;
   return to_jsonb(v_run);
 end $fn$;
-revoke all on function public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric) from public, anon, authenticated;
-grant execute on function public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric) to service_role;
+revoke all on function public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric, text, int, int) from public, anon, authenticated;
+grant execute on function public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric, text, int, int) to service_role;
 
 -- Models per task (web/worker/models.ts; the value mirrors web/worker/engine/seed.ts EXTRACT_MODELS, and
 -- worker-extract.test.ts fails if they drift apart): the extractor and its support judge, from different model

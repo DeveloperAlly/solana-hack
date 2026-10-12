@@ -7,7 +7,7 @@
 // part-way with nothing to resume it. Multi-step definitions need Workflows, and the executor refuses them inline.
 import { db } from '../db';
 import { HttpError, safeError, type Env } from '../env';
-import { runWorkflow, type RunnerDeps, type StepApi } from './runner';
+import { encodeError, runWorkflow, type RunnerDeps, type StepApi } from './runner';
 import type { RunRow, WorkflowSpec } from './types';
 
 export type ExecutorName = 'workflows' | 'inline';
@@ -43,9 +43,15 @@ export function inlineStep(sleep = (ms: number) => new Promise((r) => setTimeout
         }
       }
     },
-    // No inline run can outlive its request, so a pause leaves the run 'paused' with its resume_at; starting it again
-    // is a new run.
-    async sleepUntil() { throw localDeps.nonRetryable('E0|parked|paused until resume_at'); },
+    // An inline run cannot outlive its request (waitUntil, above), and nothing would wake it at resume_at, so it never
+    // parks: the run ends failed with when to try again, and as a failed run it holds no capacity (spec/db/011
+    // admit_run counts only runs still going). Durable sleeps are what Cloudflare Workflows' step.sleepUntil is for
+    // (https://developers.cloudflare.com/workflows/build/sleeping-and-retrying/); a cron sweep is not used, because
+    // it would need its own trigger to resume runs that the Workflows executor already resumes. PR #99 review.
+    async sleepUntil(_name, timestamp) {
+      const at = new Date(timestamp).toISOString().slice(11, 16);
+      throw localDeps.nonRetryable(encodeError(429, 'fail', `The AI model's free daily allowance is used up, so this run stopped. Start it again after ${at} UTC.`));
+    },
   };
 }
 
