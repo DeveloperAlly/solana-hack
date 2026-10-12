@@ -16,7 +16,7 @@ const POLISH = [
   { action: 'beautify_accessible', label: 'Beautify (accessible)' },
 ];
 // Same rule as the server (isCurrentPolicy): only a passing result in the current shape lets a post register.
-const POLICY_VERSION = 2; // must match the server's POLICY_VERSION
+const POLICY_VERSION = 3; // must match the server's POLICY_VERSION
 const policyCurrent = (p?: { v?: number; passed: boolean; blocked?: string[]; unsupported?: string[] }) => !!p && p.v === POLICY_VERSION && p.passed && Array.isArray(p.blocked) && !p.blocked.length && Array.isArray(p.unsupported) && !p.unsupported.length;
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
 
