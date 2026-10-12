@@ -1,6 +1,6 @@
 /*
  * Data contract: Outcome-Log (canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, board Outcome-Log; issue #51)
- * Backend map: no row yet. The canvas cites draft backlog row N3a (proposed; sources in the personal-brand repo). Closest
+ * Backend map: no row yet; proposed in issue #51. Closest
  * existing table: `leads` (§3 "Experimental or later"); attribution comes from registrations (row "Ledger"). Shape: OutcomeLogData.
  *
  * | Field                | Source                                                        | Empty when          |
@@ -27,8 +27,8 @@ const filterOptions = filterOptionsFrom(fitChips);
 
 export function OutcomeLog({ data, state = 'success' }: { data: OutcomeLogData; state?: ScreenState }) {
   return (
-    <SoonHubFrame header={{ title: 'What came in', intro: 'Inbound you can trace to your posts, qualified against your audience, through to the outcome.', definedIn: 'draft backlog row N3a (proposed; sources in the personal-brand repo, not yet in this repo)' }}>
-      {/* INTEGRATION: no endpoint yet (backlog N3a); rows will come from leads plus registrations attribution. */}
+    <SoonHubFrame header={{ title: 'What came in', intro: 'Inbound you can trace to your posts, qualified against your audience, through to the outcome.', definedIn: 'canvas board Outcome-Log; no backend row yet (proposed in issue #51)' }}>
+      {/* INTEGRATION: no endpoint yet (issue #51); rows will come from leads plus registrations attribution. */}
       <DataTable<Outcome>
         caption="Inbound and outcomes"
         hideCaption

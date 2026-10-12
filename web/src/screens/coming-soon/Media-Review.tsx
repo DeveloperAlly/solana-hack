@@ -1,6 +1,6 @@
 /*
  * Data contract: Media-Review (canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, board Media-Review; issue #51)
- * Backend map: no media row yet (canvas cites the draft backlog). Checks come from §4 row "Amb-3, M-3"
+ * Backend map: no media row yet (proposed in issue #51). Checks come from §4 row "Amb-3, M-3"
  * GET /api/drafts/:id/checks (D3 ChecksPanel kinds); approval from row "Draft-Review" POST …/approve, then a SAS
  * content attestation (row "Publish and Registered"). Shape: MediaReviewData in ./types.
  *
@@ -40,7 +40,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
     setFixing(null);
   };
   return (
-    <SoonHubFrame header={{ title: 'Review your carousel', intro: 'Every slide passes the same checks as a post before you can approve it.', definedIn: 'draft backlog (media review); ChecksPanel D3 in the component inventory' }}>
+    <SoonHubFrame header={{ title: 'Review your carousel', intro: 'Every slide passes the same checks as a post before you can approve it.', definedIn: 'ChecksPanel D3 in the component inventory; no backend row yet (proposed in issue #51)' }}>
       {approved ? (
         // INTEGRATION: POST /api/drafts/:id/approve, then the Registrar's SAS content attestation.
         <StatePanel kind="success" title="Approved and registered" body="Every slide passed its checks. Anyone can now check this carousel on Verify." actions={<Button href={routes.publishCalendar}>Schedule it</Button>} />

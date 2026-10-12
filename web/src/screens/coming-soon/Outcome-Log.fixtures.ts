@@ -1,5 +1,5 @@
 // Sample data for Outcome-Log. Source: wireframe canvas (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn), board
-// Outcome-Log, issue #51; backend map: no row yet (canvas: draft backlog row N3a, proposed); closest table is `leads`
+// Outcome-Log, issue #51; backend map: no row yet (proposed in issue #51); closest table is `leads`
 // (§3 "Experimental or later"). Every value is bracketed as on the canvas: roles and company types only.
 import type { OutcomeLogData } from './types';
 

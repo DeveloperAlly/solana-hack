@@ -327,8 +327,8 @@ describe('Brands and founder', () => {
     await user.type(screen.getByLabelText(/Website domain/), 'gamerslab.example');
     await user.click(screen.getByRole('button', { name: 'Add brand' }));
     expect(screen.getByRole('button', { name: 'Switch to GamersLab' })).toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'Open Ally Haire' }));
-    expect(h1('Founder profile: Ally Haire')).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'Open [Founder name]' }));
+    expect(h1('Founder profile: [Founder name]')).toBeInTheDocument();
   });
 
   it('founder profile adds and removes sources and toggles shared stories', async () => {

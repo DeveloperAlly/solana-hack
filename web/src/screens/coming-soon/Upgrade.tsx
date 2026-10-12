@@ -33,7 +33,7 @@ export function Upgrade({ data, state = 'success' }: { data: UpgradeData; state?
   // INTEGRATION: the billing provider's checkout (G-BILLING); the error state stands in for a decline.
   const pay = () => setPhase(state === 'error' ? 'failed' : 'paid');
   return (
-    <SoonHubFrame header={{ title: 'Upgrade to Solo', intro: 'One page from choosing a plan to paid.', definedIn: "draft backlog launch check: one page from 'I want to pay' to paid; G-BILLING" }}>
+    <SoonHubFrame header={{ title: 'Upgrade to Solo', intro: 'One page from choosing a plan to paid.', definedIn: 'backend map G-BILLING (provider not chosen); issue #51' }}>
       <StateView state={state} loading={{ title: 'Taking payment', body: 'Waiting for the billing provider. Do not close this page.' }}>
         {phase === 'paid' ? (
           <StatePanel kind="success" title="You're on Solo" body={data.keepNote} actions={<Button href={routes.settingsPlan}>See your plan</Button>} />

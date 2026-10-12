@@ -6,7 +6,7 @@ export const brandSwitcher: BrandSwitcherData = {
   brands: [
     { id: 'jamjam', name: 'JamJam', detail: 'jamjam.tech', status: 'self-declared' },
     { id: 'adna', name: 'aDNA', detail: 'adna.network', status: 'domain-verified' },
-    { id: 'founder', name: 'Ally Haire', detail: 'founder profile, linked to JamJam', status: 'person' },
+    { id: 'founder', name: '[Founder name]', detail: 'founder profile, linked to JamJam', status: 'person' },
   ],
   currentId: 'jamjam',
   founderId: 'founder',

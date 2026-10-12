@@ -1,6 +1,6 @@
 // Sample data for Pricing. Source: wireframe canvas (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn), board Pricing,
 // issue #51; backend map G-BILLING (provider not chosen). Prices stay bracketed: the owner has not decided them (issue #51).
-// The market band note is the canvas text, citing research 10 §6.
+// The market band note is the canvas text, citing .agentic/what/context/research/10_competitor_onboarding_pricing.md §6.
 import type { PricingData } from './types';
 
 export const pricing: PricingData = {

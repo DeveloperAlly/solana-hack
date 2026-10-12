@@ -1,6 +1,6 @@
 /*
  * Data contract: Media-Composer (canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, board Media-Composer; issue #51)
- * Backend map: no row yet; the canvas cites the draft backlog's media rows (unmerged). Closest row: §4 "Draft-Review"
+ * Backend map: no row yet; proposed in issue #51. Closest row: §4 "Draft-Review"
  * (GET/PATCH /api/drafts/:id, table drafts), since slides are drafted from an approved post. Shape: MediaComposerData.
  *
  * | Field                   | Source                                                      | Empty when                  |
@@ -40,7 +40,7 @@ export function MediaComposer({ data, state = 'success' }: { data: MediaComposer
     if (!empty) navigate(routes.mediaReview);
   };
   return (
-    <SoonHubFrame header={{ title: 'Make a carousel', intro: 'Carousels, image cards and short videos from your kit, in your look.', definedIn: 'draft backlog (media rows, unmerged); research cited there is not yet in the repo' }}>
+    <SoonHubFrame header={{ title: 'Make a carousel', intro: 'Carousels, image cards and short videos from your kit, in your look.', definedIn: 'canvas board Media-Composer; no backend row yet (proposed in issue #51)' }}>
       <StateView
         state={state}
         loading={{ title: 'Drafting slides', body: 'Writing each slide from the post, in your voice.' }}

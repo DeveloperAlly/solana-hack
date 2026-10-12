@@ -4,9 +4,9 @@
  *
  * | Field           | Source                                                              | Empty when |
  * |-----------------|---------------------------------------------------------------------|------------|
- * | tiers[].name    | Static: tiers proposed in the draft backlog (owner to decide)       | never      |
+ * | tiers[].name    | Static: tiers drawn on the canvas board Pricing (owner to decide)   | never      |
  * | tiers[].price   | Static placeholder "[price]" until the owner sets prices            | never      |
- * | tiers[].note    | Research 10 §6 price band (canvas text)                             | no note    |
+ * | tiers[].note    | .agentic/what/context/research/10_competitor_onboarding_pricing.md §6 | no note  |
  * | footnote        | Static copy (canvas)                                                | never      |
  *
  * Public page (PublicShell). States: success only (static content, no request).
@@ -29,7 +29,7 @@ export function Pricing({ data }: { data: PricingData }) {
           <SoonPageHeader
             title="Pricing"
             intro="Start free. Pay when you post every week."
-            definedIn="backend map G-BILLING; research 10 §6 price bands; tiers proposed in the draft backlog (owner to decide)"
+            definedIn="backend map G-BILLING; research 10 §6 price bands; tiers from the canvas (owner to decide)"
           />
           <Grid min="md" gap={5}>
             {data.tiers.map((t) => (

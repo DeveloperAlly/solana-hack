@@ -3,7 +3,7 @@
 import type { FounderProfileData } from './types';
 
 export const founderProfile: FounderProfileData = {
-  name: 'Ally Haire',
+  name: '[Founder name]',
   sources: [
     { id: 'cv', name: 'CV or LinkedIn export', detail: '[uploaded]', status: 'uploaded' },
     { id: 'perception', name: 'How others see you', detail: '[perception audit, optional]', status: 'optional' },

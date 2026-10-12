@@ -1,5 +1,5 @@
 // Sample data for Media-Composer. Source: wireframe canvas (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn), board
-// Media-Composer, issue #51; backend map: no row yet (canvas: "draft backlog (media rows, unmerged)"). Slide roles are the
+// Media-Composer, issue #51; backend map: no row yet (proposed in issue #51). Slide roles are the
 // canvas labels; slide text is bracketed because the canvas draws none.
 import type { MediaComposerData } from './types';
 
