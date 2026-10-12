@@ -25,7 +25,7 @@ export interface ChatOptions {
 /** A free model variant id (OpenRouter's `:free` suffix: https://openrouter.ai/docs/guides/routing/routers/free-router). */
 export const isFreeModel = (id: string) => /^[a-z0-9][\w.-]*\/[\w.:-]+:free$/i.test(id);
 
-export interface ChatResult { text: string; model: string; usage?: { promptTokens?: number; completionTokens?: number } }
+export interface ChatResult { text: string; model: string; usage?: { promptTokens?: number; completionTokens?: number; cost?: number } }
 
 /** The request body for one call (exported for tests, which check the exact shape sent). */
 export function chatBody(model: string, system: string, user: string, opts: ChatOptions = {}) {
@@ -66,7 +66,7 @@ export async function chat(env: Env, system: string, user: string, opts: ChatOpt
       await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
       continue;
     }
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[]; model?: string; usage?: { prompt_tokens?: number; completion_tokens?: number }; error?: { message?: string; code?: unknown } };
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[]; model?: string; usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number }; error?: { message?: string; code?: unknown } };
     if (!res.ok) {
       // Logging policy: status and provider error code only. Provider messages are never logged, so prompt content cannot reach the logs.
       console.error('llm error', { status: res.status, code: typeof data.error?.code === 'string' || typeof data.error?.code === 'number' ? data.error.code : undefined });
@@ -74,7 +74,7 @@ export async function chat(env: Env, system: string, user: string, opts: ChatOpt
     }
     const text = data.choices?.[0]?.message?.content ?? '';
     console.log('llm call', { model: data.model ?? (opts.models ? '' : model), chars: text.length, schema: opts.schema?.name });
-    const usage = data.usage ? { promptTokens: data.usage.prompt_tokens, completionTokens: data.usage.completion_tokens } : undefined;
+    const usage = data.usage ? { promptTokens: data.usage.prompt_tokens, completionTokens: data.usage.completion_tokens, ...(typeof data.usage.cost === 'number' && Number.isFinite(data.usage.cost) && data.usage.cost >= 0 ? { cost: data.usage.cost } : {}) } : undefined;
     return { text, model: data.model ?? (opts.models ? '' : model), ...(usage ? { usage } : {}) };
   }
   console.error('llm retries exhausted', { status: last });

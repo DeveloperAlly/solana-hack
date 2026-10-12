@@ -9,7 +9,7 @@ const { handleApi } = await import('../../worker/api');
 const { HttpError } = await import('../../worker/env');
 const { runWorkflow, decodeError, nextUtcMidnight, RATE_LIMIT_DELAY_MS } = await import('../../worker/engine/runner');
 const { inlineStep, localDeps, launch } = await import('../../worker/engine/executor');
-const { STILL_READING } = await import('../../worker/engine/api');
+const { STILL_READING, ingestSource } = await import('../../worker/engine/api');
 const { INGEST_URL, EXTRACT_FACTS_PROMPT } = await import('../../worker/engine/seed');
 const { render } = await import('../../worker/engine/prompts');
 const { normalisePage, quoteOnPage, MAX_QUOTE } = await import('../../worker/quote');
@@ -33,6 +33,7 @@ let step = fakeStep();
 
 beforeEach(async () => {
   await seedTables();
+  db.tables.workflow_defs.find((d) => d.id === 'ingest_url')!.status = 'active';
   pageFails = 0; pageFetches = 0; llmCalls = 0; external = []; started = []; runOnCreate = true; onCreate = undefined; step = fakeStep();
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     external.push(url.split('?')[0]);
@@ -71,6 +72,22 @@ const call = async (method: string, path: string, body?: unknown) => {
     throw e;
   }
 };
+/**
+ * These tests drive the engine with ingest_url v1, its one-model-call workflow, through ingestSource (the body of POST
+ * /api/brands/:id/sources). Migration 011 retires ingest_url for new runs and the route now starts extract_facts
+ * (worker-extract.test.ts covers the route), so each test re-activates it here: the engine's behaviour does not depend
+ * on which workflow the route starts.
+ */
+const addSource = async (body: Record<string, unknown>) => {
+  const brand = db.tables.brands[0] as never;
+  try {
+    const r = await ingestSource(envWith, { waitUntil: () => undefined }, { id: 'u' }, brand, body, 'ingest_url');
+    return { status: r.status, body: r.body as Record<string, unknown> };
+  } catch (e) {
+    if (e instanceof HttpError) return { status: e.status, body: { error: e.message } as Record<string, unknown> };
+    throw e;
+  }
+};
 const run = () => db.tables.runs[0] as Row & { id: string; status: string; progress: { done: number; total: number; steps: { id: string; status: string }[]; message?: string } };
 const steps = (name?: string) => db.tables.run_steps.filter((s) => !name || s.step === name);
 
@@ -88,7 +105,7 @@ describe('definitions are data', () => {
 
 describe('ingest runs on the engine (POST /api/brands/:id/sources)', () => {
   it('answers as before, keeps only quotes it checked, and stores the full source text', async () => {
-    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    const r = await addSource({ url: 'https://example.com' });
     expect(r.status).toBe(201);
     expect(r.body).toMatchObject({ facts: 1, dropped: 2, kind: 'page', needsReview: 1, sourceId: db.tables.sources[0].id, runId: run().id });
     expect(started).toEqual([{ id: run().id, params: { runId: run().id } }]);
@@ -103,7 +120,7 @@ describe('ingest runs on the engine (POST /api/brands/:id/sources)', () => {
   });
 
   it('records the prompt key, version and hash and the model on the llm step, and never content', async () => {
-    await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    await addSource({ url: 'https://example.com' });
     const [llm] = steps('extract');
     expect(llm).toMatchObject({ type: 'llm', outcome: 'ok', prompt_key: 'ingest.extract_facts', prompt_version: 1, prompt_hash: db.tables.prompt_versions[0].hash, model: 'test/model', tokens_in: null, tokens_out: null });
     expect(steps().map((s) => s.step)).toEqual(['read', 'extract', 'check', 'save']);
@@ -126,7 +143,7 @@ describe('ingest runs on the engine (POST /api/brands/:id/sources)', () => {
   });
 
   it('a link that cannot be read answers with the same error, and the source is marked failed', async () => {
-    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'ftp://example.com' });
+    const r = await addSource({ url: 'ftp://example.com' });
     expect(r).toEqual({ status: 400, body: { error: 'only http and https links can be read' } });
     expect(db.tables.sources[0]).toMatchObject({ status: 'failed', error: 'only http and https links can be read' });
     expect(run()).toMatchObject({ status: 'failed', error_code: 400 });
@@ -135,7 +152,7 @@ describe('ingest runs on the engine (POST /api/brands/:id/sources)', () => {
 
   it('does not wait for a run still going: answers non-2xx "still reading" with the run to follow (PR #70 review)', async () => {
     runOnCreate = false;
-    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    const r = await addSource({ url: 'https://example.com' });
     // The shipped Your links step shows the error text of any non-2xx and reloads the list; a 2xx without facts would
     // read "undefined facts" (Build.tsx), so this must not be 2xx.
     expect(r.status).toBe(409);
@@ -150,17 +167,17 @@ describe('ingest runs on the engine (POST /api/brands/:id/sources)', () => {
   it('a paused run answers with its message, still non-2xx', async () => {
     runOnCreate = false;
     onCreate = (id) => Object.assign(db.tables.runs.find((r) => r.id === id)!, { status: 'paused', resume_at: '2026-10-13T00:00:00.000Z', progress: { steps: [], done: 1, total: 4, message: 'This run continues at 00:00 UTC.' } });
-    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    const r = await addSource({ url: 'https://example.com' });
     expect(r).toMatchObject({ status: 409, body: { error: 'This run continues at 00:00 UTC.', status: 'paused', resume_at: '2026-10-13T00:00:00.000Z' } });
   });
 
   it('a run already done answers 201 with facts, as before', async () => {
-    expect((await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' })).body).toMatchObject({ facts: 1, dropped: 2 });
+    expect((await addSource({ url: 'https://example.com' })).body).toMatchObject({ facts: 1, dropped: 2 });
   });
 });
 
 describe('evidence trust through the engine (issue #57, moved from worker-trust.test.ts)', () => {
-  const add = (url: string) => call('POST', `/brands/${BRAND}/sources`, { url });
+  const add = (url: string) => addSource({ url });
   it('a page on the brand website is owned and approved', async () => {
     db.tables.brands[0].website = 'example.com';
     const r = await add('https://www.example.com/about');
@@ -196,7 +213,7 @@ describe('evidence trust through the engine (issue #57, moved from worker-trust.
 describe('a run that cannot load still closes (PR #70 review)', () => {
   const startOnly = async () => {
     runOnCreate = false;
-    await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    await addSource({ url: 'https://example.com' });
   };
   it('a missing definition marks the run and its source failed', async () => {
     await startOnly();
@@ -244,7 +261,7 @@ describe('round 2 review fixes (PR #70)', () => {
   it('a failed run insert closes the source it prepared instead of leaving it pending', async () => {
     const realFetch = globalThis.fetch;
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => (url.endsWith('/rest/v1/runs') && init?.method === 'POST' ? new Response('{}', { status: 503 }) : realFetch(url, init))));
-    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    const r = await addSource({ url: 'https://example.com' });
     expect(r).toEqual({ status: 500, body: { error: 'database error' } });
     expect(db.tables.sources[0]).toMatchObject({ status: 'failed', error: 'the run could not start' });
   });
@@ -264,7 +281,7 @@ describe('round 2 review fixes (PR #70)', () => {
       }
       return realFetch(url, init);
     }));
-    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    const r = await addSource({ url: 'https://example.com' });
     expect(r.status).toBe(201);
     expect(failed).toBe(true);
     expect(db.tables.evidence).toHaveLength(1);
@@ -277,7 +294,7 @@ describe('round 2 review fixes (PR #70)', () => {
 describe('durable runs', () => {
   it('a run survives a forced step failure: the step retries with backoff and the run finishes', async () => {
     pageFails = 1;
-    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    const r = await addSource({ url: 'https://example.com' });
     expect(r.status).toBe(201);
     expect(step.delays).toEqual([{ step: 'read', ms: 5000 }]);
     expect(steps('read').map((s) => [s.attempt, s.outcome])).toEqual([[1, 'error'], [2, 'ok']]);
@@ -306,7 +323,7 @@ describe('durable runs', () => {
   });
 
   it('GET /api/runs/:id is for the brand owner only', async () => {
-    await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    await addSource({ url: 'https://example.com' });
     db.tables.brands[0].owner_id = 'someone-else';
     expect(await call('GET', `/runs/${run().id}`)).toEqual({ status: 404, body: { error: 'run not found' } });
   });
@@ -332,7 +349,7 @@ describe('durable runs', () => {
 
 describe('subrequest budget (Workers Free: 50 per Workflow instance, https://developers.cloudflare.com/workflows/reference/limits/)', () => {
   it('an ingest_url run makes at most 45 external calls on the happy path, counted', async () => {
-    await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    await addSource({ url: 'https://example.com' });
     const inRun = external.slice(external.findIndex((u) => u.endsWith('/rest/v1/runs')) + 1);
     // Everything after the run row is created: the instance's own calls plus the request's final read of the run.
     console.log('ingest_url external calls', { request: external.length, run: inRun.length - 1 });
@@ -344,7 +361,7 @@ describe('subrequest budget (Workers Free: 50 per Workflow instance, https://dev
 describe('inline adapter', () => {
   it('refuses a multi-step definition before writing anything', async () => {
     db.tables.engine_config.push({ key: 'executor', value: 'inline' });
-    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    const r = await addSource({ url: 'https://example.com' });
     expect(r.status).toBe(503);
     expect(r.body.error).toMatch(/single-step workflows only/);
     expect([db.tables.sources.length, db.tables.runs.length]).toEqual([0, 0]);

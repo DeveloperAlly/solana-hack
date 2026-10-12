@@ -1,6 +1,7 @@
 // JamJam Worker: serves the SPA from static assets and answers /api/* (wrangler.jsonc run_worker_first).
 import { registrarFromSecret, registerKitAttestation } from './registry';
 import { handleApi } from './api';
+import { openRouterKeyInfo } from './openrouter';
 import { HttpError, json as jsonOut, rpcHostLabel, safeError, type Env as AppEnv } from './env';
 
 type Env = AppEnv;
@@ -8,23 +9,6 @@ type Env = AppEnv;
 // The Workflows class must be a top-level export of the Worker's main module (wrangler.jsonc "workflows" class_name;
 // https://developers.cloudflare.com/workflows/get-started/guide/#4-write-your-api).
 export { RunWorkflow } from './engine/workflow';
-
-/**
- * Whether the OpenRouter key's account has never bought credits (is_free_tier on GET /api/v1/key,
- * https://openrouter.ai/docs/api-reference/limits): free accounts get 50 free-model requests a day, others 1,000.
- * Only that flag is returned; never the key, its label or its usage. null when unknown.
- */
-async function openRouterFreeTier(key: string | undefined): Promise<boolean | null> {
-  if (!key) return null;
-  try {
-    const res = await fetch('https://openrouter.ai/api/v1/key', { headers: { authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return null;
-    const v = ((await res.json()) as { data?: { is_free_tier?: unknown } }).data?.is_free_tier;
-    return typeof v === 'boolean' ? v : null;
-  } catch {
-    return null;
-  }
-}
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
@@ -57,8 +41,10 @@ export default {
       }
       // ok is false when a registrar key is set but unusable: every registration would fail. The status stays 200 so
       // the Settings screen can still read the diagnostic fields.
-      const isFreeTier = await openRouterFreeTier(env.OPENROUTER_API_KEY);
-      return json({ ok: !registrarError, registrar, registrarError, rpcConfigured: !!env.RPC_URL, aiConfigured: !!env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || 'openrouter/free', isFreeTier });
+      // freeModelDailyLimit: OpenRouter's free-model requests per UTC day for this account, the ceiling every brand's
+      // model-call budget shares (engine/guards.ts).
+      const { isFreeTier, freeModelDailyLimit } = await openRouterKeyInfo(env.OPENROUTER_API_KEY);
+      return json({ ok: !registrarError, registrar, registrarError, rpcConfigured: !!env.RPC_URL, aiConfigured: !!env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || 'openrouter/free', isFreeTier, freeModelDailyLimit });
     }
 
     // S0 done-when (3): one Registrar-signed devnet registration. Deploy-run only (token), so the
