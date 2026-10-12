@@ -41,7 +41,7 @@ Brands sign in with email, so a business that never touches crypto still ends up
 
 **Answer.** These are one buyer and one beachhead:
 - **The buyer is the founder or small team that needs a brand team** (slides 1 to 3).
-- **The first market is crypto and developer teams** (slide 7, [ADR-007](../.agentic/what/decisions/adr_007_pitch_positioning.md)). They are impersonated the most, they already run community programs, and none of their community tools does brand or content ([research 04](../.agentic/what/context/research/04_brand_hub_landscape.md) §5c).
+- **The first market is crypto and developer teams** (slide 7, [ADR-007](../.agentic/what/decisions/adr_007_pitch_positioning.md)). Impersonation scams in crypto grew 1,400% year on year ([Chainalysis](https://www.chainalysis.com/blog/crypto-scams-2026/)), they already run community programs, and none of their community tools does brand or content ([research 04](../.agentic/what/context/research/04_brand_hub_landscape.md) §5c).
 - **After that:** every small brand.
 
 ## 4. The value is one-off, the price is monthly
