@@ -6,7 +6,7 @@ updated: 2026-10-13
 last_edited_by: agent
 tags: [adr, product, information-architecture, navigation, ui]
 ---
-> **Status: proposed.** JamJam's UI is organised around one loop of six steps (Brand, Create, Distribute, Verify, Grow, Learn), opened by a Today queue of decisions, with one Brain that every step reads from and Learn writes back to.
+> **Status: proposed.** JamJam's UI is organised around one loop of six steps (Brand, Create, Distribute, Verify, Grow, Learn), opened by a Today queue of decisions, with one Brain that Create, Distribute and Grow read from, that Verify shows the registered versions of, and that Learn proposes changes to for a person to approve.
 
 # ADR-012: Product architecture, one loop around a Brain
 
@@ -69,7 +69,7 @@ tags: [adr, product, information-architecture, navigation, ui]
    - proof sources;
    - **learned rules**.
 
-   Create and Grow read it, and every draft has a **Why this?** listing the facts, voice and rules it used. This extends "every fact has a receipt" from the kit to every output. Learn proposes rules from results, and a person approves each one before it enters the Brain (ADR-003: a person reviews everything). A rule can be retired, and approvals bound to an older Brain go stale.
+   Create reads it for every draft, Distribute reads its voice and rules to adapt a post per platform, Grow reads it for ambassador kits, campaign briefs and event plans, and Verify shows which kit versions are registered; and every draft has a **Why this?** listing the facts, voice and rules it used. This extends "every fact has a receipt" from the kit to every output. Learn proposes rules from results, and a person approves each one before it enters the Brain (ADR-003: a person reviews everything). A rule can be retired, and approvals bound to an older Brain go stale.
 5. **Proof is ambient.** Verified state shows on every post, in Today, in the ledger and through the public badge. The badge links to Verify, which offers "Make yours on JamJam", so proof also drives distribution.
 6. **Progressive disclosure.** On a first run, Brand, then the first post, then Verify are live. Distribute, Grow and Learn show teaching empty states until they apply. The Journey (J1 to J8) ends on Today, showing "3 of 6".
 7. **Shells by role:**
@@ -91,7 +91,7 @@ The data model is decided in [ADR-013](https://github.com/DeveloperAlly/solana-h
 - **New screens:** Today and M-Today (replacing Hub-Home), Post-Detail with `PostLifecycle` and Why this?, the Brain, Learn-Rules, Verify-Home, Grow-Home, Distribute-Adapt, Events, Event-Detail, and the public Events-Board and Event-Rating. The UI contracts and how they map to ADR-013's modules are in the [coordination comment on issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90#issuecomment-6126672733).
 - **Moved screens:** Campaigns to Grow; Publish-Calendar and Settings-Connections to Distribute.
 - **Code:** every screen has exactly one **home**, which is one of the six steps, Today, a utility (Inbox or Settings) or the first run (landing and Journey), and exactly one **shell** (app, ambassador or public). A screen's home comes from its canvas page, so a public screen still has a step home (Verify-1 is Verify; Events-Board and Referral-Landing are Grow; Invite-Accept is Settings). A test asserts one home and one shell per screen, and that every shell reads `config/nav.ts`.
-- **The canvas is redrawn to the loop** (AGENTS.md rule 8): done in canvas v21, whose pages follow the six steps and whose app boards share one nav. Pending: the landing page copy (`web/src/screens/landing/Landing.tsx` still tells three steps) and the deck text (`.agentic/what/context/pitch_deck_2026_10_06.md` slide 5 still tells Build, Run, Prove, Pay) are to be rewritten to the six steps (decision 9).
+- **The canvas is redrawn to the loop** (AGENTS.md rule 8): done in canvas v21, whose pages follow the six steps and whose app boards share one nav. Pending: the landing page copy (`web/src/screens/landing/Landing.tsx` still tells three steps), the README (its first step reads "Build your brand and voice", not "Brand") and the deck text (`.agentic/what/context/pitch_deck_2026_10_06.md` slide 5 still tells Build, Run, Prove, Pay) are to be rewritten to the six steps (decision 9).
 - **Trade-off:** Create and Distribute stay separate steps. Buffer and Sprout merge them as "Publish". Keeping them apart makes "write once, it goes everywhere" visible as a promise. If usage shows people treat them as one job, they merge under Create.
 - **Companion:** [ADR-013](https://github.com/DeveloperAlly/solana-hack/pull/88) decides the system architecture under this UI; the Brain here is its brand intelligence system (X18). The two are ratified together.
 
