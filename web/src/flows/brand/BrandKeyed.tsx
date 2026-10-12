@@ -1,5 +1,7 @@
 import { Fragment, type ReactNode } from 'react';
-import { activeBrand } from './activeBrand';
+import { Button, Container } from '../../ui/primitives';
+import { EmptyState } from '../../ui/composites/EmptyState';
+import { defaultBrandId, selectBrand, useActiveBrand } from './activeBrand';
 
 /**
  * Mounts its children fresh whenever the active brand changes, so a transient selection made for one brand (a
@@ -8,5 +10,14 @@ import { activeBrand } from './activeBrand';
  * by the screen component above its frame. Brand-owned data that must survive the switch lives in brand-scoped stores.
  */
 export function BrandKeyed({ children }: { children: ReactNode }) {
-  return <Fragment key={activeBrand.use()}>{children}</Fragment>;
+  const brand = useActiveBrand();
+  // An active id the brand catalog does not hold: say so, rather than show the screen under another brand.
+  if (!brand.found) {
+    return (
+      <Container as="main" width="reading">
+        <EmptyState level={1} title="Brand not found" body="This brand is not on your account any more." actions={<Button onClick={() => selectBrand(defaultBrandId)}>Back to your brands</Button>} />
+      </Container>
+    );
+  }
+  return <Fragment key={brand.id}>{children}</Fragment>;
 }
