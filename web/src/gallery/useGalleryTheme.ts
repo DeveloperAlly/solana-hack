@@ -28,6 +28,13 @@ export function useGalleryTheme(): ThemeName {
   return theme;
 }
 
+/** "?theme=<name>" when the URL has one, else "": appended to gallery links so the theme carries over. */
+export function useThemeQuery(): string {
+  const [params] = useSearchParams();
+  const t = params.get('theme');
+  return t ? `?theme=${encodeURIComponent(t)}` : '';
+}
+
 /** Same path, with one search param set (keeps the others). */
 export function withParam(params: URLSearchParams, key: string, value: string): string {
   const next = new URLSearchParams(params);
