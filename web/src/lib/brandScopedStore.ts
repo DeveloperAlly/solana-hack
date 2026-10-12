@@ -12,8 +12,10 @@ export interface BrandSource {
 
 /**
  * A store with one state per brand. `read`, `set` and `use` act on the active brand from `brand`; an untouched
- * brand reads as `{}`, so callers fall back to their fixture defaults.
+ * brand reads as its initial defaults (or `{}` when omitted).
  */
+export function createBrandScopedStore<T extends object>(brand: BrandSource): Store<Partial<T>>;
+export function createBrandScopedStore<T extends object>(brand: BrandSource, initial: T): Store<T>;
 export function createBrandScopedStore<T extends object>(brand: BrandSource, initial: Partial<T> = {}): Store<Partial<T>> {
   const byBrand = createStore<Record<string, Partial<T>>>({});
   const read = () => ({ ...initial, ...byBrand.read()[brand.read()] });

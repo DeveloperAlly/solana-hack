@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { hubNav, routeTagLabels, type NavItem } from '../../config/routes';
 import { mobileTabFor, mobileTabs, type StageId } from '../../config/nav';
 import { supabase } from '../../lib/supabase';
@@ -10,6 +10,7 @@ import { StageTabs } from '../layouts/StageTabs';
 import { useGalleryMode } from '../hooks/galleryMode';
 import { useNavHref } from '../hooks/useNavHref';
 import styles from './AppShell.module.css';
+import { LiveBrandSwitcher } from '../domain/LiveBrandSwitcher';
 
 const livePath = (path: string) => path;
 /** The logo's target in the loop shell: the landing page, as every canvas v21 app board links it (board "Main"). */
@@ -61,7 +62,12 @@ export interface AppShellProps {
  * review on PR #79), so it can only ever sign a real session out on a live route.
  */
 export function AppShell(props: AppShellProps) {
-  return props.stage ? <LoopShell {...props} stage={props.stage} /> : <HubShell {...props} />;
+  const { pathname } = useLocation();
+  const gallery = useGalleryMode();
+  const liveStages: Record<string, StageId> = { '/home': 'today', '/brand': 'brand', '/build': 'brand', '/create': 'create', '/distribute': 'distribute', '/verify-home': 'verify', '/grow': 'grow', '/learn': 'learn', '/analytics': 'learn', '/inbox': 'inbox', '/settings': 'settings' };
+  const inferred = !gallery && !props.preview && !props.nav && !props.navHref ? liveStages[`/${pathname.split('/')[1]}`] : undefined;
+  const stage = props.stage ?? inferred;
+  return stage ? <LoopShell {...props} brandSlot={props.brandSlot ?? (inferred ? <LiveBrandSwitcher /> : undefined)} stage={stage} /> : <HubShell {...props} />;
 }
 
 /** Sign out, inert in preview and in the gallery. */

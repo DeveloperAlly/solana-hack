@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError } from './api';
 import { useAuth } from './auth';
+import { useLocation } from 'react-router';
 
 export interface LiveBrand { id: string; name: string }
 interface Catalog { brands: LiveBrand[]; id: string | null; loading: boolean; error: string | null; select: (id: string) => void; refresh: (preferred?: string) => Promise<void> }
@@ -42,7 +43,9 @@ function useCatalog(scope: string | null, enabled: boolean, persist: boolean): C
 
 export function LiveBrandProvider({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
-  const catalog = useCatalog(session?.user.id ?? null, !loading && !!session, true);
+  const { pathname } = useLocation();
+  const liveAccount = ['home', 'brand', 'build', 'create', 'settings', 'journey'].includes(pathname.split('/')[1]);
+  const catalog = useCatalog(session?.user.id ?? null, !loading && !!session && liveAccount, true);
   return <Context.Provider value={catalog}>{children}</Context.Provider>;
 }
 

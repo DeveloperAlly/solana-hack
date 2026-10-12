@@ -1,0 +1,8 @@
+2026-10-12T18:53:43.549Z check-gallery: http://127.0.0.1:4186, themes wireframe, wireframe-dark
+2026-10-12T18:53:50.858Z 112 screens, 267 views, 534 checks (views x themes)
+2026-10-12T18:53:51.017Z PASS: deep link /screens/Brain loads, in-app link to /screens works, back returns to /screens/Brain
+2026-10-12T18:53:51.172Z PASS: theme wireframe-dark kept after in-gallery navigation to /screens/Kit-Export?theme=wireframe-dark
+2026-10-12T18:55:31.952Z PASS: /system workbench, theme wireframe, axe 0
+2026-10-12T18:55:36.886Z PASS: /system workbench, theme wireframe-dark, axe 0
+2026-10-12T18:55:36.886Z axe (colour contrast on): 536 of 536 checks with 0 violations (screens and /system, every theme); /api calls: 0
+2026-10-12T18:55:36.886Z check-gallery PASS

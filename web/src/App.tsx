@@ -1,3 +1,5 @@
+import { Preview } from './screens/preview/Preview';
+import type { ArtboardName } from './config/artboards';
 import { Route, Routes } from 'react-router';
 import { routes } from './config/routes';
 import { Landing } from './screens/landing/Landing';
@@ -15,6 +17,8 @@ import { Settings } from './screens/hub/Settings';
 import { ComingSoon } from './screens/hub/ComingSoon';
 import { HowItWorks } from './screens/public/HowItWorks';
 import { GalleryIndex, GalleryScreen } from './gallery/Gallery';
+
+const previewBoards: Record<string, ArtboardName> = { '/distribute': 'Platforms', '/verify-home': 'Verify-Home', '/grow': 'Grow-Home', '/learn': 'Analytics', '/analytics': 'Analytics', '/inbox': 'Inbox-All' };
 
 export function App() {
   return (
@@ -37,6 +41,7 @@ export function App() {
             : r.screen === 'home' ? <RequireAuth><Home /></RequireAuth>
             : r.screen === 'brand' ? <RequireAuth><Brand /></RequireAuth>
             : r.screen === 'settings' ? <RequireAuth><Settings /></RequireAuth>
+            : r.screen === 'preview' ? <Preview artboard={previewBoards[r.path]} />
             : r.screen === 'soon' ? <RequireAuth><ComingSoon route={r} /></RequireAuth>
             : <Placeholder route={r} />
           }

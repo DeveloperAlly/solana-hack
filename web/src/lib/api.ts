@@ -10,10 +10,11 @@ export class ApiError extends Error {
 /** `signal` cancels the request (an AbortController owned by the screen that asked). */
 export async function api<T>(path: string, init: { method?: string; body?: unknown; signal?: AbortSignal } = {}): Promise<T> {
   const token = (await supabase?.auth.getSession())?.data.session?.access_token;
+  const multipart = init.body instanceof FormData;
   const res = await fetch(`/api${path}`, {
     method: init.method ?? (init.body ? 'POST' : 'GET'),
-    headers: { ...(init.body ? { 'content-type': 'application/json' } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}) },
-    body: init.body ? JSON.stringify(init.body) : undefined,
+    headers: { ...(init.body && !multipart ? { 'content-type': 'application/json' } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    body: multipart ? init.body as FormData : init.body ? JSON.stringify(init.body) : undefined,
     ...(init.signal ? { signal: init.signal } : {}),
   });
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & { error?: string };

@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useSearchParams } from 'react-router';
 import type { ScreenState } from '../ui/composites/DemoStateSwitcher';
 import type { ArtboardName } from '../config/artboards';
+import { usePreviewRoutes } from '../ui/hooks/previewRoutes';
 
 /** Gallery search params that carry over when moving between screens. The state belongs to one screen, so it does not. */
 const carried = ['theme'] as const;
@@ -24,5 +25,6 @@ export function screenPath(artboard: ArtboardName, state?: ScreenState, current?
 /** Returns (artboard, state?) => path that keeps the current gallery theme. Use it for every link between screens. */
 export function useScreenHref(): (artboard: ArtboardName, state?: ScreenState) => string {
   const [params] = useSearchParams();
-  return useCallback((artboard: ArtboardName, state?: ScreenState) => screenPath(artboard, state, params), [params]);
+  const preview = usePreviewRoutes();
+  return useCallback((artboard: ArtboardName, state?: ScreenState) => preview ? `/preview/${encodeURIComponent(artboard)}${state ? `?state=${state}` : ''}` : screenPath(artboard, state, params), [params, preview]);
 }

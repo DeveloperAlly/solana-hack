@@ -131,8 +131,8 @@ export const WRITES: Record<string, (ctx: StepContext, args: Record<string, unkn
     return { sourceId: sid, facts: rows.length, dropped: Number(dropped) || 0, kind, needsReview: kind === 'page' ? rows.length : 0 };
   },
   /** Extracted facts for one source, with trust, review, confidence and conflicts (extract/save.ts; issue #64). */
-  save_extracted_facts: async ({ env, run }, { sourceId, read, facts, droppedAlign, droppedSupport }) =>
-    saveExtractedFacts(env, run, { sourceId: asText(sourceId), read: read as ReadOutput, facts: list<Candidate>(facts), dropped: addDropped(droppedAlign as Dropped, droppedSupport as Dropped) }),
+  save_extracted_facts: async ({ env, run }, { sourceId, read, facts, droppedAlign, droppedSupport, chunksSkipped, charsSkipped }) =>
+    saveExtractedFacts(env, run, { sourceId: asText(sourceId), read: read as ReadOutput, facts: list<Candidate>(facts), dropped: addDropped(droppedAlign as Dropped, droppedSupport as Dropped), chunksSkipped: Number(chunksSkipped ?? 0), charsSkipped: Number(charsSkipped ?? 0) }),
   mark_source_failed: async ({ env, run }, { sourceId, error }) => {
     await db.update(env, 'sources', `${db.eq('id', asText(sourceId))}&${db.eq('brand_id', run.brand_id)}`, { status: 'failed', error: asText(error) || 'reading the page failed' });
     return null;
@@ -168,7 +168,7 @@ export async function runStep(spec: Exclude<StepSpec, { type: 'map' }>, ctx: Ste
       if (spec.schema !== undefined && !schema) throw new HttpError(500, `unknown reply schema ${spec.schema}`);
       // Token counts are recorded when OpenRouter reports usage, null otherwise; never guessed.
       const task = state.models?.[spec.prompt];
-      const r = await chat(ctx.env, system, user, { ...(schema ? { schema } : {}), ...(task ? { models: task } : {}) });
+      const r = await chat(ctx.env, system, user, { attempts: 1, ...(schema ? { schema } : {}), ...(task ? { models: task } : {}) });
       // Cost is OpenRouter's usage.cost in credits (US dollars; 0 for free models) when it reports one, else null
       // (https://openrouter.ai/docs/guides/guides/usage-accounting).
       const trace = { prompt_key: p.key, prompt_version: p.version, prompt_hash: p.hash, model: r.model || null, tokens_in: r.usage?.promptTokens ?? null, tokens_out: r.usage?.completionTokens ?? null, cost_usd: r.usage?.cost ?? null };

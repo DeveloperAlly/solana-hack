@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import type { ScreenEntry } from '../registry-types';
 import { screenStates } from '../../ui/composites/DemoStateSwitcher';
+import { LoopMap } from './LoopMap';
 import { Brain } from './Brain';
 import { LearnRules } from './LearnRules';
 import { MToday } from './MToday';
@@ -22,6 +23,7 @@ const learnData = pick(learnRules, learnRulesCollecting);
 const verifyData = pick(verifyHome, verifyHomeEmpty);
 
 export const screens: ScreenEntry[] = [
+  { artboard: 'Loop-Map', page: 'loop', title: 'The loop: six steps, one Brain', tag: 'HACKATHON', states: ['success'], render: () => createElement(LoopMap) },
   { artboard: 'Today', page: 'loop', title: 'Today: the front door (replaces Hub-Home)', tag: 'COMING SOON', states: screenStates, render: (state) => createElement(Today, { data: todayData(state), state }) },
   { artboard: 'M-Today', page: 'loop', title: 'Mobile: Today, one-tap approvals', tag: 'COMING SOON', states: screenStates, render: (state) => createElement(MToday, { data: todayData(state), state }) },
   { artboard: 'Post-Detail', page: 'loop', title: 'One post through the whole loop (PostLifecycle + Why this?)', tag: 'COMING SOON', states: screenStates, render: (state) => createElement(PostDetail, { data: postData(state), state }) },
