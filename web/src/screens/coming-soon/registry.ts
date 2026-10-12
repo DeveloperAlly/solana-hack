@@ -40,9 +40,9 @@ import { outcomeLog, outcomeLogEmpty } from './Outcome-Log.fixtures';
 /** Fixture for a state: the state's own fixture when it has one, otherwise the default. */
 const pick = <T,>(base: T, byState: Partial<Record<ScreenState, T>> = {}) => (state: ScreenState) => byState[state] ?? base;
 
-/** One entry per artboard. `key` re-mounts the screen when the demo state changes, so local state starts fresh. */
+/** One entry per artboard. The gallery re-mounts the screen when the demo state changes (GalleryScreen, PR #83). */
 function entry<T>(artboard: ArtboardName, title: string, states: readonly ScreenState[], Screen: (p: { data: T; state?: ScreenState }) => ReturnType<typeof createElement>, data: (s: ScreenState) => T): ScreenEntry {
-  return { artboard, page: 'soon', title, tag: 'COMING SOON', states, render: (state) => createElement(Screen, { key: state, data: data(state), state }) };
+  return { artboard, page: 'soon', title, tag: 'COMING SOON', states, render: (state) => createElement(Screen, { data: data(state), state }) };
 }
 
 // Canvas page "Coming soon (drawn, not built)", issue #51. Titles are the canvas board titles without the tag prefix.
