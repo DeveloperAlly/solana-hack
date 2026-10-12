@@ -186,6 +186,14 @@ describe('quote normaliser', () => {
     expect(quoteOnPage(page, 'international launch')).toBe(true);
     expect(quoteOnPage(page, 'old launch')).toBe(false);
   });
+  it('reads each line-end hyphen on its own, so a page that wraps both kinds still matches (PR #40 review)', () => {
+    const page = normalisePage('a brand-\nnew inter-\nnational launch');
+    expect(quoteOnPage(page, 'brand-new international launch')).toBe(true);
+    expect(quoteOnPage(page, 'brandnew international launch')).toBe(true);
+    expect(quoteOnPage(page, 'brand-new inter-national launch')).toBe(true);
+    expect(quoteOnPage(page, 'brand new international launch')).toBe(false);
+    expect(quoteOnPage(normalisePage('cost (in $) is 1.5x [approx]?'), 'cost (in $) is 1.5x [approx]?')).toBe(true);
+  });
   it('collapses whitespace and lowercases', () => {
     expect(normaliseQuote('  Build\t your\n\nBrand  ')).toBe('build your brand');
   });

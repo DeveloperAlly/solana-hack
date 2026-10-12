@@ -12,21 +12,25 @@ const SINGLE_QUOTES = /[\u2018\u2019\u201A\u201B\u2032\u2035]/g;
 const DOUBLE_QUOTES = /[\u201C\u201D\u201E\u201F\u2033\u2036]/g;
 const DASHES = /[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/g;
 
+/** Marks a hyphen that sat at a line end in page text: it may be a word split ("inter-|national") or a real compound
+ * ("brand-|new"), and only the quote can tell which, so each one is decided per occurrence when matching. */
+const WRAP = '\uE000';
+
 /**
  * The form used to compare a quote with page text: NFKC; soft hyphens and zero-width characters removed; quotes and
- * dashes unified; words hyphenated across a line end rejoined; simple Markdown emphasis removed; whitespace collapsed;
- * lowercase. Apply it to both sides of every comparison.
+ * dashes unified; words hyphenated across a line end rejoined (or, for page text, marked with WRAP); simple Markdown
+ * emphasis removed; whitespace collapsed; lowercase. Apply it to both sides of every comparison.
  */
-export function normaliseQuote(s: string, lineEndHyphen: 'rejoin' | 'keep' = 'rejoin'): string {
+export function normaliseQuote(s: string, lineEndHyphen: 'rejoin' | 'mark' = 'rejoin'): string {
   return s
     .normalize('NFKC')
     .replace(INVISIBLE, '')
+    .split(WRAP).join('')
     .replace(SINGLE_QUOTES, "'")
     .replace(DOUBLE_QUOTES, '"')
     .replace(DASHES, '-')
-    // "inter-\nnational" -> "international": a hyphen at a line end between two letters is usually a line break.
-    // 'keep' instead joins it as "inter-national", for a real compound ("brand-new") that happens to wrap.
-    .replace(/(\p{L})-[^\S\n]*\r?\n\s*(\p{L})/gu, lineEndHyphen === 'rejoin' ? '$1$2' : '$1-$2')
+    // A hyphen at a line end between two letters: rejoined for a quote, marked for a page (see WRAP).
+    .replace(/(\p{L})-[^\S\n]*\r?\n\s*(\p{L})/gu, lineEndHyphen === 'rejoin' ? '$1$2' : `$1${WRAP}$2`)
     // Paired emphasis (**bold**, __bold__, ~~struck~~, *em*, _em_, `code`) keeps its text and drops its marks.
     .replace(/(\*\*|__|~~)(?=\S)([\s\S]*?\S)\1/g, '$2')
     .replace(/\*(?=\S)([^*]*?\S)\*/g, '$1')
@@ -37,18 +41,23 @@ export function normaliseQuote(s: string, lineEndHyphen: 'rejoin' | 'keep' = 're
     .toLowerCase();
 }
 
-/**
- * The page text in its comparable forms: line-end hyphens rejoined, and (only when the page has any) kept. A quote
- * matches if it is in either, so both "international" and "brand-new" match when the page wrapped them at a hyphen.
- */
-export function normalisePage(text: string): string[] {
-  const rejoined = normaliseQuote(text, 'rejoin');
-  const kept = normaliseQuote(text, 'keep');
-  return kept === rejoined ? [rejoined] : [rejoined, kept];
+/** The page text in comparable form, with each line-end hyphen marked so quoteOnPage can read it either way. */
+export function normalisePage(text: string): string {
+  return normaliseQuote(text, 'mark');
 }
 
-/** True when the quote, normalised, appears in one of the page's forms (normalisePage). An empty quote never matches. */
-export function quoteOnPage(page: string[], quote: string): boolean {
+const escape = (c: string) => c.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+
+/**
+ * True when the quote, normalised, appears on the normalised page. Each line-end hyphen on the page is matched on its
+ * own: as a hyphen where the quote has one ("brand-new"), or as nothing where it does not ("international"), so a
+ * page that wraps both kinds still matches a quote that contains both. An empty quote never matches.
+ */
+export function quoteOnPage(page: string, quote: string): boolean {
   const q = normaliseQuote(quote);
-  return q.length > 0 && page.some((p) => p.includes(q));
+  if (!q) return false;
+  if (!page.includes(WRAP)) return page.includes(q);
+  const chars = [...q];
+  const pattern = chars.map((c, i) => (c === '-' ? `[-${WRAP}]` : (i ? `${WRAP}?` : '') + escape(c))).join('');
+  return new RegExp(pattern, 'u').test(page);
 }

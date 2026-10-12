@@ -55,4 +55,14 @@ describe('Build kit integrity', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Origin' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
   });
+  it('an edit made after the stale notice brings Save back, so it is never dropped (PR #40 review)', async () => {
+    const { puts } = mount('/build/origin', { answer: {}, stale: ['purpose'] });
+    await userEvent.click(await screen.findByRole('button', { name: 'Save and continue' }));
+    await screen.findByText('These drafts used your old answer: redraft them');
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+    await userEvent.type(screen.getAllByRole('textbox')[0], ' more');
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save and continue' }));
+    expect(puts).toHaveLength(2);
+  });
 });

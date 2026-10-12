@@ -146,7 +146,9 @@ function Nav({ onBack, children }: { onBack?: () => void; children?: React.React
 
 function BasicsStep({ state, onSaved, onRefresh }: { state: BrandState | null; onSaved: (id: string) => void | Promise<void>; onRefresh?: () => Promise<void> }) {
   const b = state?.brand;
-  const [stale, setStale] = useState<{ id: string; sections: string[] } | null>(null);
+  // Stale drafts reported by the last save, with the form as it was saved: Continue is offered only while the form is
+  // unchanged since then, so an edit made while reading the notice is saved, never dropped.
+  const [stale, setStale] = useState<{ id: string; sections: string[]; saved: string } | null>(null);
   const [form, setForm] = useState({ name: b?.name ?? '', type: b?.type ?? 'company', description: b?.description ?? '', website: b?.website ?? '', goal: b?.goal ?? '', channel: b?.channel ?? '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +166,7 @@ function BasicsStep({ state, onSaved, onRefresh }: { state: BrandState | null; o
       const saved = await api<{ stale?: string[] }>(`/brands/${res.brand.id}/answers/basics`, { method: 'PUT', body: { data: { description: form.description, goal: form.goal, channel: form.channel, type: form.type } } });
       // Drafts that cited the old answer are stale: say so here, before moving on.
       if (saved.stale?.length) {
-        setStale({ id: res.brand.id, sections: saved.stale });
+        setStale({ id: res.brand.id, sections: saved.stale, saved: JSON.stringify(form) });
         await onRefresh?.();
         return;
       }
@@ -189,7 +191,7 @@ function BasicsStep({ state, onSaved, onRefresh }: { state: BrandState | null; o
         {error && form.name.trim() && <Alert tone="danger">{error}</Alert>}
         {stale && <StaleNotice stale={stale.sections} />}
         <Nav>
-          {stale
+          {stale && stale.saved === JSON.stringify(form)
             ? <Button onClick={() => onSaved(stale.id)}>Continue</Button>
             : <Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save and continue'}</Button>}
         </Nav>
@@ -274,7 +276,8 @@ function QuestionsStep({ step, state, onRefresh, onNext, onBack }: { step: Step;
   const [data, setData] = useState<Record<string, string>>(isVoice ? normaliseVoice(prev?.data) : prev?.data ?? {});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stale, setStale] = useState<string[]>([]);
+  // Stale drafts reported by the last save, with the answers as saved (see BasicsStep).
+  const [stale, setStale] = useState<{ sections: string[]; saved: string }>({ sections: [], saved: '' });
   // Ingestion tags facts with kit sections (worker/kit.ts SECTIONS); map each answer step to the section it feeds.
   const evidenceSection: Record<string, string> = { golden_circle: 'purpose', alternatives: 'positioning' };
   const known = state.evidence.filter((e) => e.origin === 'source' && e.section === (evidenceSection[step.answerStep ?? ''] ?? step.answerStep));
@@ -286,7 +289,7 @@ function QuestionsStep({ step, state, onRefresh, onNext, onBack }: { step: Step;
       const saved = await api<{ stale?: string[] }>(`/brands/${state.brand.id}/answers/${step.answerStep}`, { method: 'PUT', body: { data, skipped } });
       await onRefresh();
       // Drafts that cited the old answer are stale: say so on this step instead of moving on.
-      if (saved.stale?.length) return setStale(saved.stale);
+      if (saved.stale?.length) return setStale({ sections: saved.stale, saved: JSON.stringify(data) });
       onNext();
     } catch (err) {
       setError(msg(err));
@@ -337,9 +340,9 @@ function QuestionsStep({ step, state, onRefresh, onNext, onBack }: { step: Step;
           ))
         )}
         {error && <Alert tone="danger">{error}</Alert>}
-        <StaleNotice stale={stale} />
+        <StaleNotice stale={stale.sections} />
         <Nav onBack={onBack}>
-          {stale.length ? (
+          {stale.sections.length && stale.saved === JSON.stringify(data) ? (
             <Button onClick={onNext}>Continue</Button>
           ) : (
             <>
