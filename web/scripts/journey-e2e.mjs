@@ -121,6 +121,9 @@ out(`J5 attestation: ${kit.attestationExplorer}`);
 // J6: the first post, with no brief, approved and registered.
 const { post } = await must('draft first post', api(token, 'POST', `/brands/${brand.id}/posts`, {}));
 out(`J6 first post drafted (kit v${post.kit_version}): ${post.body.slice(0, 160).replace(/\n/g, ' ')}...`);
+const cm = await must('claims on the draft', api(token, 'POST', `/brands/${brand.id}/posts/${post.id}/claims`, { rev: post.rev }));
+for (const c of cm.claimMap.items) out(`  J6 claim [${c.status}] ${c.text}${c.facts[0] ? ` <- "${c.facts[0].quote ?? c.facts[0].claim}"` : ''}`);
+out(`J6 claims: ${cm.claimMap.items.length} listed, ${cm.claimMap.unsupported} unsupported`);
 const approved = await must('approve post', api(token, 'POST', `/brands/${brand.id}/posts/${post.id}/approve`, { rev: post.rev }));
 const reg = await must('register post', api(token, 'POST', `/brands/${brand.id}/posts/${post.id}/register`, { rev: approved.post.rev }));
 out(`J6 post registered: ${reg.explorer ?? JSON.stringify(reg).slice(0, 200)}`);

@@ -1,4 +1,5 @@
 import { requirePermanent, requireUser, type User } from './auth';
+import { claimMap } from './claims';
 import { assertCanAddSource, assertCanCreateBrand, claimAnonymous, coverage, editFact, FIRST_POST_BRIEF, voiceSamples } from './journey';
 import { db } from './db';
 import { HttpError, json, safeError, sha256Hex, type Env } from './env';
@@ -511,6 +512,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     if (b.rev !== post.rev) throw new HttpError(409, 'this post changed since you loaded it; reload to see the latest version');
     if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str(b.body, 4000)) });
     if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
+    // POST .../posts/:pid/claims {rev} -> {claimMap}: each claim with the facts it rests on, or unsupported (H9, #62).
+    if (p[5] === 'claims' && m === 'POST') return json({ claimMap: await claimMap(env, post) });
     if (p[5] === 'polish' && m === 'POST') return json({ post: await polishPost(env, post, str(b.action, 40)) });
     if (p[5] === 'undo' && m === 'POST') return json({ post: await undoPost(env, post) });
     if (p[5] === 'register' && m === 'POST') {

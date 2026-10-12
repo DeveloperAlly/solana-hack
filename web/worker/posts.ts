@@ -14,7 +14,7 @@ export interface Post {
 // A history entry is the full visible state before a change, so Undo restores the text *and* the scores and notes
 // that described it. Older rows stored only the text (string); those restore with scores cleared.
 export interface Snapshot { body: string; slop: Checks['slop']; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit' }
-interface Checks { slop: { passed: boolean; hits: string[] }; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit'; history?: (Snapshot | string)[]; lastAction?: string; policy?: PolicyResult }
+interface Checks { slop: { passed: boolean; hits: string[] }; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit'; history?: (Snapshot | string)[]; lastAction?: string; policy?: PolicyResult; claimMap?: unknown }
 
 const snapshot = (post: Post): Snapshot => ({ body: post.body, slop: post.checks.slop, voiceFit: post.checks.voiceFit ?? null, platform: post.checks.platform ?? null, notes: post.checks.notes ?? [], source: post.checks.source });
 export const pushHistory = (post: Post) => [...(post.checks.history ?? []), snapshot(post)].slice(-10);
@@ -289,8 +289,8 @@ export function policyVerdict(claims: string, template: string | null, raw: unkn
  * The claims gate and template that govern a post: from the registered kit it was written to (kits record them
  * since this change), else from the brand's voice answer for kits registered before that.
  */
-type KitFact = { claim: string; quote?: string | null; origin?: string; trust?: string | null; review_status?: string | null };
-async function postPolicy(env: Env, post: Post): Promise<{ claims: string; template: string | null; evidence: KitFact[] }> {
+export type KitFact = { id?: string; claim: string; quote?: string | null; origin?: string; trust?: string | null; review_status?: string | null };
+export async function postPolicy(env: Env, post: Post): Promise<{ claims: string; template: string | null; evidence: KitFact[] }> {
   if (post.kit_version) {
     const [kit] = await db.select<{ payload: { policy?: { claims?: string; template?: string }; evidence?: KitFact[] } }>(env, 'kits', `${db.eq('brand_id', post.brand_id)}&${db.eq('version', String(post.kit_version))}&${db.eq('status', 'registered')}&select=payload`);
     const pol = kit?.payload?.policy;
