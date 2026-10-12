@@ -78,7 +78,7 @@ Route `/sign-in` · depends on EMAIL LINK · placeholder: wireframe Onboard-1-Si
 
 **Say:** I sign in with email. No password, no wallet.
 
-**Recording:** Use the emailed link (proven live). Sign-in by code is not exercised live yet, so do not show the code field. Cut the inbox; allow 8 seconds.
+**Recording:** Sign in with whichever method STATE.md shows as proven live (email link or code), and show only that one. Cut the inbox; allow 8 seconds.
 
 ### Beat 03 · 0:16–0:36 · A fact stays only if it can be quoted
 
@@ -202,7 +202,7 @@ Route `end card (edited, not app copy)` · depends on NO DEPENDENCY · placehold
 | P0 | Claims block rehearsed | Under Strict, adding "Used by 10,000 brands." must return "Blocked by your claims gate". The gate is an LLM call (`posts.ts` policyCheck); test it live first. |
 | P0 | Facts count as owned | Website in Basics must match the ingested domain. Facts from other domains stay `proposed`, and no screen on main approves them (`PATCH /evidence/:id` exists, unused). |
 | P1 | Drafter gets kept facts | The post prompt gets voice, messaging, positioning and purpose, not the evidence list (`posts.ts`), so a draft can carry a claim the gate then blocks. |
-| P1 | Freeze main for the take | Merge PR #107 first (launch headlines). Open PRs #73, #75, #81 and #85 change these screens. Record before they merge, or re-check this script's quoted copy after. |
+| P1 | Freeze main for the take | Merge PR #107 first (launch headlines). Before recording, check STATE.md for open PRs that change these screens. Record before they merge, or re-check this script's quoted copy after. |
 
 ## 4. Recording runbook
 

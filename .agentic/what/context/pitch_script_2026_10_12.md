@@ -12,7 +12,7 @@ tags: [pitch, script, colosseum]
 
 **How to read it (owner direction, 2026-10-12, [teardown](../../../audits/2026-10-12_pitch-vc-teardown.md#owner-direction-2026-10-12-after-the-teardown)):** the pitch is for the judges and sells the product as it will be built, in plain words about what a founder gets. The demo video shows what runs today; live status is in STATE.md; the appendix talking points carry the detail for Q&A.
 
-Total: 434 words, about 2:43 at 160 words a minute.
+Total: 439 words, about 2:45 at 160 words a minute.
 
 **Chosen option (2026-10-13):** option A, "before and after", of three drafted for the owner; the owner asked the agent to finish it. **Source for "six months" (slide 1):** agency guides put a brand built from scratch at 3 to 6 months. Snapper Studio says its average brand project takes 6 months, and that "the brand itself (strategy, identity, launch) takes 4 to 6 months" ([Snapper Studio](https://www.snapper.studio/blog/how-long-branding-process-take)). Clay puts a new brand from scratch at 3 to 4 months, and a full rebrand at 5 to 9 ([Clay](https://clay.global/blog/top-branding-agencies/how-long-is-the-branding-process)). Both are agency estimates, not a survey; checked 2026-10-13.
 
@@ -96,13 +96,13 @@ Problem (a founder needs a brand team; every option hurts) → solution (JamJam 
 - Every check runs on a public JamJam Verify page
 - Refer a friend: you both get 2 months free (proposed, ADR-014)
 
-**11. Roadmap** (2:19–2:28)
+**11. Roadmap** (2:19–2:30)
 - Now: your brand kit
 - Next: content you approve unedited
 - Then: publish direct; tips and fan rewards
 - Later: monetise your voice
 
-**12. Team and ask** (2:28–2:43)
+**12. Team and ask** (2:30–2:45)
 - Founded Lilypad; built the original Waterlily.ai
 - Developer communities at IBM and Filecoin Foundation
 - Ask: your vote, to take JamJam to mainnet and its first paying brands
@@ -149,11 +149,11 @@ I looked at fifty-nine products. The best do two of the four jobs. None builds m
 
 My brand kit is free. Once it's running, it's thirty-nine dollars a month, or one ninety-nine for a team, plus three percent on tips and rewards. Every fan who checks one of my posts discovers JamJam.
 
-**11. Roadmap** · 2:19–2:28 · 24 words
+**11. Roadmap** · 2:19–2:30 · 29 words
 
-Next, I approve posts without touching them, publish everywhere from one place, reward my fans, and get paid when AI agents use my voice.
+Next, I approve posts without touching them, publish to X, LinkedIn, Bluesky and Threads from one place, reward my fans, and get paid when AI agents use my voice.
 
-**12. Team and ask** · 2:28–2:43 · 40 words
+**12. Team and ask** · 2:30–2:45 · 40 words
 
 I founded Lilypad and built the original Waterlily, AI art that paid its artists. Now I'm building the brand team I needed as a founder. I'm asking for your vote to take JamJam to mainnet. JamJam. Every post provably yours.
 
