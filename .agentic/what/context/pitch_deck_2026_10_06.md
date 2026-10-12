@@ -35,16 +35,21 @@ Speaker notes are the [pitch script](./pitch_script_2026_10_12.md), word for wor
 | 12 | Team and ask | "Built by a founder who has shipped this before." Lilypad · original Waterlily.ai · IBM and Filecoin Foundation. Ask: founders who want their brand run for them | [Crowdfund Insider](https://www.crowdfundinsider.com/2024/08/227734-ally-haire-from-lilypad-shares-perspective-on-significance-of-open-source-ai-and-importance-of-accessing-compute-power/), [SiliconANGLE](https://siliconangle.com/2023/04/27/new-waterlily-service-offers-ai-image-generation-pays-royalties-artists/), [go-to-market §9](./gtm_2026_10_12.md#9-team) |
 
 ## Appendix (not spoken)
-Appendix slides A1 to A6 are not spoken. Each leads with a pitch value proposition, a 1 to 3 word product title and the outcome, with a product screen from the [wireframe canvas](./links.md) as proof (wireframe notes and build-status labels hidden).
+Five sections after a contents slide. Product screens come from the [wireframe canvas](./links.md), with wireframe notes and build-status labels hidden.
 
-| # | Slide | Content | Source |
-|---|---|---|---|
-| A1 | Brand strategy | Strategy without the agency. "Agency-grade strategy, drafted from your own site." You confirm instead of typing; every line links to its source. Screen: J3 Confirm | Wireframe J3-Confirm |
-| A2 | Brand sign-off | Strategy without the agency. "Three decisions. You make them; JamJam does the rest." Approve purpose, positioning and voice with the evidence beside each. Screen: J5 Approve kit | Wireframe J5-Approve-Kit |
-| A3 | On-voice content | Content that sounds like you. "Posts you approve without rewriting." Approved voice; claims without evidence blocked. Screen: J6 First post | Wireframe J6-First-Post |
-| A4 | Ambassador seats | A community that sells for you. "More voices, still on-brand." Off-brand claims and missing disclosures caught before approval; approved posts verify as yours. Screen: Amb-3 Generate | Wireframe Amb-3-Generate |
-| A5 | Post verification | Everywhere, provably yours. "Your audience can tell you from a fake." Paste a post or link: Official, or not. Screen: J7 Prove | Wireframe J7-Proof |
-| A6 | Public ledger | Proof on Solana. "A record of what's official that no one can quietly rewrite." Only fingerprints go on-chain. Screen: Ledger | Wireframe Ledger |
+| # | Section | Slide | Content | Source |
+|---|---|---|---|---|
+| A0 | Contents | Appendix Contents | The five sections below | |
+| A1 | 01 Architecture | System Architecture | Web app (React on design tokens) to an API Worker (Cloudflare, jamjam.tech) to data (Supabase Postgres, Worker-only access), one AI gateway (OpenRouter) and Solana (Attestation Service on devnet via Helius; a server Registrar signs). Sign-in by email code; deploy by GitHub Actions with Playwright and registry self-tests; evaluation gates on every prompt or model change. Nothing reaches Solana unless a person approved it | [Architecture §2, §6.1, §7, §13](./brand_builder_architecture.md); [ADR-005](../decisions/adr_005_ui_component_system.md); [ADR-006](../decisions/adr_006_wallet_identity_split.md) |
+| A2 | 02 UI Highlights | Brand Sign-Off | "Three decisions. You make them; JamJam does the rest." Screen: J5 Approve kit | Wireframe J5-Approve-Kit |
+| A3 | 02 UI Highlights | On-Voice Content | "Posts you approve without rewriting." Approved voice; claims without evidence blocked. Screen: J6 First post | Wireframe J6-First-Post |
+| A4 | 02 UI Highlights | Ambassador Seats | "More voices, still on-brand." Off-brand claims and missing disclosures caught before approval. Screen: Amb-3 Generate | Wireframe Amb-3-Generate |
+| A5 | 02 UI Highlights | Post Verification | "Your audience can tell you from a fake." Screen: J7 Prove | Wireframe J7-Proof |
+| A6 | 02 UI Highlights | Public Ledger | "A record of what's official that no one can quietly rewrite." Screen: Ledger | Wireframe Ledger |
+| A7 | 03 User Onboarding | Onboarding Journey | Read, Save, Confirm, Gaps and Voice, Approve Kit, First Post, Prove. Screen: J3 Confirm | Wireframes J1 to J7 |
+| A8 | 04 Intelligence Architecture | Intelligence Pipeline | Brand kit: Ingestor, Evidence Store, Gap Analyst, Interviewer, Drafters, owner's gates. Every post: voice draft (voice spec plus retrieved approved posts, best of 3), anti-slop pass, claims gate, owner approval (edits become learned rules), registry | [Architecture §2, §6, §6.1](./brand_builder_architecture.md) |
+| A9 | 04 Intelligence Architecture | Voice Learning Ladder | Voice templates; then a voice spec from your posts, retrieval and learned rules; then a shared anti-slop house writer (with consent); then per-brand models. Hard gates: 0 invented facts kept, 0 false "official", 95% recall on unsupported claims | [Architecture §6.2, §13](./brand_builder_architecture.md) |
+| A10 | 05 Future Features | Future Features | Direct publishing, unified inbox, analytics, carousels and video, ambassador campaigns, USDC tips, voice licensing, verified AI persona, stablecoin plans | [Backlog](../../how/backlog/backlog.md); [#76](https://github.com/DeveloperAlly/solana-hack/issues/76), [#77](https://github.com/DeveloperAlly/solana-hack/issues/77) |
 
 ## Before recording
 - [ ] Owner: confirm the launch prices on slide 9 and the ask on slide 11.
