@@ -3,7 +3,7 @@ import { approve, isStale } from '../lib/approval';
 import { nextBrainVersion } from './brain';
 import { approvalState, lifecycleSteps } from './post';
 import { proposalGate, proposalNote } from './proposal';
-import { questWithPayouts } from './quest';
+import { paidCount, questWithPayouts, submissionGate } from './quest';
 import { checksGate, gateFor } from './queue';
 import { liveStepCount, loopProgressLabel } from './loop';
 import { adnaPosts } from './fixtures/posts';
@@ -93,9 +93,17 @@ describe('domain: one note per proposal status', () => {
 });
 
 describe('domain: quest slots are counted from payout records', () => {
-  it('a payout record keeps its slot used whatever the queue holds', () => {
-    const quest = { id: 'q', task: 't', format: 'tutorial' as const, rewardUsdc: 50, slots: 2, paid: 1, due: null, opens: null, submissionIds: [] };
-    expect(questWithPayouts(quest, []).paid).toBe(1);
-    expect(questWithPayouts(quest, [{ questId: 'q', submissionId: 's1', amount: 50, unit: 'USDC', at: '13 Oct' }, { submissionId: 'seat', amount: 10, unit: 'USDC', at: '13 Oct' }]).paid).toBe(2);
+  const quest = { id: 'q', task: 't', format: 'tutorial' as const, rewardUsdc: 50, slots: 3, paidSubmissionIds: ['s0'], due: null, opens: null, submissionIds: [] };
+  const record = (submissionId: string, questId?: string) => ({ questId, submissionId, amount: 50, unit: 'USDC', at: '13 Oct' });
+  it('a payout record keeps its slot used whatever the queue holds; seat payouts do not count', () => {
+    expect(paidCount(questWithPayouts(quest, []))).toBe(1);
+    expect(paidCount(questWithPayouts(quest, [record('s1', 'q'), record('seat')]))).toBe(2);
+  });
+  it('counts by identity: server data that already lists a session payout does not count it twice', () => {
+    const refreshed = { ...quest, paidSubmissionIds: ['s0', 's1'] };
+    const counted = questWithPayouts(refreshed, [record('s1', 'q')]);
+    expect(paidCount(counted)).toBe(2);
+    const ok = { blocking: false, label: 'ok' };
+    expect(submissionGate(ok, { payout: { amount: 50, unit: 'USDC' } }, counted).blocking).toBe(false);
   });
 });

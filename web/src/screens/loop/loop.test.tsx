@@ -81,7 +81,7 @@ describe('Today', () => {
 });
 
 describe('Today: quest submissions (ambassador posts with a questId) pay through domain/quest.ts', () => {
-  const quest = { id: 'quest-tut', task: '[Quest task]', format: 'tutorial' as const, rewardUsdc: 50, slots: 2, paid: 1, due: null, opens: null, submissionIds: ['q-sub-1', 'q-sub-2'] };
+  const quest = { id: 'quest-tut', task: '[Quest task]', format: 'tutorial' as const, rewardUsdc: 50, slots: 2, paidSubmissionIds: ['q-sub-0'], due: null, opens: null, submissionIds: ['q-sub-1', 'q-sub-2'] };
   const sub = (id: string, who: string) => ({ id, kind: 'ambassadorPost' as const, chip: 'Quest submission', text: `${who}'s tutorial is verified against your kit`, meta: '50 USDC on approval', questId: 'quest-tut', payout: { amount: 50, unit: 'USDC' as const }, verified: true, disclosure: 'present' as const, open: { label: 'Review', artboard: 'Quests' as const } });
   const data = { ...today, quests: [quest], queue: [sub('q-sub-1', '[Creator A]'), sub('q-sub-2', '[Creator B]')] };
 

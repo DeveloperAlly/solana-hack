@@ -26,8 +26,11 @@ export interface Quest {
   /** USDC per completion. */
   rewardUsdc: number;
   slots: number;
-  /** Completions paid so far. */
-  paid: number;
+  /**
+   * The submissions already paid, by id: the server's record. Slots used are always counted by identity from this and
+   * the session's payout records (`questWithPayouts`), never as one count added to another.
+   */
+  paidSubmissionIds: string[];
   /** "Fri 24 Oct", or null for ongoing. */
   due: string | null;
   /** Set while the quest is announced but not open ("Opens Mon 3 Nov"). */
@@ -36,11 +39,14 @@ export interface Quest {
 
 export const budgetCap = (rewardUsdc: number, slots: number): number => Math.round(rewardUsdc * slots * 100) / 100;
 
+/** Slots used: the paid submissions, counted by identity (the one way to count). */
+export const paidCount = (q: Pick<Quest, 'paidSubmissionIds'>): number => new Set(q.paidSubmissionIds).size;
+
 /** A quest's state, given how many of its submissions still wait for a decision. */
 export function questState(q: Quest, waiting: number): QuestState {
   if (q.opens) return 'coming-soon';
   // Every slot paid closes the quest, even with submissions still waiting: none of them can be paid.
-  if (q.paid >= q.slots) return 'paid';
+  if (paidCount(q) >= q.slots) return 'paid';
   return waiting > 0 ? 'submitted' : 'open';
 }
 
@@ -94,7 +100,7 @@ export function submissionGate(queueGate: Gate, item: { payout: { amount: number
   if (item.payout.unit !== 'USDC' || item.payout.amount !== quest.rewardUsdc) {
     return { blocking: true, label: `The payout (${item.payout.amount} ${item.payout.unit}) is not this quest’s reward (${quest.rewardUsdc} USDC).` };
   }
-  if (quest.paid >= quest.slots) return { blocking: true, label: `All ${quest.slots} ${quest.slots === 1 ? 'slot is' : 'slots are'} paid; the budget is reached.` };
+  if (paidCount(quest) >= quest.slots) return { blocking: true, label: `All ${quest.slots} ${quest.slots === 1 ? 'slot is' : 'slots are'} paid; the budget is reached.` };
   return queueGate;
 }
 
@@ -122,9 +128,12 @@ export interface PayoutRecord {
 }
 
 /**
- * A quest with this session's payouts counted: its fixture `paid` plus the payout records made from it. Counting from
- * the records, not the current queue, keeps a slot used after its submission leaves the queue (Codex review on PR 111).
+ * A quest with this session's payouts counted by identity: the union of the server's paid submission ids and the
+ * session's payout records for this quest. Counting records, not the current queue, keeps a slot used after its
+ * submission leaves the queue; counting ids, not adding counts, never counts a payout twice once the server data
+ * includes it (Codex reviews on PR 111).
  */
 export function questWithPayouts(quest: Quest, payouts: readonly PayoutRecord[]): Quest {
-  return { ...quest, paid: quest.paid + payouts.filter((p) => p.questId === quest.id).length };
+  const session = payouts.filter((p) => p.questId === quest.id).map((p) => p.submissionId);
+  return { ...quest, paidSubmissionIds: [...new Set([...quest.paidSubmissionIds, ...session])] };
 }
