@@ -25,7 +25,7 @@ import { stableId } from './ids';
 import { readCapped } from './ingest';
 import { DOC_MAX_BYTES, readDocument } from './sources/document';
 import { readCompetitors, readSearch } from './sources/search';
-import { SOCIAL_MAX_BODY_BYTES, readSocial } from './sources/social';
+import { SOCIAL_MAX_BODY_BYTES, readSocial, type SocialInput } from './sources/social';
 import { readStored, type StoredKind } from './sources/stored';
 import type { SourceFail, SourceOk } from './sources/types';
 
@@ -109,7 +109,7 @@ export async function addSocialExport(env: Env, ctx: WaitUntil | undefined, call
   } catch {
     throw new HttpError(400, 'invalid JSON body');
   }
-  const r = readSocial(body && typeof body === 'object' ? body : {});
+  const r = readSocial(body && typeof body === 'object' && !Array.isArray(body) ? (body as SocialInput) : {});
   return r.ok ? storeAndExtract(env, ctx, caller, brand, r, r.title) : failed(r);
 }
 

@@ -240,5 +240,9 @@ function newestFirst(items: SocialItem[]) {
   return [...items].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
 }
 
-/** The request body for POST /api/brands/:id/sources/social: the platform and the items, nothing else. */
-export const socialPayload = (p: SocialParse) => ({ platform: p.platform, items: p.items });
+/**
+ * The request body for POST /api/brands/:id/sources/social: the platform and each item's text, nothing else. Dates,
+ * post addresses and profile labels stay in the browser (Codex review on pull request 100); the Worker refuses any other field
+ * (web/worker/sources/social.ts readSocial), so the promise holds at both ends.
+ */
+export const socialPayload = (p: SocialParse) => ({ platform: p.platform, items: p.items.map(({ text }) => ({ text })) });

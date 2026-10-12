@@ -287,6 +287,25 @@ describe('socials: the owner\'s own X and LinkedIn exports, parsed in the browse
     expect(r.meta.notes.join(' ')).toMatch(/2 older item\(s\) left out/);
   });
 
+  it('Codex review on PR #100: only each item\'s text leaves the browser, and the Worker refuses any other field', async () => {
+    const parsed = parseLinkedInExport([
+      { name: 'Shares.csv', content: `Date,ShareLink,ShareCommentary\n2024-02-01 09:00:00,https://www.linkedin.com/feed/update/urn:li:share:1,"${PROSE}"` },
+      { name: 'Profile.csv', content: 'First Name,Headline\nAda,Founder at JamJam' },
+    ]);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const payload = socialPayload(parsed);
+    expect(Object.keys(payload).sort()).toEqual(['items', 'platform']);
+    for (const item of payload.items) expect(Object.keys(item)).toEqual(['text']);
+    const sent = JSON.stringify(payload);
+    for (const meta of ['2024-02-01', 'linkedin.com/feed', 'Headline', 'Ada']) expect(sent).not.toContain(meta);
+    expect(readSocial({ platform: 'x', items: [{ text: 'a post', date: '2024-01-01' }] })).toMatchObject({ ok: false, code: 'invalid_input' });
+    expect(readSocial({ platform: 'x', items: [{ text: 'a post' }], account: 'me' })).toMatchObject({ ok: false, code: 'invalid_input' });
+    const r = await api('POST', `/brands/${BRAND}/sources/social`, { platform: 'x', items: [{ text: PROSE, url: 'https://x.com/me/status/1' }] });
+    expect(r).toMatchObject({ status: 400, body: { code: 'invalid_input' } });
+    expect(db.tables.sources).toHaveLength(0);
+  });
+
   it('refuses an unknown platform, a missing list, an item without text, too many items, and an export with no words', async () => {
     expect(readSocial({ platform: 'facebook', items: [] })).toMatchObject({ ok: false, code: 'invalid_input' });
     expect(readSocial({ platform: 'x' })).toMatchObject({ ok: false, code: 'invalid_input' });
@@ -349,6 +368,21 @@ describe('Exa search (#35): web research on the brand, third-party, never pre-ap
     db.tables.sources.push({ id: '22222222-0000-4000-8000-000000000001', brand_id: BRAND, kind: 'search_result', url: '', status: 'failed', title: 'Web search: JamJam' });
     exaReply = () => exaOk([exaResult('https://news.example/jamjam', PROSE)]);
     expect((await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' })).status).toBe(202);
+  });
+
+  it('Codex review on PR #100: a malformed Exa reply (results an object, or a null entry) is a typed unreadable failure, for search and findSimilar', async () => {
+    for (const bad of [{ results: { url: 'https://a.example/' } }, { results: [null] }, { results: [{ url: 7, text: 'x' }] }, { results: [{ url: 'https://a.example/', text: 3 }] }, [], null]) {
+      exaReply = () => new Response(JSON.stringify(bad));
+      expect(await readSearch(envWith, { brandName: 'JamJam' })).toMatchObject({ ok: false, code: 'unreadable', reason: expect.stringMatching(/unexpected shape/) });
+      expect(await readCompetitors(envWith, { brandName: 'JamJam', website: 'https://jamjam.tech' })).toMatchObject({ ok: false, code: 'unreadable' });
+    }
+    // Through a run: the read fails once, with a 4xx, and is not retried.
+    exaReply = () => new Response(JSON.stringify({ results: [null] }));
+    const r = await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' });
+    const done = run((r.body.run as Row).id);
+    expect(done).toMatchObject({ status: 'failed', error_code: 422 });
+    // Six direct reads above, one for the run: the run's read was made once.
+    expect(exaCalls.filter((c) => c.url === EXA_SEARCH)).toHaveLength(7);
   });
 
   it('an Exa failure is a typed read failure with a way forward; a reply without cost records the list price with a note', async () => {

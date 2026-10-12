@@ -44,8 +44,28 @@ export const EXA_SEARCH_PRICE = 0.007;
 /** Bytes an Exa reply may take: the text asked for (up to 4 UTF-8 bytes a character, JSON-escaped) plus metadata. */
 export const exaSearchCap = (results: number, maxCharacters: number) => 64 * 1024 + results * (maxCharacters * 12 + 16 * 1024);
 
-interface ExaResult { url?: unknown; title?: unknown; text?: unknown }
-interface ExaReply { results?: ExaResult[]; costDollars?: { total?: unknown } }
+interface ExaResult { url: string; title?: string | null; text?: string }
+interface ExaReply { results: ExaResult[]; costDollars?: { total?: unknown } }
+
+/**
+ * The reply checked whole at the boundary, before anything reads it (Codex review on PR #100), in the shape the
+ * references document (https://exa.ai/docs/reference/search, https://exa.ai/docs/reference/find-similar-links): an
+ * object whose `results` is an array of objects, each with a string `url`, a string or null `title`, a string `text`
+ * when present, and `costDollars` an object when present. Fields this adapter does not read are allowed (Exa adds them
+ * over time). Anything else is null: the read then fails as `unreadable` (4xx, so the run does not retry it).
+ * Hand-written, like the other external-JSON checks in this Worker (site.ts exaByAddress, llm.ts).
+ */
+export function parseExaReply(data: unknown): ExaReply | null {
+  const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+  if (!isObj(data) || !Array.isArray(data.results)) return null;
+  if (data.costDollars !== undefined && !isObj(data.costDollars)) return null;
+  for (const r of data.results) {
+    if (!isObj(r) || typeof r.url !== 'string') return null;
+    if (r.title !== undefined && r.title !== null && typeof r.title !== 'string') return null;
+    if (r.text !== undefined && typeof r.text !== 'string') return null;
+  }
+  return data as unknown as ExaReply;
+}
 
 /** One Exa call, its reply streamed and refused past the cap; a failure is a reason for the person, never thrown. */
 async function exaPost(endpoint: string, key: string, body: Record<string, unknown>, cap: number): Promise<ExaReply | { error: string }> {
@@ -63,8 +83,7 @@ async function exaPost(endpoint: string, key: string, body: Record<string, unkno
   try {
     const { bytes, truncated } = await readCapped(res, cap);
     if (truncated) return { error: 'Exa sent a reply larger than the request allows' };
-    const data = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
-    return data && typeof data === 'object' && !Array.isArray(data) ? (data as ExaReply) : { error: 'Exa sent an unreadable reply' };
+    return parseExaReply(JSON.parse(new TextDecoder().decode(bytes))) ?? { error: 'Exa sent a reply in an unexpected shape' };
   } catch {
     return { error: 'Exa sent an unreadable reply' };
   }
@@ -98,10 +117,10 @@ export function hostOf(raw: unknown): string | null {
 export function resultPages(reply: ExaReply, website: string | null, opts: { perHost?: boolean; max: number }): SourcePage[] {
   const pages: SourcePage[] = [];
   const seen = new Set<string>();
-  for (const r of reply.results ?? []) {
+  for (const r of reply.results) {
     const host = hostOf(r.url);
-    const text = typeof r.text === 'string' ? r.text.replace(/\r\n?/g, '\n').trim() : '';
-    const url = r.url as string;
+    const text = (r.text ?? '').replace(/\r\n?/g, '\n').trim();
+    const url = r.url;
     // An address too long to store whole (spec/db/011 evidence_page_url_check, the sitemaps limit) is left out, never
     // cut: a cut address is another page.
     if (!host || !text || url.length > MAX_PAGE_URL) continue;

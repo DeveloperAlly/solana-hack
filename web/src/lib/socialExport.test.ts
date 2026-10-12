@@ -21,7 +21,7 @@ describe('X archive (data/tweets.js, parsed in the browser)', () => {
       { text: 'JamJam started in Melbourne in 2024 & we ship weekly <3', date: '2024-01-15T10:15:00.000Z' },
     ]);
     expect(r.skipped).toEqual({ reposts: 2, empty: 1, unreadable: 0 });
-    expect(socialPayload(r)).toEqual({ platform: 'x', items: r.items });
+    expect(socialPayload(r)).toEqual({ platform: 'x', items: r.items.map((i) => ({ text: i.text })) });
   });
 
   it('reads older tweet.js, split parts, entries without the wrapper, and `text` when full_text is missing; a post in two parts counts once', () => {

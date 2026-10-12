@@ -20,7 +20,7 @@ export const SOCIAL_LIMIT = SOURCE_READ_LIMIT;
 /** Request body cap, enforced by the streamed read in intake.ts: room for the stored text several times over in JSON. */
 export const SOCIAL_MAX_BODY_BYTES = 2 * 1024 * 1024;
 
-export interface SocialInput { platform?: unknown; items?: unknown }
+export interface SocialInput { platform?: unknown; items?: unknown; [other: string]: unknown }
 
 /**
  * The items as one text, newest first, one item per paragraph block, separated by a blank line. Item text is kept as
@@ -32,6 +32,9 @@ export function readSocial(input: SocialInput): SourceResult {
   const platform = typeof input.platform === 'string' && input.platform in SOCIAL_PLATFORMS ? (input.platform as SocialPlatform) : null;
   const fail = (code: 'invalid_input' | 'empty' | 'too_large', reason: string) => ({ ok: false as const, kind: 'social_export' as const, code, reason, meta: c.meta(0, 0, 'export') });
   if (!platform) return fail('invalid_input', 'Say which export this is: x or linkedin.');
+  // Only the platform and each item's text are accepted (web/src/lib/socialExport.ts socialPayload): anything else
+  // from an export (dates, addresses, profile fields) is refused, never stored (Codex review on PR #100).
+  if (Object.keys(input).some((k) => k !== 'platform' && k !== 'items')) return fail('invalid_input', 'Send only the platform and the items.');
   if (!Array.isArray(input.items)) return fail('invalid_input', 'Send the posts as a list of items.');
   if (input.items.length > SOCIAL_MAX_ITEMS) return fail('too_large', `That is more than ${SOCIAL_MAX_ITEMS.toLocaleString('en')} posts; send the newest ${SOCIAL_MAX_ITEMS.toLocaleString('en')}.`);
   const label = SOCIAL_PLATFORMS[platform];
@@ -41,8 +44,9 @@ export function readSocial(input: SocialInput): SourceResult {
   let left = 0;
   let empty = 0;
   for (const item of input.items) {
-    const raw = item && typeof item === 'object' ? (item as { text?: unknown }).text : undefined;
+    const raw = item && typeof item === 'object' && !Array.isArray(item) ? (item as { text?: unknown }).text : undefined;
     if (typeof raw !== 'string') return fail('invalid_input', 'Every item needs its text.');
+    if (Object.keys(item as object).length !== 1) return fail('invalid_input', 'Send only the text of each item.');
     const text = raw.replace(/\r\n?/g, '\n').trim();
     if (contentCount(text) === 0) { empty++; continue; }
     // An item is kept whole or left out, never cut: a cut post could drop the sentence a quote comes from.
