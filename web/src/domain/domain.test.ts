@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fingerprintOf, isStale } from './approval';
+import { approve, isStale } from '../lib/approval';
 import { nextBrainVersion } from './brain';
 import { approvalState, lifecycleSteps } from './post';
 import { proposalGate } from './proposal';
@@ -14,9 +14,9 @@ const states = (id: string, v = '3.1') => lifecycleSteps(post(id), v).map((s) =>
 
 describe('domain: approvals and the Brain version', () => {
   it('a fingerprint changes with any input, and an approval on old inputs is stale', () => {
-    const a = { by: 'x', at: 'y', fingerprint: fingerprintOf('text', '3.1') };
-    expect(isStale(a, fingerprintOf('text', '3.1'))).toBe(false);
-    expect(isStale(a, fingerprintOf('text', '3.2'))).toBe(true);
+    const a = approve(['text', '3.1'], { by: 'x', at: 'y' });
+    expect(isStale(a, ['text', '3.1'])).toBe(false);
+    expect(isStale(a, ['text', '3.2'])).toBe(true);
   });
   it('a rule change bumps the revision and never the kit', () => {
     expect(nextBrainVersion('3.1')).toBe('3.2');

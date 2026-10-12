@@ -58,6 +58,7 @@ export function DistributeAdapt({ data, state = 'success' }: ScreenProps<AdaptDa
         text={flow.original}
         onSave={flow.editOriginal}
         approval={originalView[flow.originalApproval]}
+        check={flow.originalGate}
         onApprove={flow.approveOriginal}
         staleNote={flow.staleCount ? `The original, a version or the Brain changed, so ${flow.staleCount} approved ${flow.staleCount === 1 ? 'version needs' : 'versions need'} approving again.` : undefined}
         link={<Link href={links.to('Post-Detail')}>Post detail</Link>}

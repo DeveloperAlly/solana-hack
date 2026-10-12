@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { GalleryScreen } from '../../gallery/Gallery';
@@ -116,10 +116,32 @@ describe('Distribute-Adapt', () => {
     await user.type(screen.getByLabelText('Original post'), ' Try it.');
     await user.click(screen.getByRole('button', { name: 'Save original' }));
     expect(within(screen.getByRole('region', { name: 'X' })).getByText('Stale: approve again')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Approve original' })).toBeInTheDocument();
+    // The edited original is pending until its checks re-run: nothing can be approved or scheduled on it meanwhile.
+    expect(screen.getByRole('button', { name: 'Approve original' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Schedule 3' })).toHaveAccessibleDescription('The original: re-checking slop and claims.');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Approve original' })).toBeEnabled(), { timeout: 2000 });
     expect(screen.getByRole('button', { name: 'Schedule 3' })).toHaveAccessibleDescription('The original’s approval is stale. Approve it again first.');
     await user.click(screen.getByRole('button', { name: 'Approve original' }));
     expect(screen.getByRole('button', { name: 'Schedule 3' })).toHaveAccessibleDescription(/^Approve X, LinkedIn, Threads first/);
+  });
+
+  it('an edited original that is empty, or makes an unsourced claim, can be neither approved nor scheduled', async () => {
+    const user = at(screenPath('Distribute-Adapt'));
+    const save = async (text: string) => {
+      await user.click(screen.getByRole('button', { name: 'Edit original' }));
+      await user.clear(screen.getByLabelText('Original post'));
+      if (text) await user.type(screen.getByLabelText('Original post'), text);
+      await user.click(screen.getByRole('button', { name: 'Save original' }));
+    };
+    await save('');
+    expect(screen.getByText('Blocked: the original is empty')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve original' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Schedule 3' })).toBeDisabled();
+    expect(within(screen.getByRole('region', { name: 'LinkedIn' })).getByRole('button', { name: 'Approve LinkedIn' })).toBeDisabled();
+    await save('Our tool works for every team that tries it.');
+    expect(await screen.findByText('Blocked: 1 claim has no source', {}, { timeout: 2000 })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve original' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Schedule 3' })).toHaveAccessibleDescription('The original: 1 claim has no source.');
   });
 
   it('a version failing a check shows the blocked badge and a disabled Approve', async () => {
@@ -438,7 +460,7 @@ describe('Codex round 2 on PR 102', () => {
     await user.type(screen.getByLabelText('Bluesky version'), ' ');
     await user.click(screen.getByRole('button', { name: 'Save Bluesky version' }));
     const bluesky = () => screen.getByRole('region', { name: 'Bluesky' });
-    expect(within(bluesky()).getByText('Blocked: re-checking claims')).toBeInTheDocument();
+    expect(within(bluesky()).getByText('Blocked: re-checking slop and claims')).toBeInTheDocument();
     expect(within(bluesky()).getByRole('button', { name: 'Approve Bluesky' })).toBeDisabled();
     expect(await within(bluesky()).findByText('Blocked: 1 claim has no source')).toBeInTheDocument();
     expect(within(bluesky()).getByRole('button', { name: 'Approve Bluesky' })).toBeDisabled();
@@ -452,7 +474,7 @@ describe('Codex round 2 on PR 102', () => {
     await user.clear(screen.getByLabelText('Bluesky version'));
     await user.type(screen.getByLabelText('Bluesky version'), 'Your agent didn’t forget. It was never told.');
     await user.click(screen.getByRole('button', { name: 'Save Bluesky version' }));
-    expect(screen.getByText('Blocked: re-checking claims')).toBeInTheDocument();
+    expect(screen.getByText('Blocked: re-checking slop and claims')).toBeInTheDocument();
     expect(await screen.findByText('Checks passed')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve Bluesky' })).toBeEnabled();
   });

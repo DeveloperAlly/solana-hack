@@ -2,8 +2,8 @@
 // (the board), draft, approval stale after an edit, publish failed on one platform, not verified, results ready
 // (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn). The first is the board's post. Other copy, people and figures
 // are bracketed. Shared by Post-Detail, Today and any post card.
-import { fingerprintOf } from '../approval';
-import { postFingerprint, type DraftProvenance, type Post } from '../post';
+import { approve } from '../../lib/approval';
+import { postInputs, type DraftProvenance, type Post } from '../post';
 import { OWNER } from './brain';
 
 const prompt = { id: 'draft-post', version: '[version]' };
@@ -11,7 +11,7 @@ const prompt = { id: 'draft-post', version: '[version]' };
 const model = 'openrouter/free';
 const founder = (over: Partial<DraftProvenance> = {}): DraftProvenance => ({ kitVersion: 3, brainVersion: '3.1', evidenceIds: ['f-folder', 'f-context'], ruleIds: ['r-lead', 'r-no-hype'], voice: 'founder', prompt, model, ...over });
 const passed = { slop: 'passed', claims: { backed: 2, total: 2 }, disclosure: 'n/a' } as const;
-const approvedAt = (post: Pick<Post, 'text' | 'provenance'>, at: string) => ({ by: OWNER, at, fingerprint: postFingerprint(post, '3.1') });
+const approvedAt = (post: Pick<Post, 'text' | 'provenance'>, at: string) => approve(postInputs(post, '3.1'), { by: OWNER, at });
 
 const launchText = "Your agent didn't forget. It was never told. Every new session starts blank because project context lives in people's heads. aDNA puts it in the repo, where every agent reads it first. Here's the fix, in one folder.";
 const launch = { text: launchText, provenance: founder() };
@@ -89,7 +89,7 @@ export const adnaPosts: Post[] = [
     checks: passed,
     lifecycle: {
       drafted: { voiceLabel: 'Founder voice' },
-      approval: { by: OWNER, at: '[date]', fingerprint: fingerprintOf('published before this session') },
+      approval: approve('published before this session', { by: OWNER, at: '[date]' }),
       published: [{ platform: 'X', version: 'Original', status: 'published', detail: 'Published [date]', registered: true }],
       verified: { at: '[date]' },
       amplified: [{ id: 'amb-4', who: '[Creator name]', platform: 'X', status: 'paid', label: 'Verified · [n] USDC paid' }],

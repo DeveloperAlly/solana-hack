@@ -1,9 +1,10 @@
 // Sample data for Distribute-Adapt (canvas v21 board Distribute-Adapt; https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn).
 // The post and its X, LinkedIn and Threads versions are the board's aDNA copy, written out in full where the board
 // truncates it; Bluesky and Substack versions are sample adaptations. The Bluesky version carries one unsourced claim
-// so the claims gate has something to block, on any text that still makes that claim (canvas note: "a version fails a check"). Platforms are registry ids
+// so the claims gate has something to block, on any text that still makes that claim; the original shares it. The
+// slop phrases are a sample of what the no-AI-slop pass flags (canvas note: "a version fails a check"). Platforms are registry ids
 // (config/platforms.ts); the board's "Newsletter" is Substack in the registry. Slots and the taken slot are samples.
-import { fingerprintOf } from '../../domain/approval';
+import { approve } from '../../lib/approval';
 import { sampleApprover, sampleBrainVersion, sampleDraft } from './drafts';
 import type { AdaptData } from './types';
 
@@ -25,7 +26,9 @@ export const adapt: AdaptData = {
   platformIds: ['x', 'linkedin', 'threads', 'bluesky', 'substack'],
   chosen: ['x', 'linkedin', 'threads'],
   versions,
-  approvals: { x: { by: sampleApprover, at: '[date]', fingerprint: fingerprintOf(xText, xText, sampleBrainVersion) } },
+  approvals: { x: approve([xText, xText, sampleBrainVersion], { by: sampleApprover, at: '[date]' }) },
+  originalUnsourcedClaims: ['for every team that tries it'],
+  slopPhrases: ['game-changer', 'unlock the power of'],
   slots: ['Tue 09:30 (best time)', 'Tue 13:00', 'Wed 09:30', 'Now'],
   taken: [{ platformId: 'linkedin', slot: 'Tue 09:30 (best time)', what: 'another aDNA post' }],
 };

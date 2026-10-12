@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Gate } from '../../domain/approval';
+import type { Gate } from '../../lib/approval';
 import {
   completeScores, currentVersion, emptyRatingDraft, proofTransition, ratingGate, withVersion,
   type AttendanceProof, type AttendanceProofKind, type EventRating, type ProofEvent, type RatingDraftScores, type RatingQuestionId, type RatingScore,

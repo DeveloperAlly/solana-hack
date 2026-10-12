@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import type { Gate } from '../../domain/approval';
+import type { Gate } from '../../lib/approval';
 import { signalLabels, type Proposal } from '../../domain/proposal';
 import { Badge } from '../primitives/Badge';
 import { Button } from '../primitives/Button';

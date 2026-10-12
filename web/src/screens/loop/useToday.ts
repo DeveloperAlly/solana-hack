@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Gate } from '../../domain/approval';
+import type { Gate } from '../../lib/approval';
 import { nextBrainVersion, rulesWith } from '../../domain/brain';
 import { gateFor, primaryActions, type QueueItem, type QueueKind } from '../../domain/queue';
 import { approveSubmission, payoutOutcome, questWithPayouts } from '../../domain/quest';

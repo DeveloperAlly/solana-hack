@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { fingerprintOf, isStale } from '../../domain/approval';
+import { approve, isStale } from '../../lib/approval';
 import { nextBrainVersion, type Brain, type BrainRule } from '../../domain/brain';
 import type { Proposal } from '../../domain/proposal';
 import { loopStore, today } from './store';
@@ -78,7 +78,6 @@ export function useLoop(base: LoopBase): LoopFlow {
     const s = loopStore.read();
     return { proposals: { ...s.proposals, [p.id]: { ...s.proposals[p.id], ...change } } };
   };
-  const fp = (inputs: unknown) => fingerprintOf(inputs, loopStore.read().brainVersion ?? base.brain.version);
 
   return {
     brain,
@@ -92,10 +91,10 @@ export function useLoop(base: LoopBase): LoopFlow {
     trialProposal: (p) => set(setProposal(p, { status: 'trial' })),
     recheckProposal: (p) => set(setProposal(p, { brainVersion: version })),
     retireRule: (r) => bump(`Rule "${r.text}" retired`, (at) => ({ rules: { ...loopStore.read().rules, [r.id]: { status: 'retired', decided: { by: base.approver, at } } } })),
-    approveItem: (id, inputs) => set({ approvals: { ...loopStore.read().approvals, [id]: { by: base.approver, at: today(), fingerprint: fp(inputs) } } }),
+    approveItem: (id, inputs) => set({ approvals: { ...loopStore.read().approvals, [id]: approve([inputs, loopStore.read().brainVersion ?? base.brain.version], { by: base.approver, at: today() }) } }),
     approvalOf: (id, inputs) => {
       const a = state.approvals[id];
-      return a && (isStale(a, fingerprintOf(inputs, version)) ? 'stale' : 'valid');
+      return a && (isStale(a, [inputs, version]) ? 'stale' : 'valid');
     },
     finish: (id, outcome) => set({ outcomes: { ...loopStore.read().outcomes, [id]: outcome } }),
     outcome: (id) => state.outcomes[id],

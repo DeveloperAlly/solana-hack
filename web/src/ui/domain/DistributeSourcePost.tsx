@@ -2,6 +2,8 @@ import { useState, type ReactNode } from 'react';
 import { Card } from '../composites/Card';
 import { Badge, Button, Field, Text } from '../primitives';
 import type { BadgeTone } from '../primitives/Badge';
+import { GatedButton } from '../composites/GatedButton';
+import type { Gate } from '../../lib/approval';
 import styles from './DistributeSourcePost.module.css';
 
 export interface DistributeSourcePostProps {
@@ -16,6 +18,8 @@ export interface DistributeSourcePostProps {
   link?: ReactNode;
   /** The original's own approval; after an edit it needs approving again before anything is scheduled. */
   approval?: { label: string; tone: BadgeTone; approved: boolean };
+  /** The original's checks: the blocked badge and a disabled Approve both read it (pending while they re-run). */
+  check?: Gate;
   onApprove?: () => void;
 }
 
@@ -23,7 +27,7 @@ export interface DistributeSourcePostProps {
  * D93 DistributeSourcePost: the one approved post every platform version is adapted from (canvas v21 Distribute-Adapt,
  * "editing the original marks versions stale"). States: reading, editing, stale versions, original needs approval.
  */
-export function DistributeSourcePost({ label, text, onSave, staleNote, link, approval, onApprove }: DistributeSourcePostProps) {
+export function DistributeSourcePost({ label, text, onSave, staleNote, link, approval, check, onApprove }: DistributeSourcePostProps) {
   const [draft, setDraft] = useState<string | null>(null);
   return (
     <Card variant="subtle" as="section" header={<><span className={styles.chips}><Badge>{label}</Badge>{approval && <Badge tone={approval.tone}>{approval.label}</Badge>}</span>{link}</>}>
@@ -32,12 +36,13 @@ export function DistributeSourcePost({ label, text, onSave, staleNote, link, app
       ) : (
         <Field multiline label="Original post" value={draft} onChange={(e) => setDraft(e.target.value)} rows={4} />
       )}
+      {check?.blocking && <span><Badge tone="warning">{`Blocked: ${check.label}`}</Badge></span>}
       {staleNote && <Text variant="small" tone="warning" role="status">{staleNote}</Text>}
       <div className={styles.actions}>
         {draft === null ? (
           <>
             <Button variant="secondary" onClick={() => setDraft(text)}>Edit original</Button>
-            {approval && !approval.approved && onApprove && <Button onClick={onApprove}>Approve original</Button>}
+            {approval && !approval.approved && onApprove && <GatedButton gate={check ?? { blocking: false, label: 'Checks passed' }} onClick={onApprove}>Approve original</GatedButton>}
           </>
         ) : (
           <>

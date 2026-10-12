@@ -7,7 +7,7 @@ import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import type { Platform, PlatformStatus } from '../../config/platforms';
 import type { ApprovedPost, IsoDateTime } from '../public-next/types';
 import type { ArtboardName } from '../../config/artboards';
-import type { Approval } from '../../domain/approval';
+import type { Approval, Approver } from '../../lib/approval';
 import type { Post } from '../../domain/post';
 import type { BoardEventKind, BrandEvent } from '../../domain/event';
 import type { EventRating, OrganiserReply, RatingSummary } from '../../domain/rating';
@@ -242,8 +242,12 @@ export interface AdaptData {
   /** Chosen when the screen opens. */
   chosen: string[];
   versions: Record<string, AdaptVersionSeed>;
-  /** Versions already approved, each bound to its text and the original's by fingerprint. */
-  approvals: Record<string, Approval>;
+  /** Versions already approved, each bound to its text, the original's and the Brain version by fingerprint. */
+  approvals: Record<string, Approval<Approver>>;
+  /** The sample claims gate's unsourced claims for the original: its result for any text is how many remain. */
+  originalUnsourcedClaims: string[];
+  /** The sample no-AI-slop pass: phrases it flags in any text. */
+  slopPhrases: string[];
   /** Times offered in "When", best first. */
   slots: string[];
   taken: TakenSlot[];

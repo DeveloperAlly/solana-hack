@@ -3,6 +3,18 @@
 // inputs change, the approval is stale: every screen treats it as not approved, and the person approves again. This
 // mirrors the Worker, which resets an approved post to drafted on any edit (web/worker/posts.ts).
 
+/** A gate result: whether it blocks the action, and the sentence that says why (badges and buttons read the same one). */
+export interface Gate {
+  blocking: boolean;
+  label: string;
+}
+
+/** Who approved and when: the decision recorded by the loop's approvals (posts, versions, queue items). */
+export interface Approver {
+  by: string;
+  at: string;
+}
+
 /** A decision bound to the inputs it was made on. */
 export interface Approval<D = true> {
   decision: D;
@@ -25,4 +37,13 @@ export function isStale(approval: Approval<unknown> | null | undefined, inputs: 
 /** True when there is an approval and it was made on exactly these inputs. */
 export function isCurrent(approval: Approval<unknown> | null | undefined, inputs: unknown): approval is Approval<unknown> {
   return Boolean(approval) && approval!.fingerprint === fingerprintOf(inputs);
+}
+
+/**
+ * Records a decision only through the current gate on these inputs (Codex review on PR 102): while the gate blocks, or
+ * is pending a re-check, there is no approval. Every approve action that has checks goes through this, so an edit can
+ * never be approved before its checks have re-run.
+ */
+export function approveThrough<D = true>(gate: Gate, inputs: unknown, decision: D = true as D): Approval<D> | null {
+  return gate.blocking ? null : approve(inputs, decision);
 }

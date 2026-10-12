@@ -1,6 +1,6 @@
 import { useId, type ReactNode } from 'react';
 import { Button, type ButtonVariant } from '../primitives/Button';
-import type { Gate } from '../../domain/approval';
+import type { Gate } from '../../lib/approval';
 import styles from './GatedButton.module.css';
 
 export type { Gate };

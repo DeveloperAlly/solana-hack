@@ -4,7 +4,8 @@
 // persisted and nothing calls the network (each write names its future endpoint in an INTEGRATION comment).
 import { createBrandScopedStore } from '../../lib/brandScopedStore';
 import { activeBrand } from '../../flows/brand/activeBrand';
-import type { Approval } from '../../domain/approval';
+import type { Approval, Approver } from '../../lib/approval';
+import type { CheckRun } from './adaptChecks';
 import type { BrandEvent, EventRole, EventStatus, EventPlanItem } from '../../domain/event';
 import type { Post } from '../../domain/post';
 import type { EventRating } from '../../domain/rating';
@@ -15,13 +16,16 @@ import type { BadgeStyle, ConnectionState, Invite, Member, Referral, Tip } from 
 export interface AdaptEdits {
   /** The original's text after an edit here; its approval goes stale. */
   original?: string;
-  /** The original re-approved after an edit. */
-  originalApproval?: Approval;
+  /** The original re-approved after an edit (only through its gate: lib/approval.ts approveThrough). */
+  originalApproval?: Approval<Approver>;
   chosen?: string[];
   texts: Record<string, string>;
-  /** The claims gate's last result per platform, with the text it read; a different text is pending until re-read. */
-  claims: Record<string, { text: string; unsourced: number }>;
-  approvals: Record<string, Approval>;
+  /**
+   * The checks' last run per text ('original' or a platform id), with the text they read. Any other text is pending
+   * until they re-run on it (Codex review on PR 102).
+   */
+  checks: Record<string, CheckRun & { text: string }>;
+  approvals: Record<string, Approval<Approver>>;
   when: Record<string, string>;
   /** Platforms sent to the calendar, with their slots. */
   scheduled?: Record<string, string>;

@@ -1,7 +1,7 @@
 // A learned-rule proposal: the UI contract for the learn loop (ADR-013 decision 3, module N5 "learn loop"; contract
 // table in issue #90). Each proposal cites the outcomes it rests on, is judged by an evaluator other than the model
 // that wrote it, changes nothing until the owner approves it, and names the Brain version it was judged against.
-import type { Gate } from './approval';
+import type { Gate } from '../lib/approval';
 import type { ArtboardName } from '../config/artboards';
 
 /** Where the signal came from (ADR-012 runtime section). */

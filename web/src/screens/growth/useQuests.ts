@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Gate } from '../../domain/approval';
+import type { Gate } from '../../lib/approval';
 import { gateFor, type AmbassadorPostItem, type GateContext } from '../../domain/queue';
 import {
   approveSubmission, budgetCap, isPayoutOutcome, emptyQuestDraft, isQuestFormat, parseReward, parseSlots, questWithPayouts, questState,

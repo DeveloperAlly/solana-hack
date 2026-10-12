@@ -4,7 +4,7 @@
 // ambassador posts with a payout, tagged with their questId: no second queue. Quests and Today share the one gate
 // (queue.ts gateFor, which applies submissionGate) and the one action, approveSubmission. Rewards go to the doer's own wallet (backend map). No paid posting
 // on X (pitch deck "Why now").
-import type { Gate } from './approval';
+import type { Gate } from '../lib/approval';
 
 export const questFormats = [
   { id: 'tutorial', label: 'Tutorial or article' },

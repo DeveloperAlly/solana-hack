@@ -4,7 +4,7 @@
 // post (Grow; a quest submission when it carries a questId, paid through domain/quest.ts), event content (Grow, the event source registry: plan items are ordinary drafts),
 // learned rule (N5 learn loop), campaign decision (Grow, campaign optimiser).
 import type { ArtboardName } from '../config/artboards';
-import type { Gate } from './approval';
+import type { Gate } from '../lib/approval';
 import { proposalGate, type Proposal } from './proposal';
 import type { PostChecks } from './post';
 import { submissionGate, type Quest } from './quest';
