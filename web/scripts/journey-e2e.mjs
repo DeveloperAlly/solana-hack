@@ -35,11 +35,20 @@ function finish(code) {
 if (!SB || !PK || !SK) fail('SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY and SUPABASE_SECRET_KEY are required');
 
 async function req(url, init = {}) {
-  const res = await fetch(url, init);
-  const text = await res.text();
-  let body; try { body = JSON.parse(text); } catch { body = text; }
-  return { status: res.status, body };
+  const attempts = !init.method || init.method === 'GET' ? 3 : 1;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(30_000) });
+      const text = await res.text();
+      let body; try { body = JSON.parse(text); } catch { body = text; }
+      return { status: res.status, body };
+    } catch {
+      if (attempt + 1 === attempts) fail(`request transport failed after ${attempts} attempt(s); host ${new URL(url).hostname}`);
+      await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 1000));
+    }
+  }
 }
+
 const auth = (path, body, headers = {}) => req(`${SB}/auth/v1/${path}`, { method: 'POST', headers: { apikey: PK, 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
 const api = (token, method, path, body) => req(`${BASE}/api${path}`, {
   method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body),
