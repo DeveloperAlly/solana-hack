@@ -3,7 +3,7 @@
 // budget of metered calls (model calls and paid service calls, declared per step: types.ts StepBase.metered), a
 // per-brand run rate (Codex review on PR #100: a run kind with no model call still costs money), a daily spend
 // allowance, and, for an anonymous visitor (reading before sign-in, decision D1 and PR #96), a per-network run rate and
-// smaller caps. The values are computed here; spec/db/011 admit_run checks them and reserves in one transaction. Owner types are read from the caller (`isAnonymous`, set by auth for a
+// smaller caps. The values are computed here; spec/db/012 admit_run checks them and reserves in one transaction. Owner types are read from the caller (`isAnonymous`, set by auth for a
 // Supabase anonymous user in PR #96); without it every caller is a permanent account, so this does not depend on #96.
 import { db } from '../db';
 import type { Env } from '../env';
@@ -64,7 +64,7 @@ async function setting(env: Env, key: string, type: OwnerType, fallback: Record<
 }
 
 /**
- * The caps and plan one start is admitted against (spec/db/011 admit_run, which counts, checks and writes the run row
+ * The caps and plan one start is admitted against (spec/db/012 admit_run, which counts, checks and writes the run row
  * in one transaction serialised per brand, so two starts at the edge cannot both pass: Codex review on PR #91):
  * planned metered calls, the brand's daily metered-call budget and its hourly run rate, for the caller's owner type.
  */

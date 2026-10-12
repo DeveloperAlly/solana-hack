@@ -1,6 +1,6 @@
 // The save step of fact extraction (issue #64): one idempotent database write per run (the engine may run a step more
 // than once: https://developers.cloudflare.com/workflows/build/rules-of-workflows/). It needs migration 011
-// (spec/db/011_fact_extraction.sql), which also seeds the extract_facts definition, so no run can reach this step on
+// (spec/db/012_fact_extraction.sql), which also seeds the extract_facts definition, so no run can reach this step on
 // a database without it.
 import { db } from '../db';
 import type { Env } from '../env';
@@ -15,11 +15,11 @@ import type { Candidate, Dropped } from './pipeline';
 /** The read step's output (engine/readers.ts), as far as saving needs it. */
 export interface ReadOutput { kind: string; url?: string; title: string; text: string; truncated: boolean; pages?: { url: string; title: string; start: number; end: number }[] }
 
-/** Longest page address stored (spec/db/011 evidence_page_url_check): the sitemaps protocol's URL limit
+/** Longest page address stored (spec/db/012 evidence_page_url_check): the sitemaps protocol's URL limit
  * (https://www.sitemaps.org/protocol.html, "must be less than 2,048 characters"). */
 export const MAX_PAGE_URL = 2047;
 /** Longest page title stored, in characters (code points, as Postgres char_length counts them); a title is display
- * text, so a longer one is cut, never inside a character (spec/db/011 evidence_page_title_check). */
+ * text, so a longer one is cut, never inside a character (spec/db/012 evidence_page_title_check). */
 export const MAX_PAGE_TITLE = 200;
 
 /**
@@ -66,7 +66,7 @@ export async function saveExtractedFacts(env: Env, run: Pick<RunRow, 'id' | 'bra
     };
   }));
   const text = a.read.text;
-  // One transaction (spec/db/011 save_extraction): the facts, their conflicts, confidence across sources, and the
+  // One transaction (spec/db/012 save_extraction): the facts, their conflicts, confidence across sources, and the
   // source marked read. A failure anywhere leaves nothing of this save (Codex review on PR #91). A final address longer
   // than sources.url has always held is not stored rather than cut (a cut address is another page).
   const out = await db.rpc<{ facts: number; needsReview: number; conflicts: number }>(env, 'save_extraction', {

@@ -11,7 +11,7 @@ export interface BrandRef { id: string; owner_id: string; name: string; website?
 export type KindPrepare = (env: Env, brand: BrandRef, body: Record<string, unknown>) => Promise<Record<string, unknown>>;
 
 export const KINDS: Record<string, KindPrepare> = {
-  /** Retired by spec/db/011 (one model call, no support check); kept so its in-flight runs and engine tests resolve. */
+  /** Retired by spec/db/012 (one model call, no support check); kept so its in-flight runs and engine tests resolve. */
   ingest_url: async (env, brand, body) => {
     const url = typeof body.url === 'string' ? body.url.trim().slice(0, 500) : '';
     if (!url) throw new HttpError(400, 'a link is required');

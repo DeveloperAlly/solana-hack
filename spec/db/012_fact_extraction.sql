@@ -3,7 +3,7 @@
 -- run that produced it, one open question per contradiction for the owner and the call that resolves it, and the
 -- pinned models for extraction and its support judge (engine_config task_models), and step cost metering
 -- (run_steps.cost_usd). Next free number after
--- 010_workflow_engine.sql (PR #70), which this depends on (runs, prompt_versions, workflow_defs).
+-- 011_workflow_engine.sql (PR #70), which this depends on (runs, prompt_versions, workflow_defs).
 -- Must be applied before the Worker from PR #91 is deployed: POST /api/brands/:id/sources starts extract_facts, whose
 -- definition, prompts and models exist only in this seed, so without it that route answers 503 before any row is
 -- written. It also retires ingest_url v1 (at the end). Safe to re-run.
@@ -63,7 +63,7 @@ create index if not exists evidence_brand_slot on public.evidence(brand_id, slot
 
 -- Metering: what each step's external call cost in US dollars (a reader's meta.cost, e.g. Exa contents; a model call's
 -- reported usage.cost, 0 for free models; null when not reported), so a brand's cost is a sum over its runs' steps.
--- record_run_step (spec/db/010) is redefined to store it; everything else it does is unchanged.
+-- record_run_step (spec/db/011) is redefined to store it; everything else it does is unchanged.
 alter table public.run_steps add column if not exists cost_usd numeric;
 -- metered_calls: the metered calls the attempt made (its step's `metered` count, types.ts StepBase), recorded for every
 -- attempt, failed ones included, whatever its cost; a call whose provider reports no cost is still counted.

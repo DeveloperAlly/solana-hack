@@ -27,7 +27,7 @@ const STEP_FIELDS = 'step,attempt,type,outcome,prompt_key,prompt_version,prompt_
 
 /**
  * The workflow POST /api/brands/:id/sources starts: fact extraction with its support check (issue #64). ingest_url (one
- * model call, no support check) is retired by spec/db/011, so a claim that says more than its quote can no longer be
+ * model call, no support check) is retired by spec/db/012, so a claim that says more than its quote can no longer be
  * saved through the Your links step (design review on PR #91).
  */
 export const SOURCE_RUN_KIND = 'extract_facts';
@@ -38,13 +38,13 @@ export async function activeDef(env: Env, kind: string): Promise<WorkflowSpec> {
   // request, and is refused before any row is written.
   if (def) return def.spec;
   if (!Object.hasOwn(KINDS, kind)) throw new HttpError(404, `unknown run kind ${kind}`);
-  // A startable kind with versions but none active was retired (ingest_url, by spec/db/011): say so, not "not set up".
+  // A startable kind with versions but none active was retired (ingest_url, by spec/db/012): say so, not "not set up".
   const [any] = await db.select<{ id: string }>(env, 'workflow_defs', `${db.eq('id', kind)}&select=id&limit=1`);
   throw any ? new HttpError(410, `${kind} is retired; new runs use ${SOURCE_RUN_KIND}`) : new HttpError(503, `${kind} is not set up in this database yet (its migration in spec/db has not been applied)`);
 }
 
 /**
- * A run's place, held after admission and before its work starts (spec/db/011 admit_run): the run row in status
+ * A run's place, held after admission and before its work starts (spec/db/012 admit_run): the run row in status
  * 'reserved', with the definition version and executor pinned at admission. Its capacity counts against the brand's
  * caps until it starts, is released, or expires (RESERVATION_TTL_S).
  */
@@ -54,7 +54,7 @@ export interface Reservation { runId: string; brandId: string; kind: string; wor
 export const RESERVATION_TTL_S = 600;
 
 /**
- * Admits a run, atomically (spec/db/011 admit_run): the anonymous caller's network cap, the brand's run rate, its daily
+ * Admits a run, atomically (spec/db/012 admit_run): the anonymous caller's network cap, the brand's run rate, its daily
  * spend allowance and its metered-call budget are checked and the reservation written in one transaction. Call it
  * before any expensive pre-work; a refusal is an HttpError (429 over a cap; 404 unknown kind; 410 retired; 503 not
  * set up or no executor) and writes nothing.

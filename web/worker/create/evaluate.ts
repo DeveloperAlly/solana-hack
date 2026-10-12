@@ -24,7 +24,7 @@ async function evaluatorLists(env: Env): Promise<{ code: string; model: string }
   const arg = (id: string) => (def?.spec.steps.find((s) => s.id === id) as { args?: Record<string, string> } | undefined)?.args?.evaluators;
   const code = arg('measure');
   const model = arg('decide');
-  if (!code || !model) throw new HttpError(503, 'drafting is not set up in this database yet (spec/db/013)');
+  if (!code || !model) throw new HttpError(503, 'drafting is not set up in this database yet (spec/db/014)');
   return { code, model };
 }
 

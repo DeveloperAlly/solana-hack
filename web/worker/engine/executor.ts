@@ -1,6 +1,6 @@
 // Executors (issue #32): where a run's steps execute. 'workflows' (default) hands the run to Cloudflare Workflows, which
 // persists each step and retries it; 'inline' runs it in this Worker invocation with ctx.waitUntil. The choice is the
-// engine_config row 'executor' (spec/db/010), so it changes without a deploy.
+// engine_config row 'executor' (spec/db/011), so it changes without a deploy.
 //
 // The inline adapter runs single-step definitions only. waitUntil work is cancelled 30 seconds after the response is
 // sent (https://developers.cloudflare.com/workers/runtime-apis/context/#waituntil), so a multi-call run could be cut off
@@ -44,7 +44,7 @@ export function inlineStep(sleep = (ms: number) => new Promise((r) => setTimeout
       }
     },
     // An inline run cannot outlive its request (waitUntil, above), and nothing would wake it at resume_at, so it never
-    // parks: the run ends failed with when to try again, and as a failed run it holds no capacity (spec/db/011
+    // parks: the run ends failed with when to try again, and as a failed run it holds no capacity (spec/db/012
     // admit_run counts only runs still going). Durable sleeps are what Cloudflare Workflows' step.sleepUntil is for
     // (https://developers.cloudflare.com/workflows/build/sleeping-and-retrying/); a cron sweep is not used, because
     // it would need its own trigger to resume runs that the Workflows executor already resumes. PR #99 review.

@@ -92,7 +92,7 @@ const run = () => db.tables.runs[0] as Row & { id: string; status: string; progr
 const steps = (name?: string) => db.tables.run_steps.filter((s) => !name || s.step === name);
 
 describe('definitions are data', () => {
-  const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/010_workflow_engine.sql'), 'utf8');
+  const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/011_workflow_engine.sql'), 'utf8');
   it('migration 010 seeds exactly the definition and prompt in seed.ts', () => {
     expect(JSON.parse(/\$spec\$([\s\S]*?)\$spec\$/.exec(sql)![1])).toEqual(INGEST_URL);
     expect(/\$prompt\$([\s\S]*?)\$prompt\$/.exec(sql)![1]).toBe(EXTRACT_FACTS_PROMPT);

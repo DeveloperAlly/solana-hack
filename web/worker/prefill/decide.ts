@@ -2,9 +2,9 @@
 // operations the routes call (issue #34). There is one review path: accept and reject go through api.ts
 // reviewEvidence (ADR-011), which also records the owner's own decision (owner_decision), an edit through PR #96's editFact (the source fact is rejected and the owner's wording
 // becomes an approved owner statement, linked by edited_from), and every conflict decision through #91's one call,
-// extract/conflicts.ts resolveFactConflict (spec/db/011 resolve_fact_conflict), which checks and changes everything in
+// extract/conflicts.ts resolveFactConflict (spec/db/012 resolve_fact_conflict), which checks and changes everything in
 // one transaction: a refused call changes nothing, and its 404, 409 and 400 reach the caller through db.ts dbError.
-// A conflict left with fewer than two values closes itself in the database (spec/db/011 rederive_conflicts), so nothing
+// A conflict left with fewer than two values closes itself in the database (spec/db/012 rederive_conflicts), so nothing
 // here closes one. The two review functions are passed in, so this module does not depend on which of #96 and this PR
 // merges first.
 import { db } from '../db';
@@ -179,7 +179,7 @@ export async function decideFact(env: Env, user: { id: string }, brand: { id: st
   if (record.decision === 'edited') {
     if (!conflict) {
       const out = await ops.edit(env, brand.id, id, record.edit);
-      // The owner's decision on the fact they reworded (spec/db/011 owner_decision), beside #96's rejection of it.
+      // The owner's decision on the fact they reworded (spec/db/012 owner_decision), beside #96's rejection of it.
       await db.update(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`, { owner_decision: 'edited', owner_decided_by: user.id, owner_decided_at: new Date().toISOString() });
       return out;
     }

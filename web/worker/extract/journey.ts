@@ -29,9 +29,9 @@ export interface EvidenceRow {
   review_status: string;
   trust?: string | null;
   match?: string | null;
-  /** The single-valued slot value, when the fact fills one (spec/db/011), so a conflict's question is worded from its live sides. */
+  /** The single-valued slot value, when the fact fills one (spec/db/012), so a conflict's question is worded from its live sides. */
   slot_value?: string | null;
-  /** Held because it gives a different value from the owner's own answer for the same slot (spec/db/011). */
+  /** Held because it gives a different value from the owner's own answer for the same slot (spec/db/012). */
   contradicts_owner?: boolean | null;
   page_url?: string | null;
   page_title?: string | null;
@@ -105,7 +105,7 @@ export function factView(e: EvidenceRow, sources: Map<string, SourceRow>, confli
 /**
  * An open conflict as the journey shows it: one 'needs-you' item carrying the question, and every side as a
  * 'needs-you' fact with its own quote and source, so the owner sees the passages that disagree. A side the owner
- * already rejected is left out; the question stays until the conflict is resolved (resolve_fact_conflict, spec/db/011).
+ * already rejected is left out; the question stays until the conflict is resolved (resolve_fact_conflict, spec/db/012).
  * Null when the conflict is resolved, or has no side left to show.
  */
 export function conflictView(c: ConflictRow, facts: EvidenceRow[], sources: Map<string, SourceRow>): ConflictView | null {

@@ -1,4 +1,4 @@
-// Prompt library (backlog X5, X14): prompts live in prompt_versions (spec/db/010), keyed by key and version and checked
+// Prompt library (backlog X5, X14): prompts live in prompt_versions (spec/db/011), keyed by key and version and checked
 // by hash, so a prompt changes without a deploy and every run step records exactly which prompt it used.
 import { db } from '../db';
 import { HttpError, sha256Hex, type Env } from '../env';

@@ -114,14 +114,14 @@ const evidence = () => db.tables.evidence as (Row & { claim: string; quote: stri
 const sourceText = (id: string) => (db.tables.sources.find((s) => s.id === id) as { source_text: string }).source_text;
 
 describe('definitions are data (spec/db/011)', () => {
-  const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/011_fact_extraction.sql'), 'utf8');
+  const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/012_fact_extraction.sql'), 'utf8');
   it('migration 011 seeds exactly the extract_facts definition and its two prompts in seed.ts', () => {
     expect(JSON.parse(/\$spec\$([\s\S]*?)\$spec\$/.exec(sql)![1])).toEqual(EXTRACT_FACTS);
     expect(/\$p1\$([\s\S]*?)\$p1\$/.exec(sql)![1]).toBe(EXTRACT_CHUNK_PROMPT);
     expect(/\$p2\$([\s\S]*?)\$p2\$/.exec(sql)![1]).toBe(CHECK_SUPPORT_PROMPT);
     expect(sql).toMatch(/\('extract\.facts', 1, \$p1\$/);
     expect(sql).toMatch(/\('extract\.check_support', 1, \$p2\$/);
-    expect(SEEDED_BY['011_fact_extraction.sql'].defs).toEqual([EXTRACT_FACTS]);
+    expect(SEEDED_BY['012_fact_extraction.sql'].defs).toEqual([EXTRACT_FACTS]);
   });
   it('sizes the definition so no step output can pass the Workflows 1 MiB limit', () => {
     const read = EXTRACT_FACTS.steps.find((s) => s.id === 'read') as { maxChars: number; maxBytes: number };
@@ -186,10 +186,10 @@ describe('models per task: pinned free models, and a judge never from the extrac
     expect([...EXTRACT_MODELS['extract.facts'], ...EXTRACT_MODELS['extract.check_support']].map((m) => [...modelFamilies(m)].join('+'))).toEqual(['nvidia', 'apodex', 'dots-studio', 'liquid']);
   });
   it('migration 011 merges exactly that config into the shared task_models row', () => {
-    const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/011_fact_extraction.sql'), 'utf8');
+    const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/012_fact_extraction.sql'), 'utf8');
     const rows = [...sql.matchAll(/\('(\w+)', \$cfg\$([\s\S]*?)\$cfg\$::jsonb\)/g)].map(([, key, v]) => ({ key, value: JSON.parse(v) }));
     expect(rows).toEqual(SEED_CONFIG);
-    expect(SEEDED_BY['011_fact_extraction.sql'].config).toEqual(SEED_CONFIG);
+    expect(SEEDED_BY['012_fact_extraction.sql'].config).toEqual(SEED_CONFIG);
     expect(sql).toMatch(/on conflict \(key\) do update set value = excluded\.value \|\| public\.engine_config\.value/);
   });
   it('families: maker plus every base lineage in the name; routers have none, so nothing can be shown to differ', () => {
@@ -717,9 +717,9 @@ describe('POST /api/brands/:id/sources runs extract_facts (design review on PR #
     const r = await call('POST', `/brands/${BRAND}/runs`, { kind: 'ingest_url', url: 'https://jamjam.tech' });
     expect(r).toMatchObject({ status: 410, body: { error: 'ingest_url is retired; new runs use extract_facts' } });
     expect(db.tables.sources).toHaveLength(0);
-    const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/011_fact_extraction.sql'), 'utf8');
+    const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/012_fact_extraction.sql'), 'utf8');
     const retired = [...sql.matchAll(/update public\.workflow_defs set status = 'retired' where id = '(\w+)' and version = (\d+)/g)].map(([, id, v]) => ({ id, version: Number(v) }));
-    expect(retired).toEqual(RETIRED_BY['011_fact_extraction.sql']);
+    expect(retired).toEqual(RETIRED_BY['012_fact_extraction.sql']);
   });
 });
 
@@ -1102,7 +1102,7 @@ describe('conflicts stay true in the database (spec/db/011 rederive_conflicts, r
     expect([open().length, ans.review_status, usableFact(ans), site.review_status, site.contradicts_owner]).toEqual([0, 'approved', true, 'proposed', true]);
   });
   it('the database words the question as the Worker does, from the same slot labels', () => {
-    const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/011_fact_extraction.sql'), 'utf8');
+    const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/012_fact_extraction.sql'), 'utf8');
     const labels = Object.fromEntries([...sql.matchAll(/^  \('(\w+)', '([^']+)'\)/gm)].map(([, k, v]) => [k, v]));
     expect(labels).toEqual(SLOTS);
   });

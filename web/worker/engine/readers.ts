@@ -29,7 +29,7 @@ const asText = (v: unknown) => (typeof v === 'string' ? v : '');
 
 /**
  * The most text one source read carries into extract_facts: its read step's maxChars (UTF-16 units) and maxBytes (UTF-8
- * bytes) in engine/seed.ts EXTRACT_FACTS and spec/db/011, sized so the step output stays under the Workflows 1 MiB
+ * bytes) in engine/seed.ts EXTRACT_FACTS and spec/db/012, sized so the step output stays under the Workflows 1 MiB
  * limit. A source whose text is stored when it is added (an upload, an export) is checked against this before it is
  * stored, so what is stored is never more than the run reads (Codex review on PR #100).
  */

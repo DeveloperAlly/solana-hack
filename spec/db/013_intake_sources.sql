@@ -18,7 +18,7 @@
 create unique index if not exists sources_one_search on public.sources(brand_id) where kind = 'search_result' and status <> 'failed';
 -- The place is self-healing (Codex review on PR #100): a reservation can be left pending with no run to finish it (the
 -- reply carrying its id was lost, or the start failed after it), and a Worker cleanup cannot cover a lost reply. So,
--- under the brand's advisory lock (the key spec/db/011 admit_run takes), a pending search_result source is reclaimed
+-- under the brand's advisory lock (the key spec/db/012 admit_run takes), a pending search_result source is reclaimed
 -- (marked failed, which frees the index) when the run that owns it has failed or been superseded, or when no run owns
 -- it and it is older than two minutes. A run owns its source through its input (runs.input sourceId, written by
 -- web/worker/engine/api.ts start() right after the reservation), so no second pointer is kept that could disagree.

@@ -85,7 +85,7 @@ export function progressAt(spec: Pick<WorkflowSpec, 'steps'>, done: number, curr
   return { steps, done: Math.min(done, steps.length), total: steps.length, message };
 }
 
-/** One coalesced write per stage: the step's trace row and the run's new progress in one call (spec/db/010
+/** One coalesced write per stage: the step's trace row and the run's new progress in one call (spec/db/011
  * record_run_step). Returns false when the run is no longer running or paused (superseded or finished elsewhere). */
 export async function record(env: Env, runId: string, step: StepTrace | null, patch: Record<string, unknown>) {
   return (await db.rpc<boolean>(env, 'record_run_step', { p_run: runId, p_step: step, p_patch: patch })) !== false;
@@ -214,7 +214,7 @@ async function attempt(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepConte
       const t0 = Date.now();
       try {
         // The meter is the authority for the budget: every attempt at a metered step consumes its calls first
-        // (spec/db/011 consume_metered); a refusal ends the run without a retry (metering.ts BudgetExhausted).
+        // (spec/db/012 consume_metered); a refusal ends the run without a retry (metering.ts BudgetExhausted).
         const n = meteredCalls(inner);
         if (n > 0) await consumeMetered(env, ctx.run.id, n);
         const r = await runStep(inner, ctx, item);

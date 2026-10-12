@@ -219,7 +219,7 @@ export const CREATE_WRITES: Record<string, (ctx: StepContext, args: Record<strin
       scores: { voice: c.voiceFit, platform: c.platformFit }, verdict: { passed: c.passed, failedGates: c.failedGates, reasons: c.reasons, evaluators: decision.results[c.idx] },
       retrieved: draft.why.retrieved, spec: draft.spec, kit_version: context.kitVersion,
     })));
-    // The post and every candidate in one transaction (spec/db/013 save_draft): a failed candidate write leaves no post
+    // The post and every candidate in one transaction (spec/db/014 save_draft): a failed candidate write leaves no post
     // without its audit rows (PR #99 review).
     await db.rpc(env, 'save_draft', { p_post: { id: postId, brand_id: run.brand_id, brief: asText(input.brief), channel: asText(input.channel) || null, body, checks, status: 'drafted', model: gens[chosen] ?? null, kit_version: context.kitVersion }, p_candidates: rows });
     return { postId, chosen, passed: v.passed };

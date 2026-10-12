@@ -1,4 +1,4 @@
-// Workflow engine types (issue #32; backlog X4, X5, X14). Definitions are data (workflow_defs.spec, spec/db/010); the
+// Workflow engine types (issue #32; backlog X4, X5, X14). Definitions are data (workflow_defs.spec, spec/db/011); the
 // step types are code. Contract: backend map §10.2 "Workflow engine", architecture §6.1 system map.
 
 /** Retry policy for one step, in the shape of a Cloudflare Workflows step config
@@ -96,10 +96,10 @@ export interface StepTrace {
   tokens_in?: number | null;
   tokens_out?: number | null;
   /** What the step's external call cost in US dollars: a reader's meta.cost, or the model call's reported cost (0 for
-   * free models); null when not reported. A brand's cost is the sum over its runs' steps (spec/db/011). */
+   * free models); null when not reported. A brand's cost is the sum over its runs' steps (spec/db/012). */
   cost_usd?: number | null;
   /** Metered calls this attempt made (its step's `metered` count, StepBase), failed attempts included; counted by the
-   * admission budget whatever the cost (spec/db/011). */
+   * admission budget whatever the cost (spec/db/012). */
   metered_calls?: number | null;
   duration_ms: number;
   error?: string | null;

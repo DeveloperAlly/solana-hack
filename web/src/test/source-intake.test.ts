@@ -502,9 +502,9 @@ describe('migration 012 seeds exactly the find_competitors definition in seed.ts
   it('the SQL row and FIND_COMPETITORS are the same definition', async () => {
     const { readFileSync } = await import('node:fs');
     const { FIND_COMPETITORS, SEEDED_BY } = await import('../../worker/engine/seed');
-    const sql = readFileSync(new URL('../../../spec/db/012_intake_sources.sql', import.meta.url), 'utf8');
+    const sql = readFileSync(new URL('../../../spec/db/013_intake_sources.sql', import.meta.url), 'utf8');
     expect(JSON.parse(/\$spec\$([\s\S]*?)\$spec\$/.exec(sql)![1])).toEqual(FIND_COMPETITORS);
-    expect(SEEDED_BY['012_intake_sources.sql'].defs).toEqual([FIND_COMPETITORS]);
+    expect(SEEDED_BY['013_intake_sources.sql'].defs).toEqual([FIND_COMPETITORS]);
   });
 });
 

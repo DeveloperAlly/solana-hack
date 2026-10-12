@@ -1,5 +1,5 @@
 // Closing a conflict (backlog B3a: the owner decides; the system never picks). The one call #34's routes make
-// (issue #34, PR #101): spec/db/011 resolve_fact_conflict checks and changes everything in one transaction, so a
+// (issue #34, PR #101): spec/db/012 resolve_fact_conflict checks and changes everything in one transaction, so a
 // refused call changes nothing, and its PTxyz errors reach the caller as HTTP statuses through db.ts dbError.
 import { db } from '../db';
 import type { Env } from '../env';

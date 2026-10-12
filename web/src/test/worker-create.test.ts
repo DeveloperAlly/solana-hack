@@ -797,7 +797,7 @@ describe('engine additions this workflow needs', () => {
 });
 
 describe('definitions are data (spec/db/013)', () => {
-  const sql = readFileSync(resolvePath(ROOT, 'spec/db/013_create_intelligence.sql'), 'utf8');
+  const sql = readFileSync(resolvePath(ROOT, 'spec/db/014_create_intelligence.sql'), 'utf8');
   it('migration 013 seeds exactly the draft_post definition, its two prompts and its models in seed.ts', () => {
     expect(JSON.parse(/\$spec\$([\s\S]*?)\$spec\$/.exec(sql)![1])).toEqual(DRAFT_POST);
     expect(/\$p1\$([\s\S]*?)\$p1\$/.exec(sql)![1]).toBe(CREATE_DRAFT_PROMPT);
@@ -805,7 +805,7 @@ describe('definitions are data (spec/db/013)', () => {
     const rows = [...sql.matchAll(/\('(\w+)', \$cfg\$([\s\S]*?)\$cfg\$::jsonb\)/g)].map(([, key, v]) => ({ key, value: JSON.parse(v) }));
     expect(rows).toEqual(CREATE_CONFIG);
     expect(sql).toMatch(/on conflict \(key\) do update set value = excluded\.value \|\| public\.engine_config\.value/);
-    expect(SEEDED_BY['013_create_intelligence.sql']).toEqual({ defs: [DRAFT_POST], prompts: ['create.draft', 'create.review'], config: CREATE_CONFIG });
+    expect(SEEDED_BY['014_create_intelligence.sql']).toEqual({ defs: [DRAFT_POST], prompts: ['create.draft', 'create.review'], config: CREATE_CONFIG });
   });
 
   it("adds 'read' to the step types run_steps accepts, and reject reasons match posts.ts REJECT_REASONS", async () => {
@@ -815,7 +815,7 @@ describe('definitions are data (spec/db/013)', () => {
   });
 
   it('migration 013 holds the two transactional writes the Worker calls, each for the service role only', () => {
-    const tx = readFileSync(resolvePath(ROOT, 'spec/db/013_create_intelligence.sql'), 'utf8');
+    const tx = readFileSync(resolvePath(ROOT, 'spec/db/014_create_intelligence.sql'), 'utf8');
     for (const fn of ['save_draft(jsonb, jsonb)', 'change_post_with_decision(uuid, int, text[], jsonb, jsonb)']) {
       expect(tx).toContain(`create or replace function public.${fn.split('(')[0]}(`);
       expect(tx).toContain(`grant execute on function public.${fn} to service_role;`);
