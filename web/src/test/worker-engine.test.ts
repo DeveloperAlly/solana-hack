@@ -9,7 +9,7 @@ const { handleApi } = await import('../../worker/api');
 const { HttpError } = await import('../../worker/env');
 const { runWorkflow, decodeError, nextUtcMidnight, RATE_LIMIT_DELAY_MS } = await import('../../worker/engine/runner');
 const { inlineStep, localDeps, launch } = await import('../../worker/engine/executor');
-const { ingestSource } = await import('../../worker/engine/api');
+const { STILL_READING } = await import('../../worker/engine/api');
 const { INGEST_URL, EXTRACT_FACTS_PROMPT } = await import('../../worker/engine/seed');
 const { render } = await import('../../worker/engine/prompts');
 const { normalisePage, quoteOnPage, MAX_QUOTE } = await import('../../worker/quote');
@@ -28,11 +28,12 @@ let external: string[] = [];
 type Started = { id: string; params: { runId: string } };
 let started: Started[] = [];
 let runOnCreate = true;
+let onCreate: ((id: string) => void) | undefined;
 let step = fakeStep();
 
 beforeEach(async () => {
   await seedTables();
-  pageFails = 0; pageFetches = 0; llmCalls = 0; external = []; started = []; runOnCreate = true; step = fakeStep();
+  pageFails = 0; pageFetches = 0; llmCalls = 0; external = []; started = []; runOnCreate = true; onCreate = undefined; step = fakeStep();
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     external.push(url.split('?')[0]);
     if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'u', email: 'o@example.com' }));
@@ -49,6 +50,7 @@ afterEach(() => vi.unstubAllGlobals());
 const binding = () => ({
   async create(o: { id?: string; params?: unknown }) {
     started.push(o as Started);
+    onCreate?.(o.id!);
     if (runOnCreate) await runWorkflow(envWith, o.id!, step.api, localDeps).catch((e) => { if (!(e instanceof Evicted)) throw e; });
     return { id: o.id! };
   },
@@ -131,11 +133,29 @@ describe('ingest runs on the engine (POST /api/brands/:id/sources)', () => {
     expect(steps('read')).toHaveLength(1); // not retried: the link will not change
   });
 
-  it('answers 202 with the run to follow when it is still going after the wait', async () => {
+  it('does not wait for a run still going: answers non-2xx "still reading" with the run to follow (PR #70 review)', async () => {
     runOnCreate = false;
-    const r = await ingestSource(envWith, undefined, { id: 'u' }, db.tables.brands[0] as never, { url: 'https://example.com' }, 0);
-    expect(r).toEqual({ status: 202, body: { runId: run().id, sourceId: db.tables.sources[0].id, status: 'running', progress: run().progress, resume_at: undefined } });
+    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    // The shipped Your links step shows the error text of any non-2xx and reloads the list; a 2xx without facts would
+    // read "undefined facts" (Build.tsx), so this must not be 2xx.
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: STILL_READING, runId: run().id, sourceId: db.tables.sources[0].id, status: 'running', progress: { done: 0, total: 4 } });
+    expect(r.body).not.toHaveProperty('facts');
     expect(db.tables.sources[0].status).toBe('pending');
+    // The run carries on in the background, and the source is read.
+    await runWorkflow(envWith, run().id, step.api, localDeps);
+    expect([run().status, db.tables.sources[0].status]).toEqual(['done', 'read']);
+  });
+
+  it('a paused run answers with its message, still non-2xx', async () => {
+    runOnCreate = false;
+    onCreate = (id) => Object.assign(db.tables.runs.find((r) => r.id === id)!, { status: 'paused', resume_at: '2026-10-13T00:00:00.000Z', progress: { steps: [], done: 1, total: 4, message: 'This run continues at 00:00 UTC.' } });
+    const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+    expect(r).toMatchObject({ status: 409, body: { error: 'This run continues at 00:00 UTC.', status: 'paused', resume_at: '2026-10-13T00:00:00.000Z' } });
+  });
+
+  it('a run already done answers 201 with facts, as before', async () => {
+    expect((await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' })).body).toMatchObject({ facts: 1, dropped: 2 });
   });
 });
 
@@ -170,6 +190,39 @@ describe('evidence trust through the engine (issue #57, moved from worker-trust.
     await add('https://jamjam.tech/go');
     expect(db.tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
     expect(db.tables.sources[0]).toMatchObject({ kind: 'page', url: 'https://elsewhere.example/landing' });
+  });
+});
+
+describe('a run that cannot load still closes (PR #70 review)', () => {
+  const startOnly = async () => {
+    runOnCreate = false;
+    await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
+  };
+  it('a missing definition marks the run and its source failed', async () => {
+    await startOnly();
+    db.tables.workflow_defs = [];
+    await runWorkflow(envWith, run().id, step.api, localDeps);
+    expect(run()).toMatchObject({ status: 'failed', error: 'workflow ingest_url v1 is missing', error_code: 500 });
+    expect(db.tables.sources[0]).toMatchObject({ status: 'failed', error: 'workflow ingest_url v1 is missing' });
+    expect((await call('GET', `/brands/${BRAND}`)).body.activeRun).toBeNull();
+  });
+  it('a missing prompt marks the run and its source failed', async () => {
+    await startOnly();
+    db.tables.prompt_versions = [];
+    await runWorkflow(envWith, run().id, step.api, localDeps);
+    expect(run()).toMatchObject({ status: 'failed', error: 'prompt ingest.extract_facts is missing' });
+    expect(db.tables.sources[0].status).toBe('failed');
+  });
+  it('a database error that outlasts the retries marks them failed once the database answers again', async () => {
+    await startOnly();
+    // The definition read fails on every load attempt (4: the first and 3 retries), then the database recovers.
+    let defReads = 0;
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => (url.includes('/workflow_defs') && ++defReads <= 4 ? new Response('{}', { status: 503 }) : realFetch(url, init))));
+    await runWorkflow(envWith, run().id, step.api, localDeps);
+    expect(defReads).toBe(4);
+    expect(run()).toMatchObject({ status: 'failed', error: 'something went wrong' });
+    expect(db.tables.sources[0].status).toBe('failed');
   });
 });
 

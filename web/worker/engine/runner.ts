@@ -92,21 +92,25 @@ export async function record(env: Env, runId: string, step: StepTrace | null, pa
 export const nextUtcMidnight = (now = Date.now()) => { const d = new Date(now); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); };
 
 export async function runWorkflow(env: Env, runId: string, step: StepApi, deps: RunnerDeps) {
-  const loaded = await step.do('load', BOOKKEEPING, async () => {
-    const [run] = await db.select<RunRow>(env, 'runs', db.eq('id', runId));
-    if (!run) throw deps.nonRetryable(encodeError(404, 'superseded', 'run not found'));
-    const [def] = await db.select<{ spec: WorkflowSpec }>(env, 'workflow_defs', `${db.eq('id', run.kind)}&${db.eq('version', String(run.workflow_version))}&select=spec`);
-    if (!def) throw deps.nonRetryable(encodeError(500, 'fail', `workflow ${run.kind} v${run.workflow_version} is missing`));
-    // Each llm step's prompt version is fixed here, once per run, so every attempt and every resume uses the same one.
-    const keys = [...new Set(def.spec.steps.flatMap((s) => (s.type === 'llm' && !s.promptVersion ? [s.prompt] : s.type === 'map' && s.step.type === 'llm' && !s.step.promptVersion ? [s.step.prompt] : [])))];
-    const prompts: Record<string, number> = {};
-    for (const key of keys) {
-      const [p] = await db.select<{ version: number }>(env, 'prompt_versions', `${db.eq('key', key)}&${db.eq('status', 'active')}&select=version&order=version.desc&limit=1`);
-      if (!p) throw deps.nonRetryable(encodeError(500, 'fail', `prompt ${key} is missing`));
-      prompts[key] = p.version;
-    }
-    return { run, spec: def.spec, prompts };
-  });
+  // Loading is inside the failure path (PR #70 review): a missing definition or prompt, or a database error that
+  // outlasts the retries, marks the run and its source failed instead of leaving them running and pending.
+  let loaded: Awaited<ReturnType<typeof load>>;
+  try {
+    loaded = await load(env, runId, step, deps);
+  } catch (e) {
+    const err = decodeError(e);
+    if (err.kind === 'superseded') return;
+    await step.do('fail:load', BOOKKEEPING, async () => {
+      const [run] = await db.select<Pick<RunRow, 'brand_id' | 'input'>>(env, 'runs', `${db.eq('id', runId)}&select=brand_id,input`);
+      // Without a definition there is no onFailure op to read, so a run that started a source (input.sourceId, as
+      // ingest_url does) closes it the same way mark_source_failed would.
+      const sourceId = (run?.input as { sourceId?: unknown } | undefined)?.sourceId;
+      if (run && typeof sourceId === 'string') await WRITES.mark_source_failed({ env, run: run as RunRow, state: { input: run.input, steps: {}, prompts: {} } }, { sourceId, error: err.message });
+      await record(env, runId, null, { status: 'failed', error: err.message, error_code: err.code });
+      return null;
+    });
+    return;
+  }
   const { run, spec } = loaded;
   if (run.status !== 'running' && run.status !== 'paused') return;
   const state: RunState = { input: run.input ?? {}, steps: {}, prompts: loaded.prompts };
@@ -131,6 +135,25 @@ export async function runWorkflow(env: Env, runId: string, step: StepApi, deps: 
       return null;
     });
   }
+}
+
+/** The run row, its pinned definition and the prompt version each llm step will use, as one durable step. */
+function load(env: Env, runId: string, step: StepApi, deps: RunnerDeps) {
+  return step.do('load', BOOKKEEPING, async () => {
+    const [run] = await db.select<RunRow>(env, 'runs', db.eq('id', runId));
+    if (!run) throw deps.nonRetryable(encodeError(404, 'superseded', 'run not found'));
+    const [def] = await db.select<{ spec: WorkflowSpec }>(env, 'workflow_defs', `${db.eq('id', run.kind)}&${db.eq('version', String(run.workflow_version))}&select=spec`);
+    if (!def) throw deps.nonRetryable(encodeError(500, 'fail', `workflow ${run.kind} v${run.workflow_version} is missing`));
+    // Each llm step's prompt version is fixed here, once per run, so every attempt and every resume uses the same one.
+    const keys = [...new Set(def.spec.steps.flatMap((s) => (s.type === 'llm' && !s.promptVersion ? [s.prompt] : s.type === 'map' && s.step.type === 'llm' && !s.step.promptVersion ? [s.step.prompt] : [])))];
+    const prompts: Record<string, number> = {};
+    for (const key of keys) {
+      const [p] = await db.select<{ version: number }>(env, 'prompt_versions', `${db.eq('key', key)}&${db.eq('status', 'active')}&select=version&order=version.desc&limit=1`);
+      if (!p) throw deps.nonRetryable(encodeError(500, 'fail', `prompt ${key} is missing`));
+      prompts[key] = p.version;
+    }
+    return { run, spec: def.spec, prompts };
+  });
 }
 
 /**

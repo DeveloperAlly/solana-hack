@@ -2,10 +2,10 @@
 //   POST /api/brands/:id/runs {kind, ...}  -> 202 {run}             starts a run of a startable kind
 //   GET  /api/runs/:id                     -> 200 {run, steps}      status, progress and per-step traces
 //   GET  /api/brands/:id                   -> adds activeRun        the newest running or paused run, or null
-//   POST /api/brands/:id/sources {url}     -> the ingest_url workflow; same 201 body as before, or 202 if still running
+//   POST /api/brands/:id/sources {url}     -> the ingest_url workflow; same 201 body when done, else 409 "still reading"
 import { db } from '../db';
 import { HttpError, type Env } from '../env';
-import { checkExecutor, executorName, launch, waitForRun, type WaitUntil } from './executor';
+import { checkExecutor, engineConfig, launch, waitForRun, type WaitUntil } from './executor';
 import { progressAt } from './runner';
 import { urlKind } from '../sources/registry';
 import type { RunRow, WorkflowSpec } from './types';
@@ -13,8 +13,6 @@ import type { RunRow, WorkflowSpec } from './types';
 interface BrandRef { id: string; owner_id: string; name: string; website?: string | null }
 interface UserRef { id: string }
 
-/** How long POST /sources waits for its run before answering 202 with the run to follow instead. */
-export const INGEST_WAIT_MS = 60_000;
 
 /** Fields a run row returns to the browser (no input: it can hold a URL the owner typed, which the owner already has). */
 const RUN_FIELDS = 'id,brand_id,kind,workflow_version,executor,status,progress,resume_at,error,error_code,output,created_at,updated_at';
@@ -42,9 +40,14 @@ export async function activeDef(env: Env, kind: string): Promise<WorkflowSpec> {
 
 /** Starts a run: pins the active definition's version, writes the run row with its first progress, hands it to the executor. */
 export async function startRun(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, kind: string, body: Record<string, unknown>) {
+  return (await start(env, ctx, user, brand, kind, body)).run;
+}
+
+async function start(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, kind: string, body: Record<string, unknown>) {
   const prepare = KINDS[kind];
   if (!prepare) throw new HttpError(404, `unknown run kind ${kind}`);
-  const [spec, executor] = await Promise.all([activeDef(env, kind), executorName(env)]);
+  const [spec, config] = await Promise.all([activeDef(env, kind), engineConfig(env)]);
+  const { executor } = config;
   checkExecutor(env, executor, spec);
   const input = await prepare(env, brand, body);
   if (spec.concurrency === 'supersede') {
@@ -58,7 +61,7 @@ export async function startRun(env: Env, ctx: WaitUntil | undefined, user: UserR
     if (typeof input.sourceId === 'string') await db.update(env, 'sources', db.eq('id', input.sourceId), { status: 'failed', error: 'the run could not start' });
     throw e instanceof HttpError ? e : new HttpError(503, 'the run could not start, try again');
   }
-  return run;
+  return { run, config };
 }
 
 /** The newest run that is still running or paused, for a reload to show its progress. */
@@ -78,16 +81,22 @@ export async function getRun(env: Env, user: UserRef, id: string) {
   return { run, steps };
 }
 
+/** The answer while a source is still being read: a non-2xx the shipped Your links step already shows as a message. */
+export const STILL_READING = 'Still reading your source. It will appear in your links shortly.';
+
 /**
- * POST /api/brands/:id/sources on the engine. Waits for the run like the old synchronous ingest did, and answers with
- * the same body (201 {sourceId, facts, dropped, kind, needsReview}, plus runId) or the same error. A run still going after INGEST_WAIT_MS,
- * or paused for the model's daily limit, answers 202 {runId, sourceId, status, progress, resume_at}; GET /api/runs/:id
- * follows it from there.
+ * POST /api/brands/:id/sources on the engine. The run goes on in the background; the request does not wait for it
+ * unless engine_config ingest_wait_ms is set (default 0). A run already done answers as the old synchronous ingest did:
+ * 201 {sourceId, facts, dropped, kind, needsReview, runId}; a failed run answers with the same error as before.
+ * A run still going answers 409 {error, runId, sourceId, status, progress, resume_at}. The shipped Your links step
+ * (Build.tsx) treats every 2xx as {facts, dropped} and shows the error text of any non-2xx, then reloads the list, so
+ * this never shows "undefined facts" (PR #70 review); GET /api/runs/:id follows the run from there.
  */
-export async function ingestSource(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, body: Record<string, unknown>, waitMs = INGEST_WAIT_MS) {
-  const run = await startRun(env, ctx, user, brand, 'ingest_url', body);
-  const done = await waitForRun(env, run, waitMs);
+export async function ingestSource(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, body: Record<string, unknown>) {
+  const { run, config } = await start(env, ctx, user, brand, 'ingest_url', body);
+  const done = await waitForRun(env, run, config.ingestWaitMs);
   if (done.status === 'done') return { status: 201, body: { ...(done.output as object), runId: run.id } };
   if (done.status === 'failed') throw new HttpError(done.error_code && done.error_code >= 400 ? done.error_code : 502, done.error ?? 'reading the page failed');
-  return { status: 202, body: { runId: run.id, sourceId: (run.input as { sourceId?: string }).sourceId, status: done.status, progress: done.progress, resume_at: done.resume_at } };
+  const error = done.status === 'paused' ? (done.progress?.message ?? STILL_READING) : STILL_READING;
+  return { status: 409, body: { error, runId: run.id, sourceId: (run.input as { sourceId?: string }).sourceId, status: done.status, progress: done.progress, resume_at: done.resume_at } };
 }
