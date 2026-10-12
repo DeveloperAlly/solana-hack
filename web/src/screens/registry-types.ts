@@ -15,6 +15,9 @@ export const canvasPages = [
   { id: 'soon', name: 'Coming soon (drawn, not built)', issue: 51 },
   { id: 'hub', name: 'Superhub (v2)', issue: 52 },
   { id: 'ambassador', name: 'Ambassador', issue: 53 },
+  // Distribution screens the pitch deck promises (issue #82, owner decision 2026-10-13). No canvas boards yet: see
+  // pendingCanvasArtboards in config/artboards.ts.
+  { id: 'growth', name: 'Growth: platforms, referral, badge, tips, invites', issue: 82 },
 ] as const;
 
 export type CanvasPageId = (typeof canvasPages)[number]['id'];

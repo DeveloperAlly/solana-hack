@@ -97,11 +97,30 @@ export const artboardPages = {
   'Voice-Templates': 'hub',
 } as const satisfies Record<string, CanvasPageId>;
 
-export type ArtboardName = keyof typeof artboardPages;
+/**
+ * PENDING CANVAS: hand-written, not generated. Screens built before their canvas board exists (issue #82, sub-task
+ * "Canvas": the boards are added to the canvas so it follows the product, AGENTS rule 8). Each name moves into
+ * artboardPages above when the canvas gains the board and this file is regenerated; then this list shrinks to empty.
+ */
+export const pendingCanvasArtboards = {
+  'Platforms': 'growth',
+  'Platform-Detail': 'growth',
+  'Referral': 'growth',
+  'Referral-Landing': 'growth',
+  'Badge-Embed': 'growth',
+  'Verify-Badge-Landing': 'growth',
+  'Tip-Sheet': 'growth',
+  'Tips-Received': 'growth',
+  'Invite-Team': 'growth',
+  'Invite-Accept': 'growth',
+} as const satisfies Record<string, CanvasPageId>;
 
-/** All 90 artboard names, in name order. */
-export const artboards = Object.keys(artboardPages) as ArtboardName[];
+export type ArtboardName = keyof typeof artboardPages | keyof typeof pendingCanvasArtboards;
+
+/** Canvas boards, then the pending-canvas boards, each in name order. */
+export const artboards = [...Object.keys(artboardPages), ...Object.keys(pendingCanvasArtboards)] as ArtboardName[];
 
 export function isArtboardName(name: string): name is ArtboardName {
-  return Object.prototype.hasOwnProperty.call(artboardPages, name);
+  const has = (o: object) => Object.prototype.hasOwnProperty.call(o, name);
+  return has(artboardPages) || has(pendingCanvasArtboards);
 }
