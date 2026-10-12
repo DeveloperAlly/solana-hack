@@ -199,7 +199,12 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     if (offsite) c.notes.push(`${offsite} page(s) skipped: not on the same site as the first page`);
     return kept;
   };
-  const ok = (pages: SourcePage[], cost: number, via: string): SourceResult => {
+  // Every page leaving the adapter, whichever reader produced it, is held to the per-page limit here, at the single
+  // success exit, so no read path can skip it (PR #71 review). Exa applies the same limit on its side.
+  const ok = (read: SourcePage[], cost: number, via: string): SourceResult => {
+    let cut = 0;
+    const pages = read.map((p) => (p.text.length > opts.maxCharacters ? (cut++, { ...p, text: p.text.slice(0, opts.maxCharacters) }) : p));
+    if (cut) c.notes.push(`${cut} page(s) cut to ${opts.maxCharacters} characters`);
     const kind = kindOf(pages[0].url);
     return { ok: true, kind, trust: factTrust(kind).trust, url: pages[0].url, title: pages[0].title, text: pages.map((p) => p.text).join('\n\n'), pages, meta: c.meta(pages.length, cost, via) };
   };

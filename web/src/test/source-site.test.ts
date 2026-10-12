@@ -400,6 +400,16 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     const r = await readSite({}, 'https://a.test/', { website: 'a.test', subpageTarget: undefined, subpages: undefined, maxCharacters: undefined });
     expect(r).toMatchObject({ ok: true, meta: { pages: 2 } });
   });
+  it('holds pages read by our own reader to maxCharacters, as Exa pages are (PR #71 review)', async () => {
+    const big = LONG.repeat(20);
+    const home = `<html><title>A</title><body><p>${big}</p><a href="/about">About</a></body></html>`;
+    stub({ page: (u) => (u === 'https://a.test/' ? new Response(home, { headers: { 'content-type': 'text/html' } }) : html('About', big)) });
+    const r = await readSite({}, 'https://a.test/', { website: 'a.test', maxCharacters: 300 });
+    expect(r).toMatchObject({ ok: true, meta: { pages: 2 } });
+    if (!r.ok || r.kind === 'document') throw new Error('expected a site read');
+    expect(r.pages!.map((p) => p.text.length)).toEqual([300, 300]);
+    expect(r.meta.notes).toContain('2 page(s) cut to 300 characters');
+  });
   it('applies our own group over *, the longest match, allow on a tie, * and $', () => {
     const rules = parseRobots('User-agent: *\nDisallow: /\n\nUser-agent: JamJamBot\nDisallow: /admin\nAllow: /admin/public$\nDisallow: /*.pdf$\n');
     expect(allowedBy(rules, '/')).toBe(true);
