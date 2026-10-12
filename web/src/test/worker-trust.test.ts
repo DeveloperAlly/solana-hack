@@ -250,6 +250,18 @@ describe('drafting and registration use the allow-list', () => {
     expect(urlKind('https://jamjam.tech.evil.com', 'jamjam.tech')).toBe('page');
     expect(urlKind('https://jamjam.tech', null)).toBe('page');
   });
+  it('urlKind keeps a path-scoped website to its own path on a shared host (PR #63 review)', () => {
+    expect(urlKind('https://github.com/acme', 'https://github.com/acme')).toBe('site');
+    expect(urlKind('https://github.com/acme/', 'github.com/acme')).toBe('site');
+    expect(urlKind('https://github.com/acme/repo/readme', 'https://github.com/acme/')).toBe('site');
+    expect(urlKind('https://github.com/rival', 'https://github.com/acme')).toBe('page');
+    expect(urlKind('https://github.com/acme-rival', 'https://github.com/acme')).toBe('page');
+    expect(urlKind('https://github.com/', 'https://github.com/acme')).toBe('page');
+    expect(urlKind('https://gist.github.com/acme', 'https://github.com/acme')).toBe('page');
+    expect(urlKind('https://medium.com/@acme/post-1', 'https://medium.com/@acme')).toBe('site');
+    expect(urlKind('https://medium.com/@other/post-1', 'https://medium.com/@acme')).toBe('page');
+    expect(urlKind('https://www.jamjam.tech/about?x=1#y', 'https://jamjam.tech/')).toBe('site');
+  });
   it('the live-evidence reader applies the allow-list', async () => {
     tables = readyBrand();
     const rows = await allEvidence(env, 'b');

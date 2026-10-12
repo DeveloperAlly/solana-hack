@@ -71,24 +71,38 @@ export function snapshotFact<T extends { origin?: string; trust?: string | null;
   return { ...e, trust: null, review_status: null };
 }
 
-/** Hostname without a leading "www.", lower case; null when the value is not a usable URL. */
-function host(value: string | null | undefined): string | null {
+/**
+ * Host (without a leading "www.", lower case) and path scope of a URL; null when the value is not a usable URL. The
+ * scope is the path with no trailing slash, '' for a site root. A bare domain such as "jamjam.tech" reads as https.
+ */
+function scope(value: string | null | undefined): { host: string; path: string } | null {
   if (!value) return null;
   try {
-    return new URL(value.includes('://') ? value : `https://${value}`).hostname.toLowerCase().replace(/^www\./, '');
+    const u = new URL(value.includes('://') ? value : `https://${value}`);
+    return { host: u.hostname.toLowerCase().replace(/^www\./, ''), path: u.pathname.replace(/\/+$/, '') };
   } catch {
     return null;
   }
 }
 
 /**
- * Which source kind a linked page is. Only a page on the brand's own website (the Basics website, or one of its
- * subdomains) is `site`, whose quote-checked facts are owned and approved; any other page is `page`, third-party and
- * proposed until the owner approves each fact. With no website set, nothing counts as owned. Found in review of
- * PR #63: https://github.com/DeveloperAlly/solana-hack/pull/63
+ * Which source kind a linked page is. Only a page on the brand's own website is `site`, whose quote-checked facts are
+ * owned and approved; any other page is `page`, third-party and proposed until the owner approves each fact. With no
+ * website set, nothing counts as owned. Found in review of PR #63: https://github.com/DeveloperAlly/solana-hack/pull/63
+ * - A website at a site root (jamjam.tech) owns its host and the host's subdomains (blog.jamjam.tech).
+ * - A website with a path (github.com/acme, medium.com/@acme) owns only that path and the pages under it, on that
+ *   exact host: a shared host serves other tenants, so github.com/rival and gist.github.com stay third-party. A
+ *   brand whose own site is set with a path (acme.com/en) therefore reviews facts from pages outside it; unknown
+ *   ownership is reviewed, never assumed.
+ * Paths compare case-sensitively, per RFC 3986 §6.2.2.1: https://www.rfc-editor.org/rfc/rfc3986#section-6.2.2.1
  */
 export function urlKind(url: string, website: string | null | undefined): 'site' | 'page' {
-  const own = host(website);
-  const h = host(url);
-  return own && h && (h === own || h.endsWith(`.${own}`)) ? 'site' : 'page';
+  const own = scope(website);
+  const page = scope(url);
+  if (!own || !page) return 'page';
+  if (own.path) {
+    const under = page.path === own.path || page.path.startsWith(`${own.path}/`);
+    return page.host === own.host && under ? 'site' : 'page';
+  }
+  return page.host === own.host || page.host.endsWith(`.${own.host}`) ? 'site' : 'page';
 }

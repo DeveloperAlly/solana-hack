@@ -17,7 +17,7 @@ tags: [adr, evidence, trust, claims]
 - Architecture §3 reserves an evidential `status` (evidenced / inferred / answered / rejected) for the coverage map ([architecture §3](../context/brand_builder_architecture.md#3-data-model)). The approval decision therefore needs its own column.
 
 ## Decision
-1. **Trust class per fact.** The classes are `owned` (the brand's own site, uploads and exports), `third_party`, `owner_answer` and `assumption`. Each source type declares its class in one registry, [`web/worker/sources/registry.ts`](../../../web/worker/sources/registry.ts).
+1. **Trust class per fact.** The classes are `owned` (the brand's own site, uploads and exports), `third_party`, `owner_answer` and `assumption`. Each source type declares its class in one registry, [`web/worker/sources/registry.ts`](../../../web/worker/sources/registry.ts). A linked page is the brand's own site only when it sits on the Basics website: a root website (jamjam.tech) covers its host and subdomains, and a website with a path (github.com/acme) covers only that path on that host, because a shared host serves other tenants ([PR #63 review](https://github.com/DeveloperAlly/solana-hack/pull/63)). Any other page is third-party.
 2. **Owner review per fact.** `review_status` takes `proposed`, `approved` or `rejected`.
    - Owned facts, already quote-checked, and owner answers start `approved`.
    - Third-party facts start `proposed`.
