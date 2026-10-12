@@ -148,12 +148,28 @@ describe('coverage map', () => {
     const done = coverageMap(input({ evidence: [a, b, c], conflicts: [{ id: 'c1', slot: 'founded', evidence_ids: [a.id, b.id, c.id], question: 'q', status: 'resolved' }] }));
     expect(done.questions.some((x) => x.kind === 'conflict')).toBe(false);
   });
+  it('a brand whose only origin facts disagree gets exactly one origin question, the conflict (PR #101 review)', () => {
+    const a = fact({ section: 'origin', slot: 'founded', slot_value: '2019', review_status: 'proposed' });
+    const b = fact({ section: 'origin', slot: 'founded', slot_value: '2020', trust: 'third_party', review_status: 'proposed' });
+    const m = coverageMap(input({ evidence: [a, b], conflicts: [{ id: 'c1', slot: 'founded', evidence_ids: [a.id, b.id], question: 'q' }] }));
+    // Answered pending the conflict: partly found, not prefilled (no fact stands in until the owner picks a side).
+    for (const id of ['origin.why', 'origin.broken', 'origin.first_win']) expect(field(m, id)).toMatchObject({ status: 'partly', conflictIds: ['c1'], prefilled: false, factIds: [] });
+    expect(m.questions.filter((q) => q.step === 'origin' || q.sections.includes('origin'))).toEqual([expect.objectContaining({ kind: 'conflict', conflictId: 'c1' })]);
+    expect(m.steps.find((s) => s.step === 'origin')!.mode).toBe('confirm');
+    // The same brand with no conflict open would be asked each origin question.
+    expect(coverageMap(input()).questions.filter((q) => q.step === 'origin')).toHaveLength(3);
+    // Counted once in questions left and owner time: three missing questions (3 minutes) became one pick (half a minute).
+    expect(m.questionsLeft).toBe(coverageMap(input()).questionsLeft - 3 + 1);
+    expect(m.minutesLeft).toBe(Math.round((coverageMap(input()).minutesLeft - 3 + 0.5) * 10) / 10);
+  });
   it('a question whose only stand-ins were never support-checked or only fuzzily located is weak, asked after the missing ones', () => {
     const m = coverageMap(input({ evidence: [fact({ section: 'audience', match: null, confidence: null })] }));
     expect(m.questions.find((x) => x.id === 'audience.who')!.kind).toBe('weak');
     expect(m.questionsLeft).toBe(m.questions.filter((x) => x.kind !== 'weak' && !x.optional).length);
     // An exact, support-checked fact is not weak: the owner confirms it on a card instead of being asked.
     expect(coverageMap(input({ evidence: [fact({ section: 'audience' })] })).questions.some((x) => x.id === 'audience.who')).toBe(false);
+    // Nor is a fuzzily located fact the owner has approved.
+    expect(coverageMap(input({ evidence: [fact({ section: 'audience', match: 'fuzzy', confidence: 'low' })] })).questions.some((x) => x.id === 'audience.who')).toBe(false);
   });
   it('is deterministic: input order does not change the result, and the best stand-in comes first', () => {
     const facts = [fact({ section: 'audience' }), fact({ section: 'audience', confidence: 'high' }), fact({ section: 'purpose' })];

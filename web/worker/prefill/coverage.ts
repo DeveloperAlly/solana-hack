@@ -58,6 +58,8 @@ export interface FieldCoverage {
   answer?: string;
   /** Facts that stand in for the answer, best first: usable, not disputed, in a section that answers the question. */
   factIds: string[];
+  /** Open conflicts whose facts are its only evidence: it is partly found, pending them, and asked through them. */
+  conflictIds: string[];
   /** Filled from evidence rather than by the owner. */
   prefilled: boolean;
 }
@@ -178,10 +180,17 @@ export function coverageMap(input: CoverageInput): CoverageMap {
   const fields: FieldCoverage[] = FIELDS.map((f) => {
     const { text: answer, skipped } = answerOf(input.answers, f);
     const facts = standIns.filter((x) => (f.answeredBy as readonly string[]).includes(x.section));
-    const status: EvidenceStatus = answer ? 'found' : !skipped && facts.length ? 'partly' : 'needs-you';
+    // Open conflicts on facts that would stand in for this question. When they are its only evidence, the question is
+    // answered pending the conflict: partly found, and asked once, as the conflict, never again as missing; settling
+    // the conflict prefills it (PR #101 review).
+    const conflictIds = answer || facts.length || skipped ? [] : conflicts.filter((c) => c.evidence_ids.some((id) => {
+      const x = live.find((y) => y.id === id);
+      return !!x && !isOwnerRow(x) && !!x.quote && (f.answeredBy as readonly string[]).includes(x.section);
+    })).map((c) => c.id);
+    const status: EvidenceStatus = answer ? 'found' : !skipped && (facts.length || conflictIds.length) ? 'partly' : 'needs-you';
     return {
       id: f.id, step: f.step, key: f.key, question: f.question, status, confirmed: !!answer, skipped: skipped && !answer, optional: f.optional,
-      ...(answer ? { answer } : {}), factIds: answer ? [] : facts.map((x) => x.id), prefilled: !answer && status === 'partly',
+      ...(answer ? { answer } : {}), factIds: answer ? [] : facts.map((x) => x.id), conflictIds, prefilled: !answer && !skipped && facts.length > 0,
     };
   });
   const fieldOf = new Map(fields.map((f) => [f.id, f]));
@@ -233,9 +242,9 @@ export function coverageMap(input: CoverageInput): CoverageMap {
   const questions: GapQuestion[] = [];
   for (const f of fields) {
     const spec = FIELDS.find((x) => x.id === f.id)!;
-    // Weak: the only stand-ins are fuzzily located or never support-checked (read before #64), so the owner is asked
-    // rather than shown a card to confirm.
-    const weak = f.status === 'partly' && f.factIds.every((id) => rank(byId.get(id)!.confidence) < 2);
+    // Weak: the only stand-ins are fuzzily located or never support-checked (read before #64), and the owner has not
+    // approved any of them, so the owner is asked rather than shown a card to confirm.
+    const weak = f.status === 'partly' && !f.conflictIds.length && f.factIds.every((id) => rank(byId.get(id)!.confidence) < 2 && !ownerApproved(byId.get(id)!));
     const kind: GapKind | null = f.status === 'needs-you' && !f.skipped ? 'missing' : weak ? 'weak' : null;
     if (!kind) continue;
     questions.push({ id: f.id, kind, question: f.question, field: f.id, step: f.step, sections: [spec.asks], optional: f.optional, minutes: spec.minutes, score: rankScore(kind, fieldValue(spec), spec.minutes), factIds: kind === 'weak' ? f.factIds : [] });
