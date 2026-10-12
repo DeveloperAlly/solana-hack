@@ -41,7 +41,7 @@ describe('/screens gallery', () => {
   it('index lists screens grouped by canvas page, with no fetch', async () => {
     const { container } = at('/screens');
     expect(screen.getByRole('heading', { level: 1, name: 'Screens' })).toBeInTheDocument();
-    const page = screen.getByRole('region', { name: 'Verify + ledger' });
+    const page = screen.getByRole('region', { name: '4 · Verify anywhere' });
     expect(within(page).getByRole('link', { name: 'Verify-2-NoMatch' })).toHaveAttribute('href', '/screens/Verify-2-NoMatch');
     await expectNoAxeViolations(container);
   });

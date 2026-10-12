@@ -35,6 +35,25 @@ describe('D17 DecisionGate', () => {
     expect(onDecide).toHaveBeenCalledWith({ status: 'changes', note: 'Shorter' });
   });
 
+  it('full: Cancel clears the whole request-changes form, note and error', async () => {
+    renderWithRouter(<DecisionGate subject="purpose" approver="me" decision={{ status: 'pending' }} onDecide={vi.fn()}>draft</DecisionGate>);
+    await userEvent.click(screen.getByRole('button', { name: 'Request changes' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'What should change?' }), 'Half a thought');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Request changes' }));
+    expect(screen.getByRole('textbox', { name: 'What should change?' })).toHaveValue('');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('full: a stale approval asks to be approved again', async () => {
+    const onDecide = vi.fn();
+    renderWithRouter(<DecisionGate subject="voice" approver="me" decision={{ status: 'stale', by: 'me', at: 'T' }} onDecide={onDecide} now={now}>draft</DecisionGate>);
+    expect(screen.getByRole('alert')).toHaveTextContent('Needs a fresh approval');
+    await userEvent.click(screen.getByRole('button', { name: 'Approve voice' }));
+    expect(onDecide).toHaveBeenCalledWith({ status: 'approved', by: 'me', at: 'T', why: undefined });
+  });
+
   it('full: approved shows the record and Reopen; deferred and changes show their notices', async () => {
     const onDecide = vi.fn();
     const { rerender } = renderWithRouter(<DecisionGate subject="purpose" approver="me" decision={{ status: 'approved', by: 'me', at: 'T' }} onDecide={onDecide}>draft</DecisionGate>);

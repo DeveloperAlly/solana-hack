@@ -4,17 +4,23 @@ import type { ScreenState } from '../ui/composites/DemoStateSwitcher';
 import type { ArtboardName } from '../config/artboards';
 
 /**
- * Canvas pages, in canvas order, from the wireframe canvas (canvas.json `pages`; canvas link in issue #45).
- * The Archive page ("licensee") is not built (issue #45, owner decision 2026-10-12), so it is not listed.
- * `issue` is the sub-issue that builds the page's screens (issue #45, "Sub-issues").
+ * Canvas pages, in canvas order, from the wireframe canvas v24 (canvas.json `pages`, version 1791818793-e756; canvas
+ * link in issue #45). v21 and later organise the pages by the loop of ADR-012 (PR #86): Start here, Journey, the six steps,
+ * then the utilities. The Archive page ("licensee") holds boards that are not in the product (issue #45, owner
+ * decision 2026-10-12). `issue` is where the page's screens are tracked (the issue #45 sub-issues; #86 for the loop
+ * boards; #82 for the Distribute boards it added).
  */
 export const canvasPages = [
+  { id: 'loop', name: 'Start here: the loop (v4)', issue: 86 },
   { id: 'journey', name: 'Journey (v3): first run', issue: 48 },
-  { id: 'public', name: 'Verify + ledger', issue: 49 },
-  { id: 'brand', name: 'Brand Builder', issue: 50 },
-  { id: 'soon', name: 'Coming soon (drawn, not built)', issue: 51 },
-  { id: 'hub', name: 'Superhub (v2)', issue: 52 },
-  { id: 'ambassador', name: 'Ambassador', issue: 53 },
+  { id: 'brand', name: '1 · Brand: build your brand and voice', issue: 50 },
+  { id: 'create', name: '2 · Create: content in your voice', issue: 52 },
+  { id: 'distribute', name: '3 · Distribute everywhere', issue: 82 },
+  { id: 'public', name: '4 · Verify anywhere', issue: 49 },
+  { id: 'grow', name: '5 · Grow your reach', issue: 53 },
+  { id: 'learn', name: '6 · Learn from what works', issue: 52 },
+  { id: 'utilities', name: 'Inbox, settings and plan', issue: 51 },
+  { id: 'licensee', name: 'Archive (not in product)', issue: 45 },
 ] as const;
 
 export type CanvasPageId = (typeof canvasPages)[number]['id'];
@@ -23,6 +29,7 @@ export type CanvasPageId = (typeof canvasPages)[number]['id'];
 export interface ScreenEntry {
   /** Canvas artboard name: the file name without `.dc.html`, e.g. "Verify-2-NoMatch". It is the gallery URL. */
   artboard: ArtboardName;
+  /** The board's canvas page: exactly config/artboards.ts `artboardPages[artboard]` (a test checks it). */
   page: CanvasPageId;
   /** Canvas title without the tag prefix, e.g. "Verify: not found". */
   title: string;

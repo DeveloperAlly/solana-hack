@@ -10,7 +10,7 @@ import { verifyLookup } from './lookup.fixtures';
 import type { VerifyCheckData } from './types';
 import type { RouteTag } from '../../config/routes';
 
-// Canvas page "Verify + ledger" plus the two Verify boards on the "Coming soon" page (issue #49; issue #51 hands
+// Canvas page "4 · Verify anywhere" (canvas v21; the two Verify boards from the old "Coming soon" page moved here; issue #49; issue #51 hands
 // them to UI-3). Titles and tags are the canvas board titles (canvas.json). The live /verify and /ledger stay as they are.
 // Every screen remounts per artboard and state (the key), so each demo state starts fresh.
 
@@ -39,11 +39,11 @@ export const screens: ScreenEntry[] = [
   },
   {
     artboard: 'Verify-4-Kit-Account-Claim',
-    page: 'soon',
+    page: 'public',
     title: 'Verify an account, kit version or claim',
     tag: 'COMING SOON',
     states: screenStates,
     render: (state) => createElement(VerifyLookupScreen, { key: `Verify-4-${state}`, data: verifyLookup, state }),
   },
-  checkEntry('Verify-5-Retracted', 'soon', 'Verify: retracted', 'COMING SOON', verifyRetracted),
+  checkEntry('Verify-5-Retracted', 'public', 'Verify: retracted', 'COMING SOON', verifyRetracted),
 ];
