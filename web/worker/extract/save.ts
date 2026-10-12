@@ -43,7 +43,7 @@ export function initialReviewFor(trust: string, match: MatchType, inConflict: bo
   return match === 'exact' && !inConflict ? 'approved' : 'proposed';
 }
 
-export async function saveExtractedFacts(env: Env, run: Pick<RunRow, 'id' | 'brand_id'>, a: { sourceId: string; read: ReadOutput; facts: Candidate[]; dropped: Dropped }) {
+export async function saveExtractedFacts(env: Env, run: Pick<RunRow, 'id' | 'brand_id'>, a: { sourceId: string; read: ReadOutput; facts: Candidate[]; dropped: Dropped; chunksSkipped?: number; charsSkipped?: number }) {
   const brand = run.brand_id;
   const sid = a.sourceId;
   if (!(a.read.kind in SOURCE_TYPES)) throw new Error(`unknown source kind ${a.read.kind}`);
@@ -81,6 +81,8 @@ export async function saveExtractedFacts(env: Env, run: Pick<RunRow, 'id' | 'bra
     kind,
     needsReview: out.needsReview,
     conflicts: out.conflicts,
-    truncated: a.read.truncated,
+    truncated: a.read.truncated || (a.chunksSkipped ?? 0) > 0,
+    chunksSkipped: a.chunksSkipped ?? 0,
+    charsSkipped: a.charsSkipped ?? 0,
   };
 }

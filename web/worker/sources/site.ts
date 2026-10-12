@@ -101,7 +101,7 @@ export function siteUrl(raw: string): URL | null {
   }
 }
 
-async function exaContents(key: string, body: { urls: string[]; text: { maxCharacters: number }; extras?: { links: number }; maxAgeHours: number }): Promise<ExaResponse | { error: string }> {
+async function exaContents(key: string, body: { urls: string[]; text: { maxCharacters: number }; extras?: { links: number }; maxAgeHours: number }): Promise<ExaResponse | { error: string; cost?: number }> {
   let res: Response;
   try {
     res = await fetch(EXA_CONTENTS, {
@@ -165,17 +165,17 @@ function exaByAddress(data: ExaResponse, asked: URL[]): Map<string, ExaPage> {
  * ranking), then reads only those. Provider output is untrusted: only an absolute http(s) URL is used (PR #67 review),
  * and only for the page it was asked for (exaByAddress).
  */
-async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (links: URL[]) => Promise<URL[]>): Promise<{ pages: SourcePage[]; cost: number; missing: URL[]; linksOk: boolean } | { error: string }> {
+async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (links: URL[]) => Promise<URL[]>): Promise<{ pages: SourcePage[]; cost: number; missing: URL[]; linksOk: boolean } | { error: string; cost?: number }> {
   const text = { maxCharacters: opts.maxCharacters };
   const home = await exaContents(key, { urls: [url.toString()], text, extras: { links: EXA_LINKS }, maxAgeHours: EXA_CACHE_ONLY });
   if ('error' in home && typeof home.error === 'string') return { error: home.error };
   const data = home as ExaResponse;
   const top = exaByAddress(data, [url]).get(pageKey(url));
   const failed = Array.isArray(data.statuses) ? data.statuses.find((s) => s?.status === 'error') : undefined;
-  if (!str(top?.text).trim()) return { error: failed ? `Exa could not read the page (${str(failed.error?.tag) || 'error'})` : 'Exa returned no text for the page' };
+  if (!str(top?.text).trim()) return { error: failed ? `Exa could not read the page (${str(failed.error?.tag) || 'error'})` : 'Exa returned no text for the page', cost: exaCost(data, 1) };
   // A cached copy with almost no text is a script-only shell ("Loading..."): it is not used, so the page goes to the
   // direct reader and, from there, the rendered fallback, the same test the direct path applies (PR #71 review).
-  if (str(top?.text).trim().length < MIN_TEXT) return { error: "Exa's cached copy of the page has almost no text" };
+  if (str(top?.text).trim().length < MIN_TEXT) return { error: "Exa's cached copy of the page has almost no text", cost: exaCost(data, 1) };
   const seen = new Set<string>();
   const pages: SourcePage[] = [];
   // `at` is the address the page was asked for (exaByAddress).
@@ -416,6 +416,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
         const allowed = await admit(exa.pages);
         if (allowed.length) return ok(allowed, cost, 'exa');
       } else {
+        cost = exa.cost ?? 0;
         c.notes.push(`${exa.error}; read the home page directly instead`);
       }
     } else if (!env.EXA_API_KEY) {

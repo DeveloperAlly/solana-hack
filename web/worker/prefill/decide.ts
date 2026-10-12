@@ -138,7 +138,7 @@ export async function resolveConflict(env: Env, user: { id: string }, brand: { i
   const [c] = await db.select<ConflictRow>(env, 'fact_conflicts', `${db.eq('id', conflictId)}&${db.eq('brand_id', brand.id)}&select=id,evidence_ids`);
   if (!c) throw new HttpError(404, 'conflict not found');
   const facts = await db.select<FactRow>(env, 'evidence', `${db.eq('brand_id', brand.id)}&id=in.(${ids(c.evidence_ids)})&select=id,section,review_status,trust,slot_value,slot_key&order=id.asc`);
-  const live = facts.filter((f) => f.review_status !== 'rejected' && f.trust !== 'owner_answer');
+  const live = facts.filter((f) => f.review_status !== 'rejected');
   let keep: string[] = [];
   let answer: Parameters<typeof resolveFactConflict>[1]['answer'];
   if (how.mode === 'answer') {

@@ -13,6 +13,7 @@ import type { WaitUntil } from './engine/executor';
 import { reviewable, usableFact } from './sources/registry';
 import { approvePost, contentHash, editPost, rejectPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 import { parseResolution, resolveConflict } from './prefill/decide';
+import { readData, confirmData, gapsData, type JourneyState } from './prefill/journey';
 
 /** The most posts the Create list will show; older ones stay in the database. */
 export const MAX_POSTS = 500;
@@ -44,19 +45,23 @@ async function ownBrand(env: Env, user: User, id: string): Promise<Brand> {
 
 async function brandState(env: Env, brand: Brand) {
   const f = db.eq('brand_id', brand.id);
-  const [answers, sources, evidence, sections, gates, kits] = await Promise.all([
+  const [answers, sources, evidence, sections, gates, kits, conflicts, runs] = await Promise.all([
     db.select<Answer>(env, 'answers', f),
     // The brand's own sources and pages about it. Competitor candidates (#35) are not sources the kit is built from,
     // so they are listed apart (GET /api/brands/:id/competitors) and never enter the kit's source list. kind says what
     // a source without an address is (an upload, an export, a web search: url '', named by its title).
-    db.select(env, 'sources', `${f}&kind=neq.competitor_page&select=id,url,kind,title,status,error,fetched_at&order=created_at`),
+    db.select<JourneyState['sources'][number]>(env, 'sources', `${f}&kind=neq.competitor_page&select=id,url,kind,title,status,error,fetched_at&order=created_at`),
     // Paged: the kit snapshot records all evidence, so a response row cap must not drop any.
-    db.selectAll<Evidence>(env, 'evidence', `${f}&order=created_at.asc,id.asc`),
+    db.selectAll<Evidence & JourneyState['evidence'][number]>(env, 'evidence', `${f}&order=created_at.asc,id.asc`),
     db.select<Section>(env, 'kit_sections', f),
     db.select<Gate>(env, 'gates', f),
     db.select<Kit>(env, 'kits', `${f}&select=id,version,hash,status,signature,attestation,created_at,error,payload&order=version.desc`),
+    db.selectAll<JourneyState['conflicts'][number]>(env, 'fact_conflicts', `${f}&status=eq.open&order=created_at.asc,id.asc`),
+    db.select<JourneyState['runs'][number]>(env, 'runs', `${f}&select=status,progress,input&order=created_at.desc&limit=100`),
   ]);
-  return { brand, answers, sources, evidence, sections, gates, kits, coverage: coverage(evidence) };
+  const state: JourneyState = { brand, answers, sources, evidence, conflicts, runs };
+  return { brand, answers, sources, evidence, sections, gates, kits, coverage: coverage(evidence),
+    journey: { read: readData(state), confirm: confirmData(state), gapsVoice: gapsData(state, new Date().toISOString().slice(0, 10)) } }; 
 }
 
 function answerText(answers: Answer[], steps: readonly string[]) {

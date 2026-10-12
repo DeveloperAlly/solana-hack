@@ -200,6 +200,7 @@ function saveExtraction({ p_run, p_brand, p_source, p_rows, p_source_patch }: { 
 function consumeMetered({ p_run, p_n }: { p_run: string; p_n: number }) {
   const run = db.tables.runs.find((r) => r.id === p_run);
   if (!run) throw pt(404, 'no such run');
+  if (!['running', 'paused'].includes(String(run.status))) throw pt(409, 'run superseded');
   const usage = (db.tables.metered_usage ??= []);
   const row = usage.find((u) => u.brand_id === run.brand_id && u.day === utcDay());
   const used = Number(row?.calls ?? 0);

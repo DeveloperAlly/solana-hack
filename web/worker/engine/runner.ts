@@ -216,7 +216,13 @@ async function attempt(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepConte
         // The meter is the authority for the budget: every attempt at a metered step consumes its calls first
         // (spec/db/012 consume_metered); a refusal ends the run without a retry (metering.ts BudgetExhausted).
         const n = meteredCalls(inner);
-        if (n > 0) await consumeMetered(env, ctx.run.id, n);
+        if (n > 0) {
+          try { await consumeMetered(env, ctx.run.id, n); }
+          catch (e) {
+            if (e instanceof HttpError && e.status === 409 && e.message === 'run superseded') throw deps.nonRetryable(encodeError(409, 'superseded', 'run superseded'));
+            throw e;
+          }
+        }
         const r = await runStep(inner, ctx, item);
         const live = await record(env, ctx.run.id, { step: traceId, attempt: sctx.attempt, type: inner.type, outcome: 'ok', duration_ms: Date.now() - t0, metered_calls: meteredCalls(inner), ...r.trace }, last ? { progress: progressAt(spec, i + 1) } : {});
         if (!live) throw deps.nonRetryable(encodeError(409, 'superseded', 'run superseded'));
