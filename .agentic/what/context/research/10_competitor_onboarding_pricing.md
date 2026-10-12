@@ -428,7 +428,7 @@ Where JamJam wins, provided #34 ships: coverage plus confirm-mode with the quote
 | Habit loop | Edgar weekly, Kleo challenge | None | N2, after the submission |
 
 ### 10.4 Other areas
-- **Verify:** the strongest Prove claim against Encypher is that pasting the text works even after formatting is stripped. Built (exact match plus diff). Slice #36 puts real entries on it. N4 ("retracted") is cheap later.
+- **Verify:** the strongest Prove claim against Encypher is that pasting the text works even after formatting is stripped. Built for exact matches only: `verifyText` in [`posts.ts`](../../../../web/worker/posts.ts) checks the exact text, and an edited copy shows "Not an official post". The edited-copy diff is not built (corrected 2026-10-12, [audit](../../../../audits/2026-10-12_onboarding-journey-wireframe-audit.md#second-pass-2026-10-12-after-review)). Slice #36 puts real entries on it. N4 ("retracted") is cheap later.
 - **Pitch:** slide 9 should name Pressmaster and Encypher (section 8). Slide 10's blank price can sit in the $29–49 solo and $79–149 brand bands (section 6).
 - **Pay:** no change; cut until after the submission (ADR-008, proposed).
 

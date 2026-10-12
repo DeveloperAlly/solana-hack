@@ -193,11 +193,11 @@ Key: stubs are in `spec/api/routes/<file>`. **E** = external call. **J** = job.
 - USDC devnet decimals (assumed 6)
 - the TikTok filter key name
 
-## 10. Providers, models, packaging and settings [proposed 2026-10-12]
-Moved here from the 2026-10-12 delivery plan so the repo holds it. Component IDs are the [backlog](../../how/backlog/backlog.md) IDs; measures run in the evaluation harness ([architecture §13](./brand_builder_architecture.md#13-evaluation-harness-proposed-2026-10-12)). Sources: [architecture §13.5](./brand_builder_architecture.md#135-sources-for-61-62-71-and-13).
+## 10. Providers, models, packaging and settings [accepted 2026-10-12]
+Moved here from the 2026-10-12 delivery plan so the repo holds it. Component IDs are the [backlog](../../how/backlog/backlog.md) IDs; measures run in the evaluation harness ([architecture §13](./brand_builder_architecture.md#13-evaluation-harness-accepted-2026-10-12)). Sources: [architecture §13.5](./brand_builder_architecture.md#135-sources-for-61-62-71-and-13).
 
-### 10.1 Decisions awaiting the owner
-1. **Models for brand data.** Free models are fine for development and CI, but only one free text model offers zero data retention, so brand content runs on a self-hosted provider or on paid models with zero retention: Claude Haiku 5.5 ($0.10 / $0.50 per million tokens) for extraction, judging and polish, and Sonnet 5.5 ($2 / $10) for drafting in the brand's voice. At 30 posts a brand a month that is about $7 a month at 10 brands and $73 at 100, paid by each brand once it brings its own key (S2). Alternative: everything on Haiku (about $0.75 at 10 brands).
+### 10.1 Decisions
+1. **Models: free by default, no paid models.** The default model is `openrouter/free`, the [OpenRouter Free Models Router](https://openrouter.ai/docs/guides/routing/routers/free-router): it picks an available free model that supports the request (structured output, tools, vision) and costs nothing; the response names the model used. A brand that wants a specific model brings its own key later (S2, #37); an optional self-hosted provider is the other route. Free models allow 50 requests a day, or 1,000 after a one-time $10 credit purchase ([limits](https://openrouter.ai/docs/api-reference/limits)). Open item: some free hosts may train on prompts, so the OpenRouter account's privacy settings decide which free endpoints are eligible (owner to check in OpenRouter settings).
 2. **Self-hosted provider (X3).** Allow an optional self-hosted, OpenAI-compatible endpoint as a provider, with JamJam using its own service identity there. How that host is set up is out of scope for this repo.
 3. **Runtime claims checker (C1, G2).** The Worker cannot host the small checker models, so the default is an LLM judge from a different model family, calibrated on fixtures. Alternatives: run the checker on a self-hosted provider, or on a small CPU host whose cost is not verified.
 4. **Owner labelling time (X12).** About 2 hours for gold facts, 100 to 200 judge labels per dimension, and a 40-pair blind voice test. Without these the judge cannot be trusted and the voice claim cannot be made.
@@ -207,7 +207,7 @@ Moved here from the 2026-10-12 delivery plan so the repo holds it. Component IDs
 ### 10.2 Gateway and workflow
 | Component | On main today | Best-output option (alternatives considered) | Measured by |
 |---|---|---|---|
-| **Model gateway and pool** (X1, X2, X3; #39) | One gateway, `openrouter/auto` (`llm.ts`) | A task-to-model map (extract, draft, judge, polish) chosen by harness score, with providers tried in order: the brand's own key, then a self-hosted provider, then JamJam's OpenRouter account using OpenRouter's built-in fallback list, which moves on after any error and bills the model that answered. This replaces most of the hand-built pool in #39. Routers are harness candidates, not infrastructure (see Reuse, providers and packaging) | Forced 429 answered by the next model; a model swap ships only after the harness passes |
+| **Model gateway and pool** (X1, X2, X3; #39) | One gateway, default `openrouter/free` (`llm.ts`) | The free models router is the default and does the model choice and failover that #39 planned to hand-build. Providers in order: the brand's own key, then a self-hosted provider, then JamJam's OpenRouter account on `openrouter/free`. A task-to-model map (pinned `:free` variants chosen by harness score) is added only where the harness shows the random pick is not good enough. Routers are harness candidates, not infrastructure (see Reuse, providers and packaging) | Forced 429 answered by the next model; a model swap ships only after the harness passes |
 | **Workflow engine** (X4; #32) | Request-scoped calls | Durable runs with step retries and saved progress | A run survives a forced step failure; progress survives reload |
 
 ### 10.3 Reuse, providers and packaging

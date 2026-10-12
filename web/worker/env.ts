@@ -7,7 +7,7 @@ export interface Env {
   SUPABASE_PUBLISHABLE_KEY: string; // browser-safe key, used to check user tokens with Supabase Auth
   SUPABASE_SECRET_KEY: string; // secret: server-only, bypasses RLS
   OPENROUTER_API_KEY: string; // secret
-  OPENROUTER_MODEL?: string; // optional model slug; default openrouter/auto
+  OPENROUTER_MODEL?: string; // optional model slug; default openrouter/free (free models only)
   PUBLIC_LIMITER?: { limit(o: { key: string }): Promise<{ success: boolean }> }; // Workers rate limiting binding
 }
 
