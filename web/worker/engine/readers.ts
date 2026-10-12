@@ -32,7 +32,7 @@ export const READERS: Record<string, (env: Env, args: Record<string, unknown>) =
 };
 
 /** HTTP status for each adapter failure. 4xx: the same input will fail again, so the run stops; 5xx: worth a retry. */
-const STATUS: Record<FailureCode, number> = {
+export const STATUS: Record<FailureCode, number> = {
   invalid_input: 400, robots_disallowed: 403, unsupported_type: 415, too_large: 413, empty: 422, needs_ocr: 422,
   // Every reading path already failed inside the adapter; its reason tells the person to paste the text instead.
   unreadable: 422,

@@ -17,6 +17,7 @@ function matches(row: Row, q: URLSearchParams) {
   for (const [k, v] of q) {
     if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(k)) continue;
     if (v.startsWith('eq.') && String(row[k]) !== v.slice(3)) return false;
+    if (v.startsWith('neq.') && String(row[k]) === v.slice(4)) return false;
     if (v.startsWith('in.(') && !v.slice(4, -1).split(',').includes(String(row[k]))) return false;
   }
   return true;
