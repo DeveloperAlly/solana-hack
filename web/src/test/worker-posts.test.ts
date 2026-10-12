@@ -114,7 +114,7 @@ describe('approval gates: claims and content policy', () => {
       }
       // The post's registered kit carries its policy and evidence snapshot; the live voice answer (voice) is
       // returned too, to show it is not what the check uses.
-      if (url.includes('/kits?')) return new Response(JSON.stringify([{ payload: { policy: kitPolicy ?? voice, evidence: [{ claim: 'Founded in 2024', origin: 'source' }] } }]));
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ payload: { policy: kitPolicy ?? voice, evidence: [{ claim: 'Founded in 2024', origin: 'source', trust: 'owned', review_status: 'approved' }] } }]));
       if (url.includes('/answers?')) return new Response(JSON.stringify([{ data: voice }]));
       if (init.method === 'PATCH') { writes.push(JSON.parse(String(init.body))); return new Response(JSON.stringify([{ id: 'p' }])); }
       return new Response('[]');
@@ -295,7 +295,7 @@ describe('claims check over large evidence', () => {
         return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(reply) } }] }));
       }
       if (url.includes('/kits?')) {
-        const evidence = Array.from({ length: 200 }, (_, i) => ({ claim: `fact ${i} ${'y'.repeat(200)}`, origin: 'source' }));
+        const evidence = Array.from({ length: 200 }, (_, i) => ({ claim: `fact ${i} ${'y'.repeat(200)}`, origin: 'source', trust: 'owned', review_status: 'approved' }));
         return new Response(JSON.stringify([{ payload: { policy: { claims: '4', template: 'friendly' }, evidence } }]));
       }
       return new Response('[]');
@@ -373,7 +373,7 @@ describe('model replies', () => {
 });
 
 describe('claims gate uses the kit snapshot, with bounded cost', () => {
-  function stubKit(evidence: { claim: string; origin?: string }[]) {
+  function stubKit(evidence: { claim: string; origin?: string; trust?: string; review_status?: string }[]) {
     const urls: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       urls.push(url);
@@ -386,13 +386,31 @@ describe('claims gate uses the kit snapshot, with bounded cost', () => {
   const post = { brand_id: 'b', kit_version: 1, body: 'p' } as unknown as Post;
   it('checks claims against the registered kit evidence, not live rows', async () => {
     const { policyCheck } = await import('../../worker/posts');
-    const urls = stubKit([{ claim: 'Founded 2024', origin: 'source' }]);
+    const urls = stubKit([{ claim: 'Founded 2024', origin: 'source', trust: 'owned', review_status: 'approved' }]);
     await policyCheck({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post);
     expect(urls.some((u) => u.includes('/evidence?'))).toBe(false);
   });
+  it('leaves out a legacy source fact from a kit registered before migration 009 (PR #63 review)', async () => {
+    const { policyCheck } = await import('../../worker/posts');
+    const bodies: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      if (url.startsWith('https://openrouter.ai')) {
+        bodies.push(String(init.body));
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ unsupported: [], sexual: false, minors: false, explicitLanguage: false }) } }] }));
+      }
+      if (url.includes('/kits?')) return new Response(JSON.stringify([{ payload: { policy: { claims: '4', template: 'friendly' }, evidence: [
+        { claim: 'Legacy page claim', origin: 'source' },
+        { claim: 'Owner said this', origin: 'owner_answer' },
+      ] } }]));
+      return new Response('[]');
+    }));
+    await policyCheck({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post);
+    expect(bodies.join('\n')).not.toContain('Legacy page claim');
+    expect(bodies.join('\n')).toContain('Owner said this');
+  });
   it('fails closed when evidence would need more than the allowed number of model calls', async () => {
     const { policyCheck } = await import('../../worker/posts');
-    stubKit(Array.from({ length: 1000 }, (_, i) => ({ claim: `fact ${i} ${'z'.repeat(400)}`, origin: 'source' })));
+    stubKit(Array.from({ length: 1000 }, (_, i) => ({ claim: `fact ${i} ${'z'.repeat(400)}`, origin: 'source', trust: 'owned', review_status: 'approved' })));
     await expect(policyCheck({ ...env, OPENROUTER_API_KEY: 'k' } as Env, post)).rejects.toMatchObject({ status: 422 });
   });
 });

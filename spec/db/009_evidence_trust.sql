@@ -9,7 +9,11 @@
 -- Must be applied before the Worker that writes and filters these columns is deployed. Safe to re-run.
 alter table public.evidence add column if not exists trust text;
 alter table public.evidence add column if not exists review_status text;
-alter table public.sources add column if not exists kind text not null default 'site';
+-- sources.kind defaults to the conservative 'page' (third-party): existing rows came from the old input that accepted
+-- any page, and a Worker deployed before this migration inserts without a kind, so neither can be shown to be the
+-- brand's own site (PR #63 review). The new Worker always writes kind itself.
+alter table public.sources add column if not exists kind text not null default 'page';
+alter table public.sources alter column kind set default 'page';
 
 -- Backfill, conservatively: the old "link to a page about you" input accepted any page, so an existing 'source' fact
 -- may come from a site the brand does not control. It becomes third-party and proposed, for the owner to approve

@@ -343,7 +343,8 @@ export async function policyCheck(env: Env, post: Post): Promise<PolicyResult> {
   const { claims, template, evidence } = await postPolicy(env, post);
   const flirty = template === 'flirty';
   // Allow-list (issue #57, plan v2 §5): only approved facts of a usable trust class. Entries in kits registered before
-  // migration 009 carry only origin and are read as the migration backfills live rows (snapshotFact).
+  // migration 009 carry only origin and are read as the migration backfills live rows (snapshotFact): a legacy
+  // source fact is third-party and proposed, so it is left out.
   const facts0 = (evidence ?? []).map(snapshotFact).filter(usableFact);
   const batches = evidenceBatches(facts0.map(factLine));
   // Bounded cost: at most MAX_EVIDENCE_BATCHES model calls per approval. Beyond that the check cannot be complete,

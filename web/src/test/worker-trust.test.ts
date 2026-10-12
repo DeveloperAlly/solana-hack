@@ -108,7 +108,8 @@ describe('source type registry', () => {
     expect(usableFact({ trust: 'something_new', review_status: 'approved' })).toBe(false);
   });
   it('reads kits registered before migration 009 the way the migration backfills live rows', () => {
-    expect(usableFact(snapshotFact({ claim: 'a', origin: 'source' }))).toBe(true);
+    expect(usableFact(snapshotFact({ claim: 'a', origin: 'source' }))).toBe(false);
+    expect(snapshotFact({ claim: 'a', origin: 'source' })).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
     expect(usableFact(snapshotFact({ claim: 'a', origin: 'owner_answer' }))).toBe(true);
     expect(usableFact(snapshotFact({ claim: 'a', origin: 'assumption' }))).toBe(false);
     expect(usableFact(snapshotFact({ origin: undefined }))).toBe(false);

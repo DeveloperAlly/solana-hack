@@ -57,14 +57,17 @@ export function usableFact(e: { trust?: string | null; review_status?: string | 
 export const USABLE_FILTER = `review_status=eq.approved&trust=in.(${USABLE_TRUST.join(',')})`;
 
 /**
- * A fact as recorded in a registered kit's evidence snapshot. Kits registered before migration 009 carry only origin;
- * every such entry passed the old filter (assumptions excluded), so it maps exactly as migration 009 backfills live
- * rows: source -> owned, owner_answer -> owner_answer, both approved. An assumption, or an unknown origin, stays out.
+ * A fact as recorded in a registered kit's evidence snapshot. Kits registered before migration 009 carry only origin,
+ * and the old ingest accepted any page, so a legacy `source` fact cannot be shown to come from the brand's own site.
+ * It is read exactly as migration 009 backfills live rows: source -> third_party and proposed, so it never backs a
+ * post until the brand registers a new, classified kit (PR #63 review). owner_answer stays owner_answer and approved;
+ * an assumption, or an unknown origin, stays out. On 2026-10-12 the live database held no kits, so no post is affected.
  */
 export function snapshotFact<T extends { origin?: string; trust?: string | null; review_status?: string | null }>(e: T): T & { trust: string | null; review_status: string | null } {
   if (e.trust) return { ...e, trust: e.trust, review_status: e.review_status ?? null };
-  const trust = e.origin === 'source' ? 'owned' : e.origin === 'owner_answer' ? 'owner_answer' : null;
-  return { ...e, trust, review_status: trust ? 'approved' : null };
+  if (e.origin === 'source') return { ...e, trust: 'third_party', review_status: 'proposed' };
+  if (e.origin === 'owner_answer') return { ...e, trust: 'owner_answer', review_status: 'approved' };
+  return { ...e, trust: null, review_status: null };
 }
 
 /** Hostname without a leading "www.", lower case; null when the value is not a usable URL. */
