@@ -19,7 +19,7 @@ Target submission time is **4:00 pm Melbourne, 13 October 2026**, leaving a buff
 | Product name and description | [README](../../../README.md), existing [GTM](./gtm_2026_10_12.md) §1 | Ally: paste and tailor to the portal's length limit; retain the sales voice |
 | Chain and tools | README Architecture | Orchestrator: confirm the shipped stack and devnet designation; Ally: enter it |
 | Team background | GTM §9; [#60](https://github.com/DeveloperAlly/solana-hack/issues/60) | Ally: confirm biography, team members and actual location; add teammates to the portal if relevant |
-| Logo / graphic | Existing JamJam brand assets | Ally: choose and upload the final graphic accepted by the portal; record its filename in the handoff |
+| Logo / graphic | Existing JamJam identity in the [deck mirror](./pitch_deck_2026_10_06.md); standalone upload asset not verified | Ally: choose and upload the final graphic accepted by the portal; record its filename in the handoff |
 | Repository | [DeveloperAlly/solana-hack](https://github.com/DeveloperAlly/solana-hack) | Orchestrator: identify release SHA; Ally: paste public repository URL |
 | Presentation video, 2–3 minutes | Existing deck and [pitch script](./pitch_script_2026_10_12.md) from [#69](https://github.com/DeveloperAlly/solana-hack/pull/69) | Ally: record, export, upload and supply a playable link; deck, mirror and script are locked against agent edits without explicit authorization |
 | Demo video, at most 3 minutes | [Revised demo runbook](./demo_script_2026_10_13.md) | Orchestrator: provide rehearsed release; Ally: record, edit waits, export, upload and supply link |
@@ -27,6 +27,10 @@ Target submission time is **4:00 pm Melbourne, 13 October 2026**, leaving a buff
 | Prior development / eligibility | [Official requirements](https://colosseum.com/hackathon) | Ally: disclose relevant pre-existing development and confirm account/competition eligibility |
 
 No new pitch deck, GTM, branding package or demo application is requested. Pitch suggestions remain separate comments requiring owner authorization before edits. This checklist is document-only and does not alter the [wireframe specification](https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn).
+
+## Repository artifact check
+
+The tracked-file inventory of [PR #69's asset revision `791d01b`](https://github.com/DeveloperAlly/solana-hack/tree/791d01b) contains no MP4, MOV or WebM recording and no standalone logo SVG, PNG, JPEG, PDF or PPTX. Its image files are product proof screenshots under `web/proof/`. The script's Claude deck URL is a presentation reference, not an uploaded presentation-video URL. No final public video links are recorded in this package. This check covers repository files; owner-held files and the portal need separate confirmation.
 
 ## Owner actions still requiring completion evidence
 
