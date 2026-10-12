@@ -7,8 +7,13 @@ import { mediaComposer } from './Media-Composer.fixtures';
 
 export const mediaReview: MediaReviewData = {
   formats: mediaComposer.formats,
+  // Only the carousel is drawn on the canvas; the image card and short video have no claims in their default slides.
   checks: {
-    1: { claims: 'backed', slop: 'passed', alt: '[alt]' },
-    3: { claims: 'unsupported', slop: 'passed', alt: '[alt]', claimId: 'c2', claimPhrase: 'Used by [n] brands' },
+    carousel: {
+      1: { claims: 'backed', slop: 'passed', alt: '[alt]' },
+      3: { claims: 'unsupported', slop: 'passed', alt: '[alt]', claimId: 'c2', claimPhrase: 'Used by [n] brands' },
+    },
+    card: {},
+    video: {},
   },
 };

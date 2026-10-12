@@ -4,7 +4,7 @@
 // The draft lives in memory for the session only: no network, nothing persisted (INTEGRATION: PATCH /api/campaigns/:id).
 import { useNavigate } from 'react-router';
 import { useSoonRoutes } from './routes';
-import { createStore } from './createStore';
+import { createBrandScopedStore } from './useSoonSession';
 
 // `external`: built on Superhub (issue #52); this page cannot see whether it finished, so the campaign record
 // (fixtures in the gallery) stands for it.
@@ -33,7 +33,8 @@ export interface CampaignDraft {
   completed?: CampaignStepId[];
 }
 
-const campaignDraft = createStore<CampaignDraft>({});
+// Kept per brand (Codex review on PR #79): another brand's campaign choices never show here.
+const campaignDraft = createBrandScopedStore<CampaignDraft>();
 
 /** Clears the shared draft (tests, and starting a new campaign). */
 export const resetCampaignDraft = campaignDraft.reset;

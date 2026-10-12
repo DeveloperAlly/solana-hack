@@ -82,7 +82,7 @@ export function SettingsAI({ data, state = 'success' }: { data: SettingsAIData; 
                 {/* INTEGRATION: PUT …/ai-settings key test (OpenRouter, Anthropic or OpenAI). */}
                 <Button variant="secondary" onClick={() => setTest(state === 'error' ? 'failed' : 'ok')}>Test key</Button>
                 <Button href={routes.settingsGetKey} variant="secondary">Replace</Button>
-                <Button variant="secondary" onClick={() => { set({ aiKey: null }); setTest('none'); }}>Remove</Button>
+                <Button variant="secondary" onClick={() => { set({ aiKey: null, openRouter: undefined }); setTest('none'); }}>Remove</Button>
               </Stack>
               {test === 'ok' && <Alert tone="success" title="That key works." />}
               {test === 'failed' && <Alert tone="danger" title={data.keyError} />}

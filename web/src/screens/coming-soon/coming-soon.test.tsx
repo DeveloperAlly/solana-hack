@@ -477,7 +477,7 @@ describe('review fixes, round 3 (Codex, PR #79)', () => {
   it('a slop failure alone blocks approval, and its badge and the gate agree', () => {
     render(
       <MemoryRouter>
-        <MediaReview data={{ formats: mediaComposer.formats, checks: { 1: { claims: 'backed', slop: 'failed', alt: '[alt]' } } }} />
+        <MediaReview data={{ formats: mediaComposer.formats, checks: { carousel: { 1: { claims: 'backed', slop: 'failed', alt: '[alt]' } }, card: {}, video: {} } }} />
       </MemoryRouter>,
     );
     expect(screen.getByText('Failed · blocked')).toBeInTheDocument();
@@ -554,5 +554,58 @@ describe('review fixes, round 4 (Codex, PR #79)', () => {
     expect(within(rows[0]).getByText('In use')).toBeInTheDocument();
     expect(within(rows[1]).getByText('Fallback')).toBeInTheDocument();
     expect(within(sources).getAllByText('In use')).toHaveLength(1);
+  });
+});
+
+describe('review fixes, round 5 (Codex, PR #79)', () => {
+  it('media drafts are kept per brand', async () => {
+    const user = at('/screens/Media-Composer');
+    await user.clear(screen.getByLabelText('Slide 1 · Hook text'));
+    await user.type(screen.getByLabelText('Slide 1 · Hook text'), 'JamJam hook');
+    await user.click(screen.getByRole('button', { name: 'JamJam, switch brand' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
+    expect(screen.getByLabelText('Slide 1 · Hook text')).toHaveValue('[hook]');
+    await user.click(screen.getByRole('button', { name: 'aDNA, switch brand' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /JamJam/ }));
+    expect(screen.getByLabelText('Slide 1 · Hook text')).toHaveValue('JamJam hook');
+  });
+
+  it('campaign drafts are kept per brand', async () => {
+    const user = at('/screens/Campaign-v2-3-Audience');
+    await user.click(screen.getByRole('checkbox', { name: /\[Audience segment 2\]/ }));
+    await user.click(screen.getByRole('button', { name: 'JamJam, switch brand' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
+    expect(screen.getByRole('checkbox', { name: /\[Audience segment 2\]/ })).not.toBeChecked();
+  });
+
+  it('an untouched short video is not blocked by the carousel claim', async () => {
+    const user = at('/screens/Media-Composer');
+    await user.click(screen.getByRole('tab', { name: 'Short video' }));
+    await user.click(screen.getByRole('radio', { name: 'Image set' }));
+    await user.click(screen.getByRole('button', { name: 'Check and review' }));
+    expect(screen.getAllByRole('rowheader')).toHaveLength(3);
+    expect(screen.queryByText('Unsupported · blocked')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve and register' })).toBeEnabled();
+  });
+
+  it('a stale slide offers Re-run checks, not Add a source', async () => {
+    const user = at('/screens/Media-Composer');
+    await user.clear(screen.getByLabelText('Slide 1 · Hook text'));
+    await user.type(screen.getByLabelText('Slide 1 · Hook text'), 'Edited');
+    await user.click(screen.getByRole('radio', { name: 'Image set' }));
+    await user.click(screen.getByRole('button', { name: 'Check and review' }));
+    expect(screen.queryByRole('button', { name: 'Add a source for slide 1' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add a source for slide 3' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Re-run checks' })).toBeInTheDocument();
+  });
+
+  it('removing the key also clears OpenRouter, so the default is in use again', async () => {
+    const user = at('/screens/Settings-GetKey');
+    await user.click(screen.getByRole('button', { name: 'Connect OpenRouter' }));
+    await user.click(screen.getByRole('link', { name: '← Back to AI settings' }));
+    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    const rows = within(screen.getByRole('list', { name: 'Model sources' })).getAllByRole('listitem');
+    expect(within(rows[0]).getByText('Not connected')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('In use')).toBeInTheDocument();
   });
 });

@@ -37,7 +37,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
   const media = useMediaFlow(data.formats);
   // One check per slide of the draft (Composer's edits and media type); a claim approved on Claims counts as backed.
   const fixtureText = (id: string) => data.formats.flatMap((f) => f.slides).find((s) => s.id === id)?.text;
-  const checks = deriveChecks({ slides: media.slides, defaults: data.checks, fixtureText, rerunText: media.rerunText, approvedClaim: (id) => session.claims?.[id]?.status === 'approved' });
+  const checks = deriveChecks({ slides: media.slides, defaults: data.checks[media.kind], fixtureText, rerunText: media.rerunText, approvedClaim: (id) => session.claims?.[id]?.status === 'approved' });
   const stale = checks.some((c) => c.claims === 'stale');
   const kindLabel = mediaKindNames[media.kind];
   const [fixing, setFixing] = useState<string | null>(null);
@@ -70,7 +70,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
             rowKey={(r) => r.id}
             state={tableState[state]}
             error={<Alert tone="danger" title="The checks could not run. Nothing was approved." />}
-            actions={(r) => resultStatus(r.claims).blocking && <Button variant="secondary" aria-label={`Add a source for slide ${r.slide}`} onClick={() => setFixing(r.id)}>Add a source</Button>}
+            actions={(r) => r.claims === 'unsupported' && r.claimId !== undefined && <Button variant="secondary" aria-label={`Add a source for slide ${r.slide}`} onClick={() => setFixing(r.id)}>Add a source</Button>}
           />
           {fixing && (
             <SoonInlineForm

@@ -86,8 +86,8 @@ export interface SlideCheck extends SlideCheckDefaults { id: string; slide: numb
 export interface MediaReviewData {
   /** The media draft's default formats (Media-Composer's fixtures) until the person edits them. */
   formats: MediaFormat[];
-  /** Check results by slide number; a slide without an entry has no claims and passed the slop check. */
-  checks: Record<number, SlideCheckDefaults>;
+  /** Check results per media type, by slide number; a slide without an entry has no claims and passed the slop check. */
+  checks: Record<MediaKind, Record<number, SlideCheckDefaults>>;
 }
 
 /* Campaign v2 (steps 2, 4, 5, 6 on this page; 1 and 3 on Superhub) */

@@ -33,7 +33,7 @@ const blank: SlideCheckDefaults = { claims: 'none', slop: 'passed', alt: '[alt]'
 export interface CheckInputs {
   /** The draft's slides now. */
   slides: Slide[];
-  /** Fixture results by slide number, run on `fixtureText`. */
+  /** Fixture results for the current media type, by slide number, run on `fixtureText`. */
   defaults: Record<number, SlideCheckDefaults>;
   /** The text each slide had when the fixture results were produced (the default draft). */
   fixtureText: (slideId: string) => string | undefined;
@@ -51,7 +51,8 @@ export function deriveChecks({ slides, defaults, fixtureText, rerunText, approve
     const rerun = rerunText[s.id];
     if (rerun === undefined && s.text !== fixtureText(s.id)) return { ...base, claims: 'stale', slop: 'stale' };
     if (rerun !== undefined && s.text !== rerun) return { ...base, claims: 'stale', slop: 'stale' };
-    const claimStillThere = rerun === undefined || (d.claimPhrase !== undefined && s.text.includes(d.claimPhrase));
+    // A claim result applies only while its words are on the slide (fixture results included).
+    const claimStillThere = d.claimPhrase === undefined || s.text.includes(d.claimPhrase);
     const claims: CheckResult = claimStillThere ? d.claims : 'none';
     const slop: CheckResult = rerun === undefined ? d.slop : 'passed';
     const backed = claims === 'unsupported' && d.claimId !== undefined && approvedClaim(d.claimId);

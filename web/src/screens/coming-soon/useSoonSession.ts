@@ -57,6 +57,31 @@ function setSession(patch: Partial<SoonSession>) {
   });
 }
 
+const activeBrand = () => store.read().brandId ?? defaultBrandId;
+
+/**
+ * A flow store (media draft, campaign draft) kept per brand, so a draft started for one brand never shows under
+ * another (Codex review on PR #79). Same shape as createStore: read, reset and use() -> [state, set].
+ */
+export function createBrandScopedStore<T extends object>() {
+  const drafts = createStore<Record<string, T>>({});
+  const read = (): Partial<T> => drafts.read()[activeBrand()] ?? {};
+  const set = (patch: Partial<T>) => {
+    const brand = activeBrand();
+    drafts.set({ [brand]: { ...drafts.read()[brand], ...patch } as T });
+  };
+  return {
+    read,
+    set,
+    reset: drafts.reset,
+    use: (): [Partial<T>, (patch: Partial<T>) => void] => {
+      const [all] = drafts.use();
+      const [account] = store.use();
+      return [all[account.brandId ?? defaultBrandId] ?? {}, set];
+    },
+  };
+}
+
 /** The session for the active brand, and a setter that merges a patch (brand fields go to the active brand). */
 export function useSoonSession(): [SoonSession, (patch: Partial<SoonSession>) => void] {
   const [state] = store.use();
