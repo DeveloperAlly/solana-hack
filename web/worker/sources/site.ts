@@ -447,6 +447,12 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
 
     // 3. Nothing worked: ask for the text instead.
     if (renderer?.unavailable) c.notes.push(BROWSER_UNAVAILABLE[renderer.unavailable]);
+    const renderedFailure = renderer?.failure;
+    if (renderedFailure) {
+      const detail = `browser fallback failed at ${renderedFailure.stage} (${renderedFailure.name}${renderedFailure.status ? `, HTTP ${renderedFailure.status}` : ''})`;
+      c.notes.push(detail);
+      fetchError += `; ${detail}`;
+    } else if (renderer?.unavailable) fetchError += `; ${BROWSER_UNAVAILABLE[renderer.unavailable]}`;
     return { ok: false, kind: kindOf(url.toString()), code: 'unreadable', reason: `We could not read ${url.hostname} (${fetchError}). Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0, cost) };
   } finally {
     await renderer?.close();

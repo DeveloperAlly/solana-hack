@@ -93,6 +93,8 @@ export interface Renderer {
   read(url: URL): Promise<RenderedPage | null>;
   /** Pages rendered so far, for the adapter's notes. */
   readonly rendered: number;
+  /** Safe stage/code only, so a failed browser fallback is diagnosable without page content. */
+  readonly failure?: { stage: string; name: string; status?: number } | null;
   /** Set when the browser could not be launched; no later read tries again. */
   readonly unavailable: RenderUnavailable | null;
   /** Pages the browser opened that this renderer did not (popups), each closed at once. */
@@ -213,6 +215,7 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
   let rendered = 0;
   let attempts = 0;
   let unavailable: RenderUnavailable | null = null;
+  let failure: { stage: string; name: string; status?: number } | null = null;
   // The pages this renderer opened, and whether it is opening one now; any other page is closed (see above).
   const own = new Set<RenderPage>();
   let opening = false;
@@ -233,6 +236,7 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
     if (!readable(url) || attempts >= maxPages) return null;
     attempts++;
     let page: RenderPage | null = null;
+    let stage = 'launch';
     try {
       // One launch per renderer: a refused launch is remembered, so a used-up quota is not asked again per page.
       browser ??= launch().then(watch).catch((e: unknown) => {
@@ -240,6 +244,7 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
         throw e;
       });
       const b = await browser;
+      stage = 'new-page';
       opening = true;
       try {
         page = await b.newPage();
@@ -250,6 +255,7 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
       const p = page;
       const origins = new Set<string>();
       const budget = { left: MAX_REQUESTS };
+      stage = 'setup';
       await p.setUserAgent(USER_AGENT);
       await p.setBypassServiceWorker(true);
       await p.evaluateOnNewDocument(PRE_SCRIPT);
@@ -263,20 +269,27 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
           if (!req.isInterceptResolutionHandled()) void req.abort('blockedbyclient').catch(() => undefined);
         });
       });
+      stage = 'navigation';
       try {
         await p.goto(url.toString(), { waitUntil: 'networkidle0', timeout: RENDER_TIMEOUT_MS });
       } catch (e) {
         // A page that never goes quiet is read as it stands; a refused or failed first load is not read at all.
-        if (!(e instanceof Error && e.name === 'TimeoutError')) return null;
+        if (!(e instanceof Error && e.name === 'TimeoutError')) throw e;
       }
       const landed = new URL(p.url());
       // The address shown must be one the gate allowed; anything else (an error page) is not read.
       if (!readable(landed) || !(await gate(landed))) return null;
+      stage = 'isolated-dom-read';
       const data = checkedData(await readIsolated(p, pageData(maxCharacters)), maxCharacters);
-      if (!data) return null;
+      if (!data) throw new Error('InvalidDOMRead');
+      if (!tidy(data.text)) { failure = { stage: 'empty-dom', name: 'NoVisibleText' }; return null; }
       rendered++;
       return { url: landed.toString(), title: data.title || landed.hostname, text: tidy(data.text), links: data.links };
-    } catch {
+    } catch (e) {
+      const error = e as { name?: unknown; status?: unknown; message?: unknown };
+      const name = typeof error?.name === 'string' && /^[A-Za-z]{1,40}$/.test(error.name) ? error.name : 'Error';
+      const status = typeof error?.status === 'number' ? error.status : typeof error?.message === 'string' ? Number(/\bcode:\s*(\d{3})\b/.exec(error.message)?.[1]) || undefined : undefined;
+      failure = { stage, name, ...(status ? { status } : {}) };
       return null;
     } finally {
       if (page) own.delete(page);
@@ -361,6 +374,7 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
 
   return {
     read,
+    get failure() { return failure; },
     get rendered() {
       return rendered;
     },

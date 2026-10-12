@@ -91,6 +91,13 @@ const addSource = async (body: Record<string, unknown>) => {
 const run = () => db.tables.runs[0] as Row & { id: string; status: string; progress: { done: number; total: number; steps: { id: string; status: string }[]; message?: string } };
 const steps = (name?: string) => db.tables.run_steps.filter((s) => !name || s.step === name);
 
+describe('wrapped workflow failures', () => {
+  it('preserves the precise status and message through a Cloudflare step wrapper', () => {
+    expect(decodeError(new Error('Workflow step failed: E422|fail|Browser read refused'))).toEqual({ code: 422, kind: 'fail', message: 'Browser read refused' });
+    expect(decodeError({ message: 'Workflow instance failed', cause: new Error('E403|fail|Browser access denied') })).toEqual({ code: 403, kind: 'fail', message: 'Browser access denied' });
+  });
+});
+
 describe('definitions are data', () => {
   const sql = readFileSync(resolvePath(process.cwd(), '../spec/db/011_workflow_engine.sql'), 'utf8');
   it('migration 010 seeds exactly the definition and prompt in seed.ts', () => {

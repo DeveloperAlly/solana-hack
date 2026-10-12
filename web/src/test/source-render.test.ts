@@ -288,6 +288,15 @@ describe('renderer: robots.txt before every request the browser makes', () => {
 });
 
 describe('site adapter: rendered fallback for script-only sites (architecture §6.1)', () => {
+  it('keeps safe browser launch diagnostics in the failed source reason', async () => {
+    network({ 'https://a.test/': { body: APP } });
+    const result = await readSite({}, 'https://a.test/', { website: 'a.test', subpages: 0 }, (g, max) => createRenderer(async () => { throw Object.assign(new Error('private provider detail'), { status: 403 }); }, g, max));
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected failed read');
+    expect(result.reason).toContain('browser fallback failed at launch (Error, HTTP 403)');
+    expect(result.reason).not.toContain('private provider detail');
+  });
+
   it('renders a home page with almost no text, and reads its subpages', async () => {
     network({
       'https://a.test/': { body: APP },

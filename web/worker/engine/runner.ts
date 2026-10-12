@@ -46,8 +46,16 @@ export function durationMs(s: string) {
 export type ErrorKind = 'fail' | 'retry' | 'rate' | 'superseded' | 'parked';
 export function encodeError(code: number, kind: ErrorKind, message: string) { return `E${code}|${kind}|${message}`; }
 export function decodeError(e: unknown): { code: number; kind: ErrorKind; message: string } {
-  const m = /^E(\d+)\|(\w+)\|([\s\S]*)$/.exec((e as Error)?.message ?? '');
-  if (m) return { code: Number(m[1]), kind: m[2] as ErrorKind, message: m[3] };
+  const seen = new Set<unknown>();
+  for (let current = e, depth = 0; current && depth < 6 && !seen.has(current); depth++) {
+    seen.add(current);
+    const error = current as { message?: unknown; cause?: unknown };
+    const message = typeof error.message === 'string' ? error.message : typeof current === 'string' ? current : '';
+    // Workflows may wrap the thrown step error; preserve our explicit envelope through that wrapper (#114).
+    const m = /\bE(\d+)\|(fail|retry|rate|superseded|parked)\|([^\n]*)/.exec(message);
+    if (m) return { code: Number(m[1]), kind: m[2] as ErrorKind, message: m[3] };
+    current = error.cause;
+  }
   return { code: 500, kind: 'retry', message: 'something went wrong' };
 }
 
