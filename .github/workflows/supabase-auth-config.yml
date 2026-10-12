@@ -15,7 +15,9 @@ name: supabase-auth-config
 #   Supabase Management API PATCH/GET /v1/projects/{ref}/config/auth, schema UpdateAuthConfigBody
 #     (https://github.com/supabase/supabase/blob/master/apps/docs/spec/api_v1_openapi.json):
 #     site_url, uri_allow_list, smtp_admin_email, smtp_host, smtp_port (string), smtp_user, smtp_pass,
-#     smtp_sender_name, mailer_subjects_*/mailer_templates_*_content. GET does not return smtp_pass.
+#     smtp_sender_name, mailer_subjects_*/mailer_templates_*_content. The GET response schema
+#     (AuthConfigResponse_Output) can include smtp_pass, so every GET below is piped straight into a jq
+#     projection of named non-secret fields; never print or save the full response.
 #   Custom SMTP: https://supabase.com/docs/guides/auth/auth-smtp
 #   Resend SMTP for Supabase (host smtp.resend.com, port 465, user "resend", password = API key):
 #     https://resend.com/docs/send-with-supabase-smtp
@@ -130,12 +132,18 @@ jobs:
           chmod 600 "$RUNNER_TEMP/smtp.json"; trap 'rm -f "$RUNNER_TEMP/smtp.json"' EXIT
           curl -sS --fail-with-body -o /dev/null -w 'PATCH smtp+templates: HTTP %{http_code}\n' -X PATCH "$api" \
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @"$RUNNER_TEMP/smtp.json"
-          # Print only non-secret fields; GET never returns smtp_pass.
+          # The GET response can include smtp_pass: the jq projection below is the protection, so never
+          # print or save the full response. (GitHub also masks the RESEND_API_KEY secret in logs.)
           curl -sS --fail-with-body "$api" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" | jq -e --arg from "$MAIL_FROM" --arg name "$SENDER_NAME" '
-              {smtp_host, smtp_port, smtp_user, smtp_admin_email, smtp_sender_name, mailer_subjects_magic_link,
-               link_has_token: ((.mailer_templates_magic_link_content // "") | contains("{{ .Token }}")),
-               confirm_has_token: ((.mailer_templates_confirmation_content // "") | contains("{{ .Token }}"))}
-              | ., (.smtp_host == "smtp.resend.com" and .smtp_admin_email == $from and .smtp_sender_name == $name
-                    and .link_has_token and .confirm_has_token)' ||
+              def ok(t): (t // "") | (contains("{{ .Token }}") and contains("{{ .ConfirmationURL }}"));
+              {smtp_host, smtp_port, smtp_user, smtp_admin_email, smtp_sender_name,
+               mailer_subjects_magic_link, mailer_subjects_confirmation,
+               link_template_ok: ok(.mailer_templates_magic_link_content),
+               confirm_template_ok: ok(.mailer_templates_confirmation_content)}
+              | ., (.smtp_host == "smtp.resend.com" and (.smtp_port | tostring) == "465" and .smtp_user == "resend"
+                    and .smtp_admin_email == $from and .smtp_sender_name == $name
+                    and .mailer_subjects_magic_link == "Your JamJam sign-in link"
+                    and .mailer_subjects_confirmation == "Your JamJam sign-in link"
+                    and .link_template_ok and .confirm_template_ok)' ||
             { echo "::error::SMTP or templates did not read back as set"; exit 1; }
           echo "Email setup complete: sign-in mail now comes from $SENDER_NAME <$MAIL_FROM>."

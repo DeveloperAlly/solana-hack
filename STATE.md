@@ -47,7 +47,7 @@ last_edited_by: agent
 - [UI build mission](./.agentic/how/missions/mission_ui_build.md): proof-driven delivery in timed chunks; slices S0–S8 along the critical path, each checked on the deployed site. S0 live half: the deploy wires in the Registrar key and the provider RPC ([PR #10](https://github.com/DeveloperAlly/solana-hack/pull/10); the RPC secret points at Helius devnet since 2026-10-12), and the live self-test passes since 2026-10-12.
 
 ## Next
-- **Now (2026-10-08):**
+- **Now (2026-10-12):**
   1. Done 2026-10-08: the PR stack is merged.
   2. Done 2026-10-12: `DEVNET_RPC_URL` points at Helius devnet and the live self-test passes. Now: sign-in email (see Blockers).
   3. Run the full flow on https://jamjam.tech: sign-in, ingest, gates, kit v1, then a post through Verify. Check the rows in Supabase.
