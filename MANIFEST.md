@@ -57,6 +57,8 @@ The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [A
 | [.agentic/what/context/research/07_gamerslab_leadfinder.md](./.agentic/what/context/research/07_gamerslab_leadfinder.md) | active | GamersLab lead finder review and reuse |
 | [.agentic/what/context/research/08_adna_evaluation.md](./.agentic/what/context/research/08_adna_evaluation.md) | active | aDNA evaluation for project context |
 | [.agentic/what/context/research/09_demo_brands.md](./.agentic/what/context/research/09_demo_brands.md) | active | Demo brands: public presence and what is ingested vs asked |
+| [.agentic/what/context/research/10_competitor_onboarding_pricing.md](./.agentic/what/context/research/10_competitor_onboarding_pricing.md) | active | Competitor onboarding and pricing review (59 products) against the full build plan; adopt / do-better proposals |
+| [.agentic/what/context/research/10_competitor_detail/](./.agentic/what/context/research/10_competitor_detail/) | active | Per-competitor detail for research 10, one file per segment (A to F) |
 | [.agentic/how/AGENTS.md](./.agentic/how/AGENTS.md) | active | What belongs in `how/` (process) |
 | [.agentic/how/missions/mission_hackathon_submission.md](./.agentic/how/missions/mission_hackathon_submission.md) | active | Mission: submit to Colosseum, phases A to E |
 | [.agentic/how/missions/mission_ui_build.md](./.agentic/how/missions/mission_ui_build.md) | proposed | Mission: UI build in timed chunks, slices S0 to S8 along the critical path |
