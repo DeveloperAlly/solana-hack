@@ -23,7 +23,7 @@ The owner asked for a VC reading of the pitch: "why do I need a blockchain at al
   - Any wallet, exchange or app can read it without asking JamJam.
   - No one can quietly rewrite it, including JamJam, because the record and its history are public.
   - Outside readers arrive through distribution. Every published post carries a "check it" link to Verify, and the record format is open, so a wallet or exchange can query it directly.
-- **Money.** Brands pay partners and ambassadors in USDC, anywhere, from their own wallet, inside a set budget ([ADR-006](../.agentic/what/decisions/adr_006_wallet_identity_split.md); backlog phase 4). A card or bank rail can't send money to a contributor in any country, per verified piece, and settle it publicly.
+- **Money.** Brands pay partners and ambassadors in USDC, anywhere, from their own wallet, inside a set budget ([ADR-006](../.agentic/what/decisions/adr_006_wallet_identity_split.md); backlog phase 4). The gain over card and bank payouts that JamJam's design relies on is public settlement: each payment is a transfer anyone can check against the approved piece it paid for.
 
 Brands sign in with email, so a business that never touches crypto still ends up using Solana for both jobs.
 
@@ -33,7 +33,7 @@ Brands sign in with email, so a business that never touches crypto still ends up
 
 **Answer.**
 - **Before recording:** JamJam, aDNA, film.fun and GamersLab each build their kit on jamjam.tech ([compendium §4](../.agentic/what/context/compendium_2026_10_06.md#4-demo-brands-and-demo-story-decided)). That gives real kits and real records for the demo video.
-- **The pitch's ask** (slide 11) is the first ten design partners. A slide claiming traction we don't have would cost more credibility than it buys.
+- **The pitch's ask** (slide 11) is founders who want their brand run for them. A slide claiming traction we don't have would cost more credibility than it buys.
 
 ## 3. No single customer
 
