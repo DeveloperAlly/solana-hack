@@ -4,6 +4,7 @@
 // fixtures in src/domain/fixtures, so every page agrees.
 import { adnaBrain, adnaBrainFirstRun, brainFor, firstRunBrain, OWNER } from '../../domain/fixtures/brain';
 import type { LoopBase } from '../../flows/loop/useLoop';
+import { adnaGrow, firstRunGrow, type GrowBrandData } from '../growth/brandData';
 import { stageById, type LoopStageId } from '../../config/nav';
 import type { LoopStepState } from '../../domain/loop';
 import { adnaPosts } from '../../domain/fixtures/posts';
@@ -92,9 +93,11 @@ export interface LoopBrandData {
   learnRulesCollecting: LearnRulesData;
   verifyHome: VerifyHomeData;
   verifyHomeEmpty: VerifyHomeData;
+  /** The Grow screens' data for this brand (screens/growth/brandData.ts). */
+  grow: GrowBrandData;
 }
 
-const adna: LoopBrandData = { today, todayAllClear, postDetail, postDetailEmpty, brain: brainScreen, brainFirstRun, learnRules, learnRulesCollecting, verifyHome, verifyHomeEmpty };
+const adna: LoopBrandData = { today, todayAllClear, postDetail, postDetailEmpty, brain: brainScreen, brainFirstRun, learnRules, learnRulesCollecting, verifyHome, verifyHomeEmpty, grow: adnaGrow };
 
 /**
  * A demo brand the canvas draws no loop data for, on its first run: kit v1 and the kit gate rules in the Brain, nothing
@@ -128,7 +131,7 @@ function firstRunBrand(id: string, name: string, domain: string): LoopBrandData 
     noMatch: [],
   };
   const proofEmpty: VerifyHomeData = { ...proof, kpis: [], registered: [] };
-  return { today: day, todayAllClear: day, postDetail: { ...b, posts: [] }, postDetailEmpty: { ...b, posts: [] }, brain: b, brainFirstRun: b, learnRules: learn, learnRulesCollecting: learn, verifyHome: proof, verifyHomeEmpty: proofEmpty };
+  return { today: day, todayAllClear: day, postDetail: { ...b, posts: [] }, postDetailEmpty: { ...b, posts: [] }, brain: b, brainFirstRun: b, learnRules: learn, learnRulesCollecting: learn, verifyHome: proof, verifyHomeEmpty: proofEmpty, grow: firstRunGrow(name) };
 }
 
 const byBrand: Record<string, LoopBrandData> = {

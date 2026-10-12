@@ -8,7 +8,7 @@ import { MToday } from './MToday';
 import { PostDetail } from './PostDetail';
 import { Today } from './Today';
 import { VerifyHome } from './VerifyHome';
-import { ActiveBrandLoop } from './ActiveBrandLoop';
+import { ActiveBrandLoop, resolveState } from './ActiveBrandLoop';
 import { brainRules } from '../../domain/brain';
 import type { LoopBrandData } from './fixtures';
 import type { LearnRulesData, PostDetailData, TodayData, VerifyHomeData } from './types';
@@ -19,12 +19,6 @@ import type { LoopBase } from '../../flows/loop/useLoop';
 // (config/nav.ts); its shell from the frame it renders (LoopFrame, L1 AppShell: app). Data comes from the one active
 // brand (ActiveBrandLoop), and the state from that data (resolveState), never hard-coded.
 
-/**
- * The state a screen shows: the demo state asked for, except that "success" on data with nothing in it is the empty
- * state, so a first-run brand never sees a success layout with zero data (Codex review on PR 111). Loading and error
- * are shown as asked.
- */
-export const resolveState = (requested: ScreenState, isEmpty: boolean): ScreenState => (requested === 'success' && isEmpty ? 'empty' : requested);
 
 /** One loop screen: which of the brand's data sets it shows for full and empty, what "empty" means, and how it renders. */
 interface LoopScreen<D> {

@@ -13,10 +13,10 @@ import { TipsReceived } from './Tips-Received';
 import { InviteTeam } from './Invite-Team';
 import { InviteAccept } from './Invite-Accept';
 import { platformDetail, platformsCatalog } from './platforms.fixtures';
-import { referral, referralEmpty, referralLanding } from './referral.fixtures';
-import { badgeEmbed, badgeEmbedEmpty, verifyBadgeLanding, verifyBadgeLandingEmpty } from './badge.fixtures';
-import { tipSheet, tipSheetNoWallet, tipsReceived, tipsReceivedEmpty } from './tips.fixtures';
-import { inviteAccept, inviteAcceptEmpty, team, teamEmpty } from './team.fixtures';
+import { referralLanding } from './referral.fixtures';
+import { verifyBadgeLanding, verifyBadgeLandingEmpty } from './badge.fixtures';
+import { tipSheet, tipSheetNoWallet } from './tips.fixtures';
+import { inviteAccept, inviteAcceptEmpty } from './team.fixtures';
 import { GrowHome } from './Grow-Home';
 import { DistributeAdapt } from './Distribute-Adapt';
 import { Events } from './Events';
@@ -24,10 +24,8 @@ import { EventDetail } from './Event-Detail';
 import { EventsBoard } from './Events-Board';
 import { EventRating } from './Event-Rating';
 import { Quests } from './Quests';
-import { quests, questsEmpty } from './quests.fixtures';
-import { growHome, growHomeFirstRun } from './growHome.fixtures';
-import { adapt, adaptNoneChosen } from './adapt.fixtures';
-import { eventDetail, eventDetailCancelled, eventDetailPlanEmpty, events, eventsEmpty } from './events.fixtures';
+import { ActiveBrandLoop, resolveState } from '../loop/ActiveBrandLoop';
+import type { BrandVariants, GrowBrandData } from './brandData';
 import { eventRating, eventRatingEmpty, eventsBoard, eventsBoardEmpty } from './board.fixtures';
 import type { RouteTag } from '../../config/routes';
 import type { ScreenProps } from './types';
@@ -61,23 +59,53 @@ function entry<D>(
   };
 }
 
+/**
+ * A screen scoped to the signed-in brand: its data comes from the one active brand (ActiveBrandLoop, loopDataFor), never
+ * a fixture imported here, and its state from that data (resolveState: success on a first-run brand's empty data is the
+ * empty state). A brand without data for the screen gets the explicit "nothing here yet" state (Codex review on PR 111).
+ */
+function brandEntry<D>(
+  artboard: ScreenEntry['artboard'],
+  title: string,
+  screen: FunctionComponent<ScreenProps<D>>,
+  select: (g: GrowBrandData) => BrandVariants<D> | undefined,
+): ScreenEntry {
+  return {
+    artboard,
+    page: artboardPages[artboard],
+    title,
+    tag: 'COMING SOON',
+    states: screenStates,
+    render: (state) => createElement(ActiveBrandLoop, {
+      artboard,
+      view: (d) => {
+        const v = select(d.grow);
+        if (!v) return null;
+        const byState: Partial<Record<ScreenState, D>> = v;
+        const data = byState[state] ?? v.success;
+        return createElement(screen, { data, state: resolveState(state, data === v.empty) });
+      },
+    }),
+  };
+}
+
 export const screens: ScreenEntry[] = [
   entry('Platforms', 'Platforms: every place a brand can post, by kind', Platforms, platformsCatalog),
   entry('Platform-Detail', 'Platform: plans, posting rules, connect', PlatformDetail, platformDetail),
-  entry('Referral', 'Refer a friend: link, offer and referrals', Referral, referral, { empty: referralEmpty }),
+  brandEntry('Referral', 'Refer a friend: link, offer and referrals', Referral, (g) => g.referral),
   entry('Referral-Landing', 'Referral landing: what the invited friend sees', ReferralLanding, referralLanding),
-  entry('Badge-Embed', 'Check-it badge: preview, style and embed code', BadgeEmbed, badgeEmbed, { empty: badgeEmbedEmpty }),
+  brandEntry('Badge-Embed', 'Check-it badge: preview, style and embed code', BadgeEmbed, (g) => g.badge),
   entry('Verify-Badge-Landing', 'Verify from a badge, with "Make yours on JamJam"', VerifyBadgeLanding, verifyBadgeLanding, { empty: verifyBadgeLandingEmpty }),
   entry('Tip-Sheet', 'Tip the creator of a verified post in USDC', TipSheet, tipSheet, { empty: tipSheetNoWallet }),
-  entry('Tips-Received', 'Tips received', TipsReceived, tipsReceived, { empty: tipsReceivedEmpty }),
-  entry('Invite-Team', 'Invite a teammate or partner: seats and roles', InviteTeam, team, { empty: teamEmpty }),
+  brandEntry('Tips-Received', 'Tips received', TipsReceived, (g) => g.tips),
+  brandEntry('Invite-Team', 'Invite a teammate or partner: seats and roles', InviteTeam, (g) => g.team),
   entry('Invite-Accept', 'Accept an invite', InviteAccept, inviteAccept, { empty: inviteAcceptEmpty }),
   // Loop screens (ADR-012, canvas v21): titles are the canvas board titles without the tag.
-  entry('Grow-Home', 'Grow › overview: every way aDNA’s reach grows', GrowHome, growHome, { empty: growHomeFirstRun }),
-  entry('Distribute-Adapt', 'Distribute › write once, adapt per platform, schedule', DistributeAdapt, adapt, { empty: adaptNoneChosen }),
-  entry('Events', 'Grow › events: from Luma or by hand, each with a content plan', Events, events, { empty: eventsEmpty }),
-  entry('Event-Detail', 'Grow › one event: plan, people, results', EventDetail, eventDetail, { empty: eventDetailPlanEmpty, error: eventDetailCancelled }),
+  brandEntry('Grow-Home', 'Grow › overview: every way aDNA’s reach grows', GrowHome, (g) => g.growHome),
+  brandEntry('Distribute-Adapt', 'Distribute › write once, adapt per platform, schedule', DistributeAdapt, (g) => g.adapt),
+  brandEntry('Events', 'Grow › events: from Luma or by hand, each with a content plan', Events, (g) => g.events),
+  brandEntry('Event-Detail', 'Grow › one event: plan, people, results', EventDetail, (g) => g.eventDetail),
   entry('Events-Board', 'Public › events board: rated by people who went', EventsBoard, eventsBoard, { empty: eventsBoardEmpty }, 'ROADMAP'),
   entry('Event-Rating', 'Public › one event’s ratings, and rate it', EventRating, eventRating, { empty: eventRatingEmpty }, 'ROADMAP'),
-  entry('Quests', 'Grow › quests: paid community tasks in USDC', Quests, quests, { empty: questsEmpty }),
+  brandEntry('Quests', 'Grow › quests: paid community tasks in USDC', Quests, (g) => g.quests),
 ];

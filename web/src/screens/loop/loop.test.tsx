@@ -265,7 +265,7 @@ describe('Brain and Learn-Rules share the Brain', () => {
   it('a brand with no loop data says so, never showing another brand', () => {
     act(() => selectBrand('filmfun'));
     renderWithRouter(screens.find((s) => s.artboard === 'Today')!.render('success'));
-    expect(screen.getByRole('heading', { level: 1, name: 'No loop data for film.fun yet' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Nothing here for film.fun yet' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /Needs you/ })).toBeNull();
     expect(screen.queryByText(/Tuesday, aDNA/)).toBeNull();
   });
