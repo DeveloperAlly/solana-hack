@@ -17,6 +17,11 @@ describe('migration runner', () => {
     expect(planMigrations(files, LIVE).map((f) => f.file)).toEqual(['009_evidence_trust.sql', '010_workflow_engine.sql']);
     expect(planMigrations(files, [...LIVE, { name: 'evidence_trust_009' }, { name: 'workflow_engine_010' }])).toEqual([]);
   });
+  it('refuses a .sql file that does not follow the naming, rather than skipping it', () => {
+    expect(() => migrationFiles(['009_evidence_trust.sql', '010-workflow.sql'])).toThrow(/010-workflow\.sql/);
+    expect(() => migrationFiles(['010_Workflow.sql'])).toThrow(/010_Workflow\.sql/);
+    expect(migrationFiles(['009_evidence_trust.sql', 'README.md']).map((f) => f.file)).toEqual(['009_evidence_trust.sql']);
+  });
   it('refuses to apply out of order or with a duplicated number', () => {
     const files = migrationFiles(['008_sources_source_text.sql', '009_evidence_trust.sql', '010_workflow_engine.sql']);
     expect(() => planMigrations(files, [...LIVE, { name: 'workflow_engine_010' }])).toThrow(/009_evidence_trust\.sql is missing but a later one \(010\)/);

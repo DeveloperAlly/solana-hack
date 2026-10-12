@@ -12,8 +12,10 @@
 //     https://supabase.com/docs/guides/integrations/supabase-for-platforms ("Make database changes")
 //
 // Naming: spec/db/NNN_slug.sql is recorded as "slug_NNN", the names migrations 001-008 already carry on the live
-// project (spine_001 ... sources_source_text_008), so a file counts as applied when a recorded name ends in _NNN.
-// Every file in spec/db is written to be safe to re-run, so a retry after a partial failure does no harm.
+// project (list_migrations on 2026-10-12: https://github.com/DeveloperAlly/solana-hack/pull/87#issuecomment-6126230111;
+// STATE.md "Database"), so a file counts as applied when a recorded name ends in _NNN. A migration that fails is
+// rolled back by the endpoint (guide above), so a later run applies it whole or not at all; nothing relies on files
+// being safe to re-run.
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,8 +23,13 @@ import { fileURLToPath } from 'node:url';
 const API = 'https://api.supabase.com/v1/projects';
 const FILE = /^(\d{3})_([a-z0-9_]+)\.sql$/;
 
-/** The migration files in order: { file, number, name }. Anything else in the folder is ignored. */
+/**
+ * The migration files in order: { file, number, name }. Files that are not SQL are ignored; a .sql file that does not
+ * follow NNN_slug.sql is refused, so a misnamed migration can never be skipped while the run reports success.
+ */
 export function migrationFiles(names) {
+  const bad = names.filter((n) => /\.sql$/i.test(n) && !FILE.test(n));
+  if (bad.length) throw new Error(`not named NNN_slug.sql (lowercase, underscores): ${bad.join(', ')}`);
   return names
     .map((file) => FILE.exec(file))
     .filter(Boolean)
