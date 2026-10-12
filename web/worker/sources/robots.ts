@@ -1,3 +1,5 @@
+import { readCapped, USER_AGENT } from '../ingest';
+
 /**
  * robots.txt check for the site adapter, following RFC 9309 (https://www.rfc-editor.org/rfc/rfc9309.html):
  * - the group for our product token applies, else the "*" group (§2.2.1); groups for one agent are combined;
@@ -10,7 +12,6 @@
 export const BOT_TOKEN = 'JamJamBot';
 // RFC 9309 §2.5: the parsing limit MUST be at least 500 kibibytes (512,000 bytes).
 export const ROBOTS_MAX_BYTES = 500 * 1024;
-export const USER_AGENT = 'JamJamBot/0.1 (+https://jamjam.tech)';
 
 interface Rule { allow: boolean; path: string }
 
@@ -102,29 +103,6 @@ export function allowedBy(rules: Rule[], pathAndQuery: string): boolean {
 }
 
 export type RobotsCheck = { state: 'rules'; rules: Rule[] } | { state: 'none' } | { state: 'unreachable' };
-
-/** Reads at most `max` bytes of a response body, then cancels the rest of the stream. */
-export async function readCapped(res: Response, max: number): Promise<{ bytes: Uint8Array; truncated: boolean }> {
-  const out = new Uint8Array(max);
-  let n = 0;
-  let truncated = false;
-  const reader = res.body?.getReader();
-  if (!reader) return { bytes: out.subarray(0, 0), truncated };
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const take = Math.min(value.length, max - n);
-      out.set(value.subarray(0, take), n);
-      n += take;
-      // Any byte past the cap means the body was cut, so its last line may be incomplete.
-      if (take < value.length) { truncated = true; break; }
-    }
-  } finally {
-    await reader.cancel().catch(() => undefined);
-  }
-  return { bytes: out.subarray(0, n), truncated };
-}
 
 /** One robots.txt request; redirects are not followed by it (fetchRobots follows them). */
 export type RobotsFetch = (url: URL) => Promise<Response>;

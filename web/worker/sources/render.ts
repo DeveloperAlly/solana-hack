@@ -1,4 +1,4 @@
-import { fetchHop, MAX_BYTES, pageLinks, readable, USER_AGENT, type FetchGate } from '../ingest';
+import { fetchHop, NOT_READ, pageLinks, readable, readText, tidy, USER_AGENT, type FetchGate } from '../ingest';
 
 /**
  * Rendered reading for script-only sites (architecture §6.1 "Source ingestion": "fall back to a plain fetch, then
@@ -57,12 +57,29 @@ export interface RenderBrowser {
   close(): Promise<void>;
 }
 export interface RenderedPage { url: string; title: string; text: string; links: string[] }
+/**
+ * Why no browser could be had, from the launch error (Browser Run limits,
+ * https://developers.cloudflare.com/browser-run/limits/): `quota` is "429 Browser time limit exceeded for today", the
+ * Workers Free daily allowance of 10 browser minutes, used up until the next UTC day; `rate_limited` is any other 429
+ * (too many new or concurrent browsers); `failed` is anything else.
+ */
+export type RenderUnavailable = 'quota' | 'rate_limited' | 'failed';
 export interface Renderer {
   /** The page as a browser shows it, or null when it cannot be rendered or robots.txt refuses it. */
   read(url: URL): Promise<RenderedPage | null>;
   /** Pages rendered so far, for the adapter's notes. */
   readonly rendered: number;
+  /** Set when the browser could not be launched; no later read tries again. */
+  readonly unavailable: RenderUnavailable | null;
   close(): Promise<void>;
+}
+
+/** Classifies a launch error. The binding's error carries `status` and a message of the form "code: 429: message: ...". */
+export function launchFailure(e: unknown): RenderUnavailable {
+  const status = (e as { status?: unknown } | null)?.status;
+  const message = e instanceof Error ? e.message : String(e);
+  if (/browser time limit exceeded/i.test(message)) return 'quota';
+  return status === 429 || /\bcode:\s*429\b/.test(message) ? 'rate_limited' : 'failed';
 }
 
 /** Request types read only to render text. Anything else is refused without a fetch. */
@@ -81,8 +98,13 @@ export const RENDER_TIMEOUT_MS = 15_000;
 export const RENDER_CSP = "frame-src 'none'; child-src 'none'; worker-src 'none'; object-src 'none'";
 // Network APIs whose traffic request interception does not see: removed before any page script runs.
 const NO_SOCKETS = `(() => { for (const k of ['WebSocket', 'WebTransport', 'RTCPeerConnection', 'webkitRTCPeerConnection']) { try { Object.defineProperty(globalThis, k, { value: undefined, configurable: false, writable: false }); } catch {} } })();`;
-// Text as readPage takes it: scripts, styles, navigation and footers left out. Read after the links are taken.
-const PAGE_TEXT = `(() => { for (const el of document.querySelectorAll('script,style,noscript,svg,nav,footer,template')) el.remove(); return document.body ? document.body.innerText : ''; })()`;
+/**
+ * The text the page shows, as readPage takes it. innerText already leaves out what is not rendered (scripts, styles,
+ * templates, hidden elements: https://html.spec.whatwg.org/multipage/dom.html#the-innertext-idl-attribute), so only
+ * the furniture readPage leaves out by choice (NOT_READ) is hidden here, with an inline display: none. Nothing is
+ * removed: removing a stylesheet would show content it hides (PR #71 review). Run after the links are taken.
+ */
+export const PAGE_TEXT = `(() => { for (const el of document.querySelectorAll(${JSON.stringify(NOT_READ.join(','))})) el.style.setProperty('display', 'none', 'important'); return document.body ? document.body.innerText : ''; })()`;
 
 /** A response's headers for the browser: transfer headers left out, Set-Cookie once per value. */
 function forwarded(res: Response): Record<string, string | string[]> {
@@ -93,8 +115,6 @@ function forwarded(res: Response): Record<string, string | string[]> {
   return headers;
 }
 
-const tidy = (text: string) => text.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
-
 /**
  * A renderer over one browser session, launched on first use and closed by `close()`. `launch` opens the browser:
  * in the Worker it is `puppeteer.launch(env.BROWSER)` (see `browserRenderer`); tests pass a fake.
@@ -103,13 +123,18 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
   let browser: Promise<RenderBrowser> | null = null;
   let rendered = 0;
   let attempts = 0;
+  let unavailable: RenderUnavailable | null = null;
 
   const read = async (url: URL): Promise<RenderedPage | null> => {
     if (!readable(url) || attempts >= maxPages) return null;
     attempts++;
     let page: RenderPage | null = null;
     try {
-      browser ??= launch();
+      // One launch per renderer: a refused launch is remembered, so a used-up quota is not asked again per page.
+      browser ??= launch().catch((e: unknown) => {
+        unavailable = launchFailure(e);
+        throw e;
+      });
       page = await (await browser).newPage();
       const p = page;
       const origins = new Set<string>();
@@ -189,11 +214,14 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
         return void (req.isInterceptResolutionHandled() || (await req.respond({ status: res.status, headers })));
       }
       const contentType = res.headers.get('content-type') ?? '';
-      if (!/text\/html/.test(contentType)) {
+      // Media types are case-insensitive (RFC 9110 §8.3.1).
+      if (!/text\/html/i.test(contentType)) {
         await res.body?.cancel().catch(() => undefined);
         return void (await refuse());
       }
-      const body = (await res.text()).slice(0, MAX_BYTES);
+      // Streamed and cut at MAX_BYTES, the rest cancelled unread, so one navigation cannot fill the Worker's memory
+      // (PR #71 review).
+      const body = await readText(res);
       // The site's own policy stays enforced alongside ours, so nothing its publisher blocks runs here either: a header
       // value is a comma-separated list of policies, and each one applies (CSP3 §2.2 "serialized CSP list", §2.2.2,
       // https://www.w3.org/TR/CSP3/#csp-header) (PR #71 review).
@@ -220,6 +248,9 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
     read,
     get rendered() {
       return rendered;
+    },
+    get unavailable() {
+      return unavailable;
     },
     async close() {
       if (!browser) return;
