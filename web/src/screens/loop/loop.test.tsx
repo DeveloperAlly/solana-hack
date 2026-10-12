@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, screen, within } from '@testing-library/react';
+import { act, cleanup as cleanupScreens, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { renderWithRouter } from '../../test/render';
@@ -236,6 +236,30 @@ describe('Brain and Learn-Rules share the Brain', () => {
     act(() => selectBrand('adna'));
     renderWithRouter(entry.render('success'));
     expect(screen.getByText('Brain v3.1')).toBeInTheDocument();
+  });
+
+  it('no loop screen shows a success layout with zero data: first-run brands get each empty state (Verify lists kit v1), aDNA its success', () => {
+    for (const brand of ['jamjam', 'gamerslab', 'adna']) {
+      act(() => selectBrand(brand));
+      for (const entry of screens) {
+        const { container, unmount } = renderWithRouter(entry.render('success'));
+        const shown = container.querySelector('[data-state]')?.getAttribute('data-state');
+        // A first-run brand has nothing yet on every screen except Verify-Home, which lists its registered kit v1.
+        const expected = brand === 'adna' || entry.artboard === 'Verify-Home' ? 'success' : 'empty';
+        expect(`${brand} ${entry.artboard}: ${shown}`).toBe(`${brand} ${entry.artboard}: ${expected}`);
+        unmount();
+      }
+    }
+    act(() => selectBrand('jamjam'));
+    renderWithRouter(screens.find((s) => s.artboard === 'Verify-Home')!.render('success'));
+    expect(screen.getByRole('rowheader', { name: 'Kit v1' })).toBeInTheDocument();
+    expect(screen.getByText(/No one has pasted text that claimed to be from JamJam/)).toBeInTheDocument();
+    expect(screen.queryByText(/0 people/)).toBeNull();    cleanupScreens();
+    renderWithRouter(screens.find((s) => s.artboard === 'Today')!.render('success'));
+    expect(screen.getByText('2 of 6 steps live · Learn starts after 14 days of results')).toBeInTheDocument();
+    expect(screen.getByText('Draft your first post', { exact: false })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Evidence and the proposed rule' })).toBeNull();
+    expect(screen.queryByText('[detail]', { exact: false })).toBeNull();
   });
 
   it('a brand with no loop data says so, never showing another brand', () => {

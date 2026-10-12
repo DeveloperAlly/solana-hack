@@ -4,7 +4,7 @@
 // fixtures in src/domain/fixtures, so every page agrees.
 import { adnaBrain, adnaBrainFirstRun, brainFor, firstRunBrain, OWNER } from '../../domain/fixtures/brain';
 import type { LoopBase } from '../../flows/loop/useLoop';
-import type { LoopStageId } from '../../config/nav';
+import { stageById, type LoopStageId } from '../../config/nav';
 import type { LoopStepState } from '../../domain/loop';
 import { adnaPosts } from '../../domain/fixtures/posts';
 import { adnaProposals, proposalsFor } from '../../domain/fixtures/proposals';
@@ -102,6 +102,8 @@ const adna: LoopBrandData = { today, todayAllClear, postDetail, postDetailEmpty,
  */
 /** On a first run the kit is live and the first post is where the work is. */
 const firstRunSteps: Partial<Record<LoopStageId, LoopStepState>> = { brand: 'live', create: 'current' };
+/** What a first-run step says: the next action where work is, else the step's own line (config/nav.ts), to teach. */
+const firstRunDetail: Partial<Record<LoopStageId, string>> = { create: 'Draft your first post' };
 
 function firstRunBrand(id: string, name: string, domain: string): LoopBrandData {
   const b: LoopBase = { brain: brainFor(id) ?? firstRunBrain(name, domain), proposals: proposalsFor(id), approver: OWNER };
@@ -110,16 +112,23 @@ function firstRunBrand(id: string, name: string, domain: string): LoopBrandData 
     weekday: 'Tuesday',
     status: `${domain} · Kit v1 on Solana`,
     loopNote: 'Learn starts after 14 days of results',
-    loop: today.loop.map((s) => ({ ...s, state: firstRunSteps[s.stage] ?? 'not-started', detail: '[detail]' })),
+    loop: today.loop.map((s) => ({ ...s, state: firstRunSteps[s.stage] ?? 'not-started', detail: firstRunDetail[s.stage] ?? stageById(s.stage).summary })),
     queue: [],
     done: [],
-    learned: 'Nothing yet: Learn starts after 14 days of results.',
+    learned: undefined,
     next: [],
-    proof: '[Badge traffic, once the badge is on your site]',
+    proof: undefined,
   };
   const learn: LearnRulesData = { ...b, collecting: { days: 0, needed: 14 } };
-  const proof: VerifyHomeData = { brandName: name, kpis: [], registered: [], noMatch: [] };
-  return { today: day, todayAllClear: day, postDetail: { ...b, posts: [] }, postDetailEmpty: { ...b, posts: [] }, brain: b, brainFirstRun: b, learnRules: learn, learnRulesCollecting: learn, verifyHome: proof, verifyHomeEmpty: proof };
+  // The first run ends with kit v1 approved and registered (Today says so), so Verify lists that one record.
+  const proof: VerifyHomeData = {
+    brandName: name,
+    kpis: [{ label: 'Kit', value: 'v1', sub: 'registered [date]' }],
+    registered: [{ id: 'reg-kit-1', kind: 'kit', what: 'Kit v1', when: '[date]', approver: OWNER, record: 'Verify-4-Kit-Account-Claim' }],
+    noMatch: [],
+  };
+  const proofEmpty: VerifyHomeData = { ...proof, kpis: [], registered: [] };
+  return { today: day, todayAllClear: day, postDetail: { ...b, posts: [] }, postDetailEmpty: { ...b, posts: [] }, brain: b, brainFirstRun: b, learnRules: learn, learnRulesCollecting: learn, verifyHome: proof, verifyHomeEmpty: proofEmpty };
 }
 
 const byBrand: Record<string, LoopBrandData> = {

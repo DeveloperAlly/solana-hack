@@ -22,5 +22,9 @@
   {
     "name": "verify-home",
     "ok": true
+  },
+  {
+    "name": "first-run-jamjam",
+    "ok": true
   }
 ]

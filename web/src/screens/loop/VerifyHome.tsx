@@ -16,12 +16,12 @@ import { useState } from 'react';
 import { Button, Grid, Heading, Link, Select, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { DataTable } from '../../ui/composites/DataTable';
-import { List, ListRow } from '../../ui/composites/ListRow';
 import { StatTile } from '../../ui/composites/StatTile';
 import { StateView } from '../../ui/composites/StateView';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { PageHeader } from '../../ui/layouts/PageHeader';
 import { LoopFrame } from '../../ui/shells/LoopFrame';
+import { NoMatchChecks } from './NoMatchChecks';
 import { useLoopLinks } from './paths';
 import type { RegisteredRow, VerifyHomeData } from './types';
 
@@ -66,10 +66,7 @@ export function VerifyHome({ data, state = 'success' }: { data: VerifyHomeData; 
           />
         </Card>
         <Card labelledBy="nm-h" header={<Heading level={2} size="lg" id="nm-h">Checks that found no match</Heading>}>
-          <Text variant="small">{data.noMatch.length} {data.noMatch.length === 1 ? 'person' : 'people'} pasted text that claimed to be from {data.brandName} and wasn't registered. Each could be an impersonation. Only you see this.</Text>
-          <List label="Checks that found no match">
-            {data.noMatch.map((n) => <ListRow key={n.id} title={n.text} detail={n.when} actions={<Button variant="secondary" href={links.verifyNoMatch}>See the check</Button>} />)}
-          </List>
+          <NoMatchChecks data={data} href={links.verifyNoMatch} />
         </Card>
       </StateView>
     </LoopFrame>
