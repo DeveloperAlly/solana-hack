@@ -27,23 +27,31 @@ export interface ColumnsProps {
  * TOC, J1-Read), rail + main + rail (the ambassador editor), three panes (Inbox-All) and the Journey splits.
  * Replaces HubColumns, AmbColumns and JourneySplit (issue #46, shared consolidation).
  */
+/** A slot renders something: not undefined, null, a boolean (from `cond && <X />`) or an empty string. Zero counts. */
+function renders(node: ReactNode): boolean {
+  return node !== undefined && node !== null && typeof node !== 'boolean' && node !== '';
+}
+
 export function Columns({ start, children, end, startWidth = 'rail', ratio = '2-1', gap = 5, stackBelow = 'lg' }: ColumnsProps) {
+  // Empty slots add no column, so a conditional rail (`start={show && <Rail />}`) never reserves its width.
+  const hasStart = renders(start);
+  const hasEnd = renders(end);
   const cls = [
     styles.cols,
     styles[stackBelow],
     styles[`gap${gap}`],
     styles[`r${ratio}`],
-    start !== undefined && styles.hasStart,
-    start !== undefined && styles[`start-${startWidth}`],
-    end !== undefined && styles.hasEnd,
+    hasStart && styles.hasStart,
+    hasStart && styles[`start-${startWidth}`],
+    hasEnd && styles.hasEnd,
   ]
     .filter(Boolean)
     .join(' ');
   return (
     <div className={cls}>
-      {start !== undefined && <div className={styles.col}>{start}</div>}
+      {hasStart && <div className={styles.col}>{start}</div>}
       <div className={styles.col}>{children}</div>
-      {end !== undefined && <div className={styles.col}>{end}</div>}
+      {hasEnd && <div className={styles.col}>{end}</div>}
     </div>
   );
 }

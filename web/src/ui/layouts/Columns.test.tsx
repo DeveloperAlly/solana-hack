@@ -27,4 +27,15 @@ describe('L9 Columns', () => {
     rerender(<Columns>M</Columns>);
     expect(root().children).toHaveLength(1);
   });
+
+  it('adds no column for null, false or empty slots, but does for 0', () => {
+    const { container, rerender } = renderWithRouter(<Columns start={null} end={false}>M</Columns>);
+    const root = () => container.firstElementChild as HTMLElement;
+    expect(root().children).toHaveLength(1);
+    expect(root()).not.toHaveClass('hasStart');
+    expect(root()).not.toHaveClass('hasEnd');
+    rerender(<Columns start="" end={0}>M</Columns>);
+    expect(root().children).toHaveLength(2);
+    expect(root()).toHaveClass('hasEnd');
+  });
 });

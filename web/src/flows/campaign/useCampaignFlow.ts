@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useScreenHref } from '../../gallery/screenPath';
 import type { ArtboardName } from '../../config/artboards';
@@ -30,6 +31,11 @@ export function useCampaignFlow(step: CampaignStepId, { stepComplete, cancelHref
   const done = campaignSteps.map((s) => Boolean(completed[s.id]));
   const firstMissingEarlier = campaignSteps.findIndex((s, i) => i < current && !completed[s.id]);
   const canAdvance = firstMissingEarlier === -1 && stepComplete;
+  // A completed step whose input became incomplete is no longer complete, and neither is anything after it.
+  const stale = Boolean(completed[step]) && !stepComplete;
+  useEffect(() => {
+    if (stale) campaignStore.invalidate(step);
+  }, [stale, step]);
   const nextStep = campaignSteps[current + 1];
   const backStep = campaignSteps[current - 1];
   const isLast = current === campaignSteps.length - 1;

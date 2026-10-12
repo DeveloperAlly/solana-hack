@@ -35,7 +35,8 @@ export interface PolishBarProps {
 export function PolishBar({ actions, applied, onApply, onUndo, busy = false, failure, accessibleMode, note }: PolishBarProps) {
   const labelOf = (id: string) => actions.find((a) => a.id === id)?.label ?? id;
   const last = applied.at(-1);
-  const pressed = failure?.id ?? last;
+  // Only an applied action is pressed; a failure shows in the alert alone, since the draft did not change.
+  const pressed = last;
   return (
     <div className={styles.root}>
       {failure && (

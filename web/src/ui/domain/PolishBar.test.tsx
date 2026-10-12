@@ -35,6 +35,10 @@ describe('D6 PolishBar', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(onRetry).toHaveBeenCalled();
     expect(onDismiss).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Clarify' })).toHaveAttribute('aria-pressed', 'false');
+    rerender(<PolishBar actions={actions} applied={['shorten']} onApply={() => undefined} failure={{ id: 'clarify', onRetry, onDismiss }} />);
+    expect(screen.getByRole('button', { name: 'Shorten' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Clarify' })).toHaveAttribute('aria-pressed', 'false');
     rerender(<PolishBar actions={actions} applied={[]} onApply={() => undefined} busy />);
     expect(screen.getByRole('button', { name: 'Shorten' })).toBeDisabled();
   });

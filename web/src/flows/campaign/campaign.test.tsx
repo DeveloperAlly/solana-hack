@@ -9,11 +9,18 @@ import { campaignStore } from './draft';
 import { campaignSteps } from './steps';
 import { useCampaignFlow } from './useCampaignFlow';
 
+const inputs: Record<string, boolean> = {};
+
 // A stand-in for each of the six screens: the shared frame, with one checkbox standing for the step's own input.
 function StepScreen() {
   const { artboard } = useParams();
   const step = campaignSteps.find((s) => s.artboard === artboard)!;
-  const [ready, setReady] = useState(false);
+  // Each step's input lives outside the screen, as a real screen's lives in the draft, so it survives navigation.
+  const [ready, setReadyState] = useState(Boolean(inputs[step.id]));
+  const setReady = (v: boolean) => {
+    inputs[step.id] = v;
+    setReadyState(v);
+  };
   const flow = useCampaignFlow(step.id, { stepComplete: ready, cancelHref: '/content' });
   return (
     <CampaignStepFrame flow={flow} title={step.label} missing={ready ? [] : ['tick the box']}>
@@ -43,7 +50,10 @@ function at(artboard: string) {
 const heading = () => screen.getByRole('heading', { level: 1 }).textContent;
 const stepItems = () => within(screen.getByRole('list', { name: /^Step \d of 6$/ })).getAllByRole('listitem');
 
-beforeEach(() => campaignStore.reset());
+beforeEach(() => {
+  campaignStore.reset();
+  for (const k of Object.keys(inputs)) delete inputs[k];
+});
 
 describe('Campaign v2 flow (one step table)', () => {
   it('the table is the canvas stepper order', () => {
@@ -99,6 +109,28 @@ describe('Campaign v2 flow (one step table)', () => {
     expect(within(items[1]).queryByRole('link')).toBeNull();
     await userEvent.click(within(items[0]).getByRole('link'));
     expect(heading()).toBe('Goal and platforms');
+  });
+
+  it('un-completes a step, and every later one, when its input becomes incomplete again', async () => {
+    at('Campaign-v2-1-Goal');
+    for (let i = 0; i < 3; i++) {
+      await userEvent.click(screen.getByRole('checkbox'));
+      await userEvent.click(screen.getByRole('button', { name: campaignSteps[i].nextLabel }));
+    }
+    expect(heading()).toBe('Content plan');
+    // Back to step 1 through the stepper, and untick it.
+    await userEvent.click(within(stepItems()[0]).getByRole('link'));
+    await userEvent.click(screen.getByRole('checkbox'));
+    expect(campaignStore.read().completed).toEqual({});
+  });
+
+  it('changing a draft section un-completes the step that owns it and every later step', () => {
+    campaignStore.complete('goal');
+    campaignStore.complete('audience');
+    campaignStore.complete('success');
+    campaignStore.set('audience', ['devs']);
+    expect(campaignStore.read().completed).toEqual({ goal: true });
+    expect(campaignStore.read().draft.audience).toEqual(['devs']);
   });
 
   it('a fresh deep link to step 6 cannot launch, shows no false done marks, and links to the first missing step', async () => {
