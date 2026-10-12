@@ -2,9 +2,9 @@
 // its own draft, and switching back restores it (Codex review on PR #79). In memory for the browser session only: no
 // network, nothing persisted (INTEGRATION: POST /api/campaigns, then PATCH /api/campaigns/:id per step; backend map
 // rows "Campaign-v2-1" to "Campaign-v2-6").
-import { useMemo } from 'react';
 import { createBrandScopedStore } from '../../lib/brandScopedStore';
 import { activeBrand } from '../brand/activeBrand';
+import { approve, isCurrent, type Approval } from '../../lib/approval';
 import { stepIndex, type CampaignStepId } from './steps';
 
 export interface CampaignDraft {
@@ -17,8 +17,8 @@ export interface CampaignDraft {
   plan: { removed: string[] };
   /** Payout per format, and the spending cap. */
   budget: { payouts: Record<string, string>; cap: string };
-  /** The review step's approval of the spending cap. */
-  approval: { capApproved: boolean };
+  /** The review step's approval of the spending cap, bound to the cap value it approved (lib/approval). */
+  approval: { cap: Approval | null };
 }
 
 /**
@@ -31,7 +31,7 @@ export const campaignDraftFixture: CampaignDraft = {
   success: { mainMetric: '', supporting: [], targets: {} },
   plan: { removed: [] },
   budget: { payouts: { linkedin: '10', tutorial: '40' }, cap: '500' },
-  approval: { capApproved: false },
+  approval: { cap: null },
 };
 
 interface FlowState {
@@ -59,8 +59,8 @@ function completedBefore(completed: FlowState['completed'], step: CampaignStepId
 /** A brand with no campaign yet starts here; never mutated, so it is safe to share. */
 const initialState: FlowState = { draft: campaignDraftFixture, completed: {} };
 /** One draft per brand, keyed by the app-wide active brand (flows/brand/activeBrand). */
-const byBrand = createBrandScopedStore<FlowState>(activeBrand);
-const read = (): FlowState => ({ ...initialState, ...byBrand.read() });
+const byBrand = createBrandScopedStore<FlowState>(activeBrand, initialState);
+const read = byBrand.read;
 const write = (next: FlowState) => byBrand.set(next);
 
 export const campaignStore = {
@@ -88,8 +88,11 @@ export const campaignStore = {
   /** Clears every brand's campaign (between tests). */
   reset: byBrand.reset,
   /** The active brand's campaign; re-renders when it or the active brand changes. */
-  use: (): FlowState => {
-    const [scoped] = byBrand.use();
-    return useMemo(() => ({ ...initialState, ...scoped }), [scoped]);
-  },
+  use: (): FlowState => byBrand.use()[0],
 };
+
+/** Whether the draft's spending cap is approved: an approval of a different cap is stale (Codex review on PR #103). */
+export const capApproved = (draft: CampaignDraft): boolean => isCurrent(draft.approval.cap, draft.budget.cap);
+
+/** The cap approval for the draft's current cap, or none. */
+export const capApproval = (draft: CampaignDraft, approved: boolean): CampaignDraft['approval'] => ({ cap: approved ? approve(draft.budget.cap) : null });

@@ -29,7 +29,7 @@ export interface HubSession extends BrandScoped {
 
 const emptyBrand: BrandScoped = { inbox: {}, drafts: {}, rulesOff: [], created: {} };
 /** Everything but the brand choice, kept per brand (lib/brandScopedStore keyed by the app-wide active brand). */
-const byBrand = createBrandScopedStore<BrandScoped>(activeBrand);
+const byBrand = createBrandScopedStore<BrandScoped>(activeBrand, emptyBrand);
 
 /** Starts a fresh session (tests; a sign-out in the real app). */
 export function resetHubSession() {
@@ -46,9 +46,9 @@ export function resetHubSession() {
 export function useHubSession(): [HubSession, (change: (s: HubSession) => HubSession) => void] {
   const [brand] = useActiveBrandId();
   const [scoped] = byBrand.use();
-  const state = useMemo(() => ({ ...emptyBrand, ...scoped, brand }), [scoped, brand]);
+  const state = useMemo(() => ({ ...scoped, brand }), [scoped, brand]);
   const update = useCallback((change: (s: HubSession) => HubSession) => {
-    const { brand: _brand, ...next } = change({ ...emptyBrand, ...byBrand.read(), brand: activeBrand.read() });
+    const { brand: _brand, ...next } = change({ ...byBrand.read(), brand: activeBrand.read() });
     byBrand.set(next);
   }, []);
   return [state, update];

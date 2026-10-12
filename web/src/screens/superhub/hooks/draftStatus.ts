@@ -1,3 +1,4 @@
+import type { Approval } from '../../../lib/approval';
 import type { DraftStatus } from '../types';
 
 /** Approval and registration are separate steps (web/worker/posts.ts: approved, then registering, then registered). */
@@ -8,7 +9,8 @@ export type Decision = 'approved' | 'registered' | 'rejected' | 'rewrite';
  * the decision, the publish route, the text decided on and, on the manual route, the pasted post URL.
  */
 export interface DraftRecord {
-  decision: Decision;
+  /** The decision, bound to the text and route it was made on (lib/approval). */
+  approval: Approval<Decision>;
   route: string;
   text: string;
   postedUrl?: string;
@@ -40,7 +42,10 @@ export function draftStatusOf(decision: Decision | null, route: string, postedUr
 }
 
 /** The status of a recorded draft (the same function as the badge). */
-export const recordStatus = (r: DraftRecord): DraftStatus => draftStatusOf(r.decision, r.route, r.postedUrl);
+export const recordStatus = (r: DraftRecord): DraftStatus => draftStatusOf(r.approval.decision, r.route, r.postedUrl);
+
+/** What a Draft-Review decision is bound to: the text and the publish route. */
+export const decisionInputs = (text: string, route: string): unknown => [text, route];
 
 /** A pasted post URL: https, with a host. */
 export function isPostUrl(value: string): boolean {

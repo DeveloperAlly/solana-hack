@@ -24,7 +24,7 @@ import { KeyValueList } from '../../ui/composites/KeyValueList';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { CampaignStepFrame } from '../../flows/campaign/CampaignStepFrame';
-import { campaignStore } from '../../flows/campaign/draft';
+import { campaignStore, capApproval, capApproved } from '../../flows/campaign/draft';
 import { isOverBalance } from '../../flows/campaign/balanceCheck';
 import { useCampaignFlow } from '../../flows/campaign/useCampaignFlow';
 import { SoonPage } from './SoonPage';
@@ -36,7 +36,7 @@ export function CampaignLaunch({ data }: { data: CampaignLaunchData; state?: Scr
   const { draft } = campaignStore.use();
   const blocked = isOverBalance(draft.budget.cap, data.balanceCheck);
   // INTEGRATION: POST …/launch; the server re-checks the cap against the wallet balance.
-  const flow = useCampaignFlow('launch', { stepComplete: draft.approval.capApproved && !blocked });
+  const flow = useCampaignFlow('launch', { stepComplete: capApproved(draft) && !blocked });
   const cap = `${draft.budget.cap} USDC`;
   const names = data.segments.filter((s) => draft.audience.includes(s.id)).map((s) => s.label);
   const kept = data.planItems.filter((i) => !draft.plan.removed.includes(i.id)).map((i) => i.day);
@@ -61,7 +61,7 @@ export function CampaignLaunch({ data }: { data: CampaignLaunchData; state?: Scr
         ) : (
           <>
             <KeyValueList label="Campaign summary" items={summary} />
-            <CheckboxRow label={`I approve a spending cap of ${cap} for this campaign.`} checked={draft.approval.capApproved} onChange={(e) => flow.set('approval', { capApproved: e.target.checked })} />
+            <CheckboxRow label={`I approve a spending cap of ${cap} for this campaign.`} checked={capApproved(draft)} onChange={(e) => flow.set('approval', capApproval(draft, e.target.checked))} />
           </>
         )}
       </CampaignStepFrame>

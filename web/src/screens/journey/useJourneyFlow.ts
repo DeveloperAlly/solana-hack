@@ -6,6 +6,7 @@
  * action names the endpoint that will persist it once the flow is wired.
  */
 import { createStore } from '../../lib/createStore';
+import { approve, isCurrent, isStale } from '../../lib/approval';
 import type { GateDecision } from '../../ui/domain/DecisionGate';
 import { journeySteps, useJourneyHref, type JourneyStepId } from './paths';
 import type { FactDecision, FactRecord, GateApproval } from './types';
@@ -108,7 +109,7 @@ const actions = {
   setVoiceSentence: (sentence: string) => update(() => ({ voice: { mode: 'sentence', sentence } })),
   // INTEGRATION: PUT /api/brands/:id/sections/:section (edit) and POST …/sections/:section/approve {note} (gate).
   editGate: (id: string, draft: string) => update((s) => ({ gateDrafts: { ...s.gateDrafts, [id]: draft }, gateApprovals: { ...s.gateApprovals, [id]: null } })),
-  approveGate: (id: string, decision: GateDecision, fingerprint: string) => update((s) => ({ gateApprovals: { ...s.gateApprovals, [id]: { decision, fingerprint } } })),
+  approveGate: (id: string, decision: GateDecision, inputs: unknown) => update((s) => ({ gateApprovals: { ...s.gateApprovals, [id]: approve(inputs, decision) } })),
   reopenGate: (id: string) => update((s) => ({ gateApprovals: { ...s.gateApprovals, [id]: null } })),
   // INTEGRATION: POST /api/brands/:id/kit/register, and POST /api/registrations/:id/retry after a failure.
   setKitRegistered: (kitRegistered: boolean) => update(() => ({ kitRegistered })),
@@ -152,17 +153,14 @@ export function useJourneyFlow(step?: JourneyStepId) {
     /**
      * The gate decision every screen shows: the approval while its fingerprint still matches the draft's inputs, else
      * pending (stale). One approval model: an approval made this visit and one loaded with the data (the `gates` row)
-     * are both `{ decision, fingerprint }` and go stale the same way (Codex review on PR #75).
+     * are both lib/approval `Approval`s and go stale the same way (Codex review on PR #75).
      */
-    gateDecision: (id: string, fingerprint: string, loaded?: GateApproval): GateDecision => {
+    gateDecision: (id: string, inputs: unknown, loaded?: GateApproval): GateDecision => {
       const approval = approvalOf(selections, id, loaded);
-      return approval && approval.fingerprint === fingerprint ? approval.decision : { status: 'pending' };
+      return approval && isCurrent(approval, inputs) ? approval.decision : { status: 'pending' };
     },
     /** True when the gate was approved (this visit or before) and its inputs changed since. */
-    gateStale: (id: string, fingerprint: string, loaded?: GateApproval) => {
-      const approval = approvalOf(selections, id, loaded);
-      return Boolean(approval && approval.fingerprint !== fingerprint);
-    },
+    gateStale: (id: string, inputs: unknown, loaded?: GateApproval) => isStale(approvalOf(selections, id, loaded), inputs),
     actions,
   };
 }

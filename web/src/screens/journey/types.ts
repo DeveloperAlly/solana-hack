@@ -12,6 +12,7 @@ import type { JourneyStepCard } from '../../ui/domain/JourneyStepCards';
 import type { DiffSegment } from '../../ui/composites/DiffView';
 import type { EvidenceStatus } from '../../ui/domain/EvidenceChip';
 import type { GateDecision } from '../../ui/domain/DecisionGate';
+import type { Approval } from '../../lib/approval';
 import type { JourneyTarget } from './paths';
 
 export type { JourneyFact, JourneyChoiceOption, JourneyClaimSegment, JourneyChecklistItem, JourneyStepCard, DiffSegment, EvidenceStatus };
@@ -58,14 +59,11 @@ export type FactDecision = 'accepted' | 'edited' | 'rejected';
 export type FactRecord = { decision: Exclude<FactDecision, 'edited'>; edit?: undefined } | { decision: 'edited'; edit: string };
 
 /**
- * A gate approval bound to the draft it approved: `fingerprint` is the draft and its inputs (derive.ts gateFingerprint).
- * When the inputs change after approval (an edited J4 answer, a J3 decision), the fingerprints differ and every screen
- * treats the gate as pending again. null means reopened, which also hides an approval that came with the data.
+ * A gate approval bound to the draft it approved (lib/approval; the inputs are derive.ts gateInputs). When the inputs
+ * change after approval (an edited J4 answer, a J3 decision), it is stale and every screen treats the gate as pending
+ * again. null means reopened, which also hides an approval that came with the data.
  */
-export interface GateApproval {
-  decision: GateDecision;
-  fingerprint: string;
-}
+export type GateApproval = Approval<GateDecision>;
 
 /** A kit gate on J5 (the `gates` and `kit_sections` rows). */
 export interface JourneyGate {

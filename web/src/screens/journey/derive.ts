@@ -118,6 +118,5 @@ export function postChecks(checks: FirstPostData['checks'], claims: JourneyClaim
 /** Journey status rows as C32 StatusList rows; the label is unique within each list, so it is the id. */
 export const statusRows = (rows: JourneyStatusRow[]): StatusListRow[] => rows.map((r) => ({ id: r.label, label: r.label, status: r.value, solid: r.solid, href: r.href }));
 
-/** What a gate approval is bound to: the draft and every input it was built from. Any change makes the approval stale. */
-export const gateFingerprint = (gate: JourneyGate): string =>
-  JSON.stringify([gate.draft, gate.builtFrom, gate.evidence.map((e) => [e.id, e.statement])]);
+/** What a gate approval is bound to (lib/approval): the draft and every input it was built from. Any change makes it stale. */
+export const gateInputs = (gate: JourneyGate): unknown => [gate.draft, gate.builtFrom, gate.evidence.map((e) => [e.id, e.statement])];
