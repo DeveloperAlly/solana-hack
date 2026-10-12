@@ -8,12 +8,13 @@
 }
 .mark {
   flex: none;
-  width: 1.4em;
-  height: 1.4em;
+  width: 0.76em;
+  height: 0.76em;
 }
 .wordmark {
   font-family: var(--wl-font-display);
   font-weight: var(--wl-font-weight-bold);
+  letter-spacing: -0.03em;
 }
 .size-inherit { font-size: inherit; }
 .size-md { font-size: var(--wl-font-size-md); }

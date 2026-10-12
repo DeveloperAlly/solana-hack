@@ -1,4 +1,5 @@
-// Regenerates the PNG favicons in public/ from public/brand/logo-mark.svg (issue #47).
+// Regenerates the PNG favicons in public/ from public/brand/icon-mark.svg (issue #47): the deck's mark with
+// heavier strokes for small sizes.
 // The converter is not a project dependency; see public/README.md:
 //   npm i --no-save @resvg/resvg-js@2.6.2 && node scripts/make-icons.mjs
 // Docs: https://github.com/thx/resvg-js#usage
@@ -8,10 +9,10 @@ import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
 
 const pub = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
-const mark = readFileSync(join(pub, 'brand', 'logo-mark.svg'), 'utf8');
+const mark = readFileSync(join(pub, 'brand', 'icon-mark.svg'), 'utf8');
 // Inner content of the mark (everything inside <svg>, minus <title>), drawn in black.
 const inner = mark.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').replace(/<title>[\s\S]*?<\/title>/, '');
-const attrs = 'fill="none" stroke="black" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"';
+const attrs = 'fill="none" stroke="black"';
 
 // pad: white margin around the 64-unit mark, in mark units. The apple-touch icon is an opaque white square with a
 // margin; the 32 px favicon has no extra margin so the mark stays as large as possible.
