@@ -1,4 +1,4 @@
-// Every artboard on the wireframe canvas, generated from its canvas.json (version 1791817328-4e15,
+// Every artboard on the wireframe canvas, generated from its canvas.json (version 1791818793-e756,
 // https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn; issue #46) by scripts/gen-artboards.mjs. The Archive page
 // ("licensee") is not built (issue #45); its boards are listed so a screen still registered there names its page.
 // Links between screens take an ArtboardName (screenPath, useScreenHref, ScreenLink), so a misspelled or missing
@@ -99,6 +99,7 @@ export const artboardPages = {
   'Post-Detail': 'loop',
   'Pricing': 'utilities',
   'Publish-Calendar': 'distribute',
+  'Quests': 'grow',
   'Referral': 'grow',
   'Referral-Landing': 'grow',
   'Settings-AI': 'utilities',
@@ -135,7 +136,7 @@ export const artboardPages = {
 
 export type ArtboardName = keyof typeof artboardPages;
 
-/** The 112 non-archived artboard names, in name order: the boards the product builds. */
+/** The 113 non-archived artboard names, in name order: the boards the product builds. */
 export const artboards = (Object.keys(artboardPages) as ArtboardName[]).filter((a) => artboardPages[a] !== 'licensee');
 
 export function isArtboardName(name: string): name is ArtboardName {
