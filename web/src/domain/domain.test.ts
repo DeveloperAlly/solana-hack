@@ -3,7 +3,7 @@ import { approve, isStale } from '../lib/approval';
 import { nextBrainVersion } from './brain';
 import { approvalState, lifecycleSteps } from './post';
 import { proposalGate, proposalNote } from './proposal';
-import { paidCount, questWithPayouts, submissionGate } from './quest';
+import { approveSubmission, paidCount, questWithPayouts, submissionGate } from './quest';
 import { checksGate, gateFor } from './queue';
 import { liveStepCount, loopProgressLabel } from './loop';
 import { adnaPosts } from './fixtures/posts';
@@ -112,5 +112,13 @@ describe('domain: quest slots are counted from payout records', () => {
     const payout = { amount: 50, unit: 'USDC' };
     expect(submissionGate(ok, { id: 's0', payout }, quest)).toEqual({ blocking: true, label: 'Already paid.' });
     expect(submissionGate(ok, { id: 's1', payout }, questWithPayouts(quest, [record('s1', 'q')]))).toEqual({ blocking: true, label: 'Already paid.' });
+  });
+  it('a quest not yet open (coming soon) pays nothing, even when the queue gate passes (Codex review on PR 102)', () => {
+    const ok = { blocking: false, label: 'ok' };
+    const item = { id: 's2', payout: { amount: 50, unit: 'USDC' } };
+    const announced = { ...quest, opens: 'Opens Mon 3 Nov' };
+    expect(submissionGate(ok, item, announced)).toEqual({ blocking: true, label: 'Not open yet (Opens Mon 3 Nov): nothing is paid before the quest opens.' });
+    expect(approveSubmission(item, announced, ok)).toBeNull();
+    expect(approveSubmission(item, quest, ok)).toBe('Approved. The 50 USDC payout is queued.');
   });
 });
