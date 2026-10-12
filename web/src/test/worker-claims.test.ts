@@ -8,7 +8,8 @@ vi.mock('../../worker/registry', () => ({
   currentBlockHeight: vi.fn(), readKitAttestation: vi.fn(), NotLanded: class extends Error {}, explorerTx: (s: string) => s,
 }));
 const { handleApi } = await import('../../worker/api');
-const { claimMapFrom, mergeSupport } = await import('../../worker/claims');
+const { claimMapFrom, mergeSupport, factBatches } = await import('../../worker/claims');
+const { evidenceBatches, factLine } = await import('../../worker/posts');
 
 type Row = Record<string, unknown>;
 let tables: Record<string, Row[]>;
@@ -93,6 +94,12 @@ describe('claims on the draft (H9)', () => {
     map = mergeSupport(map, { supports: [{ text: 'Founded 2024', facts: [1] }] }, [{ id: 'f121', claim: 'Founded in 2024', quote: 'founded in 2024' }]);
     expect(map.items[0]).toMatchObject({ status: 'supported', facts: [{ id: 'f121' }] });
     expect(map.unsupported).toBe(0);
+  });
+  it('batches facts exactly as the claims gate batches evidence', () => {
+    const many = Array.from({ length: 1500 }, (_, i) => ({ id: `f${i}`, claim: `Fact number ${i}`, quote: null }));
+    const groups = factBatches(many);
+    expect(groups.length).toBe(evidenceBatches(many.map(factLine)).length);
+    expect(groups.flat().map((f) => f.id)).toEqual(many.map((f) => f.id));
   });
   it('fails closed on an unusable reply', () => {
     expect(() => claimMapFrom({ nope: true }, [], 1, '4')).toThrow();

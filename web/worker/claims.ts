@@ -6,7 +6,7 @@
 import { db } from './db';
 import { HttpError, type Env } from './env';
 import { chat, parseJson } from './llm';
-import { CLAIMS_POLICY, MAX_EVIDENCE_BATCHES, postPolicy, type Post } from './posts';
+import { CLAIMS_POLICY, evidenceBatches, factLine, MAX_EVIDENCE_BATCHES, postPolicy, type Post } from './posts';
 import { snapshotFact, usableFact } from './sources/registry';
 
 export interface ClaimFact { id: string | null; claim: string; quote: string | null }
@@ -15,8 +15,25 @@ export type ClaimStatus = 'supported' | 'unsupported' | 'opinion' | 'not_require
 export interface ClaimItem { text: string; kind: 'factual' | 'opinion'; status: ClaimStatus; facts: ClaimFact[] }
 export interface ClaimMap { rev: number; claimsGate: string; items: ClaimItem[]; unsupported: number; partial: boolean }
 
-/** Facts per model call; the kit's facts are checked in batches of this size, like the gate's evidence batches. */
-export const MAP_BATCH = 120;
+/**
+ * The kit's facts in the same batches the gate uses: evidenceBatches over the same lines (posts.ts factLine), so a
+ * claim the gate can support is one the map can show as supported. Each batch keeps its facts in order.
+ */
+export function factBatches(facts: ClaimFact[]): ClaimFact[][] {
+  if (!facts.length) return [[]];
+  const lines = facts.map(factLine);
+  const out: ClaimFact[][] = [];
+  let i = 0;
+  for (const batch of evidenceBatches(lines)) {
+    const group: ClaimFact[] = [];
+    let rest = batch;
+    while (i < facts.length && rest.startsWith(lines[i])) { group.push(facts[i]); rest = rest.slice(lines[i].length + 1); i++; }
+    // A single line longer than a whole batch is split by evidenceBatches across batches; it stays with its first batch.
+    if (!group.length && i < facts.length) { group.push(facts[i]); i++; }
+    if (group.length) out.push(group);
+  }
+  return out;
+}
 
 const numbers = (v: unknown, max: number) => (Array.isArray(v) ? [...new Set(v.filter((n): n is number => Number.isInteger(n) && n >= 1 && n <= max))] : []);
 const statusOf = (item: Omit<ClaimItem, 'status'> & { needsEvidence: boolean }): ClaimStatus =>
@@ -61,8 +78,7 @@ const numbered = (facts: ClaimFact[]) => facts.map((f, i) => `[${i + 1}] ${f.cla
 export async function claimMap(env: Env, post: Post & { rev?: number }): Promise<ClaimMap> {
   const { claims, evidence } = await postPolicy(env, post);
   const all: ClaimFact[] = (evidence ?? []).map(snapshotFact).filter(usableFact).map((e) => ({ id: (e as { id?: string }).id ?? null, claim: e.claim, quote: e.quote ?? null }));
-  const batches: ClaimFact[][] = [];
-  for (let i = 0; i < Math.max(all.length, 1); i += MAP_BATCH) batches.push(all.slice(i, i + MAP_BATCH));
+  const batches = factBatches(all);
   // The same bound as the gate: past it the gate refuses approval too, so the map says it could not check everything.
   const partial = batches.length > MAX_EVIDENCE_BATCHES;
   const used = batches.slice(0, MAX_EVIDENCE_BATCHES);
