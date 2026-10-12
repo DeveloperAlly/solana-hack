@@ -77,4 +77,6 @@ jobs:
                template_has_token: ((.mailer_templates_magic_link_content // "") | contains("{{ .Token }}"))}' "$out"
           jq -e --arg site "$SITE_URL" '.site_url == $site' "$out" > /dev/null || { echo "::error::site_url is not $SITE_URL"; exit 1; }
           jq -e '(.mailer_templates_magic_link_content // "") | contains("{{ .Token }}")' "$out" > /dev/null || { echo "::error::Magic Link template has no {{ .Token }}"; exit 1; }
+          jq -e '.uri_allow_list == "https://jamjam.tech/**"' "$out" > /dev/null || { echo "::error::uri_allow_list was not saved as expected"; exit 1; }
+          jq -e '.mailer_subjects_magic_link == "Your JamJam sign-in code"' "$out" > /dev/null || { echo "::error::Magic Link subject was not saved as expected"; exit 1; }
           echo "Auth config OK"
