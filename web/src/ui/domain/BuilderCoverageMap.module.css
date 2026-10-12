@@ -1,0 +1,9 @@
+.scroll { overflow-x: auto; border: var(--wl-border-width-default) solid var(--wl-border-default); border-radius: var(--wl-radius-box); background: var(--wl-bg-surface); }
+.scroll:focus-visible { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); }
+.table { width: 100%; border-collapse: collapse; font-size: var(--wl-font-size-sm); color: var(--wl-text-primary); }
+.caption { padding: var(--wl-space-3) var(--wl-space-4); text-align: start; color: var(--wl-text-secondary); }
+.table th, .table td { padding: var(--wl-space-2) var(--wl-space-3); border-bottom: var(--wl-border-width-default) solid var(--wl-border-rule); text-align: start; vertical-align: middle; }
+.table thead th { font-weight: var(--wl-font-weight-semibold); background: var(--wl-bg-subtle); white-space: nowrap; }
+.section { font-weight: var(--wl-font-weight-bold); white-space: nowrap; }
+.muted { color: var(--wl-text-secondary); }
+.table tfoot th, .table tfoot td { border-bottom: 0; font-weight: var(--wl-font-weight-semibold); }

@@ -12,13 +12,15 @@ export interface CardProps {
   footer?: ReactNode;
   /** Makes the whole card a link (hover state). Keep link cards free of other interactive content. */
   href?: string;
+  /** Runs before a link card navigates (e.g. to record what the next screen should open on). */
+  onClick?: () => void;
   /** Accessible name for a section card; pass the id of its heading. */
   labelledBy?: string;
   children?: ReactNode;
 }
 
 /** C1 Card: default, subtle, selected, dashed (empty) or emphasis (error); optional header and footer; can be a link. */
-export function Card({ variant = 'default', as = 'section', header, footer, href, labelledBy, children }: CardProps) {
+export function Card({ variant = 'default', as = 'section', header, footer, href, onClick, labelledBy, children }: CardProps) {
   const cls = [styles.card, styles[variant], href && styles.link].filter(Boolean).join(' ');
   const body = (
     <>
@@ -29,7 +31,7 @@ export function Card({ variant = 'default', as = 'section', header, footer, href
   );
   if (href) {
     return (
-      <RouterLink to={href} className={cls}>
+      <RouterLink to={href} className={cls} onClick={onClick}>
         {body}
       </RouterLink>
     );

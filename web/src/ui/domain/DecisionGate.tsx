@@ -7,9 +7,11 @@ import { Heading, type HeadingLevel } from '../primitives/Heading';
 import { Text } from '../primitives/Text';
 import { Card } from '../composites/Card';
 import { StatePanel } from '../composites/StatePanel';
+import { useRequiredNote } from '../hooks/useRequiredNote';
 import styles from './DecisionGate.module.css';
 
-export type GateStatus = 'pending' | 'approved' | 'changes' | 'deferred';
+/** `stale`: was approved, but an input it was built from changed since (inventory D17); it must be approved again. */
+export type GateStatus = 'pending' | 'approved' | 'changes' | 'deferred' | 'stale';
 
 /** A gate decision: the `gates` row (who, when, why), or a change request (note), or deferred. */
 export interface GateDecision {
@@ -78,19 +80,12 @@ export function DecisionGate(props: DecisionGateProps) {
   const { subject, decision, onDecide, approver, children, variant = 'full', gate, title, titleLevel = 2, draftLabel, draftMeta, builtFrom, evidence, whyLabel = 'Why (optional)', actions, approveDisabled = false, back, nextHref, now = stamp } = props;
   const headingId = useId();
   const [why, setWhy] = useState(decision.why ?? '');
-  const [asking, setAsking] = useState(false);
-  const [note, setNote] = useState('');
-  const [noteError, setNoteError] = useState<string | null>(null);
+  // One state object for the request-changes form, so Cancel resets the note and its error together.
+  const changes = useRequiredNote('Say what should change, so the next draft can fix it.');
   const approve = () => onDecide({ status: 'approved', by: approver, at: now(), why: why.trim() || undefined });
   const record = `${decision.by ?? approver} · ${decision.at ?? ''}${decision.why ? ` · "${decision.why}"` : ''}`;
 
-  function requestChanges() {
-    if (!note.trim()) return setNoteError('Say what should change, so the next draft can fix it.');
-    onDecide({ status: 'changes', note: note.trim() });
-    setAsking(false);
-    setNote('');
-    setNoteError(null);
-  }
+  const requestChanges = () => changes.submit((note) => onDecide({ status: 'changes', note }));
 
   const head = (gate !== undefined || title || draftLabel || draftMeta || decision.status === 'approved') && (
     <div className={styles.head}>
@@ -141,16 +136,17 @@ export function DecisionGate(props: DecisionGateProps) {
     <div className={styles.gate}>
       {decision.status === 'changes' && <Alert tone="warning" title="Changes requested">{decision.note} Edit the draft or try another, then approve.</Alert>}
       {decision.status === 'deferred' && <Alert tone="info" title="Saved, not decided">Kit v1 can&apos;t be approved until all three gates pass.</Alert>}
+      {decision.status === 'stale' && <Alert tone="warning" title="Needs a fresh approval">An answer this was built from changed after you approved it. Check the draft, then approve it again.</Alert>}
       <Card variant="selected" as="section" labelledBy={title ? headingId : undefined}>
         {head}
         {children}
         <Evidence builtFrom={builtFrom} evidence={evidence} />
       </Card>
       <Field label={whyLabel} value={why} onChange={(e: { target: { value: string } }) => setWhy(e.target.value)} />
-      {asking && (
+      {changes.open && (
         <Card variant="subtle" as="div">
-          <Field label="What should change?" multiline rows={2} value={note} onChange={(e: { target: { value: string } }) => setNote(e.target.value)} error={noteError} />
-          <div className={styles.row}><Button onClick={requestChanges}>Send request</Button><Button variant="secondary" onClick={() => setAsking(false)}>Cancel</Button></div>
+          <Field label="What should change?" multiline rows={2} value={changes.text} onChange={(e: { target: { value: string } }) => changes.setText(e.target.value)} error={changes.error} />
+          <div className={styles.row}><Button onClick={requestChanges}>Send request</Button><Button variant="secondary" onClick={changes.cancel}>Cancel</Button></div>
         </Card>
       )}
       <Text variant="small" tone="secondary">Approving records a decision: who, when and why. You can reopen it later; that creates a new kit version.</Text>
@@ -158,7 +154,7 @@ export function DecisionGate(props: DecisionGateProps) {
         {back ? <Button href={back.href} variant="secondary">{back.label ?? 'Back'}</Button> : <span />}
         <div className={styles.row}>
           {actions}
-          {!asking && <Button variant="secondary" onClick={() => setAsking(true)}>Request changes</Button>}
+          {!changes.open && <Button variant="secondary" onClick={changes.show}>Request changes</Button>}
           {nextHref ? (
             <Button href={nextHref} variant="secondary" onClick={() => onDecide({ status: 'deferred' })}>Save, decide later</Button>
           ) : (
