@@ -2,7 +2,7 @@ import { Link, Stack, Text } from '../../../ui/primitives';
 import { Card } from '../../../ui/composites/Card';
 import { SampleFlag } from '../../../ui/composites/SampleFlag';
 import { HubCoverageBadge, coverageStatuses, coverageWord, type CoverageStatus } from '../../../ui/domain/HubCoverageBadge';
-import { paths } from '../paths';
+import { useHubLinks } from '../paths';
 import type { BrandBuildData } from '../types';
 
 const legend: Record<CoverageStatus, string> = {
@@ -18,12 +18,13 @@ export interface KitHeaderProps {
 
 /** D18 KitVersionBadge (version, approver, hash, registration, download) and the D51 legend with section counts (n-bb 4). */
 export function KitHeader({ kit, counts }: KitHeaderProps) {
+  const links = useHubLinks();
   return (
     <Stack gap={3}>
       <Card as="div" variant="subtle">
         <Text variant="small"><strong>Kit {kit.version}</strong> · approved {kit.approved} by {kit.approver}</Text>
         <Text variant="mono">hash {kit.hash}</Text>
-        <Text variant="small"><Link href={paths.ledger}>Registered on Solana</Link> · <Link href={paths.kitExport}>Download (aDNA)</Link></Text>
+        <Text variant="small"><Link href={links.ledger}>Registered on Solana</Link> · <Link href={links.kitExport}>Download (aDNA)</Link></Text>
       </Card>
       <Stack direction="row" gap={4} align="center" wrap>
         {coverageStatuses.map((s) => (

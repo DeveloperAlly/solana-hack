@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { HubSideNavSection } from '../../../ui/domain/HubSideNav';
-import { paths } from '../paths';
+import { useHubLinks } from '../paths';
 import type { InboxData, InboxMessage } from '../types';
 import { useOutcomes } from './useOutcomes';
 
@@ -24,6 +24,7 @@ function matches(m: InboxMessage, filter: string, query: string, unreadOnly: boo
  * checked rows, labels and assignee per thread, the reply draft per thread with validation, and what happened to each.
  */
 export function useInbox(data: InboxData) {
+  const links = useHubLinks();
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -45,8 +46,8 @@ export function useInbox(data: InboxData) {
   const countOf = (outcome: InboxOutcome) => data.messages.filter((m) => outcomeOf(m.id) === outcome).length;
 
   const rail: HubSideNavSection[] = [
-    { items: [{ ...data.folders[0], href: undefined }, data.folders[1], { id: 'snoozed', label: 'Snoozed', count: countOf('snoozed') }, { id: 'done', label: 'Done', count: countOf('done') }] },
-    { title: 'Sources', items: [...data.sources, { id: 'connect', label: '+ Connect a source', href: paths.inboxConnect }] },
+    { items: [{ ...data.folders[0], href: undefined }, { ...data.folders[1], href: links[data.folders[1].href] }, { id: 'snoozed', label: 'Snoozed', count: countOf('snoozed') }, { id: 'done', label: 'Done', count: countOf('done') }] },
+    { title: 'Sources', items: [...data.sources, { id: 'connect', label: '+ Connect a source', href: links.inboxConnect }] },
     { title: 'Labels', items: data.labels },
   ];
 

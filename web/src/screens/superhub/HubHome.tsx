@@ -25,21 +25,22 @@ import { HubColumns } from '../../ui/domain/HubColumns';
 import { HubPage } from './parts/HubPage';
 import { PageHeader } from './parts/PageHeader';
 import { HomeAside } from './parts/HomeAside';
-import { paths } from './paths';
+import { useHubLinks } from './paths';
 import type { HubHomeData } from './types';
 
 export function HubHome({ data }: { data: HubHomeData }) {
+  const links = useHubLinks();
   return (
     <HubPage section="home">
-      <PageHeader title={data.greeting} intro={data.status} actions={<Button href={paths.content}>Review {data.reviewCount} items</Button>} />
+      <PageHeader title={data.greeting} intro={data.status} actions={<Button href={links.content}>Review {data.reviewCount} items</Button>} />
       <Grid min="sm" gap={4}>
-        {data.kpis.map((k) => <StatTile key={k.label} {...k} />)}
+        {data.kpis.map((k) => <StatTile key={k.label} {...k} href={k.href && links[k.href]} />)}
       </Grid>
       <HubColumns end={<HomeAside data={data} />}>
-        <Card labelledBy="hub-needs" header={<><Heading level={2} size="lg" id="hub-needs">Needs you next</Heading><Link href={paths.content}>All</Link></>}>
+        <Card labelledBy="hub-needs" header={<><Heading level={2} size="lg" id="hub-needs">Needs you next</Heading><Link href={links.content}>All</Link></>}>
           <Stack as="ul" gap={0}>
             {data.needs.map((n) => (
-              <HubItemRow key={n.id} as="li" lead={<Badge>{n.chip}</Badge>} actions={<Button variant="secondary" href={n.href}>Review</Button>}>
+              <HubItemRow key={n.id} as="li" lead={<Badge>{n.chip}</Badge>} actions={<Button variant="secondary" href={links[n.href]}>Review</Button>}>
                 <Text>{n.text}</Text>
               </HubItemRow>
             ))}

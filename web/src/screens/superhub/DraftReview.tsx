@@ -33,10 +33,11 @@ import { SlopAndHistory } from './parts/SlopAndHistory';
 import { ChecksAndPublish } from './parts/ChecksAndPublish';
 import { StateView } from './parts/StateView';
 import { useDraftReview } from './hooks/useDraftReview';
-import { paths } from './paths';
+import { useHubLinks } from './paths';
 import type { DraftReviewData } from './types';
 
 export function DraftReview({ data, state = 'success' }: { data: DraftReviewData; state?: ScreenState }) {
+  const links = useHubLinks();
   const review = useDraftReview(data, state === 'loading');
   const editor = (
     <StateView
@@ -49,18 +50,18 @@ export function DraftReview({ data, state = 'success' }: { data: DraftReviewData
   );
   return (
     <HubPage section="create" sub="content">
-      <PageHeader title={data.title} intro={data.context} back={{ href: paths.content, label: 'Back to drafts awaiting approval' }} sample />
+      <PageHeader title={data.title} intro={data.context} back={{ href: links.content, label: 'Back to drafts awaiting approval' }} sample />
       <StateView
         state={state}
         views={{
           success: (
             <HubColumns end={<ChecksAndPublish review={review} data={data} />}>
               {editor}
-              <Text variant="small" tone="secondary">Prototype states: <Link href={paths.draftBeautified}>after Beautify</Link> · <Link href={paths.draftPolishError}>a polish action fails</Link></Text>
+              <Text variant="small" tone="secondary">Prototype states: <Link href={links.draftBeautified}>after Beautify</Link> · <Link href={links.draftPolishError}>a polish action fails</Link></Text>
               <SlopAndHistory review={review} data={data} />
             </HubColumns>
           ),
-          empty: <EmptyState title="Nothing to review" body="Drafts land here after the brand and slop checks." actions={<Button href={paths.contentEmpty}>Go to content</Button>} />,
+          empty: <EmptyState title="Nothing to review" body="Drafts land here after the brand and slop checks." actions={<Button href={links.contentEmpty}>Go to content</Button>} />,
         }}
       />
     </HubPage>

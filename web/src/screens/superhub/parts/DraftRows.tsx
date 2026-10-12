@@ -2,7 +2,7 @@ import { Badge } from '../../../ui/primitives/Badge';
 import { Button, Stack, Text } from '../../../ui/primitives';
 import { EmptyState } from '../../../ui/composites/EmptyState';
 import { HubItemRow } from '../../../ui/domain/HubItemRow';
-import { paths } from '../paths';
+import { useHubLinks } from '../paths';
 import type { DraftSummary } from '../types';
 
 export interface DraftRowsProps {
@@ -13,6 +13,7 @@ export interface DraftRowsProps {
 
 /** D1 compact: drafts as rows with format, title, voice, scores, slot and Review (canvas Content-Dashboard). */
 export function DraftRows({ drafts, emptyTitle }: DraftRowsProps) {
+  const links = useHubLinks();
   if (drafts.length === 0) return <EmptyState level={3} title={emptyTitle} body="Drafts land here after the brand and slop checks." />;
   return (
     <Stack as="ul" gap={0}>
@@ -22,7 +23,7 @@ export function DraftRows({ drafts, emptyTitle }: DraftRowsProps) {
           as="li"
           lead={<Badge>{d.format}</Badge>}
           aside={<><Text as="span" variant="small">{d.onBrand}</Text><Text as="span" variant="small">{d.slop}</Text><Text as="span" variant="small" tone="secondary">{d.slot}</Text></>}
-          actions={<Button href={paths.draftReview} aria-label={`Review ${d.format}: ${d.title}`}>Review</Button>}
+          actions={<Button href={links.draftReview} aria-label={`Review ${d.format}: ${d.title}`}>Review</Button>}
         >
           <Text>{d.title}</Text>
           <Text variant="small" tone="secondary">{d.meta}</Text>

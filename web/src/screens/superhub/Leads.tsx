@@ -20,12 +20,13 @@ import { HubPage } from './parts/HubPage';
 import { PageHeader } from './parts/PageHeader';
 import { StatusNote } from './parts/StatusNote';
 import { useLeads } from './hooks/useLeads';
-import { paths } from './paths';
+import { useHubLinks } from './paths';
 import type { LeadsData } from './types';
 
 const fields = [['who', 'Who'], ['size', 'Size and region'], ['signals', 'Signals'], ['sources', 'Sources']] as const;
 
 export function Leads({ data }: { data: LeadsData }) {
+  const links = useHubLinks();
   const leads = useLeads(data);
   return (
     <HubPage section="grow" sub="leads">
@@ -58,7 +59,7 @@ export function Leads({ data }: { data: LeadsData }) {
           ]}
           actions={(l) => (l.status === 'new'
             ? <Button variant="secondary" onClick={() => leads.draftOutreach(l.id)}>Draft outreach</Button>
-            : <Button variant="secondary" href={paths.content}>Review</Button>)}
+            : <Button variant="secondary" href={links.content}>Review</Button>)}
         />
         <Text variant="small" tone="secondary">{data.outreachNote}</Text>
       </Card>

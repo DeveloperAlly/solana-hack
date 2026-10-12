@@ -2,12 +2,11 @@
 // boards Inbox-All, Inbox-NeedsReply and Inbox-Connect, notes n-inb1–n-inb3 (text as drawn; brackets kept).
 // Backend map row "Inbox-All, Inbox-NeedsReply, Inbox-Connect (coming soon)" (.agentic/what/context/backend_map.md §4).
 // Only the first thread is drawn in full; the others show their one drawn message and a bracketed drafted reply.
-import { paths } from './paths';
 import type { InboxConnectData, InboxData, NeedsReplyData } from './types';
 
-const folders = [
-  { id: 'all', label: 'All inboxes', count: 37, href: paths.inboxAll },
-  { id: 'needs', label: 'Needs reply', count: 6, href: paths.inboxNeedsReply },
+const folders: InboxData['folders'] = [
+  { id: 'all', label: 'All inboxes', count: 37, href: 'inboxAll' },
+  { id: 'needs', label: 'Needs reply', count: 6, href: 'inboxNeedsReply' },
 ];
 
 const draftedReply = '[Drafted reply in the right voice]';

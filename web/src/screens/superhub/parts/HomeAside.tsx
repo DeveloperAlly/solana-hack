@@ -2,11 +2,12 @@ import { Button, Heading, Link, Stack, Text } from '../../../ui/primitives';
 import { Card } from '../../../ui/composites/Card';
 import { SampleFlag } from '../../../ui/composites/SampleFlag';
 import { HubBarList } from '../../../ui/domain/HubBarList';
-import { paths } from '../paths';
+import { useHubLinks } from '../paths';
 import type { HubHomeData } from '../types';
 
 /** Hub-Home right column: campaign progress (main metric, n-hub 3), brand pack completeness, this week's snapshot. */
 export function HomeAside({ data }: { data: HubHomeData }) {
+  const links = useHubLinks();
   const { campaign, brandPack, week } = data;
   return (
     <Stack as="aside" gap={4} aria-label="Campaign, brand pack and this week">
@@ -14,16 +15,16 @@ export function HomeAside({ data }: { data: HubHomeData }) {
         <Text variant="small">{campaign.goal}</Text>
         <HubBarList label="Campaign progress" hideLabels max={campaign.target} items={[{ label: 'Verified posts', value: campaign.done, display: `${campaign.done} of ${campaign.target}` }]} />
         <Text variant="small" tone="secondary">{campaign.caption}</Text>
-        <Text variant="small"><Link href={paths.campaignMeasure}>Campaign details</Link></Text>
+        <Text variant="small"><Link href={links.campaignMeasure}>Campaign details</Link></Text>
       </Card>
       <Card labelledBy="hub-pack" header={<Heading level={2} size="lg" id="hub-pack">{brandPack.title}</Heading>}>
         <Text variant="small" tone="secondary">{brandPack.missing}</Text>
-        <Button variant="secondary" href={paths.brandBuild}>Finish your brand</Button>
+        <Button variant="secondary" href={links.brandBuild}>Finish your brand</Button>
       </Card>
       <Card variant="subtle" labelledBy="hub-week" header={<><Heading level={2} size="lg" id="hub-week">This week</Heading><SampleFlag /></>}>
         <Text variant="small"><strong>Best:</strong> {week.best}</Text>
         <Text variant="small"><strong>Weakest:</strong> {week.weakest}</Text>
-        <Text variant="small"><Link href={paths.analytics}>Open analytics</Link></Text>
+        <Text variant="small"><Link href={links.analytics}>Open analytics</Link></Text>
       </Card>
     </Stack>
   );

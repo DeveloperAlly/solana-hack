@@ -2,7 +2,6 @@
 // https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, boards Analytics and Analytics-Empty, notes n-an and n-ane
 // ("All numbers are sample data", n-an; values as drawn, brackets kept). Backend map Roadmap line "Analytics and
 // Analytics-Empty" (.agentic/what/context/backend_map.md §4).
-import { paths } from './paths';
 import type { AnalyticsData, AnalyticsRange } from './types';
 
 /** Last 30 days, as drawn (n-an: all numbers are sample data). */
@@ -52,7 +51,7 @@ export const analytics: AnalyticsData = {
   byRange: { '30d': last30, launch: launchWeek },
   suggestions: [
     { id: 'g1', text: 'Move 2 LinkedIn image slots to X threads in Founder voice.', action: "Apply to next week's plan" },
-    { id: 'g2', text: 'Stop scheduling X posts after 18:00.', action: 'Update posting windows', href: paths.engageRules },
+    { id: 'g2', text: 'Stop scheduling X posts after 18:00.', action: 'Update posting windows', href: 'engageRules' },
   ],
   suggestionsNote: 'Suggestions change the plan only when you apply them.',
   connect: {

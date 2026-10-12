@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { paths } from '../paths';
+import { useHubLinks } from '../paths';
 import type { InfluencerSetupData } from '../types';
 
 /**
@@ -10,6 +10,7 @@ import type { InfluencerSetupData } from '../types';
  */
 export function usePersonaSetup(data: InfluencerSetupData) {
   const navigate = useNavigate();
+  const links = useHubLinks();
   const [name, setName] = useState(data.name);
   const [brand, setBrand] = useState('');
   const [voice, setVoice] = useState('');
@@ -34,6 +35,6 @@ export function usePersonaSetup(data: InfluencerSetupData) {
     files, pickFiles: (list: FileList | null) => setFiles(list?.length ?? 0),
     // INTEGRATION: POST …/personas (backend map row "Influencer-Setup, Influencer-Queue"); avatar files go to Storage.
     save: () => { if (validate()) setSaved(true); },
-    create: () => { if (ready && validate()) navigate(paths.influencerQueue); },
+    create: () => { if (ready && validate()) navigate(links.influencerQueue); },
   };
 }

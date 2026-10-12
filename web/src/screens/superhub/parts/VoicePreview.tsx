@@ -2,7 +2,7 @@ import { Button, Heading, Stack, Text } from '../../../ui/primitives';
 import { Card } from '../../../ui/composites/Card';
 import { StatePanel } from '../../../ui/composites/StatePanel';
 import type { ScreenState } from '../../../ui/composites/DemoStateSwitcher';
-import { paths } from '../paths';
+import { useHubLinks } from '../paths';
 import { StateView } from './StateView';
 
 export interface VoicePreviewProps {
@@ -15,6 +15,7 @@ export interface VoicePreviewProps {
 
 /** D23 VoiceRulesPreview: sample output for the same brief, and the plain-language rules the writer gets (n-ve 4). */
 export function VoicePreview({ note, sample, rules, state, onAnother }: VoicePreviewProps) {
+  const links = useHubLinks();
   return (
     <Stack gap={4}>
       <Card variant="subtle" labelledBy="voice-preview" header={<Heading level={2} size="lg" id="voice-preview">Preview</Heading>}>
@@ -24,7 +25,7 @@ export function VoicePreview({ note, sample, rules, state, onAnother }: VoicePre
           views={{
             success: <Text>{sample}</Text>,
             loading: <StatePanel kind="loading" level={3} title="Regenerating the preview" />,
-            error: <StatePanel kind="error" level={3} title="Preview failed" body="Your settings are kept." actions={<Button variant="secondary" href={paths.voiceEditor}>Retry</Button>} />,
+            error: <StatePanel kind="error" level={3} title="Preview failed" body="Your settings are kept." actions={<Button variant="secondary" href={links.voiceEditor}>Retry</Button>} />,
           }}
         />
         <Button variant="secondary" onClick={onAnother} disabled={state !== 'success'}>Try another brief</Button>

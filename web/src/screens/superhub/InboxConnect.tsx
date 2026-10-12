@@ -23,10 +23,11 @@ import { PageHeader } from './parts/PageHeader';
 import { ConnectionBanner } from './parts/ConnectionBanner';
 import { ConnectionStatus } from './parts/ConnectionStatus';
 import { useConnections } from './hooks/useConnections';
-import { paths } from './paths';
+import { useHubLinks } from './paths';
 import type { InboxConnectData, SourceConnection } from './types';
 
 export function InboxConnect({ data }: { data: InboxConnectData }) {
+  const links = useHubLinks();
   const { rows, banner, connect, disconnect, reconnectFailed } = useConnections(data.sources, data.error);
   const action = (s: SourceConnection) => {
     if (s.status === 'not-connected') return <Button variant="secondary" onClick={() => connect(s.id)}>Connect</Button>;
@@ -51,7 +52,7 @@ export function InboxConnect({ data }: { data: InboxConnectData }) {
           actions={action}
         />
       </Card>
-      <Button href={paths.inboxAll}>Go to inbox</Button>
+      <Button href={links.inboxAll}>Go to inbox</Button>
     </HubPage>
   );
 }

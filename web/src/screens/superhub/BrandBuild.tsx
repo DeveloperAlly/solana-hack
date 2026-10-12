@@ -29,10 +29,11 @@ import { KitHeader } from './parts/KitHeader';
 import { KitSectionCard } from './parts/KitSectionCard';
 import { StateView } from './parts/StateView';
 import { useKitSections } from './hooks/useKitSections';
-import { paths } from './paths';
+import { useHubLinks } from './paths';
 import type { BrandBuildData } from './types';
 
 export function BrandBuild({ data, state = 'success' }: { data: BrandBuildData; state?: ScreenState }) {
+  const links = useHubLinks();
   const kit = useKitSections(data.sections);
   const toc = kit.sections.map((s) => ({ id: s.id, label: `${s.num} ${s.title}`, href: `#${s.id}`, badge: <HubCoverageBadge status={s.status} /> }));
   const body = (
@@ -42,9 +43,9 @@ export function BrandBuild({ data, state = 'success' }: { data: BrandBuildData; 
         {kit.sections.map((s) => <KitSectionCard key={s.id} section={s} kit={kit} />)}
         <Stack direction="row" gap={3} justify="end" wrap>
           {/* INTEGRATION: POST /api/brands/:id/ingest re-reads the sources; progress is Onboard-3b-Profiling. */}
-          <Button variant="secondary" href={paths.profiling}>Re-read sources</Button>
+          <Button variant="secondary" href={links.profiling}>Re-read sources</Button>
           {kit.unconfirmed > 0 && <Text variant="small" tone="secondary">Confirm the {kit.unconfirmed} drafted sections to approve.</Text>}
-          {kit.unconfirmed > 0 ? <Button disabled>Approve as kit v[n+1]</Button> : <Button href={paths.kitPublished}>Approve as kit v[n+1]</Button>}
+          {kit.unconfirmed > 0 ? <Button disabled>Approve as kit v[n+1]</Button> : <Button href={links.kitPublished}>Approve as kit v[n+1]</Button>}
         </Stack>
       </HubColumns>
     </Stack>
@@ -57,8 +58,8 @@ export function BrandBuild({ data, state = 'success' }: { data: BrandBuildData; 
         views={{
           success: body,
           empty: body,
-          loading: <StatePanel kind="loading" title="Reading your sources" body="Sections fill in as facts are found." actions={<Button variant="secondary" href={paths.profiling}>See progress</Button>} />,
-          error: <StatePanel kind="error" title="A source could not be read" body="The kit keeps what was found so far. Retry the source or skip it." actions={<Button href={paths.ingestError}>Fix the source</Button>} />,
+          loading: <StatePanel kind="loading" title="Reading your sources" body="Sections fill in as facts are found." actions={<Button variant="secondary" href={links.profiling}>See progress</Button>} />,
+          error: <StatePanel kind="error" title="A source could not be read" body="The kit keeps what was found so far. Retry the source or skip it." actions={<Button href={links.ingestError}>Fix the source</Button>} />,
         }}
       />
     </HubPage>

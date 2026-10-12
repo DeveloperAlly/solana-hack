@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { paths } from '../paths';
+import { useHubLinks, type HubLink } from '../paths';
 import type { CampaignData } from '../types';
 
 export type CampaignStep = 'goal' | 'measure';
@@ -9,13 +9,13 @@ export type CampaignStep = 'goal' | 'measure';
  * Step order of the Campaign v2 wizard in this build: Goal (artboard v2-1) → Measure (v2-2) → Audience (v2-3, page #51,
  * per the coordinator's routing for issue #52). `current` is the stepper position each artboard draws.
  */
-const flow: Record<CampaignStep, { current: number; back: string; next: string; nextLabel: string; backLabel: string }> = {
-  goal: { current: 0, back: paths.content, backLabel: 'Cancel', next: paths.campaignMeasure, nextLabel: 'Next: success metrics' },
-  measure: { current: 2, back: paths.campaignGoal, backLabel: 'Back', next: paths.campaignAudience, nextLabel: 'Next: audience' },
+const flow: Record<CampaignStep, { current: number; back: HubLink; next: HubLink; nextLabel: string; backLabel: string }> = {
+  goal: { current: 0, back: 'content', backLabel: 'Cancel', next: 'campaignMeasure', nextLabel: 'Next: success metrics' },
+  measure: { current: 2, back: 'campaignGoal', backLabel: 'Back', next: 'campaignAudience', nextLabel: 'Next: audience' },
 };
 
 /** Completed steps link back: step 1 to Goal, step 2 to Audience. */
-const stepHref: Record<number, string> = { 0: paths.campaignGoal, 1: paths.campaignAudience };
+const stepLink: Record<number, HubLink> = { 0: 'campaignGoal', 1: 'campaignAudience' };
 
 /** Most supporting metrics allowed (n-c2 1). */
 export const MAX_SUPPORTING = 3;
@@ -32,6 +32,7 @@ export interface CampaignHandoff {
  */
 export function useCampaignFlow(step: CampaignStep, data: CampaignData) {
   const navigate = useNavigate();
+  const links = useHubLinks();
   const handoff = useLocation().state as CampaignHandoff | null;
   const [name, setName] = useState('');
   const [dates, setDates] = useState('');
@@ -59,7 +60,7 @@ export function useCampaignFlow(step: CampaignStep, data: CampaignData) {
   function next() {
     if (missing.length) return;
     // INTEGRATION: POST …/campaigns (step 1) or PATCH /api/campaigns/:id (step 3), backend map row "Campaign-v2-1, Campaign-v2-2".
-    navigate(flow[step].next, { state: { campaignName: name.trim() || handoff?.campaignName } satisfies Partial<CampaignHandoff> });
+    navigate(links[flow[step].next], { state: { campaignName: name.trim() || handoff?.campaignName } satisfies Partial<CampaignHandoff> });
   }
 
   function toggleSupporting(id: string) {
@@ -70,7 +71,7 @@ export function useCampaignFlow(step: CampaignStep, data: CampaignData) {
   }
 
   return {
-    ...flow[step], hrefFor: (i: number) => stepHref[i], missing, next, campaignName: handoff?.campaignName,
+    ...flow[step], back: links[flow[step].back], hrefFor: (i: number) => (stepLink[i] ? links[stepLink[i]] : undefined), missing, next, campaignName: handoff?.campaignName,
     name, setName, dates, setDates, purpose, setPurpose, customPurpose, setCustomPurpose,
     platforms, togglePlatform: (id: string) => setPlatforms((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])),
     poster, setPoster,

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Button } from '../../../ui/primitives';
 import { StatePanel } from '../../../ui/composites/StatePanel';
 import type { Decision } from '../hooks/useDraftReview';
-import { paths } from '../paths';
+import { useHubLinks } from '../paths';
 
 export interface DraftDecisionProps {
   decision: Decision;
@@ -17,6 +17,7 @@ export interface DraftDecisionProps {
  * separate step, and only then can the post be checked on Verify (web/worker/posts.ts: approved → registered).
  */
 export function DraftDecision({ decision, route, onRegister, onReopen }: DraftDecisionProps) {
+  const links = useHubLinks();
   const views: Record<Decision, { title: string; body: string; actions: ReactNode }> = {
     approved: {
       title: 'Approved',
@@ -26,7 +27,7 @@ export function DraftDecision({ decision, route, onRegister, onReopen }: DraftDe
     registered: {
       title: 'Registered on Solana (devnet)',
       body: `The post's hash, kit version and your name are on the public record. Route: ${route}.`,
-      actions: <Button href={paths.verifyMatch}>Check it on Verify</Button>,
+      actions: <Button href={links.verifyMatch}>Check it on Verify</Button>,
     },
     rejected: { title: 'Rejected', body: 'This draft will not be posted. It moves to the Rejected tab.', actions: <Button variant="secondary" onClick={onReopen}>Undo</Button> },
     rewrite: { title: 'Rewrite requested', body: 'The writer drafts a new version; it comes back through the same checks.', actions: <Button variant="secondary" onClick={onReopen}>Undo</Button> },

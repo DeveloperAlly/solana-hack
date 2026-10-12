@@ -6,14 +6,14 @@ import type { HubThreadMessage } from '../../ui/domain/HubThread';
 import type { CoverageStatus } from '../../ui/domain/HubCoverageBadge';
 import type { HubBarItem } from '../../ui/domain/HubBarList';
 import type { SelectOption as FieldOption } from '../../ui/primitives/SelectField';
-import type { HubPath } from './paths';
+import type { HubLink } from './paths';
 
 /** A KPI tile (C12 StatTile). */
 export interface Kpi {
   label: string;
   value: string;
   sub?: string;
-  href?: HubPath;
+  href?: HubLink;
 }
 
 /** A labelled option with a count (rails, tabs, filters). */
@@ -28,7 +28,7 @@ export interface NeedsItem {
   id: string;
   chip: string;
   text: string;
-  href: HubPath;
+  href: HubLink;
 }
 
 export interface HubHomeData {
@@ -59,7 +59,7 @@ export interface InboxMessage {
 }
 
 export interface InboxData {
-  folders: (CountedOption & { href: HubPath })[];
+  folders: (CountedOption & { href: HubLink })[];
   sources: CountedOption[];
   labels: CountedOption[];
   assignees: string[];
@@ -81,7 +81,7 @@ export interface NeedsReplyItem {
 }
 
 export interface NeedsReplyData {
-  folders: (CountedOption & { href: HubPath })[];
+  folders: (CountedOption & { href: HubLink })[];
   targets: { label: string; value: string }[];
   items: NeedsReplyItem[];
   footnote: string;
@@ -196,11 +196,11 @@ export interface DraftSummary {
 export interface ContentDashboardData {
   pipeline: string[];
   channels: CountedOption[];
-  tabs: (CountedOption & { status?: DraftStatus; href?: HubPath })[];
+  tabs: (CountedOption & { status?: DraftStatus; href?: HubLink })[];
   drafts: DraftSummary[];
   calendar: { day: string; text: string; note?: string }[];
   calendarNote: string;
-  starts: { id: string; title: string; body: string; action: string; href: HubPath }[];
+  starts: { id: string; title: string; body: string; action: string; href: HubLink }[];
 }
 
 export type PolishAction = 'review' | 'shorten' | 'clarify' | 'beautify';
@@ -374,7 +374,7 @@ export interface AnalyticsData {
   ranges: FieldOption[];
   /** Numbers per range value; the range select switches between them. */
   byRange: Record<string, AnalyticsRange>;
-  suggestions: { id: string; text: string; action: string; href?: HubPath }[];
+  suggestions: { id: string; text: string; action: string; href?: HubLink }[];
   suggestionsNote: string;
   connect: { intro: string; sources: SourceConnection[]; error: { message: string; source: string } };
 }

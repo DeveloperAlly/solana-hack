@@ -25,16 +25,18 @@ import { PageHeader } from './parts/PageHeader';
 import { NeedsReplyCard } from './parts/NeedsReplyCard';
 import { StatusNote } from './parts/StatusNote';
 import { useOutcomes } from './hooks/useOutcomes';
+import { useHubLinks } from './paths';
 import type { NeedsReplyData } from './types';
 
 export function InboxNeedsReply({ data }: { data: NeedsReplyData }) {
+  const links = useHubLinks();
   const { outcomeOf, set, clear } = useOutcomes<'snoozed' | 'dismissed'>();
   const [drafted, setDrafted] = useState(false);
   const open = data.items.filter((i) => !outcomeOf(i.id));
   const groups = [...new Set(data.items.map((i) => i.group))];
   const rail = (
     <Stack gap={4}>
-      <HubSideNav label="Inbox folders" current="needs" sections={[{ items: data.folders }]} />
+      <HubSideNav label="Inbox folders" current="needs" sections={[{ items: data.folders.map((f) => ({ ...f, href: links[f.href] })) }]} />
       <Card as="div" variant="subtle" header={<Text variant="label">Reply targets</Text>}>
         <KeyValueList label="Reply targets" items={data.targets} />
       </Card>

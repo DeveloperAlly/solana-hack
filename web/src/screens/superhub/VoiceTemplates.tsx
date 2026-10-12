@@ -26,17 +26,18 @@ import { PageHeader } from './parts/PageHeader';
 import { StateView } from './parts/StateView';
 import { TemplateGallery } from './parts/TemplateGallery';
 import { PresetMatrix } from './parts/PresetMatrix';
-import { paths } from './paths';
+import { useHubLinks } from './paths';
 import type { VoiceTemplatesData } from './types';
 
 export function VoiceTemplates({ data, state = 'success' }: { data: VoiceTemplatesData; state?: ScreenState }) {
+  const links = useHubLinks();
   const templates = (
     <StateView
       state={state}
       views={{
         success: <><TemplateGallery data={data} /><PresetMatrix data={data} /></>,
         loading: <StatePanel kind="loading" title="Loading templates" />,
-        error: <StatePanel kind="error" title="Templates failed to load" body="Your voices are safe. Try loading the templates again." actions={<Button href={paths.voiceTemplates}>Retry</Button>} />,
+        error: <StatePanel kind="error" title="Templates failed to load" body="Your voices are safe. Try loading the templates again." actions={<Button href={links.voiceTemplates}>Retry</Button>} />,
       }}
     />
   );
@@ -45,12 +46,12 @@ export function VoiceTemplates({ data, state = 'success' }: { data: VoiceTemplat
       <PageHeader
         title="Voices"
         intro="A voice is a template plus per-channel overrides. Every template is a preset of the same 9 dimensions: 8 dials and claims strictness as a gate. Your kit can hold several voices."
-        actions={<Button href={paths.voiceEditor}>New voice</Button>}
+        actions={<Button href={links.voiceEditor}>New voice</Button>}
       />
       <Card labelledBy="voices-kit" header={<Heading level={2} size="lg" id="voices-kit">{data.brand} voices in kit {data.kitVersion}</Heading>}>
         <Stack as="ul" gap={0}>
           {data.voices.map((v) => (
-            <HubItemRow key={v.id} as="li" aside={<Badge>{v.status}</Badge>} actions={<Button variant="secondary" href={paths.voiceEditor}>Edit</Button>}>
+            <HubItemRow key={v.id} as="li" aside={<Badge>{v.status}</Badge>} actions={<Button variant="secondary" href={links.voiceEditor}>Edit</Button>}>
               <Text><strong>{v.name}</strong> · {v.detail}</Text>
             </HubItemRow>
           ))}

@@ -46,7 +46,7 @@ export function Analytics({ data, state = 'success' }: { data: AnalyticsData; st
         views={{
           success: (
             <>
-              <Grid min="sm" gap={4}>{numbers.kpis.map((k) => <StatTile key={k.label} {...k} sample />)}</Grid>
+              <Grid min="sm" gap={4}>{numbers.kpis.map((k) => <StatTile key={k.label} label={k.label} value={k.value} sub={k.sub} sample />)}</Grid>
               <AnalyticsBreakdowns numbers={numbers} suggestions={data.suggestions} note={data.suggestionsNote} />
             </>
           ),

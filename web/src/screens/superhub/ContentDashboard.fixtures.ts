@@ -2,7 +2,6 @@
 // https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, boards Content-Dashboard and Content-Dashboard-Empty, notes n-cd
 // and n-cde (text and sample scores as drawn). Backend map row "Content-Dashboard (and its empty state), Hub-Home"
 // (.agentic/what/context/backend_map.md §4 Create).
-import { paths } from './paths';
 import type { ContentDashboardData } from './types';
 
 const base: Omit<ContentDashboardData, 'drafts' | 'tabs'> = {
@@ -16,9 +15,9 @@ const base: Omit<ContentDashboardData, 'drafts' | 'tabs'> = {
   ],
   calendarNote: 'Nothing posts until you approve it.',
   starts: [
-    { id: 'draft', title: 'Draft one post', body: 'Pick a channel and voice, give us an angle.', action: 'New draft', href: paths.draftReview },
-    { id: 'campaign', title: 'Plan a campaign', body: 'We draft a week of posts toward one goal.', action: 'Start a campaign', href: paths.campaignGoal },
-    { id: 'replies', title: 'Draft replies', body: 'Connect an account and we draft replies to mentions for you to approve.', action: 'Set up replies', href: paths.engageRules },
+    { id: 'draft', title: 'Draft one post', body: 'Pick a channel and voice, give us an angle.', action: 'New draft', href: 'draftReview' },
+    { id: 'campaign', title: 'Plan a campaign', body: 'We draft a week of posts toward one goal.', action: 'Start a campaign', href: 'campaignGoal' },
+    { id: 'replies', title: 'Draft replies', body: 'Connect an account and we draft replies to mentions for you to approve.', action: 'Set up replies', href: 'engageRules' },
   ],
 };
 
@@ -28,7 +27,7 @@ export const contentDashboard: ContentDashboardData = {
     { id: 'approval', label: 'Needs approval', count: 6, status: 'approval' },
     { id: 'scheduled', label: 'Scheduled', count: 5, status: 'scheduled' },
     { id: 'posted', label: 'Posted', status: 'posted' },
-    { id: 'replies', label: 'Replies', count: 4, href: paths.engageQueue },
+    { id: 'replies', label: 'Replies', count: 4, href: 'engageQueue' },
     { id: 'rejected', label: 'Rejected', status: 'rejected' },
   ],
   drafts: [
@@ -48,7 +47,7 @@ export const contentDashboardEmpty: ContentDashboardData = {
     { id: 'approval', label: 'Needs approval', count: 0, status: 'approval' },
     { id: 'scheduled', label: 'Scheduled', count: 0, status: 'scheduled' },
     { id: 'posted', label: 'Posted', status: 'posted' },
-    { id: 'replies', label: 'Replies', count: 0, href: paths.engageQueue },
+    { id: 'replies', label: 'Replies', count: 0, href: 'engageQueue' },
   ],
   drafts: [],
 };

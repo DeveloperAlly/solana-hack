@@ -3,7 +3,7 @@ import { Card } from '../../../ui/composites/Card';
 import { DataTable } from '../../../ui/composites/DataTable';
 import { HubBarList } from '../../../ui/domain/HubBarList';
 import { useOutcomes } from '../hooks/useOutcomes';
-import { paths } from '../paths';
+import { useHubLinks } from '../paths';
 import type { AnalyticsData, AnalyticsRange } from '../types';
 import { StatusNote } from './StatusNote';
 
@@ -19,6 +19,7 @@ export interface AnalyticsBreakdownsProps {
 const none = 'No numbers for this range yet.';
 
 export function AnalyticsBreakdowns({ numbers, suggestions, note }: AnalyticsBreakdownsProps) {
+  const links = useHubLinks();
   const { outcomeOf, set, clear } = useOutcomes<'applied'>();
   return (
     <Stack gap={5}>
@@ -28,7 +29,7 @@ export function AnalyticsBreakdowns({ numbers, suggestions, note }: AnalyticsBre
       </Grid>
       <Grid min="md" gap={4}>
         <Card labelledBy="an-top" header={<Heading level={2} size="lg" id="an-top">Top posts</Heading>}>
-          <DataTable caption="Top posts by engagement" hideCaption rows={numbers.top} empty={none} rowKey={(r) => r.id} columns={[{ key: 'post', header: 'Post', rowHeader: true }, { key: 'rate', header: 'Engagement', align: 'end', sort: (a, b) => rate(a.rate) - rate(b.rate) }]} actions={() => <Button variant="secondary" href={paths.content}>Open</Button>} />
+          <DataTable caption="Top posts by engagement" hideCaption rows={numbers.top} empty={none} rowKey={(r) => r.id} columns={[{ key: 'post', header: 'Post', rowHeader: true }, { key: 'rate', header: 'Engagement', align: 'end', sort: (a, b) => rate(a.rate) - rate(b.rate) }]} actions={() => <Button variant="secondary" href={links.content}>Open</Button>} />
         </Card>
         <Card labelledBy="an-not" header={<Heading level={2} size="lg" id="an-not">Not working</Heading>}>
           <DataTable caption="Patterns not working" hideCaption rows={numbers.notWorking} empty={none} rowKey={(r) => r.id} columns={[{ key: 'what', header: 'Pattern', rowHeader: true }, { key: 'rate', header: 'Engagement', align: 'end', sort: (a, b) => rate(a.rate) - rate(b.rate) }, { key: 'posts', header: 'Posts', align: 'end' }]} />
@@ -38,7 +39,7 @@ export function AnalyticsBreakdowns({ numbers, suggestions, note }: AnalyticsBre
         {suggestions.map((s) => (
           <Stack key={s.id} direction="row" gap={3} align="center" wrap>
             <Text>{s.text}</Text>
-            {s.href && <Button variant="secondary" href={s.href}>{s.action}</Button>}
+            {s.href && <Button variant="secondary" href={links[s.href]}>{s.action}</Button>}
             {/* INTEGRATION: apply the change to next week's content plan (campaigns plan; Roadmap "Analytics"). */}
             {!s.href && !outcomeOf(s.id) && <Button variant="secondary" onClick={() => set(s.id, 'applied')}>{s.action}</Button>}
             {!s.href && <StatusNote onUndo={outcomeOf(s.id) ? () => clear(s.id) : undefined}>{outcomeOf(s.id) && "Applied to next week's plan."}</StatusNote>}

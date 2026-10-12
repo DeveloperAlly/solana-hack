@@ -24,11 +24,12 @@ import { PageHeader } from './parts/PageHeader';
 import { ReplyCard, type ReplyOutcome } from './parts/ReplyCard';
 import { WorthEngaging } from './parts/WorthEngaging';
 import { useReviewQueue } from './hooks/useReviewQueue';
-import { paths } from './paths';
+import { useHubLinks } from './paths';
 import { useOutcomes } from './hooks/useOutcomes';
 import type { EngageQueueData } from './types';
 
 export function EngageQueue({ data }: { data: EngageQueueData }) {
+  const links = useHubLinks();
   const queue = useReviewQueue<ReplyOutcome>();
   const [tab, setTab] = useState('queue');
   const drafted = useOutcomes<'drafted'>();
@@ -39,7 +40,7 @@ export function EngageQueue({ data }: { data: EngageQueueData }) {
     items.length ? <Stack gap={4}>{items.map((q) => <ReplyCard key={q.id} item={q} queue={queue} />)}</Stack> : <EmptyState level={3} title={empty} />;
   return (
     <HubPage section="grow" sub="engagement">
-      <PageHeader title="Engagement" tag="STRETCH" intro={data.intro} actions={<Button variant="secondary" href={paths.engageRules}>Rules, lists and auto-replies</Button>} />
+      <PageHeader title="Engagement" tag="STRETCH" intro={data.intro} actions={<Button variant="secondary" href={links.engageRules}>Rules, lists and auto-replies</Button>} />
       <HubColumns
         end={
           <Stack as="aside" gap={4} aria-label="Suggestions and limits">
@@ -57,7 +58,7 @@ export function EngageQueue({ data }: { data: EngageQueueData }) {
           items={[
             { id: 'queue', label: 'Reply queue', count: waiting.length, panel: list(waiting, 'Nothing to reply to') },
             { id: 'worth', label: 'Worth engaging', count: data.suggestions.length, panel: <WorthEngaging {...worth} level={3} /> },
-            { id: 'lists', label: 'Suggested lists', count: data.listsCount, panel: <Button variant="secondary" href={paths.engageRules}>Review suggested lists</Button> },
+            { id: 'lists', label: 'Suggested lists', count: data.listsCount, panel: <Button variant="secondary" href={links.engageRules}>Review suggested lists</Button> },
             { id: 'sent', label: 'Sent', count: sent.length, panel: list(sent, 'Nothing sent yet') },
           ]}
         />

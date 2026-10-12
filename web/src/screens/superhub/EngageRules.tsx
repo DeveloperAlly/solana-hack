@@ -20,14 +20,15 @@ import { PageHeader } from './parts/PageHeader';
 import { RuleTable } from './parts/RuleTable';
 import { AutoReplyCard } from './parts/AutoReplyCard';
 import { useEngageRules } from './hooks/useEngageRules';
-import { paths } from './paths';
+import { useHubLinks } from './paths';
 import type { EngageRulesData } from './types';
 
 export function EngageRules({ data }: { data: EngageRulesData }) {
+  const links = useHubLinks();
   const state = useEngageRules(data);
   return (
     <HubPage section="grow" sub="engagement">
-      <PageHeader title="Rules, lists and auto-replies" tag="ROADMAP" back={{ href: paths.engageQueue, label: '← Reply queue' }} />
+      <PageHeader title="Rules, lists and auto-replies" tag="ROADMAP" back={{ href: links.engageQueue, label: '← Reply queue' }} />
       <RuleTable state={state} />
       <AutoReplyCard autoReply={data.autoReply} state={state} />
       <Card labelledBy="rules-lists" header={<Heading level={2} size="lg" id="rules-lists">Suggested lists</Heading>}>

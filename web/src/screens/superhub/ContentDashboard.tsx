@@ -27,10 +27,11 @@ import { PageHeader } from './parts/PageHeader';
 import { ContentTabPanel } from './parts/ContentTabPanel';
 import { CalendarRail } from './parts/CalendarRail';
 import { useContentDashboard } from './hooks/useContentDashboard';
-import { paths } from './paths';
+import { useHubLinks } from './paths';
 import type { ContentDashboardData } from './types';
 
 export function ContentDashboard({ data, state = 'success' }: { data: ContentDashboardData; state?: ScreenState }) {
+  const links = useHubLinks();
   const view = useContentDashboard(data);
   const empty = state === 'empty' || data.drafts.length === 0;
   const pipeline = (
@@ -62,7 +63,7 @@ export function ContentDashboard({ data, state = 'success' }: { data: ContentDas
   }
   return (
     <HubPage section="create" sub="content">
-      <PageHeader title="Content" intro={pipeline} actions={<Button href={paths.draftReview}>+ New draft</Button>} />
+      <PageHeader title="Content" intro={pipeline} actions={<Button href={links.draftReview}>+ New draft</Button>} />
       <HubColumns end={<CalendarRail slots={data.calendar} note={data.calendarNote} />}>
         <ToggleGroup label="Filter by channel" options={data.channels} value={[view.channel]} onChange={(v) => view.setChannel(v[0])} />
         {tabs}

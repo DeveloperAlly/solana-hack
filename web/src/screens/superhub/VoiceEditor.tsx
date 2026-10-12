@@ -26,14 +26,15 @@ import { ClaimsGateFieldset } from './parts/ClaimsGateFieldset';
 import { OverridesTable } from './parts/OverridesTable';
 import { VoicePreview } from './parts/VoicePreview';
 import { useVoiceEditor } from './hooks/useVoiceEditor';
-import { paths } from './paths';
+import { useHubLinks } from './paths';
 import type { VoiceEditorData } from './types';
 
 export function VoiceEditor({ data, state = 'success' }: { data: VoiceEditorData; state?: ScreenState }) {
+  const links = useHubLinks();
   const voice = useVoiceEditor(data);
   return (
     <HubPage section="brand" sub="voices">
-      <PageHeader title={data.name} intro={data.intro} back={{ href: paths.voiceTemplates, label: 'Back to voices' }} sample />
+      <PageHeader title={data.name} intro={data.intro} back={{ href: links.voiceTemplates, label: 'Back to voices' }} sample />
       <HubColumns end={<VoicePreview note={data.previewNote} sample={voice.sample} rules={voice.rules} state={state} onAnother={voice.nextSample} />}>
         <Card labelledBy="voice-dims" header={<Heading level={2} size="lg" id="voice-dims">Dimensions</Heading>}>
           {data.dimensions.map((d) => (
@@ -45,9 +46,9 @@ export function VoiceEditor({ data, state = 'success' }: { data: VoiceEditorData
       </HubColumns>
       <Stack direction="row" gap={3} justify="end" wrap>
         <Button variant="secondary" onClick={voice.reset} disabled={!voice.changed}>Reset to {data.basedOn}</Button>
-        <Button variant="secondary" href={paths.voiceTemplates}>Cancel</Button>
+        <Button variant="secondary" href={links.voiceTemplates}>Cancel</Button>
         {/* INTEGRATION: PATCH /api/voices/:id; the core voice was approved at Gate 3, so saving makes kit v[n+1]. */}
-        {state === 'loading' ? <Button disabled>Save as kit v[n+1]</Button> : <Button href={paths.voiceTemplates}>Save as kit v[n+1]</Button>}
+        {state === 'loading' ? <Button disabled>Save as kit v[n+1]</Button> : <Button href={links.voiceTemplates}>Save as kit v[n+1]</Button>}
       </Stack>
     </HubPage>
   );
