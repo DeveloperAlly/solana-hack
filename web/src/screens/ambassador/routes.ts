@@ -64,6 +64,8 @@ export const pageRoutes = {
   /** Canvas logo link "Main" (the landing page). */
   home: '/',
   signIn: '/sign-in',
+  /** "Change" the connected LinkedIn account: Settings › Connections (backend map row "Settings › Connections"). */
+  settings: '/settings',
   /** Canvas Amb-5b "See public check" opens Verify-1-Match (issue #49 builds it). */
   verifyMatch: '/screens/Verify-1-Match',
 } as const;

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import { useTableView } from '../../ui/hooks/useTableView';
 import type { CampaignSummary, Channel } from './types';
 
 export type ChannelFilter = 'all' | Channel;
@@ -24,26 +25,23 @@ const keyOf = (sort: CampaignSort, c: CampaignSummary) => {
   const k = sortKeys[sort](c);
   return c.budgetReached || k === null ? Number.POSITIVE_INFINITY : k;
 };
-const compare = (sort: CampaignSort) => (a: CampaignSummary, b: CampaignSummary) => {
+const by = (sort: CampaignSort) => (a: CampaignSummary, b: CampaignSummary) => {
   const ka = keyOf(sort, a);
   const kb = keyOf(sort, b);
   if (ka === kb) return 0;
   return ka < kb ? -1 : 1;
 };
+const comparators: Record<CampaignSort, (a: CampaignSummary, b: CampaignSummary) => number> = { ending: by('ending'), payout: by('payout') };
+const matchChannel = (c: CampaignSummary, channel: string) => c.channels.includes(channel as Channel);
 
 /**
- * Campaign list state (canvas note n-a1): filter by channel, sort by time left or payout, and per-brand "Notify me".
- * Budget-reached campaigns stay in the list, closed. INTEGRATION: GET /api/campaigns/open; POST /api/campaigns/:id/notify.
+ * Campaign list state (canvas note n-a1): filter by channel, sort by time left or payout (the foundation's useTableView),
+ * and per-brand "Notify me". Budget-reached campaigns stay in the list, closed.
+ * INTEGRATION: GET /api/campaigns/open; POST /api/campaigns/:id/notify.
  */
 export function useCampaignList(campaigns: CampaignSummary[]) {
-  const [channel, setChannel] = useState<ChannelFilter>('all');
-  const [sort, setSort] = useState<CampaignSort>('ending');
+  const table = useTableView({ rows: campaigns, comparators, initialSort: { key: 'ending', direction: 'ascending' }, match: matchChannel });
   const [notified, setNotified] = useState<ReadonlySet<string>>(new Set());
-
-  const visible = useMemo(
-    () => campaigns.filter((c) => channel === 'all' || c.channels.includes(channel)).sort(compare(sort)),
-    [campaigns, channel, sort],
-  );
 
   function toggleNotify(brand: string) {
     setNotified((prev) => {
@@ -54,5 +52,13 @@ export function useCampaignList(campaigns: CampaignSummary[]) {
     });
   }
 
-  return { channel, setChannel: (id: string) => setChannel(id as ChannelFilter), sort, setSort: (v: string) => setSort(v as CampaignSort), visible, notified, toggleNotify };
+  return {
+    channel: table.filter,
+    setChannel: table.setFilter,
+    sort: table.sort?.key ?? 'ending',
+    setSort: table.sortBy,
+    visible: table.view,
+    notified,
+    toggleNotify,
+  };
 }
