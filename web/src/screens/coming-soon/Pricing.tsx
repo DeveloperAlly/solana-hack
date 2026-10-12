@@ -1,0 +1,43 @@
+/*
+ * Data contract: Pricing (canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, board Pricing; issue #51)
+ * Backend map G-BILLING: no billing provider yet, so this page is static. Shape: PricingData in ./types.
+ *
+ * | Field           | Source                                                              | Empty when |
+ * |-----------------|---------------------------------------------------------------------|------------|
+ * | tiers[].name    | Static: tiers proposed in the draft backlog (owner to decide)       | never      |
+ * | tiers[].price   | Static placeholder "[price]" until the owner sets prices            | never      |
+ * | tiers[].note    | Research 10 §6 price band (canvas text)                             | no note    |
+ * | footnote        | Static copy (canvas)                                                | never      |
+ *
+ * Public page (PublicShell). States: success only (static content, no request).
+ */
+import { Container, Grid, Stack, Text } from '../../ui/primitives';
+import { PublicShell } from '../../ui/shells/PublicShell';
+import { SoonPageHeader } from '../../ui/domain/SoonPageHeader';
+import { SoonPlanTier } from '../../ui/domain/SoonPlanTier';
+import { soonRoutes } from './routes';
+import type { PlanTier, PricingData } from './types';
+
+const tierHref: Record<PlanTier['id'], string> = { free: soonRoutes.main, solo: soonRoutes.upgrade, team: soonRoutes.upgrade };
+
+export function Pricing({ data }: { data: PricingData }) {
+  return (
+    <PublicShell>
+      <Container width="app">
+        <Stack gap={6}>
+          <SoonPageHeader
+            title="Pricing"
+            intro="Start free. Pay when you post every week."
+            definedIn="backend map G-BILLING; research 10 §6 price bands; tiers proposed in the draft backlog (owner to decide)"
+          />
+          <Grid min="md" gap={5}>
+            {data.tiers.map((t) => (
+              <SoonPlanTier key={t.id} name={t.name} price={t.price} features={t.features} cta={t.cta} note={t.note} href={tierHref[t.id]} featured={t.id === 'solo'} />
+            ))}
+          </Grid>
+          <Text tone="secondary">{data.footnote}</Text>
+        </Stack>
+      </Container>
+    </PublicShell>
+  );
+}

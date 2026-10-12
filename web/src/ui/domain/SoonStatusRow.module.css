@@ -1,0 +1,15 @@
+/* Canvas ".row": name left, chip and actions right, a rule between rows. Wraps on narrow screens. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wl-space-2) var(--wl-space-3);
+  padding: var(--wl-space-2-5) var(--wl-space-2);
+  border-bottom: var(--wl-border-width-default) solid var(--wl-border-rule);
+}
+.selected { background: var(--wl-bg-subtle); border-left: var(--wl-border-width-indicator) solid var(--wl-border-strong); }
+.text { display: flex; flex-direction: column; gap: var(--wl-space-half); min-width: 0; flex: 1 1 calc(var(--wl-space-12) * 4); }
+.name { font-weight: var(--wl-font-weight-semibold); color: var(--wl-text-primary); overflow-wrap: anywhere; }
+.detail { font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); overflow-wrap: anywhere; }
+.side { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-2); }
