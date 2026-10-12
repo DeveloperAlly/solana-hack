@@ -16,9 +16,11 @@ function linkError(hash: string): string | null {
 }
 
 /**
- * Onboard-1-SignIn: email, then either the emailed link or a 6-digit code (Supabase email OTP). No wallet, no seed phrase (R26, ADR-006).
- * The hosted project's default email carries only a link (its template can't change without custom SMTP), so the link is the main route:
- * it returns here, the client reads the session from the URL fragment (implicit flow, the supabase-js default), and the redirect below fires.
+ * Onboard-1-SignIn: email, then either the emailed link or the code in it (Supabase email OTP). The project sets the code length; Supabase allows 6 to 10 digits
+ * (mailer_otp_length, minimum 6, maximum 10, in UpdateAuthConfigBody of
+ * https://github.com/supabase/supabase/blob/master/apps/docs/spec/api_v1_openapi.json). No wallet, no seed phrase (R26, ADR-006).
+ * The email (custom SMTP and template set by .github/workflows/supabase-auth-config.yml) carries both. The link
+ * returns here, the client reads the session from the URL fragment (implicit flow, the supabase-js default), and the redirect below fires.
  */
 export function SignIn() {
   const { session } = useAuth();
@@ -52,7 +54,7 @@ export function SignIn() {
   async function verify(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!/^\d{6}$/.test(code.trim())) return setError('The code is 6 digits.');
+    if (!/^\d{6,10}$/.test(code.trim())) return setError('Enter the code from the email. It is 6 to 10 digits.');
     if (!supabase) return;
     setBusy(true);
     const { error: err } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: 'email' });
@@ -82,12 +84,12 @@ export function SignIn() {
           ) : (
             <form onSubmit={verify} noValidate>
               <Stack gap={4}>
-                <Alert tone="info">We sent an email to {email}. Open the link in it on this device. It can take a minute to arrive. If the email shows a 6-digit code instead, enter it here.</Alert>
+                <Alert tone="info">We sent an email to {email}. Open the link in it on this device. It can take a minute to arrive. Or enter the code from the email here.</Alert>
                 <Field
-                  label="6-digit code"
+                  label="Code from the email"
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  maxLength={6}
+                  maxLength={10}
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                   error={error}
