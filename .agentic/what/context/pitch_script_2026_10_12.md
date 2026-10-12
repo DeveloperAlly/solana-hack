@@ -10,7 +10,7 @@ tags: [pitch, script, colosseum]
 
 # Pitch script: JamJam
 
-Total: 459 words, about 2:52 at 160 words a minute.
+Total: 460 words, about 2:52 at 160 words a minute.
 
 ## 1. Dot points per slide
 
@@ -25,20 +25,20 @@ Total: 459 words, about 2:52 at 160 words a minute.
 - DIY: a blank page, every week
 - AI writers: "I end up changing 90% of what is generated"
 
-**3. Solution** (0:26–0:46)
-- JamJam does the brand team's job
-- Strategy without the agency, every fact sourced
-- Content that sounds like you and never lies for you; one tap to approve
-- Everywhere, provably yours
-- A community that sells for you: ambassador seats, approved and verified
+**3. Solution** (0:26–0:47)
+- A brand team does four jobs; JamJam does them
+- Identity: voice, positioning, messaging, every fact sourced
+- Strategy: approve once; every post follows
+- Governance: seats and approvals; approved work verified as yours
+- Culture and content: daily content in your voice that never lies for you
 
-**4. How it works** (0:46–0:58)
+**4. How it works** (0:47–0:59)
 - It reads before it asks
 - Found on your site: you confirm
 - Missing: we ask
 - You sign off; your brand is ready
 
-**5. Why now** (0:58–1:13)
+**5. Why now** (0:59–1:13)
 - AI made content free; trust is scarce
 - $3.5B US imposter losses; ~$1B from fake businesses
 - X barred apps that reward posting
@@ -72,13 +72,13 @@ Total: 459 words, about 2:52 at 160 words a minute.
 - Flywheel: verified posts carry a check-it badge back to JamJam
 - Refer a friend: you both get 2 months free
 
-**11. Roadmap** (2:30–2:37)
+**11. Roadmap** (2:30–2:38)
 - Now: your brand kit
 - Next: content you approve unedited
 - Then: publish everywhere; tips and fan rewards
 - Later: monetise your voice
 
-**12. Team and ask** (2:37–2:52)
+**12. Team and ask** (2:38–2:52)
 - Founded Lilypad; built the original Waterlily.ai
 - Developer communities at IBM and Filecoin Foundation
 - JamJam: your brand team, in one app
@@ -93,15 +93,15 @@ Hi, I'm Ally Haire. Every founder needs a brand team. Almost none can afford one
 
 Today a founder has three bad options. Hire an agency you can't afford. Do it yourself, every week. Or use an AI writer that sounds like everyone else. One user said: I end up changing ninety percent of what is generated.
 
-**3. Solution** · 0:26–0:46 · 54 words
+**3. Solution** · 0:26–0:47 · 55 words
 
-JamJam does the brand team's job. Paste your website and get your strategy: purpose, positioning and voice, every fact sourced. Then content that sounds like you and never lies for you: approved in one tap. Published everywhere, provably yours. And a community that sells for you: ambassadors post from your kit, and you approve.
+A brand team does four jobs. Identity: your voice, positioning and messaging, drafted from your site, every fact sourced. Strategy: approve it once, and every post follows it. Governance: your team, partners and ambassadors get seats, and their approved posts verify as yours. Culture: content in your voice every day that never lies for you.
 
-**4. How it works** · 0:46–0:58 · 32 words
+**4. How it works** · 0:47–0:59 · 32 words
 
 JamJam reads before it asks. What it finds on your site, you confirm. It only asks what's missing: your story, your beliefs, what you can prove. You sign off, and it's ready.
 
-**5. Why now** · 0:58–1:13 · 38 words
+**5. Why now** · 0:59–1:13 · 38 words
 
 Why now? AI made content free; trust is now scarce. Americans reported losing three and a half billion dollars to imposters last year, a billion to fake businesses. And X has barred apps that reward people for posting.
 
@@ -125,10 +125,10 @@ We checked fifty-nine products. The best do two of the four steps. JamJam is the
 
 Building your brand kit is free. Solo is thirty-nine dollars a month, Team is a hundred and ninety-nine, and we take three percent on tips and rewards. Every verified post carries a badge back to JamJam. Refer a friend, and you both get two months free.
 
-**11. Roadmap** · 2:30–2:37 · 19 words
+**11. Roadmap** · 2:30–2:38 · 19 words
 
 Next: content you approve unedited, publishing everywhere, tips and fan rewards, then getting paid when agents use your voice.
 
-**12. Team and ask** · 2:37–2:52 · 40 words
+**12. Team and ask** · 2:38–2:52 · 40 words
 
 I founded Lilypad, a decentralised AI compute network, and built the original Waterlily, AI art that paid its artists. I've built developer communities at IBM and the Filecoin Foundation. JamJam: your brand team, in one app. Every post provably yours.
