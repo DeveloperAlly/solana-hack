@@ -27,7 +27,7 @@ import { LoopFrame } from './components/LoopFrame';
 import { EventKpis } from './components/EventKpis';
 import { EventPlan } from './components/EventPlan';
 import { eventDay, eventTime } from './eventPlan';
-import { listState } from './listState';
+import { dataLoaded, listState } from './listState';
 import { growthArtboards, useGrowthLinks } from './paths';
 import { useEventDetail } from './useEventDetail';
 import type { EventDetailData, ScreenProps } from './types';
@@ -43,7 +43,9 @@ export function EventDetail({ data, state = 'success' }: ScreenProps<EventDetail
   const links = useGrowthLinks();
   const e = flow.event;
   const role = e.role ? `you’re ${roleLabel(e.role).toLowerCase()}` : 'role not set';
-  const review = flow.needsYou > 0 && <Button href={links.to('Draft-Review')}>Review {flow.needsYou} {flow.needsYou === 1 ? 'post' : 'posts'}</Button>;
+  // A cancelled event (the error state) is still in hand; while loading nothing is actionable.
+  const loaded = dataLoaded(state, true);
+  const review = loaded && flow.needsYou > 0 && <Button href={links.to('Draft-Review')}>Review {flow.needsYou} {flow.needsYou === 1 ? 'post' : 'posts'}</Button>;
   const aside = (
     <Stack gap={4}>
       <EventPeopleCard title="Who’s going" people={e.going} empty="No ambassadors asked yet." link={{ label: 'Invite more ambassadors', href: links.to('Dashboard') }} />
@@ -58,8 +60,8 @@ export function EventDetail({ data, state = 'success' }: ScreenProps<EventDetail
       back={{ href: links.to(growthArtboards.events), label: 'All events' }} actions={review}>
       {e.cancelled && <Alert tone="danger" title="Luma says this event was cancelled">Its posts are paused and nothing will be scheduled for it. Change the plan or remove the event.</Alert>}
       {!e.cancelled && timingAlert[flow.timing]}
-      <EventKpis flow={flow} />
-      <Columns end={aside}>
+      {loaded && <EventKpis flow={flow} />}
+      <Columns end={loaded && aside}>
         <StateView state={listState(state, flow.phases.length)} loading={{ title: 'Loading the plan', body: 'Reading the event and its drafts.' }}
           empty={{ title: 'No content plan yet', body: 'Make the plan from your role’s template. Every post goes to approval.', actions: <Button onClick={flow.makePlan}>Make the plan</Button> }}>
           <EventPlan phases={flow.phases} onDraft={flow.draftItem} />

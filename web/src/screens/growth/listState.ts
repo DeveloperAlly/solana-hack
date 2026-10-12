@@ -8,3 +8,13 @@ export function listState(state: ScreenState, count: number): ScreenState {
   if (state === 'loading' || state === 'error') return state;
   return count > 0 ? 'success' : 'empty';
 }
+
+/**
+ * Whether the screen's data is in hand, so controls that act on it may show (Codex review on PR 102: nothing is
+ * actionable while loading). `error` means the data did not load, unless the screen's error is about something else
+ * with its data in hand (a disconnected source, a failed publish, a cancelled event): pass `errorKeepsData`.
+ */
+export function dataLoaded(state: ScreenState, errorKeepsData = false): boolean {
+  if (state === 'loading') return false;
+  return state !== 'error' || errorKeepsData;
+}

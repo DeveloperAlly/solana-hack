@@ -519,3 +519,31 @@ describe('Brain-derived approvals follow the Brain version (Codex review on PR 1
     expect(screen.getByRole('button', { name: 'Approve original' })).toBeInTheDocument();
   });
 });
+
+describe('Nothing is actionable before the data loads (Codex review on PR 102)', () => {
+  it('Event-Rating hides the rate panel while loading and on error', () => {
+    for (const state of ['loading', 'error'] as const) {
+      const { unmount } = render(<MemoryRouter initialEntries={[screenPath('Event-Rating', state)]}><Routes><Route path="/screens/:artboard" element={<GalleryScreen />} /></Routes></MemoryRouter>);
+      expect(screen.queryByRole('button', { name: 'Prove I went with Luma' })).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'Rate this event' })).toBeNull();
+      unmount();
+    }
+  });
+
+  it('the other screens show no actions while loading', () => {
+    const cases = [
+      ['Distribute-Adapt', /^Schedule/],
+      ['Events', /^Add an event$/],
+      ['Event-Detail', /^Change role/],
+      ['Quests', /^New quest$/],
+    ] as const;
+    for (const [board, control] of cases) {
+      const { unmount } = render(<MemoryRouter initialEntries={[screenPath(board, 'loading')]}><Routes><Route path="/screens/:artboard" element={<GalleryScreen />} /></Routes></MemoryRouter>);
+      expect(screen.queryByRole('button', { name: control }) ?? screen.queryByLabelText(control)).toBeNull();
+      unmount();
+    }
+    const { unmount } = render(<MemoryRouter initialEntries={[screenPath('Quests', 'error')]}><Routes><Route path="/screens/:artboard" element={<GalleryScreen />} /></Routes></MemoryRouter>);
+    expect(screen.queryByRole('button', { name: 'New quest' })).toBeNull();
+    unmount();
+  });
+});

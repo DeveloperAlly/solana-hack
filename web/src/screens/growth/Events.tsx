@@ -26,7 +26,7 @@ import { LoopFrame } from './components/LoopFrame';
 import { EventsControls } from './components/EventsControls';
 import { EventsPending } from './components/EventsPending';
 import { EventsTable } from './components/EventsTable';
-import { listState } from './listState';
+import { dataLoaded, listState } from './listState';
 import { growthArtboards, useGrowthLinks } from './paths';
 import { useEvents } from './useEvents';
 import type { EventsData, ScreenProps } from './types';
@@ -38,13 +38,15 @@ export function Events({ data, state = 'success' }: ScreenProps<EventsData>) {
   const flow = useEvents(data);
   const links = useGrowthLinks();
   const connect = <Button variant="secondary" href={links.to('Settings-Connections')}>{data.lumaCalendar ? 'Luma settings' : 'Connect Luma'}</Button>;
+  // Luma being disconnected keeps the events in hand; while loading nothing is actionable.
+  const loaded = dataLoaded(state, true);
   const add = <Button onClick={() => flow.setAdding(true)} disabled={flow.adding}>Add an event</Button>;
   return (
-    <LoopFrame artboard="Events" title="Events" tag="COMING SOON" actions={<>{connect}{add}</>}
+    <LoopFrame artboard="Events" title="Events" tag="COMING SOON" actions={loaded && <>{connect}{add}</>}
       intro="Every event aDNA hosts, speaks at, sponsors or attends, with the content that makes it count."
       meta="Drawn, not built. Defined in: canvas v21 Events; event sources in config/eventSources.ts.">
       {state === 'error' && <Alert tone="danger" title="Luma is disconnected">New Luma events can’t arrive until you reconnect. Events already here stay. {connect}</Alert>}
-      {flow.adding && (
+      {loaded && flow.adding && (
         <EventAddForm roles={roles} onCancel={() => flow.setAdding(false)} onSubmit={(v) => {
           if (!isEventRole(v.role)) return;
           flow.add({ ...v, role: v.role });

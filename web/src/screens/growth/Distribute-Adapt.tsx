@@ -23,7 +23,7 @@ import { GatedButton } from '../../ui/composites/GatedButton';
 import { DistributeSourcePost } from '../../ui/domain/DistributeSourcePost';
 import { DistributePlatformPicker } from '../../ui/domain/DistributePlatformPicker';
 import { findPlatform, statusLabel } from '../../config/platforms';
-import { listState } from './listState';
+import { dataLoaded, listState } from './listState';
 import { LoopFrame } from './components/LoopFrame';
 import { AdaptVersionList } from './components/AdaptVersionList';
 import { growthArtboards, useGrowthLinks } from './paths';
@@ -40,6 +40,8 @@ export function DistributeAdapt({ data, state = 'success' }: ScreenProps<AdaptDa
   const flow = useAdapt(data);
   const links = useGrowthLinks();
   const calendar = links.to('Publish-Calendar');
+  // The publish-failed error keeps the post and its versions in hand; while loading nothing is actionable.
+  const loaded = dataLoaded(state, true);
   return (
     <LoopFrame
       artboard="Distribute-Adapt"
@@ -47,11 +49,11 @@ export function DistributeAdapt({ data, state = 'success' }: ScreenProps<AdaptDa
       tag="COMING SOON"
       intro="One approved post, a version for each platform. Each version keeps your voice, passes the same checks and needs one approval."
       meta="Drawn, not built. Verify works on each version once its link is pasted back. Defined in: canvas v21 Distribute-Adapt; ADR-012."
-      actions={<GatedButton gate={flow.schedule} onClick={flow.confirmSchedule} showPassLabel>Schedule {flow.chosen.length}</GatedButton>}
+      actions={loaded && <GatedButton gate={flow.schedule} onClick={flow.confirmSchedule} showPassLabel>Schedule {flow.chosen.length}</GatedButton>}
     >
       {state === 'error' && <Alert tone="danger" title="LinkedIn did not publish">The LinkedIn version is kept. Copy it, post it by hand and paste the link back so Verify can check it.</Alert>}
       {flow.scheduled && <Alert tone="success" title="Scheduled">Each version is on the calendar at its time. <Link href={calendar}>Open the calendar</Link></Alert>}
-      <DistributeSourcePost
+      {loaded && <DistributeSourcePost
         label={`Original · ${findPlatform(data.post.platform)?.name ?? data.post.platform}`}
         text={flow.original}
         onSave={flow.editOriginal}
@@ -59,14 +61,14 @@ export function DistributeAdapt({ data, state = 'success' }: ScreenProps<AdaptDa
         onApprove={flow.approveOriginal}
         staleNote={flow.staleCount ? `The original, a version or the Brain changed, so ${flow.staleCount} approved ${flow.staleCount === 1 ? 'version needs' : 'versions need'} approving again.` : undefined}
         link={<Link href={links.to('Post-Detail')}>Post detail</Link>}
-      />
-      <DistributePlatformPicker
+      />}
+      {loaded && <DistributePlatformPicker
         legend="Platforms for this post"
         options={flow.platforms.map((p) => ({ id: p.id, label: p.name, description: statusLabel(p.status) }))}
         value={flow.chosen}
         onChange={flow.setChosen}
         footer={<Link href={links.to(growthArtboards.platforms)}>All platforms</Link>}
-      />
+      />}
       <StateView
         state={listState(state, flow.versions.length)}
         loading={{ title: 'Adapting for each platform', body: 'Writing a version per platform in your voice.' }}

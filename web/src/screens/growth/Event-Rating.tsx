@@ -54,8 +54,9 @@ export function EventRating({ data, state = 'success' }: ScreenProps<EventRating
         <Columns end={<EventRatingQuotes title="What attendees said" quotes={quotes} empty="No ratings yet." />} ratio="1-1">
           <EventRatingSummary summary={e.summary} />
         </Columns>
+        {/* One rating per attendee: create or edit is decided on the loaded ratings, so the panel waits for them. */}
+        <RatePanel flow={flow} />
       </StateView>
-      <RatePanel flow={flow} />
     </PublicFrame>
   );
 }
