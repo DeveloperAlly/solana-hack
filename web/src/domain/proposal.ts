@@ -3,7 +3,7 @@
 // that wrote it, changes nothing until the owner approves it, and names the Brain version it was judged against.
 import type { Gate } from '../lib/approval';
 import type { ArtboardName } from '../config/artboards';
-import { nextBrainVersion } from './brain';
+import { nextBrainVersion, type BrainRule } from './brain';
 
 /** Where the signal came from (ADR-012 runtime section). */
 export type SignalSource = 'edit-to-rule' | 'approvals' | 'outcome' | 'platform-metrics';
@@ -49,10 +49,12 @@ export function proposalGate(p: Proposal, brainVersion: string): Gate {
 }
 
 /**
- * The one line that says where a proposal stands, from its status (Today, Learn-Rules and the Brain all read it): a
+ * The one line that says where a proposal's rule stands (Today, Learn-Rules and the Brain all read it). The rule's
+ * current status wins: a retired rule says retired, whatever the proposal decided. Otherwise from the proposal: a
  * pending one says what approving does; an approved one is active in the Brain version it made; a rejected one says so.
  */
-export function proposalNote(p: Pick<Proposal, 'status' | 'decided'>, brainVersion: string): string {
+export function proposalNote(p: Pick<Proposal, 'status' | 'decided'>, brainVersion: string, rule?: Pick<BrainRule, 'status' | 'decided'>): string {
+  if (rule?.status === 'retired') return rule.decided ? `retired ${rule.decided.at}` : 'retired';
   const notes: Record<ProposalStatus, () => string> = {
     pending: () => `becomes Brain v${nextBrainVersion(brainVersion)} if you approve`,
     trial: () => `on trial for half of new drafts; becomes Brain v${nextBrainVersion(brainVersion)} if you approve`,

@@ -112,6 +112,8 @@ export function useLoop(base: LoopBase): LoopFlow {
     payouts: state.payouts,
     pay: (record, outcome) => {
       const s = loopStore.read();
+      // Defence in depth: one payout per submission, whatever called it.
+      if (s.payouts.some((p) => p.submissionId === record.submissionId)) return;
       set({ payouts: [...s.payouts, { ...record, at: today() }], outcomes: { ...s.outcomes, [record.submissionId]: outcome } });
     },
   };

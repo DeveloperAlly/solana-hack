@@ -71,7 +71,7 @@ describe('Today', () => {
     expect(within(queueRow(/Your agent didn't forget/)).getByText(/It publishes on its schedule/)).toBeInTheDocument();
     expect(within(queueRow(/Open X threads/)).getByText(/becomes Brain v3.2 if you approve/)).toBeInTheDocument();
     await userEvent.click(within(queueRow(/Open X threads/)).getByRole('button', { name: 'Approve rule' }));
-    expect(within(queueRow(/Open X threads/)).getByText(/active in Brain v3.2; the kit is unchanged/)).toBeInTheDocument();
+    expect(within(queueRow(/Open X threads/)).getByText('Approved: active in Brain v3.2. The kit is unchanged.')).toBeInTheDocument();
     expect(within(queueRow(/Open X threads/)).getByText(/active in Brain v3.2$/)).toBeInTheDocument();
     expect(within(queueRow(/Open X threads/)).queryByText(/if you approve/)).toBeNull();
     const draft = queueRow(/Your agent didn't forget/);
@@ -81,7 +81,7 @@ describe('Today', () => {
 });
 
 describe('Today: quest submissions (ambassador posts with a questId) pay through domain/quest.ts', () => {
-  const quest = { id: 'quest-tut', task: '[Quest task]', format: 'tutorial' as const, rewardUsdc: 50, slots: 2, paid: 1, due: null, opens: null, submissionIds: ['q-sub-1', 'q-sub-2'] };
+  const quest = { id: 'quest-tut', task: '[Quest task]', format: 'tutorial' as const, rewardUsdc: 50, slots: 2, paidSubmissionIds: ['q-sub-0'], due: null, opens: null, submissionIds: ['q-sub-1', 'q-sub-2'] };
   const sub = (id: string, who: string) => ({ id, kind: 'ambassadorPost' as const, chip: 'Quest submission', text: `${who}'s tutorial is verified against your kit`, meta: '50 USDC on approval', questId: 'quest-tut', payout: { amount: 50, unit: 'USDC' as const }, verified: true, disclosure: 'present' as const, open: { label: 'Review', artboard: 'Quests' as const } });
   const data = { ...today, quests: [quest], queue: [sub('q-sub-1', '[Creator A]'), sub('q-sub-2', '[Creator B]')] };
 
@@ -103,6 +103,14 @@ describe('Today: quest submissions (ambassador posts with a questId) pay through
     expect(within(row).getByRole('button', { name: 'Approve and pay' })).toBeDisabled();
     expect(within(row).getByText(/Blocked: All 2 slots are paid/)).toBeInTheDocument();
     expect(loopStore.read().payouts).toEqual([expect.objectContaining({ questId: 'quest-tut', submissionId: 'q-sub-1', amount: 50 })]);
+  });
+
+  it('a pending submission whose id is already paid cannot be approved, and the payouts do not change', () => {
+    renderWithRouter(<Today data={{ ...data, quests: [{ ...quest, paidSubmissionIds: ['q-sub-1'] }] }} />);
+    const row = queueRow(/\[Creator A\]/);
+    expect(within(row).getByRole('button', { name: 'Approve and pay' })).toBeDisabled();
+    expect(within(row).getByText('Blocked: Already paid.')).toBeInTheDocument();
+    expect(loopStore.read().payouts).toEqual([]);
   });
 
   it('a submission whose quest is not found is blocked ("Quest not found"), never paid as a seat post', async () => {
@@ -191,6 +199,22 @@ describe('Brain and Learn-Rules share the Brain', () => {
     expect(screen.getByText(/2 suggested, waiting on you/)).toBeInTheDocument();
     act(() => selectBrand('adna'));
     expect(screen.getByText('Brain v3.2')).toBeInTheDocument();
+  });
+
+  it('approved then retired: Today and Learn-Rules say retired, never "active"', async () => {
+    const learn = renderWithRouter(<LearnRules data={learnRules} />);
+    const x = screen.getAllByRole('region').find((r) => within(r).queryByRole('heading', { name: 'Open X threads with the problem, not the product' }))!;
+    await userEvent.click(within(x).getByRole('button', { name: 'Approve rule' }));
+    learn.unmount();
+    const brain = renderWithRouter(<Brain data={brainScreen} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Retire: Open X threads with the problem, not the product' }));
+    brain.unmount();
+    const t = renderWithRouter(<Today data={today} />);
+    expect(within(queueRow(/Open X threads/)).getByText(/· retired \d+ \w+$/)).toBeInTheDocument();
+    expect(within(queueRow(/Open X threads/)).queryByText(/active in Brain/)).toBeNull();
+    t.unmount();
+    renderWithRouter(<LearnRules data={learnRules} />);
+    expect(within(screen.getByRole('list', { name: 'Decided' })).getByText(/Open X threads with the problem, not the product · retired/)).toBeInTheDocument();
   });
 
   it('collecting shows nothing to suggest yet', () => {

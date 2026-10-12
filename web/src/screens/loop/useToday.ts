@@ -45,7 +45,7 @@ function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | '
   if (item.kind === 'learnedRule') {
     const p = loop.proposal(item.proposalId);
     const view = {
-      approved: { outcome: `Approved. The rule is active in Brain v${loop.brain.version}; the kit is unchanged.` },
+      approved: { outcome: p && `Approved: ${proposalNote(p, loop.brain.version, loop.brain.rules.find((r) => r.id === p.ruleId))}. The kit is unchanged.` },
       rejected: { outcome: 'Rejected. The Brain is unchanged.' },
       trial: { status: 'Running as a trial on half of new drafts.' },
       pending: {},
@@ -96,7 +96,7 @@ export function useToday(data: TodayData) {
   const rows: QueueRow[] = data.queue.map((item) => {
     const act = acts[item.kind];
     const p = item.kind === 'learnedRule' ? loop.proposal(item.proposalId) : undefined;
-    const meta = p ? `${item.meta} · ${proposalNote(p, loop.brain.version)}` : item.meta;
+    const meta = p ? `${item.meta} · ${proposalNote(p, loop.brain.version, loop.brain.rules.find((r) => r.id === p.ruleId))}` : item.meta;
     return { item: { ...item, meta }, gate: gateFor(item, ctx), ...standing(item, loop), act: act && (() => act(item)) };
   });
   const { needsYou, oneTap, done } = selectQueue(rows);
