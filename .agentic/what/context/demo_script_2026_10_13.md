@@ -14,7 +14,7 @@ tags: [demo, script, colosseum]
 
 **Demo brand:** JamJam builds its own brand (compendium §4, decided). One critical path; every wait is cut, and the voice-over says so.
 
-**Voice-over:** 267 words over 3:00, about 89 words a minute on average and no beat above 115, leaving room for the screen.
+**Voice-over:** 271 words over 3:00, about 90 words a minute on average and no beat above 115, leaving room for the screen.
 
 ## 0. Who this is for
 
@@ -102,13 +102,13 @@ Route `/build/origin to /build/voice` · depends on P0: 009 · placeholder: wire
 
 **Must come up:**
 - Alert: "Already found on your pages" with up to 3 facts
-- Cut: remaining questions pre-answered
+- Cut: remaining questions answered off camera
 - Voice template: "Candid founder" (default)
 - Claims gate: "Strict: every claim needs evidence"
 
 **Who cares, and why:** Founders, because their fear with AI is sounding generic or saying something untrue, and this is where they rule out both.
 
-**Say:** A few quick questions, and it already knows half the answers. I pick a voice, Candid founder, and set it to strict: no claim goes out without proof.
+**Say:** A few quick questions, with what it found on our site shown beside each one. I pick a voice, Candid founder, and set it to strict: no claim goes out without proof.
 
 **Recording:** Pre-answer Origin, Why/how/what, Alternatives and Audience before recording; show one question screen only.
 
@@ -221,7 +221,7 @@ Route `end card (edited, not app copy)` · depends on NO DEPENDENCY · placehold
 
 **0:18** I give it our name and our website. It reads the site and pulls out what we actually say about ourselves, each fact with the line it came from.
 
-**0:36** A few quick questions, and it already knows half the answers. I pick a voice, Candid founder, and set it to strict: no claim goes out without proof.
+**0:36** A few quick questions, with what it found on our site shown beside each one. I pick a voice, Candid founder, and set it to strict: no claim goes out without proof.
 
 **0:52** Now it drafts our purpose, and shows me exactly where it got it from. It is told to mark anything it had to guess. I approve it, and that decision is recorded. Positioning and voice work the same way.
 
