@@ -91,6 +91,21 @@ try {
   await page.waitForURL((u) => u.pathname === screens[0]);
   log(`PASS: deep link ${screens[0]} loads, in-app link to /screens works, back returns to ${screens[0]}`);
 
+  // The theme survives navigation: open the index in the last theme, follow a screen link, follow the screen's
+  // own first link to another screen if it has one, and the document must still carry that theme.
+  const persist = themes[themes.length - 1];
+  await load(page, `/screens?theme=${persist}`);
+  await page.locator('main a[href^="/screens/"]').first().click();
+  await page.locator('main').first().waitFor();
+  const inScreen = page.locator('main a[href^="/screens/"]').first();
+  if (await inScreen.count()) {
+    await inScreen.click();
+    await page.locator('main').first().waitFor();
+  }
+  const kept = await page.evaluate(() => [document.documentElement.getAttribute('data-theme'), location.pathname + location.search]);
+  if (kept[0] !== persist) throw new Error(`theme ${persist} lost after navigating to ${kept[1]} (data-theme=${kept[0]})`);
+  log(`PASS: theme ${persist} kept after in-gallery navigation to ${kept[1]}`);
+
   const failures = [];
   let next = 0;
   async function worker() {

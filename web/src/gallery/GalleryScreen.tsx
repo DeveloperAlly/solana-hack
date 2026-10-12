@@ -29,10 +29,11 @@ export function GalleryScreen() {
   }
   const state = pick(params.get('state'), entry.states);
   return (
-    <div className={styles.page}>
-      {/* The screen comes first so its shell's skip link is the page's first focusable element; the gallery bar
-          follows it in the DOM and sits at the bottom of the viewport, so visual and focus order agree. */}
-      {entry.render(state)}
+    <div className={styles.frame}>
+      {/* The screen comes first so its shell's skip link is the page's first focusable element. It scrolls inside the
+          stage, and the gallery bar sits below the stage, always in view (Codex review on PR #66), so visual and focus
+          order agree. */}
+      <div className={styles.stage}>{entry.render(state)}</div>
       <GalleryToolbar placement="bottom" theme={theme} title={<><Link href={`/screens${q}`}>All screens</Link> / {entry.artboard}</>}>
         {/* Every gallery screen renders fixtures, so the frame says so once (Codex review on PR #66). */}
         <SampleFlag />
