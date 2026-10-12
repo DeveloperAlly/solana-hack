@@ -36,6 +36,20 @@ function at(step: string) {
   return render(<MemoryRouter initialEntries={[`/journey/${step}`]}><LiveJourneyProvider><Routes><Route path="/journey/gapsVoice" element={<LiveJourneyScreen target="gapsVoice" />} /><Route path="/journey/approveKit" element={step === 'approveKit' ? <LiveJourneyScreen target="approveKit" /> : <div>Kit review route</div>} /><Route path="/journey/firstPost" element={<LiveJourneyScreen target="firstPost" />} /><Route path="/journey/proof" element={<LiveJourneyScreen target="proof" />} /></Routes></LiveJourneyProvider></MemoryRouter>);
 }
 describe('Live Journey endpoint integration', () => {
+  // Issue #114 T1.09: a finished read that kept no facts showed "facts appear as each page is read" forever.
+  it('shows a finished read with no facts as an empty result with ways forward, not as still reading', async () => {
+    state.journey!.read.sources = [{ id: 'src', label: 'brand.example', status: 'read', facts: 0 }];
+    render(<MemoryRouter initialEntries={['/journey/read']}><LiveJourneyProvider><Routes><Route path="/journey/read" element={<LiveJourneyScreen target="read" />} /></Routes></LiveJourneyProvider></MemoryRouter>);
+    await screen.findByRole('heading', { name: /We found nothing we could quote on/ });
+    expect(screen.queryByText('Facts appear here as each page is read, each with the line it came from.')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Start with a few questions' })).toBeInTheDocument();
+  });
+  it('keeps showing reading while a source is still being read', async () => {
+    state.journey!.read.sources = [{ id: 'src', label: 'brand.example', status: 'reading' }];
+    render(<MemoryRouter initialEntries={['/journey/read']}><LiveJourneyProvider><Routes><Route path="/journey/read" element={<LiveJourneyScreen target="read" />} /></Routes></LiveJourneyProvider></MemoryRouter>);
+    await screen.findByText('Facts appear here as each page is read, each with the line it came from.');
+    expect(screen.queryByText(/We found nothing we could quote/)).not.toBeInTheDocument();
+  });
   it('requires human review of all six sections; three approved gates alone cannot register', async () => {
     const gates = ['purpose', 'positioning', 'voice'];
     state.sections = ['purpose', 'positioning', 'voice', 'audience', 'origin', 'messaging'].map(section => ({ section, body: `Actual ${section} draft`, status: gates.includes(section) ? 'approved' : 'drafted' }));

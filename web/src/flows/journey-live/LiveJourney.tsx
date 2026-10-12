@@ -38,7 +38,7 @@ const sleep = (ms: number, signal: AbortSignal) => new Promise<void>((resolve) =
   signal.addEventListener('abort', done, { once: true });
 });
 
-interface LiveContextValue { state: JourneyBrandState | null; loading: boolean; error?: string; reload: () => Promise<void>; prepare: (target: JourneyTarget) => Promise<void>; voice: GapsVoiceData['voice']; post: Post | null; claimMap: ClaimMap | null }
+interface LiveContextValue { state: JourneyBrandState | null; loading: boolean; error?: string; /** A read run is still being followed. */ reading: boolean; reload: () => Promise<void>; prepare: (target: JourneyTarget) => Promise<void>; voice: GapsVoiceData['voice']; post: Post | null; claimMap: ClaimMap | null }
 const LiveContext = createContext<LiveContextValue | null>(null);
 
 export const liveJourneyHref = (target: JourneyTarget) => ({ ledger: '/ledger', basics: '/build/basics', brandBuild: '/brand', contentDashboard: '/create', settingsAi: '/preview/Settings-AI', partners: '/preview/Partners', hub: '/home', main: '/' } as Partial<Record<JourneyTarget, string>>)[target] ?? `/journey/${target}`;
@@ -64,6 +64,9 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [progress, setProgress] = useState<string>();
+  // Read runs being followed now: the Read screen shows "reading" only while one is, so a finished read with no facts
+  // shows its real result (issue #114, T1.09) instead of an endless spinner.
+  const [activeReads, setActiveReads] = useState(0);
   const ctrl = useRef(new AbortController());
   const currentId = useRef(brandId); currentId.current = brandId;
   const reloadRevision = useRef(0);
@@ -81,7 +84,7 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
       facts: Object.fromEntries(result.evidence.flatMap<[string, FactRecord]>(e => e.owner_decision === 'confirmed' ? [[e.id, { decision: 'accepted' }]] : e.owner_decision === 'rejected' ? [[e.id, { decision: 'rejected' }]] : e.owner_decision === 'edited' ? [[e.edited_from || e.id, { decision: 'edited', edit: e.claim }]] : [])),
     }));
   }, []);
-  const follow = useCallback(async (runId: string, id: string, signal = ctrl.current.signal) => {
+  const followOnce = useCallback(async (runId: string, id: string, signal: AbortSignal) => {
     const result = await followRun(runId, {
       get: async rid => (await api<{ run: RunView }>(`/runs/${rid}`, { signal })).run,
       sleep: ms => sleep(ms, signal), cancelled: () => signal.aborted || currentId.current !== id,
@@ -92,6 +95,11 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
     setProgress(undefined);
     if (result.status !== 'done') throw new Error(result.error || 'The read did not finish. Retry the source.');
   }, [reload]);
+  const follow = useCallback(async (runId: string, id: string, signal = ctrl.current.signal) => {
+    setActiveReads(n => n + 1);
+    try { await followOnce(runId, id, signal); } finally { setActiveReads(n => Math.max(0, n - 1)); }
+  }, [followOnce]);
+
   const addSource = useCallback(async (input: SourceInput, id = currentId.current) => {
     if (!id) throw new Error('Start your brand first.');
     const signal = ctrl.current.signal;
@@ -286,7 +294,7 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
   };
   const visibleState = session && (!catalog.id || catalog.id === state?.brand.id) && (!state?.brand.owner_id || state.brand.owner_id === session.user.id) ? state : null;
   const sources = visibleState ? readView(visibleState).sources : [];
-  return <LiveContext.Provider value={{ state: visibleState, loading, error, reload, prepare, voice, post: visibleState ? post : null, claimMap: visibleState ? claimMap : null }}>
+  return <LiveContext.Provider value={{ state: visibleState, loading, error, reading: activeReads > 0, reload, prepare, voice, post: visibleState ? post : null, claimMap: visibleState ? claimMap : null }}>
     <JourneyHrefContext.Provider value={liveJourneyHref}>
       <JourneyFlowContext.Provider value={{ selections, actions, busy: loading, error, status: progress || (session?.user.is_anonymous ? 'Read before signing in' : session?.user.email || 'Not signed in') }}>
         <JourneySourcesContext.Provider value={{ sources,
@@ -308,7 +316,12 @@ export function LiveJourneyScreen({ target }: { target: JourneyTarget }) {
   if (target === 'main') return <Main data={{ ...mainFixture, example: null }} />;
   const s = live.state;
   if (!s) return <Container><StatePanel kind={live.error ? 'error' : 'loading'} title={live.error ? 'Could not load your brand' : 'Loading your brand'} body={live.error || 'Your saved journey will appear here.'} actions={<Button href="/">Start with your website</Button>} /></Container>;
-  if (target === 'read') return <J1Read data={readView(s)} state={readView(s).facts.length ? 'success' : live.error ? 'error' : 'loading'} />;
+  if (target === 'read') {
+    const read = readView(s);
+    // Empty only when nothing is still being read: no run followed, and no source reading or queued.
+    const stillReading = live.reading || !read.sources.length || read.sources.some(x => x.status === 'reading' || x.status === 'queued');
+    return <J1Read data={read} state={read.facts.length ? 'success' : live.error ? 'error' : stillReading ? 'loading' : 'empty'} />;
+  }
   if (target === 'save') return <J2Save data={{ ...saveView(s), signedInEmail: !session?.user.is_anonymous ? session?.user.email : undefined }} />;
   if (target === 'confirm') return <J3Confirm data={confirmView(s)} />;
   if (live.loading || live.error) return <Container><StatePanel kind={live.error ? 'error' : 'loading'} title={live.error ? 'This step needs attention' : 'Preparing your brand'} body={live.error || 'Your saved decisions are being used to prepare the next step.'} actions={live.error && <Button onClick={() => void live.prepare(target).catch(() => undefined)}>Try again</Button>} /></Container>;

@@ -54,7 +54,8 @@ export function J1Read({ data, state = 'success' }: ReadProps) {
     success: null,
     loading: <StatePanel kind="loading" title={`Reading ${site}`} body="Facts appear here as each page is read, each with the line it came from." />,
     error: <StatePanel kind="error" title={`We couldn't read ${site}`} body="Paste its text or upload a file on the left, or skip to a few questions." actions={<Button variant="secondary" href={to('basics')}>Start with a few questions</Button>} />,
-    empty: <EmptyState title="Nothing to read on this site yet" body="We'll ask a few short questions instead." actions={<Button href={to('basics')}>Start with a few questions</Button>} />,
+    // Reading finished and no line on the page could back a fact: say so, and offer the ways forward.
+    empty: <EmptyState title={`We found nothing we could quote on ${site}`} body="Every fact needs a line from the page. Paste text about your brand or add another page on the left, or answer a few questions instead." actions={<Button href={to('basics')}>Start with a few questions</Button>} />,
   };
   return (
     <JourneyStepFrame
@@ -64,7 +65,7 @@ export function J1Read({ data, state = 'success' }: ReadProps) {
       footer={
         <>
           <ProgressBar grow showLabel label={`${c.found} of 6 kit sections found · ${c.partly} partly · ${c.needsYou} need you`} segments={[{ value: c.percent, label: 'Covered' }]} />
-          <JourneyNextButton href={to('save')} ready={data.facts.length > 0} hint="Nothing to keep yet: facts appear as each page is read.">Keep these and continue</JourneyNextButton>
+          <JourneyNextButton href={to('save')} ready={data.facts.length > 0} hint={state === 'empty' ? 'No facts found yet: add a page or paste text, or answer a few questions.' : 'Nothing to keep yet: facts appear as each page is read.'}>Keep these and continue</JourneyNextButton>
         </>
       }
     >
