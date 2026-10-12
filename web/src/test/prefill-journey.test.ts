@@ -18,7 +18,7 @@ const { db: rest } = await import('../../worker/db');
 const { coverageMap } = await import('../../worker/prefill/coverage');
 const { FIELDS } = await import('../../worker/prefill/fields');
 const { readData, confirmData, gapsData, journeySources, sourceStatus } = await import('../../worker/prefill/journey');
-const { decideFact, parseRecord, resolveConflict } = await import('../../worker/prefill/decide');
+const { answerSection, decideFact, parseRecord, resolveConflict } = await import('../../worker/prefill/decide');
 const { quoteOnPage, normalisePage } = await import('../../worker/quote');
 
 function propose(user: string) {
@@ -325,11 +325,11 @@ describe('conflicts (B3a) reach the owner with both quotes, and the owner resolv
   });
   it('the owner resolves it through POST /api/brands/:id/conflicts/:cid/resolve', async () => {
     expect((await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, {})).status).toBe(400);
-    expect((await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { keep: 'not-an-id' })).status).toBe(400);
-    expect((await call('POST', `/brands/${BRAND}/conflicts/not-an-id/resolve`, { keep: null })).status).toBe(404);
+    expect((await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { mode: 'keep', keep: ['not-an-id'] })).status).toBe(400);
+    expect((await call('POST', `/brands/${BRAND}/conflicts/not-an-id/resolve`, { mode: 'reject_all' })).status).toBe(404);
     // A drafted section citing the side that loses must be redrafted before the next kit.
     db.tables.kit_sections.push({ brand_id: BRAND, section: 'origin', citations: [site2019().id] }, { brand_id: BRAND, section: 'purpose', citations: [news2020().id] });
-    const r = await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { keep: news2020().id });
+    const r = await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { mode: 'keep', keep: [news2020().id] });
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ conflict: cid(), kept: [news2020().id], rejected: [site2019().id], stale: ['origin'] });
     expect([news2020().review_status, site2019().review_status]).toEqual(['approved', 'rejected']);
@@ -337,31 +337,61 @@ describe('conflicts (B3a) reach the owner with both quotes, and the owner resolv
     expect(confirmData(await state()).conflicts).toEqual([]);
   });
   it('the owner\'s own answer through the route: every side rejected and the answer saved, in one call', async () => {
-    expect((await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { answer: { claim: 'Founded in 2018.', value: '' } })).status).toBe(400);
-    const r = await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { answer: { claim: 'Tidewater was founded in 2018.', value: '2018' } });
+    expect((await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { mode: 'answer', answer: { text: 'Founded in 2018.', value: '' } })).status).toBe(400);
+    const r = await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { mode: 'answer', answer: { text: 'Tidewater was founded in 2018.', value: '2018' } });
     expect(r.status).toBe(200);
     expect([site2019().review_status, news2020().review_status]).toEqual(['rejected', 'rejected']);
     expect(evidence().find((e) => e.id === r.body.answer)).toMatchObject({ claim: 'Tidewater was founded in 2018.', trust: 'owner_answer', review_status: 'approved', slot: 'founded', slot_value: '2018' });
   });
+  it('an ambiguous resolve body is refused with 400 before anything changes (PR #101 review)', async () => {
+    const before = JSON.stringify([evidence(), db.tables.fact_conflicts]);
+    const answer = { text: 'Tidewater was founded in 2018.', value: '2018' };
+    const bodies: unknown[] = [
+      { answer, keep: null }, { answer, keep: [site2019().id] }, { keep: [site2019().id] }, { keep: null }, { answer },
+      { mode: 'keep', keep: [site2019().id], answer }, { mode: 'keep', keep: [] }, { mode: 'keep', keep: site2019().id }, { mode: 'keep' },
+      { mode: 'reject_all', keep: null }, { mode: 'reject_all', answer }, { mode: 'answer', answer, keep: [site2019().id] },
+      { mode: 'answer', answer: { ...answer, claim: 'x' } }, { mode: 'answer', answer: { text: answer.text } }, { mode: 'answer' },
+      { mode: 'answer', answer: 'Tidewater was founded in 2018.' }, { mode: 'pick', keep: [site2019().id] }, { mode: 'keep', keep: [site2019().id], note: 'x' },
+      // Facts on two different sides.
+      { mode: 'keep', keep: [site2019().id, news2020().id] },
+    ];
+    for (const b of bodies) {
+      const r = await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, b);
+      expect(r.status, JSON.stringify(b)).toBe(400);
+    }
+    expect(JSON.stringify([evidence(), db.tables.fact_conflicts])).toBe(before);
+  });
+  it('the owner\'s answer is filed under one section whatever order the sides come back in (PR #101 review)', async () => {
+    // The two sides in different sections: the site files founding under origin, the news fact here under positioning.
+    db.tables.evidence.find((e) => e.id === news2020().id)!.section = 'positioning';
+    expect(answerSection([{ id: 'a', section: 'positioning' }, { id: 'b', section: 'origin' }])).toBe(answerSection([{ id: 'b', section: 'origin' }, { id: 'a', section: 'positioning' }]));
+    // A tie goes to kit section order (origin before positioning); a majority wins; a reworded fact keeps its own section.
+    expect(answerSection([{ id: 'a', section: 'positioning' }, { id: 'b', section: 'origin' }])).toBe('origin');
+    expect(answerSection([{ id: 'a', section: 'positioning' }, { id: 'b', section: 'origin' }, { id: 'c', section: 'positioning' }])).toBe('positioning');
+    expect(answerSection([{ id: 'a', section: 'positioning' }, { id: 'b', section: 'origin' }], 'a')).toBe('positioning');
+    db.tables.evidence.reverse();
+    const r = await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { mode: 'answer', answer: { text: 'Tidewater was founded in 2018.', value: '2018' } });
+    expect(evidence().find((e) => e.id === r.body.answer)!.section).toBe('origin');
+  });
   it('two tabs resolving at once: the second gets the database\'s 409, and nothing changes (PR #101 review)', async () => {
-    await resolveConflict(envWith, user, brand, cid(), { keep: site2019().id });
+    await resolveConflict(envWith, user, brand, cid(), { mode: 'keep', keep: [site2019().id] });
     const before = JSON.stringify(evidence());
-    const r = await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { keep: news2020().id });
+    const r = await call('POST', `/brands/${BRAND}/conflicts/${cid()}/resolve`, { mode: 'keep', keep: [news2020().id] });
     expect(r.status).toBe(409);
     expect(JSON.stringify(evidence())).toBe(before);
-    await expect(resolveConflict(envWith, user, brand, '00000000-0000-4000-8000-999999999999', { keep: null })).rejects.toMatchObject({ status: 404 });
+    await expect(resolveConflict(envWith, user, brand, '00000000-0000-4000-8000-999999999999', { mode: 'reject_all' })).rejects.toMatchObject({ status: 404 });
   });
   it('a kept fact deleted in another tab is refused with 409, never turned into rejecting every side (PR #101 review)', async () => {
     const gone = news2020().id;
     // The row disappears while its id is still listed on the conflict (as a delete racing the owner's pick would leave it).
     db.tables.evidence = db.tables.evidence.filter((e) => e.id !== gone);
-    await expect(resolveConflict(envWith, user, brand, cid(), { keep: gone })).rejects.toMatchObject({ status: 409 });
+    await expect(resolveConflict(envWith, user, brand, cid(), { mode: 'keep', keep: [gone] })).rejects.toMatchObject({ status: 409 });
     expect(site2019().review_status).toBe('proposed');
     expect(db.tables.fact_conflicts[0].status).toBe('open');
   });
-  it('keep must be a fact on the conflict; keep null rejects every side', async () => {
-    await expect(resolveConflict(envWith, user, brand, cid(), { keep: byClaim('Tidewater says "Fresh roast, fair price."').id })).rejects.toMatchObject({ status: 400 });
-    await resolveConflict(envWith, user, brand, cid(), { keep: null });
+  it('keep must be facts on the conflict; reject_all rejects every side', async () => {
+    await expect(resolveConflict(envWith, user, brand, cid(), { mode: 'keep', keep: [byClaim('Tidewater says "Fresh roast, fair price."').id] })).rejects.toMatchObject({ status: 400 });
+    await resolveConflict(envWith, user, brand, cid(), { mode: 'reject_all' });
     expect([site2019().review_status, news2020().review_status]).toEqual(['rejected', 'rejected']);
   });
   it('accepting a disputed card resolves the conflict for its side', async () => {
@@ -380,6 +410,20 @@ describe('conflicts (B3a) reach the owner with both quotes, and the owner resolv
     expect([news2020().review_status, site2019().review_status]).toEqual(['rejected', 'rejected']);
     expect(evidence().find((e) => e.id === out.evidence.id)).toMatchObject({ trust: 'owner_answer', review_status: 'approved', slot_value: '2018', edited_from: site2019().id });
     expect(db.tables.fact_conflicts[0].status).toBe('resolved');
+  });
+  it('re-approving the losing side after a resolve brings the conflict question back, and neither value is usable (#91 Codex 4250152515)', async () => {
+    await resolveConflict(envWith, user, brand, cid(), { mode: 'keep', keep: [site2019().id] });
+    expect(coverageMap(await state()).questions.some((q) => q.kind === 'conflict')).toBe(false);
+    const r = await call('PATCH', `/brands/${BRAND}/evidence/${news2020().id}`, { review_status: 'approved' });
+    expect(r.status).toBe(200);
+    const open = db.tables.fact_conflicts.filter((c) => c.status === 'open');
+    expect(open).toHaveLength(1);
+    const s = await state();
+    const q = coverageMap(s).questions.find((x) => x.kind === 'conflict')!;
+    expect(q.sides!.map((x) => x.value).sort()).toEqual(['2019', '2020']);
+    expect(confirmData(s).conflicts).toHaveLength(1);
+    // Neither side backs a kit while the question is open (usableFact: approved only).
+    expect([site2019().review_status, news2020().review_status]).toEqual(['proposed', 'proposed']);
   });
   it('rejecting the sole fact on one side dissolves the conflict: no conflict question remains (PR #101 review)', async () => {
     await call('PATCH', `/brands/${BRAND}/evidence/${news2020().id}`, { review_status: 'rejected' });

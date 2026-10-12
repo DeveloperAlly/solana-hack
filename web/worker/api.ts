@@ -8,7 +8,7 @@ import { activeRun, getRun, ingestSource, startRun } from './engine/api';
 import { addSocialExport, findCompetitors, listCompetitors, uploadDocument } from './intake';
 import type { WaitUntil } from './engine/executor';
 import { reviewable, usableFact } from './sources/registry';
-import { resolveConflict } from './prefill/decide';
+import { parseResolution, resolveConflict } from './prefill/decide';
 import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
@@ -395,22 +395,14 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
     const b = await body(req);
     return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20), user.id));
   }
-  // POST /api/brands/:id/conflicts/:cid/resolve {keep: factId | null} or {answer: {claim, value}}
-  //   -> {conflict, kept, rejected, answer, stale}
-  // The owner settles a disagreement between sources (backlog B3a, issue #34): keep the side of one fact, reject every
-  // side, or give their own answer. One transaction (spec/db/011 resolve_fact_conflict, through prefill/decide.ts).
+  // POST /api/brands/:id/conflicts/:cid/resolve  -> {conflict, kept, rejected, answer, stale}
+  //   {mode: 'keep', keep: [factId, ...]} | {mode: 'reject_all'} | {mode: 'answer', answer: {text, value}}
+  // The owner settles a disagreement between sources (backlog B3a, issue #34). The body is checked whole first
+  // (prefill/decide.ts parseResolution: one mode, no other fields); then one transaction (spec/db/011
+  // resolve_fact_conflict).
   if (p[3] === 'conflicts' && p.length === 6 && p[5] === 'resolve' && m === 'POST') {
     if (!/^[0-9a-f-]{36}$/i.test(p[4])) throw new HttpError(404, 'conflict not found');
-    const b = await body(req);
-    if (b.answer && typeof b.answer === 'object' && !('keep' in b)) {
-      const a = b.answer as Record<string, unknown>;
-      const claim = str(a.claim, 501);
-      const value = str(a.value, 121);
-      if (!claim || claim.length > 500 || !value || value.length > 120) throw new HttpError(400, 'your answer needs its wording (up to 500 characters) and its value (up to 120)');
-      return json(await resolveConflict(env, user, brand, p[4], { answer: { claim, value } }));
-    }
-    if (!('keep' in b) || (b.keep !== null && (typeof b.keep !== 'string' || !/^[0-9a-f-]{36}$/i.test(b.keep)))) throw new HttpError(400, 'keep must be the id of a fact on the side you choose, or null to reject every side; or give your own answer');
-    return json(await resolveConflict(env, user, brand, p[4], { keep: b.keep as string | null }));
+    return json(await resolveConflict(env, user, brand, p[4], parseResolution(await body(req))));
   }
   // Sources converted when they are added, then read into fact extraction (intake.ts; R9 on #38, #33): a document
   // upload and the owner's own social export. Competitor candidates for the positioning step (#35).

@@ -11,6 +11,7 @@ import { db } from '../db';
 import { HttpError, type Env } from '../env';
 import { resolveFactConflict } from '../extract/conflicts';
 import { normText } from '../extract/facts';
+import { SECTIONS } from '../kit';
 import type { FactRecord } from './contract';
 
 /** The review operations a decision runs through: api.ts reviewEvidence, and PR #96's journey.ts editFact. */
@@ -62,31 +63,97 @@ async function citing(env: Env, brandId: string, factIds: string[]) {
   return sections.filter((s) => (s.citations ?? []).some((c) => gone.has(c))).map((s) => s.section);
 }
 
-/** How the owner settles a conflict: keep the side of one fact, reject every side, or give their own answer. */
-export type Resolution = { keep: string | null } | { answer: { claim: string; value: string; editedFrom?: string } };
+/**
+ * How the owner settles a conflict, exactly one mode (PR #101 review): keep a side (the facts the owner picked, all on
+ * one side), reject every side, or give their own answer (its wording and the value alone, for example the year).
+ */
+export type Resolution =
+  | { mode: 'keep'; keep: string[] }
+  | { mode: 'reject_all' }
+  | { mode: 'answer'; answer: { text: string; value: string; editedFrom?: string } };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const only = (o: Record<string, unknown>, keys: string[], what: string) => {
+  const extra = Object.keys(o).filter((k) => !keys.includes(k));
+  if (extra.length) throw new HttpError(400, `${what} takes only ${keys.join(', ')}; remove ${extra.join(', ')}`);
+};
 
 /**
- * Resolves a conflict (B3a: "the system never picks"; the owner does). `keep` is any fact on the side the owner chose:
- * every live fact giving that value is kept and the rest rejected. `keep` null rejects every side. `answer` rejects
- * every side and saves the owner's own value as an approved owner answer, in the same transaction.
+ * The resolve body, checked whole at the boundary before anything is written: exactly one mode, its own fields and no
+ * others, each of the right type and length. An ambiguous body ({answer, keep: null}, a mode with another mode's
+ * fields, unknown fields) is a 400, never read as one of the choices it names.
+ */
+export function parseResolution(b: Record<string, unknown>): Resolution {
+  switch (b.mode) {
+    case 'keep': {
+      only(b, ['mode', 'keep'], 'mode keep');
+      const keep = b.keep;
+      if (!Array.isArray(keep) || !keep.length || keep.length > 50 || !keep.every((k) => typeof k === 'string' && UUID.test(k))) throw new HttpError(400, 'keep must list the ids of the facts on the side you choose');
+      return { mode: 'keep', keep: [...new Set(keep as string[])].sort() };
+    }
+    case 'reject_all':
+      only(b, ['mode'], 'mode reject_all');
+      return { mode: 'reject_all' };
+    case 'answer': {
+      only(b, ['mode', 'answer'], 'mode answer');
+      const a = b.answer;
+      if (!a || typeof a !== 'object' || Array.isArray(a)) throw new HttpError(400, 'answer must be {text, value}');
+      only(a as Record<string, unknown>, ['text', 'value'], 'answer');
+      const { text, value } = a as Record<string, unknown>;
+      const t = typeof text === 'string' ? text.trim() : '';
+      const v = typeof value === 'string' ? value.trim() : '';
+      if (!t || t.length > MAX_EDIT) throw new HttpError(400, `your answer's wording must be 1 to ${MAX_EDIT} characters`);
+      if (!v || v.length > MAX_VALUE) throw new HttpError(400, `your answer's value must be 1 to ${MAX_VALUE} characters`);
+      return { mode: 'answer', answer: { text: t, value: v } };
+    }
+    default:
+      throw new HttpError(400, "mode must be 'keep', 'reject_all' or 'answer'");
+  }
+}
+
+/**
+ * The kit section an owner's answer to a conflict is filed under. The section of the fact it rewords, when it rewords
+ * one (as PR #96's editFact keeps it). Otherwise the section most of the conflict's facts are filed under, ties broken
+ * by kit section order (kit.ts SECTIONS): a rule over the facts themselves, so the same conflict always gives the same
+ * section whatever order the database returns rows in (PR #101 review). There is no slot-to-section table to read it
+ * from: extract/facts.ts SLOTS holds each slot's label only, and extraction files every fact under its own section.
+ */
+export function answerSection(facts: Pick<FactRow, 'id' | 'section'>[], editedFrom?: string): string {
+  const from = editedFrom ? facts.find((f) => f.id === editedFrom) : undefined;
+  if (from) return from.section;
+  const order = Object.keys(SECTIONS);
+  const count = new Map<string, number>();
+  for (const f of facts) if (f.section in SECTIONS) count.set(f.section, (count.get(f.section) ?? 0) + 1);
+  return [...count].sort(([a, x], [b, y]) => y - x || order.indexOf(a) - order.indexOf(b))[0]?.[0] ?? '';
+}
+
+/**
+ * Resolves a conflict (B3a: "the system never picks"; the owner does). keep: the facts the owner picked must all give
+ * one value; every live fact giving that value is kept and the rest rejected. reject_all: every side rejected. answer:
+ * every side rejected and the owner's own value saved as an approved owner answer, in the same transaction.
  * Every check that can race (the conflict already resolved in another tab, a kept fact deleted or rejected since it
  * was shown) is the database function's, so the answer to a race is its 409, not a check made a moment earlier here.
  */
 export async function resolveConflict(env: Env, user: { id: string }, brand: { id: string }, conflictId: string, how: Resolution) {
   const [c] = await db.select<ConflictRow>(env, 'fact_conflicts', `${db.eq('id', conflictId)}&${db.eq('brand_id', brand.id)}&select=id,evidence_ids`);
   if (!c) throw new HttpError(404, 'conflict not found');
-  const facts = await db.select<FactRow>(env, 'evidence', `${db.eq('brand_id', brand.id)}&id=in.(${ids(c.evidence_ids)})&select=id,section,review_status,trust,slot_value,slot_key`);
+  const facts = await db.select<FactRow>(env, 'evidence', `${db.eq('brand_id', brand.id)}&id=in.(${ids(c.evidence_ids)})&select=id,section,review_status,trust,slot_value,slot_key&order=id.asc`);
   const live = facts.filter((f) => f.review_status !== 'rejected' && f.trust !== 'owner_answer');
   let keep: string[] = [];
   let answer: Parameters<typeof resolveFactConflict>[1]['answer'];
-  if ('answer' in how) {
-    const section = (facts.find((f) => f.id === how.answer.editedFrom) ?? live[0] ?? facts[0])?.section ?? '';
-    answer = { section, claim: how.answer.claim, value: how.answer.value, ...(how.answer.editedFrom ? { editedFrom: how.answer.editedFrom } : {}) };
-  } else if (how.keep !== null) {
-    const kept = live.find((f) => f.id === how.keep);
-    // A kept fact that is gone or rejected is passed as asked, so the database refuses it (409: reload) instead of
-    // this code quietly keeping nothing, which would reject the side the owner chose.
-    keep = kept ? live.filter((f) => keyOf(f) === keyOf(kept)).map((f) => f.id).sort() : [how.keep];
+  if (how.mode === 'answer') {
+    answer = { section: answerSection(facts, how.answer.editedFrom), claim: how.answer.text, value: how.answer.value, ...(how.answer.editedFrom ? { editedFrom: how.answer.editedFrom } : {}) };
+  } else if (how.mode === 'keep') {
+    const picked = how.keep.map((id) => live.find((f) => f.id === id));
+    if (picked.every((f): f is FactRow => !!f)) {
+      const keys = new Set(picked.map(keyOf));
+      if (keys.size > 1) throw new HttpError(400, 'keep names facts on different sides; choose one side');
+      keep = live.filter((f) => keys.has(keyOf(f))).map((f) => f.id).sort();
+    } else {
+      // A picked fact that is gone or rejected is passed as asked, so the database refuses it (409: reload) instead
+      // of this code quietly keeping less than the owner chose.
+      keep = how.keep;
+    }
   }
   const out = await resolveFactConflict(env, { brandId: brand.id, conflictId: c.id, by: user.id, keep, ...(answer ? { answer } : {}) });
   const rejected = live.filter((f) => !keep.includes(f.id)).map((f) => f.id).sort();
@@ -106,7 +173,7 @@ export async function decideFact(env: Env, user: { id: string }, brand: { id: st
   const conflict = record.decision === 'rejected' ? undefined : await openConflictOf(env, brand.id, id);
   if (record.decision === 'accepted') {
     if (!conflict) return ops.review(env, brand, id, 'approved', user.id);
-    const resolved = await resolveConflict(env, user, brand, conflict.id, { keep: id });
+    const resolved = await resolveConflict(env, user, brand, conflict.id, { mode: 'keep', keep: [id] });
     return { evidence: { id, review_status: 'approved' }, stale: resolved.stale, resolved };
   }
   if (record.decision === 'edited') {
@@ -117,7 +184,7 @@ export async function decideFact(env: Env, user: { id: string }, brand: { id: st
       return out;
     }
     if (!record.value) throw new HttpError(400, 'this fact is part of a disagreement: give the value in your own words (for example the year) with your wording');
-    const resolved = await resolveConflict(env, user, brand, conflict.id, { answer: { claim: record.edit, value: record.value, editedFrom: id } });
+    const resolved = await resolveConflict(env, user, brand, conflict.id, { mode: 'answer', answer: { text: record.edit, value: record.value, editedFrom: id } });
     return { evidence: { id: resolved.answer }, replaced: id, stale: resolved.stale, resolved };
   }
   return ops.review(env, brand, id, 'rejected', user.id);
