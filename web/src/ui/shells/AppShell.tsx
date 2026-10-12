@@ -7,40 +7,49 @@ import { AppFrame } from '../layouts/AppFrame';
 import { useGalleryMode } from '../hooks/galleryMode';
 import styles from './AppShell.module.css';
 
-// preview: rendered inside /system, so it must not add a second <main>, skip link or nav landmark name to that page.
-// brandSlot: the D48 BrandSwitcher (or any control), placed before Sign out (issue #46).
-// Optional, for screens outside the live routes (issue #52, the screen gallery): nav replaces the M1 hub nav, homeHref
-// the logo target, activePath marks one nav item as current (when the URL alone cannot), subnav renders below the bar,
-// onSignOut replaces the Supabase sign-out. All default to the live behaviour, so existing uses are unchanged.
+const livePath = (path: string) => path;
+
+/**
+ * One prop set for every page (issue #46; settles ui/48-journey `navHref` and ui/52-superhub `nav`, `homeHref`,
+ * `activePath`, `subnav`, `onSignOut`). Content goes in slots; routing goes through one mapping function.
+ */
 export interface AppShellProps {
-  brandName?: string;
   children?: ReactNode;
-  preview?: boolean;
+  /** Brand name beside the logo. */
+  brandName?: string;
+  /** Slot before Sign out: the D48 BrandSwitcher (or any control). */
   brandSlot?: ReactNode;
-  nav?: NavItem[];
-  homeHref?: string;
-  activePath?: string;
+  /** Slot under the top bar: section tabs. */
   subnav?: ReactNode;
-  onSignOut?: () => void;
+  /** Nav items (default: the M1 hub nav). */
+  nav?: NavItem[];
+  /**
+   * Maps each nav path, and the logo's /home, to its link target. The gallery maps them to typed screen paths
+   * (`(p) => screenPath(boardFor[p])`) so a composed screen's nav stays inside the gallery. Default: the live routes.
+   */
+  navHref?: (path: string) => string;
+  /** The nav path to mark current, when the URL alone cannot say (e.g. a sub-screen). Default: matched from the URL. */
+  activePath?: string;
+  /** Rendered inside /system: no second main landmark or skip link, a distinct nav name, and Sign out is inert. */
+  preview?: boolean;
 }
 
 /**
- * L1 AppShell (thin): the hub preset of L11 AppFrame. Hub top nav from M1 with tag labels, an optional brand switcher
- * slot, sign out, and a main slot (the chrome itself is AppFrame's, issue #46 shared consolidation).
+ * L1 AppShell (thin): the hub preset of L11 AppFrame. Hub top nav from M1 with tag labels, a brand slot, Sign out, a
+ * subnav slot and the main slot. Sign out is inert in preview and in the gallery (gallery mode, issue #46; Codex
+ * review on PR #79), so it can only ever sign a real session out on a live route.
  */
-export function AppShell({ brandName, children, preview = false, brandSlot, nav = hubNav, homeHref = '/home', activePath, subnav, onSignOut }: AppShellProps) {
+export function AppShell({ children, brandName, brandSlot, subnav, nav = hubNav, navHref = livePath, activePath, preview = false }: AppShellProps) {
   const navigate = useNavigate();
   const gallery = useGalleryMode();
-  // In the gallery, Sign out is inert unless the screen passes its own (fixture) onSignOut: it never reaches Supabase.
   async function signOut() {
-    if (onSignOut) return onSignOut();
-    if (gallery) return;
+    if (preview || gallery) return;
     await supabase?.auth.signOut();
     navigate('/', { replace: true });
   }
   const items = nav.map((item) => ({
     id: item.path,
-    href: item.path,
+    href: navHref(item.path),
     label: (
       <>
         {item.label}
@@ -50,7 +59,7 @@ export function AppShell({ brandName, children, preview = false, brandSlot, nav 
   }));
   return (
     <AppFrame
-      homeHref={homeHref}
+      homeHref={navHref('/home')}
       preview={preview}
       bodyPadding="none"
       context={brandName}
@@ -58,7 +67,7 @@ export function AppShell({ brandName, children, preview = false, brandSlot, nav 
       actions={
         <>
           {brandSlot}
-          <Button variant="secondary" onClick={preview ? undefined : signOut}>Sign out</Button>
+          <Button variant="secondary" onClick={signOut}>Sign out</Button>
         </>
       }
       subnav={subnav}

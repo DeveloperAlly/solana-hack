@@ -33,6 +33,11 @@ describe('D1 ApprovalItem', () => {
     expect(screen.getByRole('listitem')).toBeInTheDocument();
   });
 
+  it('shows numeric 0 in its slots', () => {
+    renderWithRouter(<ApprovalItem meta="m" note={0} draft={0} />);
+    expect(screen.getAllByText('0')).toHaveLength(2);
+  });
+
   it('blocked cards take the emphasis variant', () => {
     const { container } = renderWithRouter(<ApprovalItem meta="m" blocked />);
     expect(container.querySelector('article')?.className).toMatch(/emphasis/);

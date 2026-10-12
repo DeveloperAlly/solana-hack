@@ -50,19 +50,19 @@ export function ListRow({ lead, title, detail, aside, status, actions, selected 
   const text = (
     <>
       <span className={styles.title}>{title}</span>
-      {detail && <span className={styles.detail}>{detail}</span>}
+      {detail != null && <span className={styles.detail}>{detail}</span>}
     </>
   );
   return (
     <As className={cls}>
-      {lead && <div className={styles.lead}>{lead}</div>}
+      {lead != null && <div className={styles.lead}>{lead}</div>}
       {onSelect ? (
         <button type="button" className={`${styles.body} ${styles.select}`} aria-pressed={selected} onClick={onSelect}>{text}</button>
       ) : (
         <div className={styles.body} role={tone === 'failed' ? 'alert' : undefined}>{text}</div>
       )}
-      {aside && <div className={styles.aside}>{aside}</div>}
-      {(status || actions) && (
+      {aside != null && <div className={styles.aside}>{aside}</div>}
+      {(status || actions != null) && (
         <div className={styles.side}>
           {status && <Badge tone={status.tone}>{status.label}</Badge>}
           {actions}

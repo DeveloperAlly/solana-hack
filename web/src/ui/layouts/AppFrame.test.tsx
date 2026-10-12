@@ -44,6 +44,16 @@ describe('L11 AppFrame', () => {
     expect(screen.getByRole('button', { name: 'Join' })).toBeInTheDocument();
   });
 
+  it('stacks the footer above the tab bar in one sticky bottom region, so they cannot overlap', () => {
+    const { container } = renderWithRouter(<AppFrame homeHref="/" width="phone" footer={<button type="button">Publish</button>} nav={{ label: 'Tabs', items, current: 'a', placement: 'tabs' }}>x</AppFrame>);
+    const regions = container.querySelectorAll('[data-frame-bottom]');
+    expect(regions).toHaveLength(1);
+    const [first, second] = Array.from(regions[0].children);
+    expect(first).toContainElement(screen.getByRole('button', { name: 'Publish' }));
+    expect(second).toBe(screen.getByRole('navigation', { name: 'Tabs' }));
+    expect(regions[0]).toHaveClass('bottom');
+  });
+
   it('replaces the logo with a back link', () => {
     renderWithRouter(<AppFrame homeHref="/" back={{ href: '/list', label: 'Back' }} title="Detail">x</AppFrame>);
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/list');

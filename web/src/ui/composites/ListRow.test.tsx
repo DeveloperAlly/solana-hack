@@ -23,6 +23,11 @@ describe('C31 ListRow', () => {
     expect(onSelect).toHaveBeenCalled();
   });
 
+  it('shows numeric 0 in lead, detail and aside (null checks, not truthiness)', () => {
+    renderWithRouter(<List label="L"><ListRow lead={0} title="Unread" detail={0} aside={0} /></List>);
+    expect(screen.getAllByText('0')).toHaveLength(3);
+  });
+
   it('renders as a div outside a list and only the slots it is given', () => {
     const { container } = renderWithRouter(<ListRow as="div" title="Only" />);
     expect(container.querySelector('li')).toBeNull();

@@ -35,11 +35,11 @@ export function Meter({ label, value, min = 0, max = 100, threshold, valueText, 
   const text = valueText ?? (threshold === undefined ? `${value} of ${max}` : `${value}, threshold ${threshold}`);
   return (
     <div className={styles.root} data-below={meetsThreshold(value, threshold) ? undefined : true}>
-      {summary && <div className={styles.summary}>{summary}</div>}
+      {summary != null && <div className={styles.summary}>{summary}</div>}
       <div role="meter" aria-label={label} aria-valuenow={value} aria-valuemin={min} aria-valuemax={max} aria-valuetext={text}>
         <BarTrack segments={[{ pct: toPct(value) }]} marker={threshold === undefined ? undefined : toPct(threshold)} size={size} />
       </div>
-      {hint && <p className={styles.hint}>{hint}</p>}
+      {hint != null && <p className={styles.hint}>{hint}</p>}
     </div>
   );
 }

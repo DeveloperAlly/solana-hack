@@ -13,6 +13,10 @@ export interface InlineFormField {
   placeholder?: string;
   defaultValue?: string;
   inputMode?: HTMLAttributes<HTMLInputElement>['inputMode'];
+  autoComplete?: string;
+  /** A textarea instead of an input (a one-sentence voice, a draft); `rows` sets its height. */
+  multiline?: boolean;
+  rows?: number;
   /** Returns an error message, or null when the value is fine. Gets the trimmed value. */
   validate?: (value: string) => string | null;
 }
@@ -28,8 +32,14 @@ export interface InlineFormProps {
   /** Shows a Cancel button. */
   onCancel?: () => void;
   cancelLabel?: string;
-  /** Disables the submit button while a submit runs. */
+  /** Disables the submit button while a submit runs, and marks the form aria-busy. */
   busy?: boolean;
+  /** Submit label while busy, e.g. "Checking…". */
+  busyLabel?: string;
+  /** Errors from outside (a failed request), by field name; shown under the field until client validation has its own. */
+  errors?: Record<string, string | null | undefined>;
+  /** Validates from the first render, e.g. to show that a value carried in is invalid. */
+  validateOnMount?: boolean;
   /** `stacked` (default): fields above the buttons. `row`: one field and the button on one line, wrapping when narrow. */
   layout?: 'stacked' | 'row';
   /** `plain` (default) or `card` (a subtle Card around the form, for forms that open in place). */
@@ -45,11 +55,13 @@ export interface InlineFormProps {
 
 const initial = (fields: InlineFormField[]) => Object.fromEntries(fields.map((f) => [f.name, f.defaultValue ?? '']));
 
-function FormBody({ label, fields, submitLabel, submitVariant = 'primary', onSubmit, onCancel, cancelLabel = 'Cancel', busy = false, layout = 'stacked', surface = 'plain', resetOnSubmit = false }: Omit<InlineFormProps, 'triggerLabel'>) {
-  const [values, setValues] = useState<Record<string, string>>(() => initial(fields));
-  const [errors, setErrors] = useState<Record<string, string | null>>({});
-  const [submitted, setSubmitted] = useState(false);
+function FormBody({ label, fields, submitLabel, submitVariant = 'primary', onSubmit, onCancel, cancelLabel = 'Cancel', busy = false, busyLabel, errors: outside, validateOnMount = false, layout = 'stacked', surface = 'plain', resetOnSubmit = false }: Omit<InlineFormProps, 'triggerLabel'>) {
   const check = (f: InlineFormField, v: string) => f.validate?.(v.trim()) ?? null;
+  const [values, setValues] = useState<Record<string, string>>(() => initial(fields));
+  const [errors, setErrors] = useState<Record<string, string | null>>(() =>
+    validateOnMount ? Object.fromEntries(fields.map((f) => [f.name, check(f, f.defaultValue ?? '')])) : {},
+  );
+  const [submitted, setSubmitted] = useState(validateOnMount);
 
   function change(f: InlineFormField, v: string) {
     setValues((prev) => ({ ...prev, [f.name]: v }));
@@ -70,23 +82,28 @@ function FormBody({ label, fields, submitLabel, submitVariant = 'primary', onSub
   }
 
   const form = (
-    <form aria-label={label} onSubmit={submit} noValidate className={`${styles.form} ${styles[layout]}`}>
+    <form aria-label={label} aria-busy={busy || undefined} onSubmit={submit} noValidate className={`${styles.form} ${styles[layout]}`}>
       {fields.map((f) => (
         <div key={f.name} className={styles.field}>
-          <Field
-            label={f.label}
-            hint={f.hint}
-            type={f.type ?? 'text'}
-            placeholder={f.placeholder}
-            inputMode={f.inputMode}
-            value={values[f.name]}
-            error={errors[f.name]}
-            onChange={(e: { target: { value: string } }) => change(f, e.target.value)}
-          />
+          {f.multiline ? (
+            <Field label={f.label} hint={f.hint} placeholder={f.placeholder} multiline rows={f.rows ?? 2} value={values[f.name]} error={errors[f.name] ?? outside?.[f.name]} onChange={(e: { target: { value: string } }) => change(f, e.target.value)} />
+          ) : (
+            <Field
+              label={f.label}
+              hint={f.hint}
+              type={f.type ?? 'text'}
+              placeholder={f.placeholder}
+              inputMode={f.inputMode}
+              autoComplete={f.autoComplete}
+              value={values[f.name]}
+              error={errors[f.name] ?? outside?.[f.name]}
+              onChange={(e: { target: { value: string } }) => change(f, e.target.value)}
+            />
+          )}
         </div>
       ))}
       <div className={styles.actions}>
-        <Button type="submit" variant={submitVariant} disabled={busy}>{submitLabel}</Button>
+        <Button type="submit" variant={submitVariant} disabled={busy}>{busy && busyLabel ? busyLabel : submitLabel}</Button>
         {onCancel && <Button variant="secondary" onClick={onCancel}>{cancelLabel}</Button>}
       </div>
     </form>
@@ -98,7 +115,7 @@ function FormBody({ label, fields, submitLabel, submitVariant = 'primary', onSub
  * C30 InlineForm: a small form shown in place (Add a link, Add a brand, inline email to join a campaign, paste a
  * post URL): labelled fields with client-side validation and errors on each field, submit and optional cancel.
  * Values are trimmed. Optional trigger button, card surface, row layout and reset after submit.
- * Replaces SoonInlineForm, SoonAddForm, AmbInlineForm and BuilderLinkAdder (issue #46, shared consolidation).
+ * Replaces SoonInlineForm, SoonAddForm, AmbInlineForm, JourneyInlineForm and BuilderLinkAdder (issue #46, shared consolidation).
  */
 export function InlineForm({ triggerLabel, ...props }: InlineFormProps) {
   const { open, show, hide } = useDisclosure();

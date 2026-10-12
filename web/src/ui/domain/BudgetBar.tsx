@@ -46,6 +46,7 @@ export function BudgetBar({ budget, caption, label = 'Budget' }: BudgetBarProps)
     <div className={styles.root} data-level={level}>
       <ProgressBar
         label={label}
+        overflowLabel="Over budget by"
         segments={[{ value: pct(spent, cap), label: 'Spent' }, { value: pct(committed, cap), label: 'Committed', tone: 'secondary' }]}
         caption={caption ?? `${left} of ${cap} ${unit} left`}
       />

@@ -48,8 +48,27 @@ describe('C30 InlineForm', () => {
     expect(screen.getByRole('button', { name: 'Add a brand' })).toBeInTheDocument();
   });
 
-  it('disables submit while busy', () => {
-    renderWithRouter(<InlineForm fields={[{ name: 'a', label: 'A' }]} submitLabel="Save" busy onSubmit={() => undefined} />);
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  it('disables submit while busy and shows the busy label', () => {
+    renderWithRouter(<InlineForm label="F" fields={[{ name: 'a', label: 'A' }]} submitLabel="Save" busy busyLabel="Saving…" onSubmit={() => undefined} />);
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
+    expect(screen.getByRole('form', { name: 'F' })).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('shows outside errors, validates on mount, and renders a multiline field', () => {
+    renderWithRouter(
+      <InlineForm
+        validateOnMount
+        errors={{ voice: 'The server said no.' }}
+        fields={[
+          { name: 'url', label: 'Site', defaultValue: 'not a url', validate: (v) => (v.includes('.') ? null : 'Enter a web address.') },
+          { name: 'voice', label: 'Voice', multiline: true, rows: 3 },
+        ]}
+        submitLabel="Go"
+        onSubmit={() => undefined}
+      />,
+    );
+    const alerts = screen.getAllByRole('alert').map((a) => a.textContent);
+    expect(alerts).toEqual(['Enter a web address.', 'The server said no.']);
+    expect(screen.getByRole('textbox', { name: 'Voice' }).tagName).toBe('TEXTAREA');
   });
 });

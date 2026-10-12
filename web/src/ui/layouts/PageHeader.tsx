@@ -39,10 +39,10 @@ export function PageHeader({ title, level = 1, size = '2xl', back, badges, actio
           <Heading level={level} size={size}>{title}</Heading>
           {badges}
         </div>
-        {actions && <div className={styles.actions}>{actions}</div>}
+        {actions != null && <div className={styles.actions}>{actions}</div>}
       </div>
-      {intro && <p className={styles.intro}>{intro}</p>}
-      {meta && <p className={styles.meta}>{meta}</p>}
+      {intro != null && <p className={styles.intro}>{intro}</p>}
+      {meta != null && <p className={styles.meta}>{meta}</p>}
     </div>
   );
 }

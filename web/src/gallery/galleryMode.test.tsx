@@ -15,10 +15,11 @@ function ModeProbe() {
   return <p>{useGalleryMode() ? 'gallery mode' : 'live mode'}</p>;
 }
 
-const entries: ScreenEntry[] = [
+// Probe artboards are test-only names, not canvas boards.
+const entries = [
   { artboard: 'Probe', page: 'public', title: 'Probe', tag: 'HACKATHON', states: ['success'], render: () => <ModeProbe /> },
   { artboard: 'Hub-Frame', page: 'public', title: 'Hub frame', tag: 'HACKATHON', states: ['success'], render: () => <AppShell>hub body</AppShell> },
-];
+] as unknown as ScreenEntry[];
 // Read lazily: vi.mock is hoisted above `entries`.
 vi.mock('./registry', () => ({ findScreen: (a?: string) => entries.find((e) => e.artboard === a) }));
 

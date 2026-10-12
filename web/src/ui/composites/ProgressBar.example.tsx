@@ -6,10 +6,11 @@ import { ProgressBar } from './ProgressBar';
 export const example: WorkbenchExample = {
   id: 'P24',
   name: 'ProgressBar',
-  description: 'Single progress, spent / committed / remaining with a caption, a threshold marker, small size, and decorative.',
+  description: 'Single progress, with a visible label, spent / committed / remaining with a caption, a threshold marker, small size, and decorative.',
   render: () => (
     <Stack gap={5}>
       <ProgressBar label="Reading progress" segments={[{ value: 50, label: 'Read' }]} />
+      <ProgressBar label="Kit coverage: 70%" showLabel segments={[{ value: 70, label: 'Covered' }]} caption="12 of 17 sections have a draft" />
       <ProgressBar
         label="Budget"
         segments={[{ value: 27, label: 'Spent' }, { value: 12, label: 'Committed', tone: 'secondary' }]}

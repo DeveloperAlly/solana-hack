@@ -1,2 +1,4 @@
 .root { display: flex; flex-direction: column; gap: var(--wl-space-1); }
 .caption { margin: 0; font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
+.grow { flex: 1 1 calc(var(--wl-space-12) * 4); min-width: 0; }
+.label { font-size: var(--wl-font-size-sm); font-weight: var(--wl-font-weight-semibold); color: var(--wl-text-primary); }

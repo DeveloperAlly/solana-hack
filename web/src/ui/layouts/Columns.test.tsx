@@ -20,10 +20,10 @@ describe('L9 Columns', () => {
   it('sets the column classes from the props', () => {
     const { container, rerender } = renderWithRouter(<Columns end="E">M</Columns>);
     const root = () => container.firstElementChild as HTMLElement;
-    expect(root()).toHaveClass('end-aside');
+    expect(root()).toHaveClass('hasEnd', 'r2-1', 'lg');
     expect(root().children).toHaveLength(2);
-    rerender(<Columns start="S" startWidth="fluid" end="E" endWidth="equal" gap={6}>M</Columns>);
-    expect(root()).toHaveClass('start-fluid', 'end-equal', 'gap6');
+    rerender(<Columns start="S" startWidth="fluid" end="E" ratio="1-1" gap={6} stackBelow="md">M</Columns>);
+    expect(root()).toHaveClass('hasStart', 'start-fluid', 'hasEnd', 'r1-1', 'gap6', 'md');
     rerender(<Columns>M</Columns>);
     expect(root().children).toHaveLength(1);
   });

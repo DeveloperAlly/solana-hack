@@ -5,6 +5,8 @@ interface Common {
   label: string;
   hint?: string;
   error?: string | null;
+  /** Visually hides the label (optional, issue #52); it still names the control. */
+  hideLabel?: boolean;
 }
 export type FieldProps = Common &
   (
@@ -14,9 +16,9 @@ export type FieldProps = Common &
 
 /** C1 Field: a labelled text input or textarea, with hint and error wired to aria-describedby (frame: FieldFrame). */
 export function Field(props: FieldProps) {
-  const { label, hint, error, multiline, ...rest } = props as Common & { multiline?: boolean } & Record<string, unknown>;
+  const { label, hint, error, hideLabel, multiline, ...rest } = props as Common & { multiline?: boolean } & Record<string, unknown>;
   return (
-    <FieldFrame label={label} hint={hint} error={error}>
+    <FieldFrame label={label} hint={hint} error={error} hideLabel={hideLabel}>
       {(control) =>
         multiline
           ? <textarea {...(rest as TextareaHTMLAttributes<HTMLTextAreaElement>)} {...control} />

@@ -1,25 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { newId } from './id';
+import { describe, expect, it } from 'vitest';
+import { uniqueId } from './id';
 
-afterEach(() => vi.unstubAllGlobals());
-
-describe('newId', () => {
-  it('never repeats, with or without crypto.randomUUID', () => {
-    const withUuid = new Set(Array.from({ length: 500 }, () => newId()));
-    expect(withUuid.size).toBe(500);
-    vi.stubGlobal('crypto', {});
-    const withoutUuid = new Set(Array.from({ length: 500 }, () => newId()));
-    expect(withoutUuid.size).toBe(500);
+describe('uniqueId', () => {
+  it('never repeats and keeps the prefix', () => {
+    const ids = Array.from({ length: 500 }, () => uniqueId('src'));
+    expect(new Set(ids).size).toBe(500);
+    ids.forEach((id) => expect(id).toMatch(/^src-\d+$/));
   });
 
-  it('adds the prefix', () => {
-    expect(newId('link')).toMatch(/^link-.+/);
-  });
-
-  it('does not collide after removals, unlike length + 1', () => {
-    const items = [newId('row'), newId('row'), newId('row')];
-    items.splice(1, 1);
-    const next = newId('row');
-    expect(items).not.toContain(next);
+  it('does not collide after a removal, unlike length + 1', () => {
+    const rows = [uniqueId('row'), uniqueId('row'), uniqueId('row')];
+    rows.splice(1, 1);
+    expect(rows).not.toContain(uniqueId('row'));
   });
 });

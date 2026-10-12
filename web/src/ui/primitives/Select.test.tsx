@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithRouter } from '../../test/render';
 import { expectNoAxeViolations } from '../../test/axe';
 import { Select } from './Select';
+import { Field } from './Field';
 import { example } from './Select.example';
 
 describe('P13 Select', () => {
@@ -39,6 +40,14 @@ describe('P13 Select', () => {
     expect(select).not.toHaveClass('placed');
     expect(select).toHaveAttribute('name', 'format');
     expect(select).toBeRequired();
+  });
+
+  it('hideLabel hides the label visually but keeps it as the name (Select and Field)', () => {
+    renderWithRouter(<><Select label="Metric" hideLabel options={['Clicks']} /><Field label="Target" hideLabel /></>);
+    expect(screen.getByRole('combobox', { name: 'Metric' })).toBeInTheDocument();
+    expect(screen.getByText('Metric')).toHaveClass('wl-visually-hidden');
+    expect(screen.getByRole('textbox', { name: 'Target' })).toBeInTheDocument();
+    expect(screen.getByText('Target')).toHaveClass('wl-visually-hidden');
   });
 
   it('works controlled in the inline sort layout', async () => {

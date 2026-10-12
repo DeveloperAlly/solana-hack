@@ -46,13 +46,11 @@ describe('L1 AppShell', () => {
     expect(signOut).not.toHaveBeenCalled();
     expect(screen.getByText('gallery screen')).toBeInTheDocument();
   });
-  it('inside the gallery, a fixture onSignOut runs instead', async () => {
-    signOut.mockClear();
-    const onSignOut = vi.fn();
-    renderWithRouter(<GalleryModeContext.Provider value={true}><AppShell onSignOut={onSignOut}>x</AppShell></GalleryModeContext.Provider>);
-    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
-    expect(onSignOut).toHaveBeenCalled();
-    expect(signOut).not.toHaveBeenCalled();
+  it('navHref maps every nav link and the logo', () => {
+    renderWithRouter(<AppShell navHref={(p) => `/screens${p}`}>x</AppShell>);
+    const nav = screen.getByRole('navigation', { name: 'Hub' });
+    within(nav).getAllByRole('link').forEach((a, i) => expect(a).toHaveAttribute('href', `/screens${hubNav[i].path}`));
+    expect(screen.getAllByRole('link').find((a) => a.getAttribute('href') === '/screens/home')).toBeDefined();
   });
   it('marks the current item from activePath and renders a custom nav and subnav', () => {
     renderWithRouter(<AppShell nav={hubNav.slice(0, 2)} activePath={hubNav[1].path} subnav={<p>tabs</p>}>x</AppShell>, '/elsewhere');

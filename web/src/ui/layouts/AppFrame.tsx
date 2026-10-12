@@ -84,8 +84,8 @@ export function AppFrame({ homeHref, back, title, context, flags, nav, actions, 
           ) : (
             <RouterLink to={homeHref} className={styles.logo}><Logo /></RouterLink>
           )}
-          {title && <span className={styles.title}>{title}</span>}
-          {context && <span className={styles.context}>{context}</span>}
+          {title != null && <span className={styles.title}>{title}</span>}
+          {context != null && <span className={styles.context}>{context}</span>}
           {flags}
           {(nav && !tabs) || actions ? (
             <div className={styles.end}>
@@ -94,14 +94,19 @@ export function AppFrame({ homeHref, back, title, context, flags, nav, actions, 
             </div>
           ) : null}
         </div>
-        {subnav && <div className={styles.subnav}>{subnav}</div>}
+        {subnav != null && <div className={styles.subnav}>{subnav}</div>}
       </Header>
-      {pinned && <div className={styles.pinned}>{pinned}</div>}
+      {pinned != null && <div className={styles.pinned}>{pinned}</div>}
       <Main id={preview ? undefined : 'main'} tabIndex={preview ? undefined : -1} className={`${styles.main} ${styles[`pad-${bodyPadding}`]}`}>
         {children}
       </Main>
-      {footer && <div className={styles.footer}>{footer}</div>}
-      {nav && tabs && <nav aria-label={nav.label} className={styles.tabbar}><NavLinks nav={nav} linkClass={styles.tab} /></nav>}
+      {/* One sticky bottom region, the footer stacked above the tab bar, so the two never overlap (Codex review on PR #80). */}
+      {(footer || (nav && tabs)) && (
+        <div className={styles.bottom} data-frame-bottom="">
+          {footer != null && <div className={styles.footer}>{footer}</div>}
+          {nav && tabs && <nav aria-label={nav.label} className={styles.tabbar}><NavLinks nav={nav} linkClass={styles.tab} /></nav>}
+        </div>
+      )}
     </div>
   );
 }

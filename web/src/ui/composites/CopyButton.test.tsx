@@ -11,7 +11,7 @@ afterEach(() => vi.restoreAllMocks());
 describe('C13 CopyButton', () => {
   it('renders every example variant with no axe violations', async () => {
     const { container } = renderWithRouter(example.render());
-    expect(screen.getAllByRole('button')).toHaveLength(3);
+    expect(screen.getAllByRole('button')).toHaveLength(4);
     await expectNoAxeViolations(container);
   });
 
@@ -36,6 +36,18 @@ describe('C13 CopyButton', () => {
     expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument();
     rerender(<CopyButton value="second" label="Copy endpoint" feedback="label" />);
     expect(screen.getByRole('button', { name: 'Copy endpoint' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  it('clears "copied" after resetAfter, and shows the result on the button and in the status (both)', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    renderWithRouter(<CopyButton value="post" label="Copy text" feedback="both" resetAfter={50} resultLabels={{ copied: 'Copy text: copied' }} />);
+    await user.click(screen.getByRole('button', { name: 'Copy text' }));
+    expect(screen.getByRole('button', { name: 'Copy text: copied' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Copied');
+    expect(screen.getByRole('status')).not.toHaveClass('wl-visually-hidden');
+    expect(await screen.findByRole('button', { name: 'Copy text' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
 

@@ -19,6 +19,11 @@ describe('D25 BudgetBar', () => {
     expect(screen.getByRole('img', { name: 'Budget: Spent 27%, Committed 12%, Remaining 61%' })).toBeInTheDocument();
   });
 
+  it('says when spent and committed pass the cap, matching what is drawn', () => {
+    renderWithRouter(<BudgetBar budget={{ spent: 400, committed: 200, cap: 500, unit: 'USDC' }} />);
+    expect(screen.getByRole('img', { name: 'Budget: Spent 80%, Committed 20%, Remaining 0%, Over budget by 20%' })).toBeInTheDocument();
+  });
+
   it.each([
     [{ spent: 0, cap: 500, unit: 'USDC' }, 'empty'],
     [{ spent: 100, committed: 50, cap: 500, unit: 'USDC' }, 'ok'],

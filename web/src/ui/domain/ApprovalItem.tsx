@@ -41,13 +41,13 @@ export function ApprovalItem({ meta, incoming, media, note, draft, checks, statu
     <>
       <div className={styles.meta}>{meta}</div>
       {media}
-      {incoming && <blockquote className={styles.incoming}>{incoming}</blockquote>}
-      {note && <div className={styles.note}>{note}</div>}
-      {draft && <div className={styles.draft}>{draft}</div>}
-      {checks && <div className={styles.row}>{checks}</div>}
-      {status && <p className={styles.status} role="status">{status}</p>}
+      {incoming != null && <blockquote className={styles.incoming}>{incoming}</blockquote>}
+      {note != null && <div className={styles.note}>{note}</div>}
+      {draft != null && <div className={styles.draft}>{draft}</div>}
+      {checks != null && <div className={styles.row}>{checks}</div>}
+      {status != null && <p className={styles.status} role="status">{status}</p>}
       {children}
-      {outcome ? <p className={styles.outcome} role="status">{outcome}</p> : actions && <div className={styles.row}>{actions}</div>}
+      {outcome != null ? <p className={styles.outcome} role="status">{outcome}</p> : actions != null && <div className={styles.row}>{actions}</div>}
     </>
   );
   if (surface === 'row') {

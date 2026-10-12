@@ -15,6 +15,8 @@ export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement
   error?: string | null;
   /** `stacked` (default) for forms; `inline` puts a compact select beside its label (toolbar sort controls). */
   layout?: FieldLayout;
+  /** Hides the label visually; it still names the select (a table cell named by its column). */
+  hideLabel?: boolean;
   /** Class on the field wrapper (label, control, hint and error), as BuilderSelect had it; the control keeps the shared style. */
   className?: string;
   /** Called with the chosen value; use it instead of reading `event.target.value` in `onChange`. */
@@ -28,13 +30,13 @@ const toOption = (o: SelectOption | string): SelectOption => (typeof o === 'stri
  * Native first, so keyboard and screen reader behaviour come from the browser. Controlled (`value`) or not (`defaultValue`).
  * Replaces BuilderSelect, AmbSelect and SelectField (issue #46, shared consolidation).
  */
-export function Select({ label, options, hint, error, layout = 'stacked', className, onValueChange, onChange, ...rest }: SelectProps) {
+export function Select({ label, options, hint, error, layout = 'stacked', hideLabel = false, className, onValueChange, onChange, ...rest }: SelectProps) {
   function change(e: ChangeEvent<HTMLSelectElement>) {
     onChange?.(e);
     onValueChange?.(e.target.value);
   }
   return (
-    <FieldFrame label={label} hint={hint} error={error} layout={layout} className={className}>
+    <FieldFrame label={label} hint={hint} error={error} layout={layout} hideLabel={hideLabel} className={className}>
       {(control) => (
         <select {...rest} {...control} onChange={change}>
           {options.map(toOption).map((o) => (

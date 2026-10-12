@@ -2,63 +2,42 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { allScreens } from './registry';
+import { artboards, isArtboardName } from '../config/artboards';
 import { GalleryModeContext } from '../ui/hooks/galleryMode';
 
-// Link integrity (issue #46; Codex review on PR #79): every link between screens must target a registered artboard.
-// This enforces merge order: a page cannot ship links to screens that are not in the gallery yet.
-// Two passes, because neither alone sees every link:
-// 1. Source scan: every artboard named to ScreenLink, screenPath or useScreenHref, and every literal "/screens/<X>",
-//    in src/screens and src/ui (links behind menus or states that no fixture opens are still found).
-// 2. Render crawl: every registered screen in every state, collecting each rendered "/screens/<X>" href (links built
-//    by page helpers such as public-next/paths.ts are found).
+// Link integrity (issue #46; Codex reviews on PR #79 and PR #80). Link targets are typed: screenPath, useScreenHref and
+// ScreenLink take an ArtboardName (config/artboards.ts), so a misspelled or missing board fails typecheck. These
+// tests cover what types cannot:
+// 1. No raw "/screens/..." strings in screens or ui: every link goes through the typed helpers.
+// 2. Every link any registered screen renders, in any state, targets a registered artboard (merge order).
+// 3. Every registered artboard is a canvas board.
+// 4. Canvas boards not registered yet are listed as todo, a list that shrinks to zero as pages land.
 
 vi.mock('../lib/supabase', () => ({ supabase: null }));
 beforeEach(() => vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('the gallery must not call fetch')))));
 afterEach(() => vi.unstubAllGlobals());
 
-const registered = new Set(allScreens.map((s) => s.artboard));
+const registered = new Set<string>(allScreens.map((s) => s.artboard));
 
 const sources = {
   ...import.meta.glob<string>('../screens/**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }),
   ...import.meta.glob<string>('../ui/**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }),
 };
-
-const ARTBOARD = String.raw`([A-Za-z0-9][\w.-]*)`;
-const patterns = [
-  new RegExp(String.raw`<ScreenLink\b[^>]*?\bartboard=\{?\s*["'\x60]` + ARTBOARD, 'g'),
-  new RegExp(String.raw`\bscreenPath\(\s*["'\x60]` + ARTBOARD, 'g'),
-  new RegExp(String.raw`\buseScreenHref\(\)\(\s*["'\x60]` + ARTBOARD, 'g'),
-  new RegExp(String.raw`["'\x60]/screens/` + ARTBOARD, 'g'),
-];
-
-/** Artboards named as link targets in source, with the file that names them. */
-function linkTargetsInSource(files: Record<string, string>): { artboard: string; file: string }[] {
-  const found: { artboard: string; file: string }[] = [];
-  for (const [file, text] of Object.entries(files)) {
-    if (/\.test\.tsx?$/.test(file)) continue;
-    for (const re of patterns) for (const m of text.matchAll(re)) found.push({ artboard: m[1], file });
-  }
-  return found;
-}
+const RAW_SCREEN_PATH = /["'`]\/screens\//;
 
 function artboardOf(href: string): string | null {
-  const path = href.split(/[?#]/)[0];
-  const m = /^\/screens\/([^/]+)$/.exec(path);
+  const m = /^\/screens\/([^/?#]+)/.exec(href);
   return m ? decodeURIComponent(m[1]) : null;
 }
 
 describe('links between screens', () => {
-  it('the source scan finds each pattern (self-check)', () => {
-    const sample = {
-      'a.tsx': `<ScreenLink artboard="A-1" state="empty">x</ScreenLink> screenPath('B-2') useScreenHref()("C-3") const p = '/screens/D-4?x=1';`,
-      'a.test.tsx': `<ScreenLink artboard="Ignored">`,
-    };
-    expect(linkTargetsInSource(sample).map((t) => t.artboard)).toEqual(['A-1', 'B-2', 'C-3', 'D-4']);
-  });
-
-  it('every artboard named in source as a link target is registered', () => {
-    const missing = linkTargetsInSource(sources).filter((t) => !registered.has(t.artboard));
-    expect(missing.map((t) => `${t.file} -> ${t.artboard}`)).toEqual([]);
+  it('no screen or component builds a /screens/ path by hand (use screenPath, useScreenHref or ScreenLink)', () => {
+    const offenders = Object.entries(sources)
+      .filter(([file]) => !/\.test\.tsx?$/.test(file))
+      .flatMap(([file, text]) => text.split('\n').map((line, i) => ({ file, line: i + 1, text: line })))
+      .filter((l) => RAW_SCREEN_PATH.test(l.text))
+      .map((l) => `${l.file}:${l.line}: ${l.text.trim()}`);
+    expect(offenders).toEqual([]);
   });
 
   it('every /screens/<artboard> link rendered by any screen, in any state, is registered', () => {
@@ -79,4 +58,12 @@ describe('links between screens', () => {
     }
     expect(missing).toEqual([]);
   });
+
+  it('every registered artboard is a canvas board', () => {
+    expect([...registered].filter((a) => !isArtboardName(a))).toEqual([]);
+  });
+});
+
+describe('canvas boards not registered yet (pending; shrinks to zero)', () => {
+  for (const name of artboards.filter((a) => !registered.has(a))) it.todo(name);
 });

@@ -1,6 +1,10 @@
 // Route paths for the "Verify + ledger" page (issue #49). Every link between these screens comes from here.
-// Each artboard opens at its gallery route /screens/<Artboard> (issue #45); the live /verify and /ledger stay unchanged.
-const screen = (artboard: string) => `/screens/${artboard}`;
+// Each artboard opens at its gallery route (issue #45) through screenPath, so the targets are typed ArtboardNames
+// (issue #46); the live /verify and /ledger stay unchanged.
+import { screenPath } from '../../gallery/screenPath';
+import type { ArtboardName } from '../../config/artboards';
+
+const screen = (artboard: ArtboardName) => screenPath(artboard);
 
 export const verifyPaths = {
   match: screen('Verify-1-Match'),
