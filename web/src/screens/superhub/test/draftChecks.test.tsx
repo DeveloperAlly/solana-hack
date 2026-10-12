@@ -17,12 +17,15 @@ const cases: { check: string; text: string; badge: RegExp }[] = [
 ];
 
 describe('Draft checks: one mapping feeds the badges and the Approve gate', () => {
-  it('the drawn drafts of all three artboards have no blocking check', () => {
+  it('the drawn draft (d1) of all three artboards has no blocking check', () => {
     for (const data of [draftReview, draftBeautified, draftPolishError]) {
-      for (const draft of Object.values(data.drafts)) {
-        expect(evaluateDraftChecks(draft.versions.at(-1)!.text, data, draft).filter((c) => c.blocking)).toEqual([]);
-      }
+      expect(evaluateDraftChecks(data.drafts.d1.versions.at(-1)!.text, data, data.drafts.d1).filter((c) => c.blocking)).toEqual([]);
     }
+  });
+
+  it('a dashboard draft with an unapproved number ("5 signs…") is held by the claims gate', () => {
+    const d4 = draftReview.drafts.d4;
+    expect(evaluateDraftChecks(d4.versions.at(-1)!.text, draftReview, d4).filter((c) => c.blocking).map((c) => c.label)).toEqual(['Claims gate']);
   });
 
   it('an empty post blocks', () => {
