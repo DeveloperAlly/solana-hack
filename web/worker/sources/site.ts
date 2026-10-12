@@ -1,4 +1,4 @@
-import { hopSession, readCapped, readPage, resolveRedirects, type FetchGate } from '../ingest';
+import { hopSession, readCapped, readPage, resolveRedirects, type FetchGate, type HopSession } from '../ingest';
 import { factTrust, urlKind } from './registry';
 import { browserRenderer, type Renderer, type RenderUnavailable } from './render';
 import { fetchRobots, robotsAllows, type RobotsCheck } from './robots';
@@ -221,7 +221,7 @@ export const BROWSER_UNAVAILABLE: Record<RenderUnavailable, string> = {
 };
 
 /** How a script-only page is rendered: the Browser Run binding in the Worker, a fake in tests. */
-export type RendererFactory = (gate: FetchGate, maxPages: number) => Renderer;
+export type RendererFactory = (gate: FetchGate, maxPages: number, session: HopSession) => Renderer;
 
 /** Reads a brand's website: home page plus key subpages. */
 export async function readSite(env: SourceEnv, raw: string, options: SiteOptions = {}, makeRenderer?: RendererFactory): Promise<SourceResult> {
@@ -254,8 +254,9 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   };
   // Script-only pages are rendered in a browser, with robots.txt checked before every request it makes (render.ts),
   // at most once per page this read may return (the home page and its subpages).
-  const factory: RendererFactory | null = makeRenderer ?? (env.BROWSER ? (gate, max) => browserRenderer(env.BROWSER!, gate, max) : null);
-  const renderer = factory ? factory(allowedHere, 1 + opts.subpages) : null;
+  // The renderer shares this read's session: one cookie jar and one request budget, direct and rendered (PR #71 review).
+  const factory: RendererFactory | null = makeRenderer ?? (env.BROWSER ? (gate, max, session) => browserRenderer(env.BROWSER!, gate, max, session) : null);
+  const renderer = factory ? factory(allowedHere, 1 + opts.subpages, net) : null;
   try {
     // Every page is checked on its own final URL: robots.txt for its origin, then its kind. The first admitted page sets
     // the kind (and so the trust); a later page is kept only if it has the same kind and, for a third-party page, the

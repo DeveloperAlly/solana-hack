@@ -126,6 +126,8 @@ export async function fetchRobots(origin: string, fetcher: RobotsFetch = plainRo
       if (url.protocol !== 'https:' && url.protocol !== 'http:') return { state: 'unreachable' };
       res = await fetcher(url);
     }
+    // An error answer's body is never read.
+    if (!res.ok) await res.body?.cancel().catch(() => undefined);
     if (res.status >= 400 && res.status < 500) return { state: 'none' };
     if (!res.ok) return { state: 'unreachable' };
     // Read up to the parsing limit in bytes, then decode: a limit in characters could stop short of 500 KiB. The body
