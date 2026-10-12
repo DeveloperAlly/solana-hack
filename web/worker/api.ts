@@ -3,6 +3,7 @@ import { db } from './db';
 import { HttpError, json, safeError, sha256Hex, type Env } from './env';
 import { readPage } from './ingest';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
+import { MAX_QUOTE, normalisePage, quoteOnPage } from './quote';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
 import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
@@ -75,22 +76,26 @@ async function draftSection(env: Env, brand: Brand, section: SectionId) {
   return row;
 }
 
-async function ingest(env: Env, brand: Brand, rawUrl: string) {
+export async function ingest(env: Env, brand: Brand, rawUrl: string) {
   const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url: rawUrl.slice(0, 500), status: 'pending' });
   try {
     const page = await readPage(rawUrl);
     const text = page.text.slice(0, 14000);
-    const system = `You extract facts about the brand "${brand.name}" from a web page. Each fact needs an exact quote copied character for character from the page text. Sections: ${Object.keys(SECTIONS).join(', ')}. Reply with JSON only: {"facts": [{"section": string, "claim": string, "quote": string}]}. At most 12 facts. No facts that the page does not state.`;
+    const system = `You extract facts about the brand "${brand.name}" from a web page. Each fact needs an exact quote copied character for character from the page text, at most ${MAX_QUOTE} characters. Sections: ${Object.keys(SECTIONS).join(', ')}. Reply with JSON only: {"facts": [{"section": string, "claim": string, "quote": string}]}. At most 12 facts. No facts that the page does not state.`;
     const { text: reply } = await chat(env, system, `Page title: ${page.title}\nURL: ${page.url}\n\n${text}`);
     const facts = parseJson<{ facts?: { section?: string; claim?: string; quote?: string }[] }>(reply).facts ?? [];
-    const norm = (s: string) => s.replace(/\s+/g, ' ').toLowerCase();
-    const hay = norm(page.text);
-    // Keep only facts whose quote really is on the page (no invented evidence).
+    // One normaliser for the page and every quote (quote.ts), so typography and line breaks cannot fail a real quote.
+    const hay = normalisePage(page.text);
+    // Keep only facts whose quote really is on the page (no invented evidence). The quote checked is the quote stored:
+    // one longer than the stored limit is refused here, never cut after the check (a cut quote may no longer match).
     const rows = facts
-      .filter((f) => f.claim && f.quote && isSection(f.section ?? '') && hay.includes(norm(f.quote)))
-      .map((f) => ({ brand_id: brand.id, source_id: src.id, section: f.section, claim: str(f.claim, 500), quote: str(f.quote, 500), origin: 'source' }));
+      .map((f) => ({ ...f, quote: typeof f.quote === 'string' ? f.quote.trim() : '' }))
+      .filter((f) => f.claim && f.quote && f.quote.length <= MAX_QUOTE && isSection(f.section ?? '') && quoteOnPage(hay, f.quote))
+      .map((f) => ({ brand_id: brand.id, source_id: src.id, section: f.section, claim: str(f.claim, 500), quote: f.quote, origin: 'source' }));
     if (rows.length) await db.insert(env, 'evidence', rows);
-    await db.update(env, 'sources', db.eq('id', src.id), { status: 'read', title: page.title, text_excerpt: text.slice(0, 2000), fetched_at: new Date().toISOString(), url: page.url.slice(0, 500) });
+    // source_text (spec/db/008) keeps the full text the quotes were checked against, so any stored quote can be
+    // re-checked later; text_excerpt stays for existing readers.
+    await db.update(env, 'sources', db.eq('id', src.id), { status: 'read', title: page.title, text_excerpt: text.slice(0, 2000), source_text: page.text, fetched_at: new Date().toISOString(), url: page.url.slice(0, 500) });
     return { sourceId: src.id, facts: rows.length, dropped: facts.length - rows.length };
   } catch (e) {
     const msg = e instanceof HttpError ? e.message : 'reading the page failed';
@@ -99,16 +104,42 @@ async function ingest(env: Env, brand: Brand, rawUrl: string) {
   }
 }
 
-async function registerKit(env: Env, user: User, brand: Brand) {
+/**
+ * How long a kit row may stay 'pending' before it is treated as an interrupted request. A registration fetches a
+ * blockhash, sends, polls for confirmation for up to 45 s and reads back for up to about 8 s (registry.ts). A blockhash
+ * is usable for about 151 blocks, 60 to 90 seconds (https://solana.com/docs/core/transactions/confirmation, section
+ * "How does transaction expiration work?"), so after 5 minutes no live request can still be waiting on that transaction.
+ */
+export const KIT_PENDING_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** Drafted sections nobody has approved yet, by section id. Every drafted section must be approved to register. */
+export const unapprovedSections = (sections: Pick<Section, 'section' | 'status'>[]) => sections.filter((s) => s.status !== 'approved').map((s) => s.section);
+
+/** Sections that cite evidence which no longer exists (an answer changed or a source was removed after drafting). */
+export const staleSections = (sections: Pick<Section, 'section' | 'citations'>[], liveEvidence: Iterable<string>) => {
+  const live = new Set(liveEvidence);
+  return sections.filter((s) => (s.citations ?? []).some((id) => !live.has(id))).map((s) => s.section);
+};
+
+const sectionTitles = (ids: string[]) => ids.map((id) => (isSection(id) ? SECTIONS[id].title : id)).join(', ');
+
+export async function registerKit(env: Env, user: User, brand: Brand, now = Date.now()) {
   const st = await brandState(env, brand);
   const missing = GATES.filter((g) => !st.gates.some((x) => x.gate === g));
   if (missing.length) throw new HttpError(409, `approve these first: ${missing.join(', ')}`);
-  if (st.kits.some((k) => k.status === 'pending')) throw new HttpError(409, 'a registration is already in progress');
+  // Human review on everything (ADR-003): every drafted section, gated or not, must be approved before it registers.
+  const unapproved = unapprovedSections(st.sections);
+  if (unapproved.length) throw new HttpError(409, `approve these sections first: ${sectionTitles(unapproved)}`);
+  // A pending row older than the timeout is a request that died mid-registration (it never reached its own failed
+  // write). It is marked failed, only if still pending, so it no longer blocks every later registration.
+  for (const k of st.kits.filter((k) => k.status === 'pending')) {
+    if (now - new Date(k.created_at).getTime() <= KIT_PENDING_TIMEOUT_MS) throw new HttpError(409, 'a registration is already in progress');
+    await db.update(env, 'kits', `${db.eq('id', k.id)}&${db.eq('status', 'pending')}`, { status: 'failed', error: 'registration interrupted' });
+  }
   // A section that cites evidence which no longer exists (an answer edited after drafting replaces its evidence
   // rows) would register without its support. Refuse, and name the sections to redraft.
-  const live = new Set(st.evidence.map((e) => e.id));
-  const stale = st.sections.filter((s) => s.citations.some((id) => !live.has(id))).map((s) => s.section);
-  if (stale.length) throw new HttpError(409, `these sections cite answers you have since changed; draft them again first: ${stale.join(', ')}`);
+  const stale = staleSections(st.sections, st.evidence.map((e) => e.id));
+  if (stale.length) throw new HttpError(409, `these sections cite answers you have since changed; draft them again first: ${sectionTitles(stale)}`);
   // Gate 3 must postdate the voice answer it approved. Reads of gates and answers are separate requests, so a voice
   // change racing this registration could pair the old approval with the new answer; this check refuses that pair.
   const voiceGate = st.gates.find((g) => g.gate === 'voice');
@@ -191,6 +222,45 @@ export function voiceChanged(prev: { data: Record<string, string>; skipped: bool
   return prev.skipped !== next.skipped || canonical(prev.data) !== canonical(next.data);
 }
 
+/**
+ * Saves one intake answer and its owner_answer evidence. Evidence for a field whose text is unchanged keeps its id, so
+ * a section citing it stays valid; only changed or removed fields lose their rows. Returns the sections that cite a
+ * removed row (now stale: registration refuses them until redrafted), so the step can say so straight away.
+ */
+export async function saveAnswer(env: Env, brand: Brand, step: string, data: Record<string, string>, skipped: boolean) {
+  const [prev] = step === 'voice' ? await db.select<Answer>(env, 'answers', `${db.eq('brand_id', brand.id)}&${db.eq('step', 'voice')}`) : [];
+  // The voice answer carries the template and claims gate a kit registers. Changing it after Gate 3 reopens that
+  // gate and removes the voice section, which must be drafted again, so a kit can only register policy a person approved.
+  // The gate is removed *before* the new answer is saved: if anything fails in between, the state is safe (no gate),
+  // and a concurrent registration can never pair the new policy with the old approval.
+  // An identical save changes nothing (not even updated_at), so an approved Gate 3 stays valid.
+  if (step === 'voice' && prev && !voiceChanged(prev, { data, skipped })) return { answer: prev, stale: [] as string[] };
+  if (step === 'voice' && voiceChanged(prev, { data, skipped })) {
+    await db.del(env, 'gates', `${db.eq('brand_id', brand.id)}&${db.eq('gate', 'voice')}`);
+    // The old voice text described the old settings, so it is removed: Gate 3 can only be approved on a fresh draft.
+    await db.del(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&${db.eq('section', 'voice')}`);
+  }
+  const [row] = await db.upsert(env, 'answers', { brand_id: brand.id, step, data, skipped, updated_at: new Date().toISOString() }, 'brand_id,step');
+  // Owner answers are evidence, dated (P2: "owner answer, date"). One row per filled field; an unchanged field keeps
+  // its row (and its id and date), a changed or cleared field's row is removed, and a new value gets a new row.
+  const evFilter = `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}`;
+  const existing = await db.select<{ id: string; claim: string }>(env, 'evidence', `${evFilter}&select=id,claim`);
+  const wanted = skipped ? [] : Object.entries(data).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`);
+  const kept = new Set<string>();
+  const removed: string[] = [];
+  for (const e of existing) {
+    if (wanted.includes(e.claim) && !kept.has(e.claim)) kept.add(e.claim);
+    else removed.push(e.id);
+  }
+  if (removed.length) await db.del(env, 'evidence', `${evFilter}&id=in.(${removed.map(encodeURIComponent).join(',')})`);
+  const rows = wanted.filter((c) => !kept.has(c)).map((claim) => ({ brand_id: brand.id, section: step, claim, origin: 'owner_answer' }));
+  if (rows.length) await db.insert(env, 'evidence', rows);
+  if (!removed.length) return { answer: row, stale: [] as string[] };
+  const sections = await db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
+  const gone = new Set(removed);
+  return { answer: row, stale: sections.filter((s) => (s.citations ?? []).some((id) => gone.has(id))).map((s) => s.section) };
+}
+
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
 export async function publicLimit(req: Request, env: Env, scope: string) {
   if (!env.PUBLIC_LIMITER) return;
@@ -240,7 +310,7 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const [row] = await db.update<Brand>(env, 'brands', db.eq('id', brand.id), patch);
     return json({ brand: row });
   }
-  // PUT /api/brands/:id/answers/:step  {data, skipped}
+  // PUT /api/brands/:id/answers/:step  {data, skipped} -> {answer, stale}
   if (p[3] === 'answers' && p[4] && m === 'PUT') {
     const step = p[4];
     if (!(STEPS as readonly string[]).includes(step)) throw new HttpError(404, 'unknown step');
@@ -248,25 +318,7 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const data: Record<string, string> = {};
     const raw = (b.data ?? {}) as Record<string, unknown>;
     for (const [k, v] of Object.entries(raw).slice(0, 20)) data[k.slice(0, 60)] = str(v, 2000);
-    const skipped = b.skipped === true;
-    const [prev] = step === 'voice' ? await db.select<Answer>(env, 'answers', `${db.eq('brand_id', brand.id)}&${db.eq('step', 'voice')}`) : [];
-    // The voice answer carries the template and claims gate a kit registers. Changing it after Gate 3 reopens that
-    // gate and removes the voice section, which must be drafted again, so a kit can only register policy a person approved.
-    // The gate is removed *before* the new answer is saved: if anything fails in between, the state is safe (no gate),
-    // and a concurrent registration can never pair the new policy with the old approval.
-    // An identical save changes nothing (not even updated_at), so an approved Gate 3 stays valid.
-    if (step === 'voice' && prev && !voiceChanged(prev, { data, skipped })) return json({ answer: prev });
-    if (step === 'voice' && voiceChanged(prev, { data, skipped })) {
-      await db.del(env, 'gates', `${db.eq('brand_id', brand.id)}&${db.eq('gate', 'voice')}`);
-      // The old voice text described the old settings, so it is removed: Gate 3 can only be approved on a fresh draft.
-      await db.del(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&${db.eq('section', 'voice')}`);
-    }
-    const [row] = await db.upsert(env, 'answers', { brand_id: brand.id, step, data, skipped, updated_at: new Date().toISOString() }, 'brand_id,step');
-    // Owner answers are evidence, dated (P2: "owner answer, date").
-    await db.del(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}`);
-    const rows = skipped ? [] : Object.entries(data).filter(([, v]) => v).map(([k, v]) => ({ brand_id: brand.id, section: step, claim: `${k}: ${v}`, origin: 'owner_answer' }));
-    if (rows.length) await db.insert(env, 'evidence', rows);
-    return json({ answer: row });
+    return json(await saveAnswer(env, brand, step, data, b.skipped === true));
   }
   if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
     // Removing a source removes the facts read from it. Sections that cited them then need redrafting before the next

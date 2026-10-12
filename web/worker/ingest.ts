@@ -2,10 +2,20 @@ import { HttpError } from './env';
 
 const MAX_BYTES = 1_500_000;
 
-function decode(s: string) {
-  return s
-    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+// Named entities that page text commonly carries; numeric ones (decimal and hex) are decoded generically.
+const ENTITIES: Record<string, string> = {
+  nbsp: ' ', lt: '<', gt: '>', quot: '"', apos: "'", shy: '\u00AD', lsquo: '\u2018', rsquo: '\u2019', ldquo: '\u201C',
+  rdquo: '\u201D', ndash: '\u2013', mdash: '\u2014', hellip: '\u2026', zwj: '\u200D', zwnj: '\u200C',
+};
+const codePoint = (n: number) => (Number.isInteger(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '');
+
+/** Decodes HTML entities in one pass, so "&amp;lt;" stays the text "&lt;" rather than becoming "<". */
+export function decode(s: string) {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+    if (e[0] === '#') return codePoint(e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : Number(e.slice(1))) || m;
+    if (e.toLowerCase() === 'amp') return '&';
+    return ENTITIES[e.toLowerCase()] ?? m;
+  });
 }
 
 /** Fetches one public http(s) page and returns its title and readable text. */

@@ -18,6 +18,43 @@ export interface BrandState { brand: Brand; answers: Answer[]; sources: Source[]
 
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
 
+/** The step that drafts a kit section, for links from notices. */
+const sectionStep = (section: string) => STEPS.find((s) => s.kind === 'section' && s.section === section);
+
+/** Drafted sections nobody has approved yet (the kit registers only when this is empty; worker/api.ts registerKit). */
+export const unapprovedOf = (st: Pick<BrandState, 'sections'>) => st.sections.filter((s) => s.status !== 'approved').map((s) => s.section);
+
+/** Drafted sections that cite evidence which no longer exists (an answer changed or a source was removed). */
+export function staleOf(st: Pick<BrandState, 'sections' | 'evidence'>) {
+  const live = new Set(st.evidence.map((e) => e.id));
+  return st.sections.filter((s) => s.citations.some((id) => !live.has(id))).map((s) => s.section);
+}
+
+/** Names sections with a link to the step that drafts each one. */
+function SectionLinks({ sections }: { sections: string[] }) {
+  return (
+    <Stack gap={1} as="ul">
+      {sections.map((id) => {
+        const step = sectionStep(id);
+        return <li key={id}>{step ? <Link href={`/build/${step.slug}`}>{step.title}</Link> : id}</li>;
+      })}
+    </Stack>
+  );
+}
+
+/** Shown right after an answer save that made drafts stale (PUT answers returns them as stale). */
+export function StaleNotice({ stale }: { stale: string[] }) {
+  if (!stale.length) return null;
+  return (
+    <Alert tone="warning" title="These drafts used your old answer: redraft them">
+      <Stack gap={2}>
+        <SectionLinks sections={stale} />
+        <Text as="span" variant="small">The kit cannot be registered until each one is redrafted and approved.</Text>
+      </Stack>
+    </Alert>
+  );
+}
+
 function Progress({ current }: { current: number }) {
   return (
     <Text variant="small" tone="secondary">
@@ -74,9 +111,9 @@ export function Build() {
     content = (
       <Stack gap={6}>
         <Progress current={index} />
-        {step.kind === 'basics' && <BasicsStep state={state} onSaved={async () => { await refresh(); next(); }} />}
+        {step.kind === 'basics' && <BasicsStep state={state} onRefresh={refresh} onSaved={async () => { await refresh(); next(); }} />}
         {step.kind === 'sources' && <SourcesStep state={state} onChange={refresh} onNext={next} onBack={back} />}
-        {step.kind === 'questions' && <QuestionsStep key={step.slug} step={step} state={state} onSaved={async () => { await refresh(); next(); }} onBack={back} />}
+        {step.kind === 'questions' && <QuestionsStep key={step.slug} step={step} state={state} onRefresh={refresh} onNext={next} onBack={back} />}
         {step.kind === 'section' && <SectionStep key={step.slug} step={step} state={state} onChange={refresh} onNext={next} onBack={back} />}
         {step.kind === 'kit' && <KitStep state={state} onChange={refresh} onBack={back} />}
       </Stack>
@@ -107,8 +144,11 @@ function Nav({ onBack, children }: { onBack?: () => void; children?: React.React
   );
 }
 
-function BasicsStep({ state, onSaved }: { state: BrandState | null; onSaved: (id: string) => void | Promise<void> }) {
+function BasicsStep({ state, onSaved, onRefresh }: { state: BrandState | null; onSaved: (id: string) => void | Promise<void>; onRefresh?: () => Promise<void> }) {
   const b = state?.brand;
+  // Stale drafts reported by the last save, with the form as it was saved: Continue is offered only while the form is
+  // unchanged since then, so an edit made while reading the notice is saved, never dropped.
+  const [stale, setStale] = useState<{ id: string; sections: string[]; saved: string } | null>(null);
   const [form, setForm] = useState({ name: b?.name ?? '', type: b?.type ?? 'company', description: b?.description ?? '', website: b?.website ?? '', goal: b?.goal ?? '', channel: b?.channel ?? '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +163,13 @@ function BasicsStep({ state, onSaved }: { state: BrandState | null; onSaved: (id
       const res = b
         ? await api<{ brand: Brand }>(`/brands/${b.id}`, { method: 'PATCH', body: form })
         : await api<{ brand: Brand }>('/brands', { body: form });
-      await api(`/brands/${res.brand.id}/answers/basics`, { method: 'PUT', body: { data: { description: form.description, goal: form.goal, channel: form.channel, type: form.type } } });
+      const saved = await api<{ stale?: string[] }>(`/brands/${res.brand.id}/answers/basics`, { method: 'PUT', body: { data: { description: form.description, goal: form.goal, channel: form.channel, type: form.type } } });
+      // Drafts that cited the old answer are stale: say so here, before moving on.
+      if (saved.stale?.length) {
+        setStale({ id: res.brand.id, sections: saved.stale, saved: JSON.stringify(form) });
+        await onRefresh?.();
+        return;
+      }
       await onSaved(res.brand.id);
     } catch (err) {
       setError(msg(err));
@@ -143,7 +189,12 @@ function BasicsStep({ state, onSaved }: { state: BrandState | null; onSaved: (id
         <Field label="Where do you want it in 12 months?" value={form.goal} onChange={set('goal')} />
         <Field label="Main channel" hint="For example LinkedIn, X, a newsletter" value={form.channel} onChange={set('channel')} />
         {error && form.name.trim() && <Alert tone="danger">{error}</Alert>}
-        <Nav><Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save and continue'}</Button></Nav>
+        {stale && <StaleNotice stale={stale.sections} />}
+        <Nav>
+          {stale && stale.saved === JSON.stringify(form)
+            ? <Button onClick={() => onSaved(stale.id)}>Continue</Button>
+            : <Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save and continue'}</Button>}
+        </Nav>
       </Stack>
     </form>
   );
@@ -218,13 +269,15 @@ function SourcesStep({ state, onChange, onNext, onBack }: { state: BrandState; o
   );
 }
 
-function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: BrandState; onSaved: () => Promise<void>; onBack: () => void }) {
+function QuestionsStep({ step, state, onRefresh, onNext, onBack }: { step: Step; state: BrandState; onRefresh: () => Promise<void>; onNext: () => void; onBack: () => void }) {
   const prev = state.answers.find((a) => a.step === step.answerStep);
   const isVoice = step.answerStep === 'voice';
   // Voice answers saved by the older form are normalised onto today's templates and dials, so every displayed value is saved.
   const [data, setData] = useState<Record<string, string>>(isVoice ? normaliseVoice(prev?.data) : prev?.data ?? {});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Stale drafts reported by the last save, with the answers as saved (see BasicsStep).
+  const [stale, setStale] = useState<{ sections: string[]; saved: string }>({ sections: [], saved: '' });
   // Ingestion tags facts with kit sections (worker/kit.ts SECTIONS); map each answer step to the section it feeds.
   const evidenceSection: Record<string, string> = { golden_circle: 'purpose', alternatives: 'positioning' };
   const known = state.evidence.filter((e) => e.origin === 'source' && e.section === (evidenceSection[step.answerStep ?? ''] ?? step.answerStep));
@@ -233,8 +286,11 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
     setBusy(true);
     setError(null);
     try {
-      await api(`/brands/${state.brand.id}/answers/${step.answerStep}`, { method: 'PUT', body: { data, skipped } });
-      await onSaved();
+      const saved = await api<{ stale?: string[] }>(`/brands/${state.brand.id}/answers/${step.answerStep}`, { method: 'PUT', body: { data, skipped } });
+      await onRefresh();
+      // Drafts that cited the old answer are stale: say so on this step instead of moving on.
+      if (saved.stale?.length) return setStale({ sections: saved.stale, saved: JSON.stringify(data) });
+      onNext();
     } catch (err) {
       setError(msg(err));
     } finally {
@@ -284,9 +340,16 @@ function QuestionsStep({ step, state, onSaved, onBack }: { step: Step; state: Br
           ))
         )}
         {error && <Alert tone="danger">{error}</Alert>}
+        <StaleNotice stale={stale.sections} />
         <Nav onBack={onBack}>
-          <Button variant="secondary" disabled={busy} onClick={() => save(true)}>Skip for now</Button>
-          <Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save and continue'}</Button>
+          {stale.sections.length && stale.saved === JSON.stringify(data) ? (
+            <Button onClick={onNext}>Continue</Button>
+          ) : (
+            <>
+              <Button variant="secondary" disabled={busy} onClick={() => save(true)}>Skip for now</Button>
+              <Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save and continue'}</Button>
+            </>
+          )}
         </Nav>
       </Stack>
     </form>
@@ -302,6 +365,7 @@ function SectionStep({ step, state, onChange, onNext, onBack }: { step: Step; st
   useEffect(() => setText(section?.body ?? ''), [section?.body]);
   const dirty = !!section && text.trim() !== section.body;
   const cited = state.evidence.filter((e) => section?.citations.includes(e.id));
+  const isStale = !!section && staleOf({ sections: [section], evidence: state.evidence }).length > 0;
   const sourceOf = (id: string | null) => state.sources.find((s) => s.id === id);
 
   async function run(label: string, fn: () => Promise<unknown>) {
@@ -338,6 +402,7 @@ function SectionStep({ step, state, onChange, onNext, onBack }: { step: Step; st
         </Stack>
       ) : (
         <Stack gap={4}>
+          {isStale && <Alert tone="warning">This draft used an answer or source you have since changed. Redraft it before you register the kit.</Alert>}
           <Field label={`${step.title} draft`} multiline rows={10} value={text} onChange={(e) => setText(e.target.value)} />
           <Box padding={4} background="subtle" radius="box">
             <Stack gap={2}>
@@ -379,6 +444,8 @@ function KitStep({ state, onChange, onBack }: { state: BrandState; onChange: () 
   const [error, setError] = useState<string | null>(null);
   const [links, setLinks] = useState<{ explorer: string; attestationExplorer: string } | null>(null);
   const gatesDone = ['purpose', 'positioning', 'voice'].filter((g) => state.gates.some((x) => x.gate === g));
+  const unapproved = unapprovedOf(state);
+  const stale = staleOf(state);
   const latest = state.kits[0];
 
   async function register() {
@@ -409,6 +476,16 @@ function KitStep({ state, onChange, onBack }: { state: BrandState; onChange: () 
         })}
       </Stack>
       <Text>Gates approved: {gatesDone.length} of 3</Text>
+      {unapproved.length > 0 && (
+        <Alert tone="warning" title="Approve these sections before registering">
+          <SectionLinks sections={unapproved} />
+        </Alert>
+      )}
+      {stale.length > 0 && (
+        <Alert tone="warning" title="These drafts used answers or sources you have since changed: redraft them">
+          <SectionLinks sections={stale} />
+        </Alert>
+      )}
       {latest && (
         <Alert tone={latest.status === 'registered' ? 'success' : latest.status === 'failed' ? 'danger' : 'info'} title={`Kit v${latest.version}: ${latest.status}`}>
           <Text as="span" variant="mono">{latest.hash}</Text>
@@ -424,11 +501,12 @@ function KitStep({ state, onChange, onBack }: { state: BrandState; onChange: () 
       )}
       {error && <Alert tone="danger">{error}</Alert>}
       <Nav onBack={onBack}>
-        <Button onClick={register} disabled={busy || gatesDone.length < 3}>
+        <Button onClick={register} disabled={busy || gatesDone.length < 3 || unapproved.length > 0 || stale.length > 0}>
           {busy ? 'Registering on Solana…' : `Register kit v${(latest?.version ?? 0) + 1}`}
         </Button>
       </Nav>
       {gatesDone.length < 3 && <Text variant="small" tone="secondary">Approve purpose, positioning and voice to register.</Text>}
+      {gatesDone.length === 3 && unapproved.length > 0 && <Text variant="small" tone="secondary">Every drafted section needs your approval before the kit registers.</Text>}
       {/* Any registered version is enough to create from, even if a later attempt failed. */}
       {state.kits.some((k) => k.status === 'registered') && <Button href="/create" variant="secondary">Start creating</Button>}
     </Stack>
