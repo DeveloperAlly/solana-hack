@@ -57,14 +57,14 @@ export function ContentDashboard({ data, state = 'success' }: { data: ContentDas
   );
   if (empty) {
     return (
-      <HubPage section="create" sub="content">
+      <HubPage artboard="Content-Dashboard">
         <PageHeader title="Content" />
         {tabs}
       </HubPage>
     );
   }
   return (
-    <HubPage section="create" sub="content">
+    <HubPage artboard="Content-Dashboard">
       <PageHeader title="Content" intro={pipeline} actions={<Button onClick={() => openDraft('new')}>+ New draft</Button>} />
       <Columns end={<CalendarRail slots={data.calendar} note={data.calendarNote} />}>
         <ToggleGroup label="Filter by channel" options={data.channels} value={[view.channel]} onChange={(v) => view.setChannel(v[0])} />

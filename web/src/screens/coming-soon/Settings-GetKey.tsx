@@ -50,6 +50,7 @@ export function SettingsGetKey({ data, state = 'success' }: { data: SettingsGetK
   };
   return (
     <SoonPage
+      artboard="Settings-GetKey"
       header={{
         title: 'Get an AI key in a minute',
         intro: 'One button connects your OpenRouter account. Prefer to paste a key? You can.',

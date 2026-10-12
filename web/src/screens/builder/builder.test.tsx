@@ -209,7 +209,7 @@ describe('Brand Builder: screen interactions', () => {
     expect(screen.queryByRole('link', { name: /View on explorer/ })).not.toBeInTheDocument();
     await click(/^Download the kit/, 'link');
     await h1('Download your kit');
-    expect(screen.getByRole('link', { name: 'Brand kit' })).toHaveAttribute('aria-current', 'page');
+    expect(within(screen.getByRole('navigation', { name: 'Brand' })).getByRole('link', { name: 'Kit' })).toHaveAttribute('aria-current', 'page');
     // It opens on the kit just published: JamJam, v1.
     expect(screen.getByRole('button', { name: 'JamJam, switch brand' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Version' })).toHaveValue('v1 · [date]');

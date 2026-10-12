@@ -14,7 +14,6 @@
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { BuilderKitExport, type KitExportStatus } from '../../ui/domain/BuilderKitExport';
 import { BuilderHubPage } from './BuilderHubPage';
-import { brandSubnav } from './paths';
 import { useExportVersion } from './useBuilderFlow';
 import { activeBrand } from '../../flows/brand/activeBrand';
 import type { KitExportData } from './types';
@@ -28,7 +27,7 @@ export function KitExport({ data, state = 'success' }: { data: KitExportData; st
   const kit = data.byBrand[brandId] ?? data.byBrand[data.defaultBrandId];
   return (
     <BuilderHubPage
-      subnav={{ label: 'Brand', items: brandSubnav, current: 'kit' }}
+      artboard="Kit-Export"
       title="Download your kit"
       tag="HACKATHON (THIN)"
       intro="Your kit is yours. Take it as a folder of plain Markdown files you can read, edit or load into any AI tool."

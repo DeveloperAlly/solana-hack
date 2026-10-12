@@ -36,7 +36,7 @@ export function HubHome({ data }: { data: HubHomeData }) {
   const links = useHubLinks();
   const brand = useActiveBrand();
   return (
-    <HubPage section="home">
+    <HubPage artboard="Hub-Home">
       <PageHeader title={`${data.weekday}, ${brand.name}`} intro={data.status} actions={<Button href={links.content}>Review {data.reviewCount} items</Button>} />
       <Grid min="sm" gap={4}>
         {data.kpis.map((k) => <StatTile key={k.label} {...k} href={k.href && links[k.href]} />)}

@@ -26,7 +26,7 @@ export function BadgeEmbed({ data, state = 'success' }: ScreenProps<BadgeEmbedDa
   const flow = useBadgeEmbed(data);
   return (
     <GrowthFrame
-      section="badge"
+      artboard="Badge-Embed"
       title="Check-it badge"
       tag="COMING SOON"
       intro="Put the badge on a verified post. Anyone who clicks it lands on Verify and sees the post is yours."

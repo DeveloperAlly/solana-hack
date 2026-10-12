@@ -31,7 +31,7 @@ export function InviteTeam({ data, state = 'success' }: ScreenProps<TeamData>) {
   const flow = useTeam(data);
   return (
     <GrowthFrame
-      section="team"
+      artboard="Invite-Team"
       title="Invite a teammate or partner"
       tag="COMING SOON"
       intro={`Bring people onto ${data.brand}. They write from your kit, and you approve every piece.`}

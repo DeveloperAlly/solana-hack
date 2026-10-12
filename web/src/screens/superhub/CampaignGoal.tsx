@@ -26,7 +26,7 @@ export function CampaignGoal({ data }: { data: CampaignData }) {
   const step = useGoalStep();
   const { goal } = step;
   return (
-    <HubPage section="create" sub="campaigns" width="wizard">
+    <HubPage artboard="Campaign-v2-1-Goal" width="wizard">
     <CampaignStepFrame flow={step.flow} title="What's this campaign for?" missing={step.missing}>
       <Stack gap={5}>
         <PurposeOptions options={data.purposes} value={goal.purpose} onChange={step.setPurpose} />

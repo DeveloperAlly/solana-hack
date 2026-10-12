@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import type { RouteTag } from '../config/routes';
 import type { ScreenState } from '../ui/composites/DemoStateSwitcher';
 import type { ArtboardName } from '../config/artboards';
+import type { ShellId } from '../config/nav';
 
 /**
  * Canvas pages, in canvas order, from the wireframe canvas v24 (canvas.json `pages`, version 1791818793-e756; canvas
@@ -29,7 +30,7 @@ export type CanvasPageId = (typeof canvasPages)[number]['id'];
 export interface ScreenEntry {
   /** Canvas artboard name: the file name without `.dc.html`, e.g. "Verify-2-NoMatch". It is the gallery URL. */
   artboard: ArtboardName;
-  /** The board's canvas page: exactly config/artboards.ts `artboardPages[artboard]` (a test checks it). */
+  /** The board's canvas page: exactly config/artboards.ts `artboardPages[artboard]` (a test checks it). The screen's home is derived from it (config/nav.ts `homeForPage`), never written here. */
   page: CanvasPageId;
   /** Canvas title without the tag prefix, e.g. "Verify: not found". */
   title: string;
@@ -37,6 +38,11 @@ export interface ScreenEntry {
   tag: RouteTag;
   /** States this artboard has on the canvas (its notes); the first is the default. */
   states: readonly ScreenState[];
+  /**
+   * Who the screen is for (ADR-012 shells by role). Leave it out when the screen renders its frame: the frame says
+   * (AppShell and AppFrame mark `app` or `ambassador`, PublicShell `public`). Set it only when the frame cannot.
+   */
+  shell?: ShellId;
   /** Renders the screen with fixture data for a state. Must not touch the network. */
   render: (state: ScreenState) => ReactElement;
 }

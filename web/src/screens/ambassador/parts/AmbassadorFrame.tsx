@@ -34,13 +34,14 @@ export function AmbassadorFrame({ flow, account, active, back, title, tabs = fal
   const chip = <AmbAccountChip account={account} signInHref={flow.pages.signIn} withName={!mobile} />;
   if (!mobile) {
     return (
-      <AppFrame homeHref={flow.pages.home} flags={<ComingSoonFlag tag="STRETCH" />} nav={nav} actions={chip}>
+      <AppFrame shell="ambassador" homeHref={flow.pages.home} flags={<ComingSoonFlag tag="STRETCH" />} nav={nav} actions={chip}>
         <Container width="app">{children}</Container>
       </AppFrame>
     );
   }
   return (
     <AppFrame
+      shell="ambassador"
       width="phone"
       homeHref={flow.pages.home}
       flags={<ComingSoonFlag tag="STRETCH" />}

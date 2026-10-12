@@ -4,18 +4,17 @@ import userEvent from '@testing-library/user-event';
 import { renderScreen } from './renderScreen';
 
 describe('Hub navigation, home, content and analytics', () => {
-  it('the hub nav links every section, keeps the gallery theme, and marks the current one', async () => {
+  it('the one nav (config/nav.ts) links every stage, keeps the gallery theme, and marks the current one', async () => {
     renderScreen('Hub-Home', undefined, 'wireframe-dark');
-    const nav = screen.getByRole('navigation', { name: 'Hub' });
-    for (const label of ['Home', 'Inbox', 'Brand', 'Create', 'Grow', 'Analytics', 'Ledger']) {
-      expect(within(nav).getByRole('link', { name: new RegExp(`^${label}`) }).getAttribute('href')).toContain('theme=wireframe-dark');
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    for (const label of ['Today', 'Brand', 'Create', 'Distribute', 'Verify', 'Grow', 'Learn', 'Inbox', 'Settings']) {
+      expect(within(nav).getByRole('link', { name: label }).getAttribute('href')).toContain('theme=wireframe-dark');
     }
-    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
-    await userEvent.click(within(nav).getByRole('link', { name: /^Grow/ }));
-    expect(screen.getByRole('heading', { level: 1, name: /Engagement/ })).toBeInTheDocument();
-    const grow = screen.getByRole('navigation', { name: 'Grow' });
-    await userEvent.click(within(grow).getByRole('link', { name: 'Partners' }));
-    expect(screen.getByRole('heading', { level: 1, name: /Partners/ })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'Today' })).toHaveAttribute('aria-current', 'page');
+    await userEvent.click(within(nav).getByRole('link', { name: 'Inbox' }));
+    expect(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Inbox' })).toHaveAttribute('aria-current', 'page');
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Inbox' })).getByRole('link', { name: 'Needs reply' }));
+    expect(screen.getByRole('heading', { level: 1, name: /Needs reply/ })).toBeInTheDocument();
   });
 
   it('Hub-Home: KPI tiles and Needs-you items open their queues', async () => {

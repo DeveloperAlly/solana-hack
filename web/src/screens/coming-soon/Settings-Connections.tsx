@@ -18,7 +18,6 @@ import { Card } from '../../ui/composites/Card';
 import { SoonPage } from './SoonPage';
 import { List, ListRow } from '../../ui/composites/ListRow';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { SettingsNav } from './SettingsNav';
 import { StateView } from '../../ui/composites/StateView';
 import { useSoonSession } from './useSoonSession';
 import { StatusToggleButton } from './StatusToggleButton';
@@ -34,7 +33,7 @@ export function SettingsConnections({ data, state = 'success' }: { data: Setting
   const channels = rows.filter((r) => r.id !== 'wallet');
   const wallet = rows.filter((r) => r.id === 'wallet');
   return (
-    <SoonPage header={{ title: 'Settings', intro: 'Accounts JamJam publishes to, and where ambassador payouts come from.', definedIn: 'component inventory D52; backend map, Settings › Connections; ADR-006 (wallet only for payouts)' }} nav={<SettingsNav value="connections" />}>
+    <SoonPage artboard="Settings-Connections" header={{ title: 'Settings', intro: 'Accounts JamJam publishes to, and where ambassador payouts come from.', definedIn: 'component inventory D52; backend map, Settings › Connections; ADR-006 (wallet only for payouts)' }}>
       <StateView state={state} loading={{ title: 'Loading connections', body: 'Checking each publishing account.' }}>
         <Card header={<Heading level={2} size="lg">Publishing</Heading>}>
           <List label="Publishing connections">

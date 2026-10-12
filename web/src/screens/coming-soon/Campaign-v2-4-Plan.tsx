@@ -31,7 +31,7 @@ export function CampaignPlan({ data, state = 'success' }: { data: CampaignPlanDa
   const flow = useCampaignFlow('plan', { stepComplete: state === 'success' && rows.length > 0 });
   const setRemoved = (ids: string[]) => flow.set('plan', { removed: ids });
   return (
-    <SoonPage header={{ title: 'New campaign: content plan', definedIn: 'component inventory, Campaign v2 step 4 (D28, D8)' }}>
+    <SoonPage artboard="Campaign-v2-4-Plan" header={{ title: 'New campaign: content plan', definedIn: 'component inventory, Campaign v2 step 4 (D28, D8)' }}>
       <CampaignStepFrame flow={flow} title="Content plan" titleLevel={2} missing={['keep at least one item in the plan']}>
         <Stack gap={3}>
           <DataTable<PlanItem>

@@ -18,7 +18,7 @@ import { StateView } from '../../ui/composites/StateView';
 import { GrowthCheckBadge } from '../../ui/domain/GrowthCheckBadge';
 import { ScreenLink } from '../../gallery/ScreenLink';
 import { VerifyMatchResult } from '../public-next/components/VerifyMatchResult';
-import { GrowthPublicFrame } from './components/GrowthPublicFrame';
+import { PublicFrame } from './components/PublicFrame';
 import { GrowthMakeYoursCard } from './components/GrowthMakeYoursCard';
 import { growthArtboards } from './paths';
 import { useVisitedPost } from './useBadge';
@@ -27,7 +27,7 @@ import type { ScreenProps, VerifyBadgeLandingData } from './types';
 export function VerifyBadgeLanding({ data, state = 'success' }: ScreenProps<VerifyBadgeLandingData>) {
   const { post, style } = useVisitedPost(data.posts, data.defaultPostId);
   return (
-    <GrowthPublicFrame
+    <PublicFrame
       title="Is this official?"
       tag="COMING SOON"
       intro="You came here from a check-it badge. This is what the brand approved and registered."
@@ -52,6 +52,6 @@ export function VerifyBadgeLanding({ data, state = 'success' }: ScreenProps<Veri
           </Columns>
         )}
       </StateView>
-    </GrowthPublicFrame>
+    </PublicFrame>
   );
 }

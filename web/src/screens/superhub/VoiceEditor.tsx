@@ -34,7 +34,7 @@ export function VoiceEditor({ data, state = 'success' }: { data: VoiceEditorData
   const links = useHubLinks();
   const voice = useVoiceEditor(data);
   return (
-    <HubPage section="brand" sub="voices">
+    <HubPage artboard="Voice-Editor">
       <PageHeader badges={<SampleFlag />} title={data.name} intro={data.intro} back={{ href: links.voiceTemplates, label: 'Back to voices' }} />
       <Columns end={<VoicePreview note={data.previewNote} sample={voice.sample} rules={voice.rules} state={state} onAnother={voice.nextSample} />}>
         <Card labelledBy="voice-dims" header={<Heading level={2} size="lg" id="voice-dims">Dimensions</Heading>}>

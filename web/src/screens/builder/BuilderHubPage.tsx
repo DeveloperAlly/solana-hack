@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
 import type { RouteTag } from '../../config/routes';
-import { Container, Heading, Stack, Text } from '../../ui/primitives';
-import { TabNav } from '../../ui/composites/TabNav';
-import { AppShell } from '../../ui/shells/AppShell';
+import type { ArtboardName } from '../../config/artboards';
+import { Heading, Stack, Text } from '../../ui/primitives';
+import { LoopFrame } from '../../ui/shells/LoopFrame';
 import { ActiveBrandSwitcher } from '../../flows/brand/ActiveBrandSwitcher';
+import { useActiveBrand } from '../../flows/brand/activeBrand';
 import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
-import { useBoardHref, type SubnavItem } from './paths';
 
 export interface BuilderHubPageProps {
-  /** The section's sub-nav; `current` is the id of this screen's tab (required, so no page forgets it). */
-  subnav: { label: string; items: SubnavItem[]; current: string };
+  /** The board this screen is; its stage and tab come from config/nav.ts `navForArtboard`. */
+  artboard: ArtboardName;
   title: string;
   /** Canvas tag; flagged tags (THIN, STRETCH) show a chip beside the title. */
   tag?: RouteTag;
@@ -20,30 +20,25 @@ export interface BuilderHubPageProps {
 }
 
 /**
- * A hub screen of this page (canvas Kit-Export, Dashboard): AppShell with the brand switcher, the section's sub-nav, a
- * title row with its tag chip and action, then the content.
+ * A hub screen of this page (canvas Kit-Export, Dashboard): the loop frame (the one nav with the stage's tabs) with
+ * the brand switcher, a title row with its tag chip and action, then the content.
  */
-export function BuilderHubPage({ subnav, title, tag, intro, action, children }: BuilderHubPageProps) {
-  const to = useBoardHref();
+export function BuilderHubPage({ artboard, title, tag, intro, action, children }: BuilderHubPageProps) {
+  const brand = useActiveBrand();
   // INTEGRATION: switching brand loads that brand's data (the account's brands; backend map §4).
   return (
-    <AppShell brandSlot={<ActiveBrandSwitcher />}>
-      <Container width="app">
-        <Stack gap={6}>
-          <TabNav label={subnav.label} items={subnav.items.map((i) => ({ id: i.id, label: i.label, href: to(i.board) }))} value={subnav.current} />
-          <Stack direction="row" gap={4} justify="between" align="center" wrap>
-            <Stack gap={2}>
-              <Stack direction="row" gap={3} align="center" wrap>
-                <Heading level={1} size="2xl">{title}</Heading>
-                {tag && <ComingSoonFlag tag={tag} />}
-              </Stack>
-              {intro && <Text tone="secondary">{intro}</Text>}
-            </Stack>
-            {action}
+    <LoopFrame artboard={artboard} brandName={brand.name} brandSlot={<ActiveBrandSwitcher />}>
+      <Stack direction="row" gap={4} justify="between" align="center" wrap>
+        <Stack gap={2}>
+          <Stack direction="row" gap={3} align="center" wrap>
+            <Heading level={1} size="2xl">{title}</Heading>
+            {tag && <ComingSoonFlag tag={tag} />}
           </Stack>
-          {children}
+          {intro && <Text tone="secondary">{intro}</Text>}
         </Stack>
-      </Container>
-    </AppShell>
+        {action}
+      </Stack>
+      {children}
+    </LoopFrame>
   );
 }

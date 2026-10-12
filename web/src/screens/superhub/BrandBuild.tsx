@@ -55,7 +55,7 @@ export function BrandBuild({ data, state = 'success' }: { data: BrandBuildData; 
     </Stack>
   );
   return (
-    <HubPage section="brand" sub="kit">
+    <HubPage artboard="Brand-Build">
       <PageHeader badges={<ComingSoonFlag tag="HACKATHON (THIN)" />} title={`${brand.name} brand kit`} intro={data.intro} />
       <StateView
         state={state}

@@ -16,12 +16,12 @@ describe('Superhub registry (issue #52)', () => {
     expect(screens.map((s) => s.artboard).sort()).toEqual([...artboards].sort());
   });
 
-  // One test per artboard and state: it opens at /screens/<artboard>, shows the hub nav and one h1, and axe finds 0 violations.
+  // One test per artboard and state: it opens at /screens/<artboard>, shows the one main nav (ADR-012) and one h1, and axe finds 0 violations.
   for (const entry of screens) {
     for (const state of entry.states) {
       it(`${entry.artboard} (${state}) renders at its gallery route with no axe violations`, async () => {
         const { container } = renderScreen(entry.artboard, state);
-        expect(screen.getByRole('navigation', { name: 'Hub' })).toBeInTheDocument();
+        expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
         await expectNoAxeViolations(container);
       });

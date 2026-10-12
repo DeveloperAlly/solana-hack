@@ -1,0 +1,14 @@
+/* D95 EventInviteRow: the role picker opens in place of the row's buttons. Tokens only. */
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wl-space-2);
+  min-width: 0;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wl-space-2);
+}

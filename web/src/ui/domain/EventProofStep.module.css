@@ -1,0 +1,13 @@
+/* D102 EventProofStep: the two ways to prove attendance, each on a wrapping row. Tokens only. */
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wl-space-3);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--wl-space-3);
+}

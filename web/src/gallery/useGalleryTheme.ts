@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { themeNames, type ThemeName } from '../tokens/tokens';
 
@@ -49,7 +49,9 @@ export function useGalleryTheme(): ThemeName {
     }
   }, [requested, fallback, params, location.pathname, location.hash, navigate]);
 
-  useEffect(() => {
+  // Before the first paint, so a themed screen never paints in the default theme first and then transitions (buttons
+  // animate background-color): that flash also let axe read mid-transition colours in check:gallery.
+  useLayoutEffect(() => {
     const root = document.documentElement;
     const previous = root.getAttribute('data-theme');
     root.setAttribute('data-theme', theme);

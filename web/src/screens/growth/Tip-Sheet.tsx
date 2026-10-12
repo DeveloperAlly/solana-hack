@@ -15,7 +15,7 @@
  * waiting for the fan's wallet to sign; error = the tip was not sent.
  */
 import { Button, Stack } from '../../ui/primitives';
-import { GrowthPublicFrame } from './components/GrowthPublicFrame';
+import { PublicFrame } from './components/PublicFrame';
 import { GrowthTipSheet } from './components/GrowthTipSheet';
 import { VerifyMatchResult } from '../public-next/components/VerifyMatchResult';
 import { useTipFlow } from './useTipFlow';
@@ -24,7 +24,7 @@ import type { ScreenProps, TipSheetData } from './types';
 export function TipSheet({ data, state = 'success' }: ScreenProps<TipSheetData>) {
   const flow = useTipFlow(data, state);
   return (
-    <GrowthPublicFrame
+    <PublicFrame
       title="Is this official?"
       tag="COMING SOON"
       intro="This post checks out. If you like it, you can tip the creator in USDC."
@@ -37,6 +37,6 @@ export function TipSheet({ data, state = 'success' }: ScreenProps<TipSheetData>)
         </div>
       </Stack>
       <GrowthTipSheet flow={flow} data={data} />
-    </GrowthPublicFrame>
+    </PublicFrame>
   );
 }
