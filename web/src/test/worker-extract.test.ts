@@ -25,7 +25,7 @@ const { conflictView, factView, journeyFacts, openConflictIds, sectionLabel, sou
 const { normaliseMapped, normalisePage, normaliseQuote, quoteOnPage, MAX_QUOTE } = await import('../../worker/quote');
 const { readSource, registerReader, READERS, READER_INPUTS } = await import('../../worker/engine/readers');
 const { DEFAULT_METERED_CALL_BUDGET, DEFAULT_RUN_RATE, meteredCalls, plannedMeteredCalls, registerStartGuard, START_GUARDS } = await import('../../worker/engine/guards');
-const { startRun } = await import('../../worker/engine/api');
+const { activeRun, admit, release, start, startRun } = await import('../../worker/engine/api');
 const { openRouterKeyInfo } = await import('../../worker/openrouter');
 const { MeteredFailure } = await import('../../worker/metering');
 const { resolveFactConflict } = await import('../../worker/extract/conflicts');
@@ -822,7 +822,7 @@ describe('metering: every step records what its external call cost (run_steps.co
 });
 
 describe('start checks: per-brand daily metered-call budget, run rate and anonymous caps, inside start() (engine/guards.ts)', () => {
-  const setBudget = (v: Record<string, number>) => db.tables.engine_config.push({ key: 'metered_call_budget', value: v });
+  const setBudget = (v: Record<string, number>) => { db.tables.engine_config = db.tables.engine_config.filter((r) => r.key !== 'metered_call_budget'); db.tables.engine_config.push({ key: 'metered_call_budget', value: v }); };
   const owner = (extra: Record<string, unknown> = {}) => ({ id: 'u', ...extra });
   it('plans the most metered calls a run can make: the read, 20 extraction and 40 support calls for extract_facts', () => {
     expect(plannedMeteredCalls(EXTRACT_FACTS)).toBe(61);
@@ -849,6 +849,21 @@ describe('start checks: per-brand daily metered-call budget, run rate and anonym
       expect(db.tables.runs).toHaveLength(2);
     } finally {
       delete READERS.paid_search; delete READER_INPUTS.paid_search; delete KINDS.find_things;
+    }
+  });
+  it('a metered step whose provider reports no cost still uses up calls: every attempt records its metered_calls (PR #100)', async () => {
+    registerKind('count_things', async (_env, brand) => ({ brandName: brand.name }));
+    db.tables.workflow_defs.push({ id: 'count_things', version: 1, status: 'active', spec: { id: 'count_things', version: 1, title: 't', concurrency: 'parallel', retries: { limit: 0, delay: '1 second', backoff: 'constant' }, steps: [{ id: 'find', type: 'code', label: 'Finding', fn: 'chunk_text', args: { text: '$input.brandName', target: '12000', min: '8000', max: '16000', overlap: '600', max_chunks: '1' }, metered: 2 }], output: '$steps.find.count' } });
+    setBudget({ permanent: 3 });
+    try {
+      step = fakeStep();
+      expect((await call('POST', `/brands/${BRAND}/runs`, { kind: 'count_things' })).status).toBe(202);
+      expect(db.tables.run_steps.find((x) => x.step === 'find')).toMatchObject({ outcome: 'ok', metered_calls: 2 });
+      expect(db.tables.run_steps.find((x) => x.step === 'find')!.cost_usd ?? null).toBeNull();
+      const r = await call('POST', `/brands/${BRAND}/runs`, { kind: 'count_things' });
+      expect(r).toMatchObject({ status: 429, body: { error: 'this brand has used its 3 metered calls for today (2 made, 0 reserved by runs still going, 2 needed); try again after 00:00 UTC' } });
+    } finally {
+      delete KINDS.count_things;
     }
   });
   it('caps how many runs of any kind a brand starts per hour, before anything is written', async () => {
@@ -890,19 +905,57 @@ describe('start checks: per-brand daily metered-call budget, run rate and anonym
     for (let i = 0; i < 10; i++) db.tables.run_steps.push({ id: `g${i}`, run_id: 'going', type: 'llm', created_at: now });
     await expect(startRun(envWith, undefined, owner(), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: 'this brand has used its 100 metered calls for today (14 made, 51 reserved by runs still going, 61 needed); try again after 00:00 UTC' });
   });
-  it('an anonymous owner gets the smaller budget and a per-IP limit; a permanent one is not IP-limited', async () => {
-    const keys: string[] = [];
-    let allow = true;
-    const limited = { ...envWith, PUBLIC_LIMITER: { limit: async (o: { key: string }) => { keys.push(o.key); return { success: allow }; } } };
+  it('an anonymous owner gets the smaller budget and a per-network cap (an HMAC of the IP, never the IP); a permanent one is not counted by network', async () => {
+    const brand = db.tables.brands[0] as never;
+    const anon = owner({ isAnonymous: true, ip: '203.0.113.9' });
     setBudget({ anonymous: 60 });
-    await expect(startRun(limited, undefined, owner({ isAnonymous: true, ip: '203.0.113.9' }), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/used its 60 metered calls/) });
-    expect(keys).toEqual(['run:203.0.113.9']);
-    allow = false;
-    await expect(startRun(limited, undefined, owner({ isAnonymous: true, ip: '203.0.113.9' }), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/too many reads from your network/) });
-    // A permanent owner: no IP check, the permanent budget (default 300) applies.
-    expect((await startRun(limited, undefined, owner({ ip: '203.0.113.9' }), db.tables.brands[0] as never, 'extract_facts', { url: 'https://jamjam.tech' })).status).toBe('running');
-    expect(keys).toHaveLength(2);
-    expect(db.tables.sources).toHaveLength(1);
+    await expect(startRun(envWith, undefined, anon, brand, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/used its 60 metered calls/) });
+    db.tables.engine_config = db.tables.engine_config.filter((r) => r.key !== 'metered_call_budget');
+    db.tables.engine_config.push({ key: 'network_run_rate', value: { anonymous: 1 } });
+    step = fakeStep();
+    await startRun(envWith, undefined, anon, brand, 'extract_facts', { url: 'https://jamjam.tech' });
+    const key = db.tables.runs[0].client_key as string;
+    expect(key).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(db.tables.runs)).not.toContain('203.0.113.9');
+    await expect(startRun(envWith, undefined, anon, brand, 'extract_facts', { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 429, message: 'too many reads from your network; wait a little and try again' });
+    // Another network, and a permanent owner on the same network, are not held back by it.
+    step = fakeStep();
+    await startRun(envWith, undefined, owner({ isAnonymous: true, ip: '198.51.100.1' }), brand, 'extract_facts', { url: 'https://jamjam.tech' });
+    step = fakeStep();
+    await startRun(envWith, undefined, owner({ ip: '203.0.113.9' }), brand, 'extract_facts', { url: 'https://jamjam.tech' });
+    expect(db.tables.runs.map((r) => r.client_key === null)).toEqual([false, false, true]);
+  });
+  it('admit before pre-work: an over-cap caller is refused before any pre-work runs; release and expiry free the capacity; start never charges twice', async () => {
+    const brand = db.tables.brands[0] as never;
+    setBudget({ permanent: 61 });
+    let prework = 0;
+    const a = await admit(envWith, { brand, kind: 'extract_facts', actor: owner(), ip: null });
+    expect(db.tables.runs[0]).toMatchObject({ id: a.runId, status: 'reserved', metered_planned: 61, input: {} });
+    expect(await activeRun(envWith, BRAND)).toBeNull();
+    const second = () => admit(envWith, { brand, kind: 'extract_facts', actor: owner(), ip: null }).then((r) => { prework++; return r; });
+    await expect(second()).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/61 reserved by runs still going/) });
+    expect(prework).toBe(0);
+    // Released: capacity returns.
+    await release(envWith, a);
+    expect(db.tables.runs).toHaveLength(0);
+    const b = await second();
+    // Expired: capacity returns, and the lapsed reservation is cleared at the next admission.
+    db.tables.runs.find((r) => r.id === b.runId)!.reserved_until = new Date(Date.now() - 1000).toISOString();
+    const c = await second();
+    expect(db.tables.runs.map((r) => r.id)).toEqual([c.runId]);
+    await expect(start(envWith, undefined, b, brand, { url: 'https://jamjam.tech' })).rejects.toMatchObject({ status: 409 });
+    // Start turns the reservation into the run without admitting again: at a budget of exactly one run, it runs.
+    step = fakeStep();
+    const { run } = await start(envWith, undefined, c, brand, { url: 'https://jamjam.tech' });
+    expect(run.id).toBe(c.runId);
+    expect(db.tables.runs).toHaveLength(1);
+    expect(db.tables.runs[0]).toMatchObject({ status: 'done', metered_planned: 61 });
+    expect(db.calls.filter((x) => x.table === 'rpc/admit_run')).toHaveLength(4);
+    // A request prepare() cannot use releases its reservation.
+    setBudget({ permanent: 1000 });
+    const d = await admit(envWith, { brand, kind: 'extract_facts', actor: owner(), ip: null });
+    await expect(start(envWith, undefined, d, brand, { url: 'ftp://nope' })).rejects.toMatchObject({ status: 400 });
+    expect(db.tables.runs.some((r) => r.id === d.runId)).toBe(false);
   });
   it('the route passes the caller\'s IP to the start checks', async () => {
     const keys: string[] = [];

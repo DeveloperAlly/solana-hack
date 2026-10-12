@@ -20,6 +20,7 @@ function matches(row: Row, q: URLSearchParams) {
     if (v.startsWith('in.(') && !v.slice(4, -1).split(',').includes(String(row[k]))) return false;
     // ISO timestamps compare in order as strings, as PostgREST's gte does on timestamptz for these values.
     if (v.startsWith('gte.') && !(String(row[k] ?? '') >= v.slice(4))) return false;
+    if (v.startsWith('gt.') && !(String(row[k] ?? '') > v.slice(3))) return false;
     if (v.startsWith('neq.') && String(row[k]) === v.slice(4)) return false;
     if (v === 'not.is.null' && (row[k] === null || row[k] === undefined)) return false;
   }
@@ -54,27 +55,32 @@ export class FakePgError extends Error {
   constructor(public status: number, public code: string, message: string) { super(message); }
 }
 const pt = (status: number, message: string) => new FakePgError(status, `PT${status}`, message);
-const metered = (s: Row) => s.type === 'llm' || (s.cost_usd !== null && s.cost_usd !== undefined);
+/** Calls an attempt made, as admit_run counts them: its metered_calls, else 1 for a model call or a costed call. */
+const metered = (s: Row) => (typeof s.metered_calls === 'number' ? s.metered_calls : s.type === 'llm' || (s.cost_usd !== null && s.cost_usd !== undefined) ? 1 : 0);
 
-/** Same semantics as spec/db/011 admit_run (checked against Postgres 16): run rate, then the metered-call budget, then
- * the run row as the reservation. Single-threaded here, as the advisory lock makes it in Postgres. */
-function admitRun(a: { p_brand: string; p_kind: string; p_version: number; p_executor: string; p_progress: unknown; p_created_by: string | null; p_planned: number; p_budget: number; p_run_rate: number; p_spend_cap: number }) {
+/** Same semantics as spec/db/011 admit_run (checked against Postgres 16): expired reservations dropped, then the
+ * network cap, the run rate, the spend allowance and the metered-call budget, then the run row as a reservation.
+ * Single-threaded here, as the advisory locks make it in Postgres. */
+function admitRun(a: { p_brand: string; p_kind: string; p_version: number; p_executor: string; p_progress: unknown; p_created_by: string | null; p_planned: number; p_budget: number; p_run_rate: number; p_spend_cap: number; p_client_key: string | null; p_client_cap: number; p_ttl_s: number }) {
   const now = Date.now();
-  const runs = db.tables.runs.filter((r) => r.brand_id === a.p_brand);
+  const iso = new Date(now).toISOString();
+  db.tables.runs = db.tables.runs.filter((r) => !(r.brand_id === a.p_brand && r.status === 'reserved' && String(r.reserved_until) <= iso));
+  const live = (r: Row) => r.status !== 'reserved' || String(r.reserved_until) > iso;
   const hourAgo = new Date(now - 3_600_000).toISOString();
+  if (a.p_client_key !== null && db.tables.runs.filter((r) => r.client_key === a.p_client_key && String(r.created_at) >= hourAgo && live(r)).length >= a.p_client_cap) throw pt(429, 'too many reads from your network; wait a little and try again');
+  const runs = db.tables.runs.filter((r) => r.brand_id === a.p_brand);
   if (runs.filter((r) => String(r.created_at) >= hourAgo).length >= a.p_run_rate) throw pt(429, `this brand has started ${a.p_run_rate} runs in the last hour; wait a little and try again`);
   if (a.p_planned > 0) {
     const today = new Date(Math.floor(now / 86_400_000) * 86_400_000).toISOString();
     const ids = new Set(runs.map((r) => r.id));
     const spent = db.tables.run_steps.filter((x) => ids.has(x.run_id) && String(x.created_at) >= today).reduce((n, x) => n + Number(x.cost_usd ?? 0), 0);
     if (spent >= a.p_spend_cap) throw pt(429, `this brand has spent $${Math.round(spent * 10000) / 10000} of its $${a.p_spend_cap} daily allowance for paid services; try again after 00:00 UTC`);
-    const used = db.tables.run_steps.filter((x) => ids.has(x.run_id) && String(x.created_at) >= today && metered(x)).length;
-    const reserved = runs.filter((r) => (r.status === 'running' || r.status === 'paused') && typeof r.metered_planned === 'number')
-      .reduce((n, r) => n + Math.max((r.metered_planned as number) - db.tables.run_steps.filter((x) => x.run_id === r.id && metered(x)).length, 0), 0);
+    const used = db.tables.run_steps.filter((x) => ids.has(x.run_id) && String(x.created_at) >= today).reduce((n, x) => n + metered(x), 0);
+    const reserved = runs.filter((r) => typeof r.metered_planned === 'number' && (r.status === 'running' || r.status === 'paused' || (r.status === 'reserved' && live(r))))
+      .reduce((n, r) => n + Math.max((r.metered_planned as number) - db.tables.run_steps.filter((x) => x.run_id === r.id).reduce((m, x) => m + metered(x), 0), 0), 0);
     if (used + reserved + a.p_planned > a.p_budget) throw pt(429, `this brand has used its ${a.p_budget} metered calls for today (${used} made, ${reserved} reserved by runs still going, ${a.p_planned} needed); try again after 00:00 UTC`);
   }
-  const at = new Date(now).toISOString();
-  const run: Row = { id: uuid(), brand_id: a.p_brand, kind: a.p_kind, workflow_version: a.p_version, executor: a.p_executor, status: 'running', input: {}, progress: a.p_progress, created_by: a.p_created_by, metered_planned: a.p_planned, created_at: at, updated_at: at };
+  const run: Row = { id: uuid(), brand_id: a.p_brand, kind: a.p_kind, workflow_version: a.p_version, executor: a.p_executor, status: 'reserved', input: {}, progress: a.p_progress, created_by: a.p_created_by, metered_planned: a.p_planned, reserved_until: new Date(now + a.p_ttl_s * 1000).toISOString(), client_key: a.p_client_key, created_at: iso, updated_at: iso };
   db.tables.runs.push(run);
   return { ...run };
 }

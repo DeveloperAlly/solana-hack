@@ -1,11 +1,12 @@
 // Checks every run start passes before anything is written (engine/api.ts start(), so every route that starts a run is
 // covered: POST /runs, POST /sources and any later caller of startRun). Design review on PR #91: a per-brand daily
 // budget of metered calls (model calls and paid service calls, declared per step: types.ts StepBase.metered), a
-// per-brand run rate (Codex review on PR #100: a run kind with no model call still costs money), and, for a brand whose
-// owner is an anonymous visitor (reading before sign-in, decision D1 and PR #96), a per-IP limit and smaller caps. Owner types are read from the caller (`isAnonymous`, set by auth for a
+// per-brand run rate (Codex review on PR #100: a run kind with no model call still costs money), a daily spend
+// allowance, and, for an anonymous visitor (reading before sign-in, decision D1 and PR #96), a per-network run rate and
+// smaller caps. The values are computed here; spec/db/011 admit_run checks them and reserves in one transaction. Owner types are read from the caller (`isAnonymous`, set by auth for a
 // Supabase anonymous user in PR #96); without it every caller is a permanent account, so this does not depend on #96.
 import { db } from '../db';
-import { HttpError, type Env } from '../env';
+import type { Env } from '../env';
 import type { BrandRef } from './kinds';
 import type { StepSpec, WorkflowSpec } from './types';
 
@@ -34,6 +35,11 @@ export const DEFAULT_RUN_RATE: Record<OwnerType, number> = { permanent: 30, anon
  * pages a day for a permanent brand, and $0.05 about 7 searches for an anonymous visitor. Free models cost 0.
  */
 export const DEFAULT_DAILY_SPEND_USD: Record<OwnerType, number> = { permanent: 0.5, anonymous: 0.05 };
+
+/** Runs anonymous visitors on one network (IP) may start per rolling hour, across brands (engine_config
+ * 'network_run_rate' overrides): PR #96 caps one anonymous visitor at 1 brand and 8 sources (ANON_MAX_BRANDS,
+ * ANON_MAX_SOURCES), so 20 lets about two visitors share a network. Permanent accounts are not counted by network. */
+export const DEFAULT_NETWORK_RUN_RATE: Record<OwnerType, number> = { permanent: 0, anonymous: 20 };
 
 /** Most metered calls one step makes per run (types.ts StepBase.metered and its defaults); a map counts its inner step
  * once per item, up to its max. */
@@ -64,28 +70,21 @@ async function setting(env: Env, key: string, type: OwnerType, fallback: Record<
  */
 export async function admissionLimits(env: Env, caller: Caller, spec: WorkflowSpec) {
   const type = ownerType(caller);
-  const [budget, runRate, spendCap] = await Promise.all([
+  const [budget, runRate, spendCap, clientCap] = await Promise.all([
     setting(env, 'metered_call_budget', type, DEFAULT_METERED_CALL_BUDGET),
     setting(env, 'run_rate', type, DEFAULT_RUN_RATE),
     setting(env, 'daily_spend_usd', type, DEFAULT_DAILY_SPEND_USD, false),
+    setting(env, 'network_run_rate', type, DEFAULT_NETWORK_RUN_RATE),
   ]);
-  return { planned: plannedMeteredCalls(spec), budget, runRate, spendCap };
+  return { planned: plannedMeteredCalls(spec), budget, runRate, spendCap, clientCap };
 }
 
-/** Anonymous visitors: one Workers rate-limit check per run start, keyed by IP (wrangler.jsonc PUBLIC_LIMITER). No-op
- * without the binding (tests, local) and for permanent accounts. */
-export const anonymousIpGuard: StartGuard = async (env, caller) => {
-  if (!caller.isAnonymous || !env.PUBLIC_LIMITER) return;
-  const { success } = await env.PUBLIC_LIMITER.limit({ key: `run:${caller.ip ?? 'unknown'}` });
-  if (!success) throw new HttpError(429, 'too many reads from your network; wait a minute and try again');
-};
-
 /**
- * Checks that need nothing from the database run first, in order; the first that refuses stops the start. The budget
- * and run rate are not guards: they are checked and reserved atomically by admit_run. Other caps (for example PR #96's
- * source cap) register here.
+ * Extra checks a feature may add before admission (for example PR #96's source cap), run in order; the first that
+ * refuses stops the start. None by default: the network cap, run rate, spend and metered-call budget are not guards,
+ * they are checked and reserved atomically by admit_run.
  */
-export const START_GUARDS: StartGuard[] = [anonymousIpGuard];
+export const START_GUARDS: StartGuard[] = [];
 export function registerStartGuard(g: StartGuard) {
   if (!START_GUARDS.includes(g)) START_GUARDS.push(g);
 }
