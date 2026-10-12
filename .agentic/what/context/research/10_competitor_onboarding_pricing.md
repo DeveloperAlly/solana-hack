@@ -6,7 +6,7 @@ updated: 2026-10-12
 last_edited_by: agent
 tags: [research, competitors, onboarding, pricing, landscape]
 ---
-> **Status: active.** Research input (2026-10-12). It updates [research 04](./04_brand_hub_landscape.md) with an onboarding and pricing review of 59 competitors, measured against JamJam's full build plan. Everything under "What JamJam should adopt" is **proposed**, and has been checked against every decision doc in the repo; only the owner ratifies.
+> **Status: active.** Research input (2026-10-12). It updates [research 04](./04_brand_hub_landscape.md) with an onboarding and pricing review of 59 competitors, measured against JamJam's full build plan. Section 11 adds the proposed delivery plan, component evaluation and evaluation harness. Everything under "What JamJam should adopt" and section 11 is **proposed**, and has been checked against every decision doc in the repo; only the owner ratifies.
 
 # Competitor onboarding and pricing review
 
@@ -442,3 +442,282 @@ Where JamJam wins, provided #34 ships: coverage plus confirm-mode with the quote
    - (c) claims shown on the draft before approval (D3).
 
    (a) is onboarding; (b) and (c) are creation.
+
+## 11. Addendum: delivery plan, component evaluation and evaluation harness (2026-10-12, 18:30 Melbourne)
+
+> **Status: proposed.** This turns the review above into a delivery plan: the hackathon build, the full product in phases, every component evaluated for the best output, and the harness that measures it. It draws on five research passes run on 2026-10-12 (voice, evaluation, ingestion, verify and payouts, platform), all from primary sources. Nothing here is decided until the owner approves it; the live, editable copy is the [delivery plan doc](https://claude.ai/code/artifact/caff9791-c59c-4dc5-825f-bfaf2bf006db).
+
+Draft for review before any work starts. It separates the hackathon build (to Oct 13, 5:59pm Melbourne) from the full product, and evaluates every component of the system for the best output, because output quality is where JamJam's advantage lives.
+
+### Decisions for you
+
+Nothing starts until these are answered.
+
+1. **Approve this plan** as the basis for updating #38 and opening the product master issue.
+2. **Models for brand data.** Free models are fine for development and CI but only one free text model offers zero data retention, so brand content should run on paid models with zero retention: Claude Haiku 5.5 ($0.10 / $0.50 per million tokens) for extraction, judging and polish, and Sonnet 5.5 ($2 / $10) for drafting in the brand's voice. At 30 posts a brand a month that is about $7 a month at 10 brands and $73 at 100. Approve, or keep everything on Haiku (about $0.75 at 10 brands).
+3. **Runtime claims checker.** The Worker can't host the small checker models, so the default is an LLM judge from a different model family, calibrated on fixtures. The alternative is a small CPU host for the checker, whose cost isn't verified yet.
+4. **Your labelling time.** About 2 hours for gold facts, 100–200 judge labels per dimension, and a 40-pair blind voice test. Without these the judge can't be trusted and the voice claim can't be made.
+5. **Repo stays public** (CI scoring is free on a public repo; a private repo gets a minutes quota).
+6. **LinkedIn Company Page access.** Apply for the vetted Community Management API now if Company Page publishing is wanted; it needs a legal entity and a screencast.
+7. **Still open from the competitor review:** N1–N14, naming Pressmaster and Encypher on slide 9, and merging #28 and #30.
+
+#### Where each part lives once approved
+
+Updates to what exists; no new docs.
+
+| Part | Home |
+| --- | --- |
+| Hackathon tasks H0–H11 | #38 body, updated in place; sub-issues only for H8–H11 |
+| Full product phases | One new product master issue with a sub-issue per phase (the only new tracker item) |
+| Voice findings | Architecture §6 (Voices and polish) |
+| Ingestion and extraction findings | Architecture §5 (intake) |
+| Component evaluation and harness | A new evaluation section in the architecture doc; fixtures and the CI job as code beside the existing Playwright checks |
+| Model, platform, billing and publishing choices | Backend map |
+| Verify and payout design | Architecture §7 (proof layer) |
+| Current state | STATE.md "Next" points at #38 and the product issue |
+
+### System map
+
+Every component reads from or writes to one evidence store, and nothing reaches Solana unless a person approved it. The layers follow the accepted architecture (§2 pipeline, §7 proof layer) and the backend map; the workflow layer is slice #32.
+
+Five layers, top to bottom: **surfaces** (Build, Create, Ledger, Verify, the brand and ambassador views); **workflows** (durable runs for ingest, kit, draft, publish, register and pay); **intelligence** (the agents behind one LLM gateway: extraction, coverage, kit drafting, voice, slop, claims, judge); **data** (the evidence store every component reads and writes: sources, facts with quotes, kits, posts, approvals, learned rules); **proof and money** (SAS attestations signed by the Registrar, Verify matching, USDC payouts signed by the brand's own wallet). The interactive map is in the [delivery plan doc](https://claude.ai/code/artifact/caff9791-c59c-4dc5-825f-bfaf2bf006db).
+
+Read top to bottom: a person acts in a surface, which starts a durable run; runs call agents through one LLM gateway; agents read and write evidence; only approved records are hashed and attested.
+
+### Component evaluation
+
+Each component below has one job, a state on main today (commit 81ade1e), the option chosen for the best output with the alternatives it beat, and the measure that proves it. A component is not done until its measure passes on the fixtures in the evaluation harness (next section). The rule throughout: **nothing grades itself.** Today the drafting prompt scores its own voice fit and platform fit (`posts.ts` L81); every measure here replaces that with a check the generator cannot influence.
+
+#### Intake and evidence (Build: B1–B3)
+
+| Component | On main today | Best-output option (alternatives considered) | Measured by |
+| --- | --- | --- | --- |
+| **Source ingestion**: read what the brand already has | `ingest.ts` reads one URL and decodes almost no HTML entities | Check robots.txt, then one Exa contents call for the home page plus about 8 key subpages (about $0.009 a brand; Exa's free monthly credit covers about 1,100 onboardings); fall back to a plain fetch, then Cloudflare's rendered Markdown for script-only sites, then paste. PDF, DOCX, XLSX via Workers AI `toMarkdown` (free); scanned PDFs through an OCR engine (about $2 per 1,000 pages); PPTX parsed in the browser. X and LinkedIn history from the owner's own data export, parsed in the browser. Rejected: single page (misses most facts), full-site crawl (cost, noise, free crawl limited to 5 jobs a day) | Key-page coverage ≥ 90% on the fixture sites; ≥ 95% of gold sentences present in the extracted text; cost and Worker CPU per brand logged |
+| **Fact extraction with quote check** (B2) | Sends only the first 14,000 characters, asks for JSON without enforcing a schema, runs on `openrouter/auto`, keeps at most 12 facts, and matches quotes after only lowercasing and collapsing spaces, so a true quote fails when the page has a curly apostrophe (`api.ts` L83–93) | Chunks of 2–4k tokens with source offsets; strict JSON schema with the provider required to honour it; both sides normalised (Unicode, quote marks, dashes, entities) and an exact match required; a fuzzy match (≥ 0.9) used only to find the real passage, after which the stored quote is replaced by the exact source text and its offsets (the source-alignment design in Google's LangExtract); a second check that the quote actually supports the fact; overlapping facts merged; contradictions turned into interview questions; confidence computed from match type and number of sources, not asked of the model. Rejected: one long call (models degrade as input grows), trusting the model's quote | **0 invented facts and 0 unsupported quote–fact pairs (hard gates)**; precision ≥ 95%, recall ≥ 70% against hand-labelled facts; false-drop rate of true quotes reported; 100% of planted near-miss quotes rejected |
+| **Coverage map** (B3: Evidence, Inferred, Missing per field) | Not built (#34) | A coverage matrix of slots per kit section; ask only about missing, weak or conflicting slots, ranked by a simple stand-in for expected information gain. Evidence: prompting a model to ask questions made results worse, while asking only when unsure improved accuracy by 22% (MediQ). Rejected: static checklist (asks what the site already says) | Field-status accuracy ≥ 90% against gold; questions until full coverage; on aDNA ≥ 70% prefilled and < 5 min to kit v1 (H5) |
+| **Guided interview** (B1) | Linear steps (`steps.ts`) | Confirm mode: prefilled cards to accept, edit or reject, then gap questions only; answers stored as owner evidence so every fact follows the same quote rule. Rejected: a blank form (slow), free chat (hard to finish) | Time to kit v1; edits per prefilled field; 5-person usability run with ≥ 4 of 5 finishing unaided |
+
+#### Brand kit (Build: B4–B6)
+
+| Component | On main today | Best-output option (alternatives considered) | Measured by |
+| --- | --- | --- | --- |
+| **Kit drafting** (B4: purpose, positioning, audience, voice, origin, messaging) | Six sections (`kit.ts`) | One call per section, grounded on cited facts and interview answers; every sentence carries the fact ids it rests on; a critique pass flags generic or unsupported lines. Rejected: one prompt for the whole kit (generic, uncited) | ≥ 95% of kit sentences traceable to a fact or an answer; 0 slop hits; owner prefers it over an uncited baseline in ≥ 70% of blind pairs |
+| **Voice capture** | 12 templates, 8 dials, one sample (`steps.ts`, `Build.tsx` L267–279) | Now: voice by example, pick 1 of 3 generated paragraphs, twice (architecture §5 step 6). Then: a voice spec extracted from the brand's own posts and stored as claims with quotes (see the voice question). Rejected: dials alone (people can't describe their own voice) | Blind test against held-out brand posts: the owner rates a generated post "sounds like us" ≥ 60% of the time; pairwise judge win rate against the dials-only version |
+| **Gates and approval** (B5) | Three gates (`kit.ts`) | Keep; block registration until every section is approved; flag sections made stale by an edit (#31) | Automated test: an unapproved section can't be registered; an edit marks dependent sections stale |
+| **Versioning and export** (B6) | Canonical JSON hashing | Keep; add export | Same kit re-saved gives the same hash; export round-trips without loss |
+
+#### Content creation (Run: R1–R3)
+
+| Component | On main today | Best-output option (alternatives considered) | Measured by |
+| --- | --- | --- | --- |
+| **Drafting engine** (R1) | One prompt; the model self-scores voice fit and platform fit 0–100 (`posts.ts` L81) | Retrieval of the brand's approved posts (3–5 by topic, 1–2 by style) plus the extracted voice spec plus learned rules, best of 3 candidates. Rejected for now: per-brand fine-tuning (needs deep data; see the voice question) | **North star: approved without edit.** Voice pass per brand: a draft must be at least as close to the brand (StyleDistance, plus a stylometric score in the Worker) as the brand's own least typical 10% of real posts. Ground truth: in a blind test of 40 pairs the owner picks the real post; 26 or more correct means the owner can tell, so passing is 25 or fewer. Pairwise judge win rate ≥ 60% against today's prompt |
+| **Anti-slop pass** (R2) | Banned list in the prompt, one check and one rewrite (`llm.ts`, `posts.ts`) | Port the open-source EQ-Bench slop score into the Worker (overused words 60%, "not X, but Y" patterns 25%, overused three-word phrases 15%), add lexical diversity and a specificity rate, keep the ban list, and regenerate only the offending span; compare every draft with the brand's own human posts. Rejected: prompt-only bans (weak, can backfire); AI-text detectors (OpenAI's own caught 26% of AI text and was withdrawn); the backtracking sampler (needs logit access the hosted APIs don't give) | **0 ban-list hits and a slop score no worse than the brand's own posts (hard gate)**; < 5% false flags on the brand's human-written posts |
+| **Claims gate** (R2) | Policy verdict at approval only (`CLAIMS_POLICY`) | Split the draft into sentences and claims; each must cite a kept fact; rules for numbers, prices, superlatives and guarantees. In CI the reference checker is MiniCheck-Flan-T5-L (0.8B, MIT; 75.0 balanced accuracy on LLM-AggreFact, about 400× cheaper than GPT-4) with HHEM-2.1 (0.1B, Apache) as a second opinion; disagreements go to human review and become fixtures. At runtime the Worker's 128 MB can't host those models, so the gate is an LLM judge from a different model family than the drafter, given only the cited facts and calibrated on the fixture. Shown on the draft before Approve (H9) | **Recall of unsupported claims ≥ 95%** (a false "supported" ships a false claim); precision reported, with human approval absorbing false alarms |
+| **Polish actions** | Actions with undo (`posts.ts`) | Keep; re-run slop and claims after every polish | 0 new claims introduced by a polish; acceptance rate per action |
+| **Platform fit** | Same self-score as above | Rename it "platform fit" and make it a rule-based lint per platform (length, first-line hook, link placement, hashtag count, mentions). Make no performance predictions: the best Twitter cascade model explained under half the variance (R² 0.48), and models picked the better of two controlled tweets only 66% of the time against people's 61%. Learn from real outcomes once posts publish | Lint pass 100%; later, correlation with real engagement |
+| **Approval and learned rules** (R3) | Approve flow; edits not learned | Each edit becomes a readable rule (CIPHER) the brand can keep or delete; rules retrieved on the next draft | Edit distance falls over a brand's first 20 posts; share of learned rules kept |
+| **Publishing** (R4, coming soon) | Copy text, paste the URL back (`Create.tsx` L176) | Official APIs in order of cost and access: Bluesky (free), LinkedIn as a member (self-serve), X ($0.015 a post, $0.20 with a link, so links stay out of post bodies), Threads (app review), LinkedIn Company Pages (vetted access) | Publish success rate; the published text hashes to the approved hash 100% |
+
+#### Proof (P1–P4)
+
+| Component | On main today | Best-output option (alternatives considered) | Measured by |
+| --- | --- | --- | --- |
+| **Attestation** (P1, P2) | Kit v1 on SAS devnet; Registrar signs | Add a post schema; derive the attestation address from the post id; expiry 0; retraction by closing the attestation plus an off-chain record. Rejected: tokenised attestations (brands have no wallet) | On-chain hash equals the recomputed canonical hash for 100% of entries; 0 unapproved registrations |
+| **Verify** (P3) | Hash lookup | Shared normaliser (`norm_v1`: NFKC, invisible characters stripped, case folded, links tokenised), then exact hash, then truncation check, then word 3-gram Jaccard ≥ 0.80 for "edited" with a diff, 0.50–0.80 "possible match", pg\_trgm for posts under 25 words; any changed number, price, handle or link forces a red "claims changed". Rejected: embeddings for the verdict (a paraphrase isn't the official post) | 50-pair fixture: **0 false "official"**, 0 false "edited" between different posts from the same brand, ≥ 95% correct labels overall |
+| **Ledger** (P3) | Live | Keep | Every registered entry listed with a working explorer link (Playwright) |
+
+#### Money (Y1–Y3) and platform
+
+| Component | On main today | Best-output option (alternatives considered) | Measured by |
+| --- | --- | --- | --- |
+| **Payouts** (Y3) | Not built | The server builds a USDC `transferChecked`, the brand's own wallet signs, and the server confirms that mint, destination, amount and memo match the database row before marking it paid. Rejected for the demo: delegated budgets (JamJam would hold a hot key) | 100% of tampered transactions rejected in tests; paid only after on-chain confirmation |
+| **Model gateway and pool** (#39) | One gateway, `openrouter/auto` (`llm.ts`) | A ranked pool per task type (extract, draft, judge, polish) with failover; the model for each task chosen by harness score, not by name | Forced 429 answered by the next model; a model swap ships only after the harness passes |
+| **Workflow engine** (#32) | Request-scoped calls | Durable runs with step retries and saved progress | A run survives a forced step failure; progress survives reload |
+
+### The voice question: prompting, retrieval or training a model
+
+Start with retrieval plus a learned spec, not a fine-tuned model. Fine-tuning only beats retrieval once a brand has deep data, which JamJam's brands (10–200 posts) don't have yet. Collect the training data from day one so tuning is possible later. Evidence: on the LaMP benchmark, retrieving the user's own items lifted results 14.92% against 1.07% for a per-user LoRA when users had little data ([Salemi & Zamani](https://arxiv.org/html/2409.09510v1)).
+
+**The ceiling to design around.** A study of 400+ real authors found models imitate formal writing reasonably well but drift generic on informal writing, and more examples barely help ([EMNLP 2025](https://aclanthology.org/2025.findings-emnlp.532/)). Crypto and developer social posts are informal, so this is JamJam's main quality risk. Fine-tuning on an author's whole corpus broke the ceiling: expert preference for style match rose from an odds ratio of 0.16 to 8.16, and AI-detector hits fell from 97% to 3%, at about $81 per author ([Chakrabarty et al.](https://arxiv.org/html/2510.13939)). But that used whole books, not a few hundred posts.
+
+| Option | What the evidence says | Cost and serving (Oct 2026) | Verdict |
+| --- | --- | --- | --- |
+| Hand-written voice spec only | Profiles extracted from examples beat hand-written descriptions ([Writer](https://support.writer.com/articles/2129182165-how-to-calibrate-voice-for-your-content)); banned words in a prompt are weak and can backfire ([Antislop](https://arxiv.org/abs/2510.15061)) | Free | Needed, not enough. Extract the spec from examples, enforce bans in code |
+| Retrieval few-shot from approved posts | Helped on every LaMP task; recency and relevance matter most ([LaMP](https://aclanthology.org/anthology-files/pdf/acl/2024.acl-long.399.pdf)); style-embedding retrieval slightly best ([RAGs to Style](https://aclanthology.org/2024.personalize-1.11.pdf)) | 1–3k extra input tokens per call; one embedding per post | **The core engine now** |
+| Learning from edits (CIPHER) | Turns each edit into a readable rule reused next time; cut edits 31–73%, with simulated users ([CIPHER](https://arxiv.org/html/2404.15269v3)) | One extra model call per edit | **Now.** Shown to the brand as learned rules it can delete |
+| Per-brand LoRA fine-tune | Beats retrieval only with long histories; retrieval plus adapter is best ([OPPU](https://aclanthology.org/2024.emnlp-main.372.pdf)) | Workers AI hosts your own LoRAs free in beta: rank ≤ 8 (32 on some), < 300MB, 100 per account, no editing after upload ([docs](https://developers.cloudflare.com/workers-ai/features/fine-tunes/loras/)). Together dropped serverless LoRA. OpenAI fine-tuning is closing to new users | Pilot at \~20–100 brands, for brands with 300+ approved posts (threshold **unverified**) |
+| Per-brand preference tuning (DPO) | Causes forgetting on small models ([BAPO](https://aclanthology.org/2024.findings-emnlp.398.pdf)); needs far more pairs than a brand has | \~2× fine-tune cost | No. Later, one **global** pass on pooled approve/reject pairs, with consent |
+| Global anti-slop "house writer" | Some AI phrases are 1,000× more frequent than in human text; suppressing them keeps quality; FTPO training \~90% suppression; DPO hurt quality ([Antislop](https://arxiv.org/abs/2510.15061)) | Now: detect and regenerate in code. Later: one LoRA on Workers AI | **Highest shared lever** |
+| Best-of-N with a style score | Style embeddings \~0.56–0.58 accuracy and GPT-4.1 as judge 0.68 on same-prompt comparisons ([benchmark](https://arxiv.org/html/2508.06374v3)) | N× calls | Best-of-3 with a combined score; human approval is the real signal |
+
+**Ladder.**
+
+1. **Now (to \~10 brands):**
+   - a voice spec extracted from examples and stored as claims with quotes (fits the quote rule);
+   - retrieval of 3–5 approved posts by topic plus 1–2 by style;
+   - learned rules from edits;
+   - a code-enforced anti-slop gate;
+   - best-of-3.
+2. **At 20–100 brands:**
+   - one shared anti-slop house-writer LoRA;
+   - per-brand LoRA pilots, A/B against retrieval on approval rate and edit distance;
+   - a brand-style reranker trained on approve/reject labels.
+3. **At scale:** many LoRAs on one deployment, or shared reward bases with thin per-brand weights; per-brand fine-tuning as a premium tier.
+
+**Collect from day one** (without it, later tuning is impossible):
+
+- all N candidates with their scores;
+- approve, reject with a reason code, and edits stored as original and final;
+- the retrieved exemplar ids and the spec version;
+- the learned rules and whether each was kept;
+- training-consent flags per brand;
+- 20–30 held-out approved posts per brand as its test set.
+
+**Free-tier note:** OpenRouter free models allow 50 requests a day, or 1,000 a day after buying $10 of credits once ([limits](https://openrouter.ai/docs/api_reference/limits)). Best-of-3 plus a judge is about 5 calls a post, so the $10 is required for real use.
+
+Lands in the repo as an update to architecture §6 (Voices and polish), with the 35 sources cited there. No new doc.
+
+### Evaluation harness
+
+One harness gates every component. It runs in GitHub Actions on every PR that touches a prompt, a model choice, the normaliser or a scoring rule, and before any model swap. Results are written to Supabase (an `eval_runs` table: component, fixture set, model id, prompt version, scores) so a regression is visible as a number, not a feeling. Deterministic checks run as unit tests; model-judged checks run through an open-source eval runner (promptfoo-style assertions) so prompts and models can be swapped and compared on the same inputs.
+
+#### Fixture sets
+
+| Set | Contents | Built from | Used by |
+| --- | --- | --- | --- |
+| **F1 Brands** | 5 brands: JamJam, aDNA, film.fun, GamersLab and one outside crypto; their pages and documents frozen as snapshots | Live sites captured once, committed | Ingestion, extraction, coverage, kit |
+| **F2 Gold facts** | About 30 hand-labelled facts per F1 brand, each with its quote, plus the correct status (Evidence, Inferred, Missing) for every kit field | Labelled by the owner (about 2 hours) | Extraction precision and recall, coverage accuracy |
+| **F3 Planted quotes** | Pages with near-miss quotes: one word changed, a number changed, a sentence merged from two places | Generated from F1 and checked by hand | Quote verification (must reject all) |
+| **F4 Brand posts** | 20–30 held-out human-written posts per brand, never used for retrieval | Brand archives | Voice tests, slop false flags, judge calibration |
+| **F5 Briefs** | 20 post briefs per brand across X and LinkedIn | Written once | Drafting win rate, platform checklist |
+| **F6 Claims** | About 300 claims labelled supported or unsupported, mostly from real drafts, with synthetic errors (changed numbers, invented customers, superlatives, guarantees) kept a minority and reported separately | Drafts from today's prompt, labelled by hand | Claims gate recall and precision |
+| **F7 Verify pairs** | 50 pairs from JamJam's own registered posts: truncated, emoji added or removed, typo fixed, one number changed, link swapped, plus different posts from the same brand | Generated from registered posts | Verify labels |
+| **F8 Payout transactions** | Valid transactions plus tampered ones (wrong amount, mint, recipient, memo) | Built on devnet | Payout confirmation |
+
+#### Gates
+
+| Measure | Threshold | Type |
+| --- | --- | --- |
+| Invented facts kept (F2) | 0 | Hard gate: blocks merge |
+| Planted quotes accepted (F3) | 0 | Hard gate |
+| Slop hits in shipped drafts (F5) | 0 | Hard gate |
+| False "official" in Verify (F7) | 0 | Hard gate |
+| Tampered payouts accepted (F8) | 0 | Hard gate |
+| Unsupported claims caught (F6) | ≥ 95% recall, precision reported | Hard gate |
+| Fact precision and recall (F2) | ≥ 95% and ≥ 70% | Hard gate |
+| Coverage field accuracy (F2) | ≥ 90% | Hard gate |
+| Draft win rate against the current prompt (F5, pairwise judge) | ≥ 60% to replace it | Ship decision |
+| Slop false flags on human posts (F4) | < 5% | Ship decision |
+| Style-embedding similarity (F4) | Reported only | Tracked |
+
+#### Making the judge trustworthy
+
+An LLM judge is only used where it has been checked against people. Before a judge gates anything, 100–200 items per dimension (voice, specificity, claims) are labelled by the owner, and the judge must agree at Cohen's kappa ≥ 0.6; the pitch says "verified" only at ≥ 0.8. Agreement is published with every run, and if it drops below 0.6 the judge falls back to "tracked" and the decision goes back to people. Pairs are judged in both orders to cancel position bias, and the judge is always a different model family from the drafter. Published results show why the check matters: on GPT-4o continuations style embeddings were 82% accurate against 68% for an LLM judge, and authorship models matched about 96% of imitated emails and news but only 17–66% of blog and forum posts, which is the informal register JamJam writes in.
+
+#### Signals from real use
+
+Once brands use JamJam, the harness is joined by production measures that matter more than any fixture: share of drafts approved without edit, edit distance between draft and approved text, reject reason codes, learned rules kept, and time from brief to approval. A prompt or model change that improves fixture scores but lowers approval without edit is rolled back.
+
+Lands in the repo as code (`spec/evals/` fixtures and the CI job, alongside the existing Playwright checks) and as a new evaluation section inside the architecture doc. No separate doc.
+
+### Hackathon build (to Oct 13, 5:59pm Melbourne)
+
+The hackathon master list stays [#38](https://github.com/DeveloperAlly/solana-hack/issues/38), retitled "Hackathon build". It keeps its slice order and gains three items: the devnet payout demo (stretch), the submission assets, and the two smallest creation gaps (stretch). Each row is one PR, shipped to jamjam.tech and checked live, per #38's rules.
+
+| # | Task | Issue | Done when (checked live) | Priority |
+| --- | --- | --- | --- | --- |
+| H0 | Owner batch: merge #28 and #30, add `EXA_API_KEY`, sign in once **by code** | #38 owner actions | Code sign-in completes on jamjam.tech | Must |
+| H1 | Kit integrity fixes | [#31](https://github.com/DeveloperAlly/solana-hack/issues/31) | Unapproved sections block registration; stale sections flagged on re-save; quote normaliser tests pass | Must |
+| H2 | Free-model pool with ranking and failover | [#39](https://github.com/DeveloperAlly/solana-hack/issues/39) | A forced 429 is answered by the next model; `/api/health` shows the pool | Must |
+| H3 | Workflow engine, run tracking, progress | [#32](https://github.com/DeveloperAlly/solana-hack/issues/32) | A run survives a forced step failure; progress survives reload | Must |
+| H4 | Start from what you have (site, links, paste, PDF, DOCX) | [#33](https://github.com/DeveloperAlly/solana-hack/issues/33) | adna.network and a sample PDF process end to end with progress | Must |
+| H5 | Prefill the interview from evidence: coverage plus confirm mode | [#34](https://github.com/DeveloperAlly/solana-hack/issues/34) | aDNA: at least 70% of fields prefilled, 0 invented facts, under 5 min to kit v1 | Must (the demo moment) |
+| H6 | Competitor research at positioning | [#35](https://github.com/DeveloperAlly/solana-hack/issues/35) | 3 competitor candidates with sources at the positioning step | Should |
+| H7 | JamJam's own build live: kit v1 and a launch post on Ledger and Verify | [#36](https://github.com/DeveloperAlly/solana-hack/issues/36) | `/ledger` lists kit v1 and one post with explorer links; `/verify` matches the post and flags an edited copy | Must (owner run Tue \~3pm) |
+| H8 | **New:** devnet USDC payout demo with one wallet | new sub-issue of #38 | One wallet linked by `signMessage`; it signs one capped devnet USDC `transferChecked` to a second address for an approved off-X piece; the Ledger shows the tx with an explorer link | Stretch |
+| H9 | **New:** claims shown on the draft before approval (D3 ChecksPanel, claims row only) | new sub-issue of #38 | A draft with an unsupported claim shows it before Approve is pressed | Stretch |
+| H10 | **New:** voice by example (pick 1 of 3 paragraphs, twice; architecture §5 step 6) | new sub-issue of #38 | The voice step offers 3 generated paragraphs at different settings and saves the choice as the voice | Stretch |
+| H11 | **New:** submission assets | new sub-issue of #38 | Deck slide 9 names Pressmaster and Encypher; slide 10 has a price; demo video under 3 min; presentation video; logo; GTM and demand-validation text; README read for judges; form submitted | Must |
+
+**Order and cut line.** H1 to H5 then H7 are the critical path, because H7 needs the prefill path to be the demo. H11 runs in parallel and must land regardless. If H5 isn't live by Tue midday, H7 runs on the current linear intake rather than slipping. H8 to H10 start only after H7 passes. Measurable voice-fit and platform checks are product work (see the component evaluation): a rushed version would still be self-graded.
+
+**Where it is recorded.** #38 body updated in place; new sub-issues only for H8 to H11; STATE.md "Next" points at #38. No new docs.
+
+### Full product: phased task list
+
+This becomes one product master issue, with one sub-issue per phase and one PR per task. Phases run in order because each one's output is the next one's input: onboarding produces the evidence and voice that creation depends on, and creation produces the approved posts that publishing, payouts and tuning depend on. Every task inherits its quality bar from the component evaluation and the harness. Product copy and marketing stay crypto-silent; the first market is a go-to-market choice, not a product feature.
+
+#### Phase 1: Onboarding nailed (Build B1–B6)
+
+Goal: a brand goes from its URL and documents to an approved, attested kit in under 10 minutes, with no invented facts.
+
+| Area | Tasks | Done when |
+| --- | --- | --- |
+| UI | Confirm-mode interview with prefilled cards; coverage badge per field (D51); evidence drawer showing the quote and its page for every fact; voice by example; kit review with section gates and stale flags | 5-person usability run: ≥ 4 of 5 finish unaided |
+| Workflows | Durable ingest run: crawl key pages, convert documents, extract per chunk, verify quotes, merge, compute coverage; resumable with progress | A run survives a forced failure at any step |
+| Prompts | Chunk extraction to schema JSON with quotes; field classifier (Evidence, Inferred, Missing); gap-question writer; per-section kit drafter with fact ids; kit critique | F2 and F3 gates pass |
+| Models | Strict JSON-schema model for extraction and classification (a small, cheap model with zero data retention); stronger model only for kit drafting | Model chosen by harness score per task |
+| Data | Evidence store: sources, chunks, facts with quotes, field status, answers, kit versions with fact ids per sentence | Every kit sentence resolves to a fact or an answer |
+| Evals | F1 to F3 built and in CI | Gates run on every prompt PR |
+| Infra | Versioned prompts in Postgres keyed by hash; traces to a free observability tier; shared normaliser `norm_v1` | Each kit links to the exact prompts that drafted it |
+
+#### Phase 2: Content creation nailed (Run R1–R3)
+
+Goal: drafts a brand approves without editing, with no slop and no unsupported claims.
+
+| Area | Tasks | Done when |
+| --- | --- | --- |
+| UI | Checks panel on every draft (D3): voice, slop, claims with their facts, platform checklist; learned-rules list the brand can keep or delete; reject with a reason code | A draft with an unsupported claim shows it before Approve |
+| Workflows | Draft run: retrieve exemplars, generate 3, filter on slop and claims, rank, present; edit-to-rule learning on approve | Run returns in under 30 seconds at p90 |
+| Prompts | Voice-spec extractor (claims with quotes from the brand's posts); drafter with retrieved exemplars, spec and rules; claim extractor; edit-to-rule; pairwise judge | Draft win rate ≥ 60% against today's prompt |
+| Models | Drafting model chosen by harness; judge model never the drafting model; deterministic slop detector in code | Slop gate 0; claims recall ≥ 95% |
+| Data | Store all candidates and scores, retrieved exemplar ids, spec version, edits as original and final, reject reasons, learned rules, training-consent flags | Every approved post can be traced to its candidates and scores |
+| Evals | F4 to F6; judge calibrated on 100–200 owner labels per dimension | Judge agreement published with each run |
+| Infra | Embeddings for approved posts and site excerpts (Postgres vectors); rate limits per brand | Retrieval under 200 ms |
+
+#### Phase 3: Publish and operate (Run R4–R9, Prove P2–P3)
+
+Goal: approved posts go out from JamJam and every one is verifiable.
+
+| Area | Tasks | Done when |
+| --- | --- | --- |
+| UI | Connect accounts; schedule; post-publish Verify link; reply queue; unified inbox; analytics | Published text hashes to the approved hash 100% |
+| Workflows | Publish run with retries; register post on approval; poll engagement | No post publishes without an approval record |
+| Integrations | Order by cost and access: Bluesky (free, open), LinkedIn as a member (self-serve), X (pay per use; keep links out of post bodies, where the price jumps), Threads (app review), LinkedIn Company Pages (vetted access, legal entity) | Each live with its own success-rate check |
+| Proof | Post schema on SAS; Verify cascade with diff and "claims changed" flag; retraction by close plus record | F7 gates pass |
+| Security | OAuth tokens encrypted at rest per brand; database grants tightened behind the Worker; deny tests | Security tests in CI |
+
+#### Phase 4: Pay (Y1–Y3)
+
+Goal: a brand pays ambassadors for approved work from its own wallet, with a record anyone can check.
+
+| Area | Tasks | Done when |
+| --- | --- | --- |
+| UI | Campaigns with caps; ambassador seats; disclosure inserted automatically; payout approval separate from content approval (ADR-006) | Disclosure present on 100% of ambassador posts |
+| Workflows | Wallet link by signed message; server-built USDC transfer signed by the brand's wallet; server confirmation against the record | F8 gates pass |
+| Later | Capped budgets by delegation (needs a custody and compliance decision first) | Decision recorded |
+
+#### Phase 5: Commercial and scale
+
+| Area | Tasks | Done when |
+| --- | --- | --- |
+| Billing | Subscription billing for brands (card billing; USDC through card processors isn't available to an Australian entity today, so USDC stays on-chain) | First paid brand |
+| Models | One shared anti-slop writer model trained on pooled approved and rejected drafts (with consent); per-brand adapters piloted for brands with deep histories, A/B against retrieval | Pilot beats retrieval on approval without edit |
+| Evals | Brand-style reranker trained on approve and reject labels replaces the generic style score | Reranker beats the judge on owner agreement |
+| Infra | Move to paid Workers tier before the free CPU-per-step limit binds; observability tier sized to volume | No run fails on platform limits |
+
+### Sources
+
+Researched 2026-10-12 from primary sources. Figures not confirmed at source are marked unverified where they appear.
+
+**Voice and training:** [Salemi & Zamani, RAG vs PEFT](https://arxiv.org/html/2409.09510v1) · [LaMP](https://aclanthology.org/anthology-files/pdf/acl/2024.acl-long.399.pdf) · [Catch Me If You Can? (EMNLP 2025)](https://aclanthology.org/2025.findings-emnlp.532/) · [Chakrabarty et al.](https://arxiv.org/html/2510.13939) · [OPPU](https://aclanthology.org/2024.emnlp-main.372.pdf) · [CIPHER](https://arxiv.org/html/2404.15269v3) · [BAPO](https://aclanthology.org/2024.findings-emnlp.398.pdf) · [Antislop](https://arxiv.org/abs/2510.15061) · [Style-personalised evaluation](https://arxiv.org/html/2508.06374v3) · [RAGs to Style](https://aclanthology.org/2024.personalize-1.11.pdf) · [Workers AI LoRA](https://developers.cloudflare.com/workers-ai/features/fine-tunes/loras/)
+
+**Evaluation:** [LUAR](https://aclanthology.org/2021.emnlp-main.70.pdf) · [StyleDistance](https://arxiv.org/html/2410.12757) · [MiniCheck](https://arxiv.org/html/2404.10774v2) · [LLM-AggreFact](https://llm-aggrefact.github.io/) · [EQ-Bench slop score](https://github.com/sam-paech/slop-score) · [OpenAI AI classifier (withdrawn)](https://openai.com/index/new-ai-classifier-for-indicating-ai-written-text/) · [promptfoo](https://github.com/promptfoo/promptfoo)
+
+**Ingestion:** [Google LangExtract](https://github.com/google/langextract) · [MediQ](https://arxiv.org/abs/2406.00922) · [Workers AI toMarkdown](https://developers.cloudflare.com/workers-ai/features/markdown-conversion/) · [Cloudflare crawl endpoint](https://developers.cloudflare.com/browser-run/quick-actions/crawl-endpoint/)
+
+**Platform, models and publishing:** [OpenRouter limits](https://openrouter.ai/docs/api-reference/limits) · [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing) · [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) · [LinkedIn posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api) · [Threads API](https://developers.facebook.com/docs/threads/overview)
+
+**Proof and payouts:** [SAS close attestation](https://attest.solana.com/docs/instructions/close-attestation) · [SAS program source](https://github.com/solana-foundation/solana-attestation-service) · [Circle devnet USDC](https://developers.circle.com/stablecoins/quickstart-transfer-10-usdc-on-solana) · [Solana token transfers](https://solana.com/docs/tokens/basics/transfer-tokens) · [Sign in with Solana](https://solana.com/docs/frontend/messages-and-auth) · [pg\_trgm](https://www.postgresql.org/docs/current/pgtrgm.html) · [RETSim](https://proceedings.iclr.cc/paper_files/paper/2024/file/194d93e09eabcb9e2837de07d0be48ce-Paper-Conference.pdf)
+
+Every figure above is cited inline; these findings fold into the architecture sections listed under "Where each part lives" once approved.
