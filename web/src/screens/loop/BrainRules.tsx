@@ -21,7 +21,7 @@ export function BrainRules({ loop }: { loop: LoopFlow }) {
   // A learned rule's line is its proposal's (domain/proposal.ts proposalNote); a retired rule says when it was retired.
   const fromCell = (r: BrainRule) => {
     const p = proposalFor(r);
-    return p && r.status !== 'retired' ? `${r.evidence.map((e) => e.label).join(', ')} · ${proposalNote(p, loop.brain.version)}` : fromLine(r);
+    return p ? `${r.evidence.map((e) => e.label).join(', ')} · ${proposalNote(p, loop.brain.version, r)}` : fromLine(r);
   };
   function action(r: BrainRule) {
     const p = proposalFor(r);

@@ -66,7 +66,7 @@ export function LearnRules({ data, state = 'success' }: { data: LearnRulesData; 
               emphasis={i === 0}
             />
           ))}
-          <DecidedProposals brainVersion={version} proposals={loop.proposals.filter((p) => p.status === 'approved' || p.status === 'rejected')} />
+          <DecidedProposals brainVersion={version} rules={loop.brain.rules} proposals={loop.proposals.filter((p) => p.status === 'approved' || p.status === 'rejected')} />
         </Stack>
       </StateView>
     </LoopFrame>

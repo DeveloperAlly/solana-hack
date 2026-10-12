@@ -95,11 +95,13 @@ export function questGate(d: QuestDraft): { blocking: boolean; label: string } {
  * full quest (Codex review on PR 102): an unknown quest blocks, a payout that is not the quest's reward blocks, and once
  * every slot is paid the budget is reached, so no further submission can be approved.
  */
-export function submissionGate(queueGate: Gate, item: { payout: { amount: number; unit: string } }, quest: Quest | undefined): Gate {
+export function submissionGate(queueGate: Gate, item: { id: string; payout: { amount: number; unit: string } }, quest: Quest | undefined): Gate {
   if (!quest) return { blocking: true, label: 'Quest not found.' };
   if (item.payout.unit !== 'USDC' || item.payout.amount !== quest.rewardUsdc) {
     return { blocking: true, label: `The payout (${item.payout.amount} ${item.payout.unit}) is not this quest’s reward (${quest.rewardUsdc} USDC).` };
   }
+  // Idempotent by identity: a submission already paid (server record or session payout) is never paid again.
+  if (quest.paidSubmissionIds.includes(item.id)) return { blocking: true, label: 'Already paid.' };
   if (paidCount(quest) >= quest.slots) return { blocking: true, label: `All ${quest.slots} ${quest.slots === 1 ? 'slot is' : 'slots are'} paid; the budget is reached.` };
   return queueGate;
 }
@@ -113,7 +115,7 @@ export const isPayoutOutcome = (outcome: string | undefined): boolean => Boolean
  * quest gate on the full quest over the queue gate it is given, and returns the outcome to record, or null when blocked.
  * INTEGRATION: POST /api/payouts (not built yet).
  */
-export function approveSubmission(item: { payout: { amount: number; unit: string } }, quest: Quest | undefined, queueGate: Gate): string | null {
+export function approveSubmission(item: { id: string; payout: { amount: number; unit: string } }, quest: Quest | undefined, queueGate: Gate): string | null {
   return submissionGate(queueGate, item, quest).blocking ? null : payoutOutcome(item.payout);
 }
 

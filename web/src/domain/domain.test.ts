@@ -89,6 +89,7 @@ describe('domain: one note per proposal status', () => {
     expect(proposalNote({ status: 'trial' }, '3.2')).toBe('on trial for half of new drafts; becomes Brain v3.3 if you approve');
     expect(proposalNote({ status: 'approved', decided: { at: '13 Oct', version: '3.2' } }, '3.3')).toBe('active in Brain v3.2');
     expect(proposalNote({ status: 'rejected', decided: { at: '13 Oct' } }, '3.2')).toBe('rejected');
+    expect(proposalNote({ status: 'approved', decided: { at: '13 Oct', version: '3.2' } }, '3.3', { status: 'retired', decided: { by: 'x', at: '14 Oct' } })).toBe('retired 14 Oct');
   });
 });
 
@@ -104,6 +105,12 @@ describe('domain: quest slots are counted from payout records', () => {
     const counted = questWithPayouts(refreshed, [record('s1', 'q')]);
     expect(paidCount(counted)).toBe(2);
     const ok = { blocking: false, label: 'ok' };
-    expect(submissionGate(ok, { payout: { amount: 50, unit: 'USDC' } }, counted).blocking).toBe(false);
+    expect(submissionGate(ok, { id: 's2', payout: { amount: 50, unit: 'USDC' } }, counted).blocking).toBe(false);
+  });
+  it('a submission already paid (server record or session payout) is blocked: payouts are idempotent', () => {
+    const ok = { blocking: false, label: 'ok' };
+    const payout = { amount: 50, unit: 'USDC' };
+    expect(submissionGate(ok, { id: 's0', payout }, quest)).toEqual({ blocking: true, label: 'Already paid.' });
+    expect(submissionGate(ok, { id: 's1', payout }, questWithPayouts(quest, [record('s1', 'q')]))).toEqual({ blocking: true, label: 'Already paid.' });
   });
 });
