@@ -28,3 +28,6 @@ The number 14 avoids ADR-012 and ADR-013, which are proposed on open PRs [#86](h
 - If ratified: backlog S6a moves from proposed to accepted, and the deck and go-to-market plan drop the "proposed" label.
 - If rejected or changed: slide 10's flywheel line, the go-to-market plan §4 and §5, and backlog S6a change to match.
 - Prices stay open under ADR-010 either way.
+
+## Ratification
+Pending owner ratification.
