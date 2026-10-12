@@ -3,8 +3,8 @@ name: journey e2e
 # sign-in, save, confirm, voice by example, register kit v1 on devnet, the first post registered, Verify says Official.
 # Run by hand (each run registers a kit and a post on devnet and shows them on the public ledger). Proof goes to issue 4:
 # counts, statuses and explorer links only, never page text (AGENTS.md rule 5). Run it after the deploy you mean to prove.
-# Needs: anonymous sign-ins on (supabase-auth-config workflow), migrations 009 and 012 applied before the Worker that
-# uses them was deployed (010 and 011 too once the workflow engine is merged), secret SUPABASE_SECRET_KEY,
+# Needs: anonymous sign-ins on (supabase-auth-config workflow), migrations 009 and 010 (evidence_edited_from) applied before the Worker that
+# uses them was deployed (the workflow engine and fact extraction renumber after it), secret SUPABASE_SECRET_KEY,
 # variables SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (shared with the deploy workflow).
 on:
   workflow_dispatch:

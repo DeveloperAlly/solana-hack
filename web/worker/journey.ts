@@ -117,7 +117,7 @@ export const FIRST_POST_BRIEF = 'First post for this brand: introduce who it is,
  * J3 Edit: the owner rewords a fact read from a source. The source fact is rejected (its wording is not the owner's),
  * and the owner's wording is stored as the owner's own statement (origin and trust owner_answer, approved, no quote:
  * ADR-011 never pairs an owner's wording with a source's quote), linked to the fact it replaced by edited_from
- * (spec/db/012). saveAnswer replaces only interview rows (edited_from null), and removing the source keeps the edit.
+ * (spec/db/010). saveAnswer replaces only interview rows (edited_from null), and removing the source keeps the edit.
  */
 export async function editFact(env: Env, brandId: string, id: string, claim: string) {
   const text = claim.trim().slice(0, 500);
@@ -131,7 +131,7 @@ export async function editFact(env: Env, brandId: string, id: string, claim: str
   const [prev] = await db.select<{ id: string; section: string }>(env, 'evidence', `${db.eq('brand_id', brandId)}&${db.eq('edited_from', original)}&select=id,section&limit=1`);
   const [source] = row.edited_from ? await db.select<FactRow>(env, 'evidence', `${db.eq('brand_id', brandId)}&${db.eq('id', original)}`) : [row];
   if (!row.edited_from) await db.update(env, 'evidence', f, { review_status: 'rejected' });
-  // One statement, atomic: evidence.edited_from is unique (spec/db/012), so concurrent edits of one fact leave one row.
+  // One statement, atomic: evidence.edited_from is unique (spec/db/010), so concurrent edits of one fact leave one row.
   // Every save writes a new id, so a section citing the old wording sees a missing citation, is stale, and registerKit
   // refuses it until it is redrafted and approved again; an approved section can never pair with changed evidence.
   const [edited] = await db.upsert<FactRow>(env, 'evidence', {

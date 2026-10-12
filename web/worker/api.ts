@@ -339,7 +339,7 @@ export async function reviewEvidence(env: Env, brand: Brand, id: string, decisio
   const [row] = await db.select<Evidence>(env, 'evidence', f);
   if (!row) throw new HttpError(404, 'fact not found');
   if (!REVIEWABLE.includes(row.trust ?? '')) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
-  // Read before the update: the database trigger (spec/db/012) deletes the correction as part of approving the source.
+  // Read before the update: the database trigger (spec/db/010) deletes the correction as part of approving the source.
   const [correction] = decision === 'approved' ? await db.select<{ id: string }>(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('edited_from', id)}&select=id&limit=1`) : [];
   const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision });
   const sections = () => db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);

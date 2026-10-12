@@ -339,7 +339,7 @@ describe('editing a fact (J3 Edit)', () => {
     const first = await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${f.id}`, { claim: 'Owner wording' });
     const editId = (first.body.evidence as { id: string }).id;
     tables.kit_sections = [{ brand_id: b.id, section: 'origin', citations: [editId], status: 'approved', body: 'x' }];
-    // Stand in for the database trigger (spec/db/012): approving the source deletes its correction in the same update.
+    // Stand in for the database trigger (spec/db/010): approving the source deletes its correction in the same update.
     const realFetch = globalThis.fetch;
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       const res = await realFetch(url, init);
