@@ -1,0 +1,68 @@
+name: web preview
+# Deploys the new UI flow from ui/integration to the separate Worker jamjam-preview at its workers.dev URL
+# (issue #45, "Where it lives"; issue #46, "Preview deploy"), then checks it. The live Worker and jamjam.tech are
+# deployed only by web-deploy.yml from main; this workflow never touches them, and its last step proves that.
+on:
+  push:
+    branches: [ui/integration]
+    paths: ['web/**', '.github/workflows/web-preview.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: web-preview
+  cancel-in-progress: true
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            web/worker/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix worker # the Worker bundle imports its own deps (Solana SDK)
+      # No Supabase settings: the preview build has no sign-in and the gallery makes no API calls.
+      - run: npm run build
+      # wrangler.preview.jsonc: Worker jamjam-preview, workers_dev only, no routes, no custom domain, no secrets.
+      - name: Deploy to Cloudflare (jamjam-preview, workers.dev)
+        id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler deploy --config wrangler.preview.jsonc | tee "$RUNNER_TEMP/deploy.txt"
+          url=$(grep -oE 'https://jamjam-preview\.[a-z0-9-]+\.workers\.dev' "$RUNNER_TEMP/deploy.txt" | head -n1)
+          test -n "$url" || { echo "No workers.dev URL in the deploy output"; exit 1; }
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Preview URL: $url" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Gallery: $url/screens" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Install Chromium for the deployed checks
+        run: npx --yes playwright@$(node -p "require('playwright-core/package.json').version") install --with-deps chromium
+      # Gallery loads, every screen in every state and theme has axe 0 (colour contrast on), deep links and back work,
+      # and no /api call is made.
+      - name: Check the preview gallery
+        env:
+          BASE_URL: ${{ steps.deploy.outputs.url }}
+        run: node scripts/check-gallery.mjs
+      # jamjam.tech is unchanged: the live site's own deployed check still passes.
+      - name: Check jamjam.tech is unchanged
+        env:
+          BASE_URL: https://jamjam.tech
+        run: node scripts/check-deployed.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: preview-check
+          path: |
+            web/proof/deployed-gallery.txt
+            web/proof/deployed-check.txt
+          if-no-files-found: ignore

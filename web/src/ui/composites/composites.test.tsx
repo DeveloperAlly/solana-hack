@@ -122,6 +122,20 @@ describe('C10 DataTable', () => {
   });
 });
 
+describe('C10 DataTable sticky header', () => {
+  const cols: DataTableColumn<{ id: string }>[] = [{ key: 'id', header: 'Id' }];
+  it('sticky: the scroll box scrolls both ways with a bounded height (Codex review on PR #66)', () => {
+    renderWithRouter(<DataTable caption="S" columns={cols} rows={[{ id: 'a' }]} rowKey={(r) => r.id} stickyHeader />);
+    expect(screen.getByRole('region', { name: 'S' })).toHaveClass('scroll', 'scrollSticky');
+    expect(screen.getByRole('table')).toHaveClass('sticky');
+  });
+  it('not sticky: horizontal scroll only', () => {
+    renderWithRouter(<DataTable caption="N" columns={cols} rows={[{ id: 'a' }]} rowKey={(r) => r.id} />);
+    expect(screen.getByRole('region', { name: 'N' })).toHaveClass('scroll');
+    expect(screen.getByRole('region', { name: 'N' })).not.toHaveClass('scrollSticky');
+  });
+});
+
 describe('C10 DataTable sort and filter', () => {
   interface R { id: string; name: string; type: string }
   const data: R[] = [{ id: '1', name: 'Beta', type: 'Kit' }, { id: '2', name: 'Alpha', type: 'Post' }, { id: '3', name: 'Gamma', type: 'Post' }];
