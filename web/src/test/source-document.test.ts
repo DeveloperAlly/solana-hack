@@ -193,6 +193,19 @@ describe('declared PDF page count', () => {
     const inStream = join(plainPdf(1).subarray(0, plainPdf(1).length - 6), enc(`7 0 obj\n<< /Length ${body.length} >>\nstream\n${body}\nendstream\nendobj\n%%EOF\n`));
     expect(await pdfPageCount(inStream)).toBe(1);
   });
+  it('reads an object stream whose "stream" keyword ends with a lone CR (PR #71 review)', async () => {
+    const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+    const objs = '<< /Type /Catalog /Pages 2 0 R >> << /Type /Pages /Kids [] /Count 1 >>';
+    const head = `1 0 2 ${objs.indexOf('<< /Type /Pages')} `;
+    const data = await deflate(head + objs);
+    expect(data[0]).not.toBe(0x0a);
+    const pdf = join(
+      enc(`%PDF-1.5\r5 0 obj\r<< /Type /ObjStm /N 2 /First ${head.length} /Filter /FlateDecode /Length ${data.length} >>\rstream\r`),
+      data,
+      enc('\rendstream\rendobj\r6 0 obj\r<< /Type /XRef /Root 1 0 R /Size 7 /W [1 2 1] /Length 0 >>\rstream\r\nendstream\rendobj\r%%EOF\r'),
+    );
+    expect(await pdfPageCount(pdf)).toBe(1);
+  });
   it('inflates object streams only within a fixed budget', async () => {
     const { pdfPageCount, MAX_INFLATE } = await import('../../worker/sources/pdfpages');
     // A small stream that inflates to far more than the budget, claiming its objects start past the budget.

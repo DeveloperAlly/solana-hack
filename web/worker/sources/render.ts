@@ -16,7 +16,7 @@ import { fetchPage, MAX_BYTES, pageLinks, readable, USER_AGENT, type FetchGate }
  *   handed that response, so it never fetches a page itself. A redirect is answered as a redirect, which comes back
  *   as a new request and is checked again.
  * - Scripts, stylesheets and data requests go out only after robots.txt for their address allows them, from at most
- *   MAX_ORIGINS origins.
+ *   MAX_ORIGINS origins and MAX_REQUESTS requests a page.
  * - Everything not needed for text is refused without a fetch: images, media, fonts, beacons, prefetches, frames.
  * - What request interception cannot see is switched off. The page is served with a Content-Security-Policy that
  *   blocks frames, workers and plugins (https://www.w3.org/TR/CSP3/), service workers are bypassed, and WebSocket,
@@ -31,7 +31,8 @@ export interface InterceptedRequest {
   isInterceptResolutionHandled(): boolean;
   continue(): Promise<void>;
   abort(errorCode?: string): Promise<void>;
-  respond(response: { status: number; headers?: Record<string, string>; contentType?: string; body?: string }): Promise<void>;
+  /** A header with several values (Set-Cookie) is sent once per value (headersArray in @cloudflare/puppeteer 1.4.0). */
+  respond(response: { status: number; headers?: Record<string, string | string[]>; contentType?: string; body?: string }): Promise<void>;
 }
 /** The parts of a Puppeteer page this module uses. */
 export interface RenderPage {
@@ -65,6 +66,12 @@ export interface Renderer {
 const NEEDED = new Set(['document', 'script', 'stylesheet', 'xhr', 'fetch']);
 /** Distinct origins a rendered page may load scripts and data from; each new one costs a robots.txt fetch. */
 export const MAX_ORIGINS = 6;
+/** Requests one rendered page may cause in all (page loads and the scripts and data let through), whatever its
+ * scripts do, so a page that loops on fetch cannot turn one read into thousands of requests (PR #71 review). */
+export const MAX_REQUESTS = 150;
+// Response headers that describe the transfer rather than the document: the body handed to the browser is already
+// decoded and re-measured, so these would be wrong. The CSP is merged below, and Set-Cookie is passed one per value.
+const NOT_FORWARDED = new Set(['content-encoding', 'content-length', 'transfer-encoding', 'connection', 'keep-alive', 'content-security-policy', 'set-cookie']);
 /** How long a page may take to load and settle. Browser Run's free plan allows 60 seconds per browser. */
 export const RENDER_TIMEOUT_MS = 15_000;
 // https://www.w3.org/TR/CSP3/#directives-fetch: frames, workers and plugins load outside request interception's reach.
@@ -94,13 +101,14 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
       page = await (await browser).newPage();
       const p = page;
       const origins = new Set<string>();
+      const budget = { left: MAX_REQUESTS };
       await p.setUserAgent(USER_AGENT);
       await p.setBypassServiceWorker(true);
       await p.evaluateOnNewDocument(NO_SOCKETS);
       await p.setRequestInterception(true);
       p.on('request', (req) => {
         if (req.isInterceptResolutionHandled()) return;
-        void decide(p, req, origins).catch(() => {
+        void decide(p, req, origins, budget).catch(() => {
           if (!req.isInterceptResolutionHandled()) void req.abort('blockedbyclient').catch(() => undefined);
         });
       });
@@ -128,7 +136,7 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
   // One decision per request, made once: answer it from our own reader, let it through, or refuse it. Resolution is
   // checked again right before acting, since another handler may have resolved it while this one awaited
   // (https://pptr.dev/guides/network-interception).
-  const decide = async (page: RenderPage, req: InterceptedRequest, origins: Set<string>) => {
+  const decide = async (page: RenderPage, req: InterceptedRequest, origins: Set<string>, budget: { left: number }) => {
     const refuse = async () => { if (!req.isInterceptResolutionHandled()) await req.abort('blockedbyclient'); };
     const type = req.resourceType();
     let u: URL;
@@ -143,6 +151,8 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
     if (type === 'document') {
       // Only the page itself; a frame is refused (and blocked by the CSP as well).
       if (req.frame() !== page.mainFrame()) return void (await refuse());
+      if (budget.left <= 0) return void (await refuse());
+      budget.left--;
       let fetched: { res: Response; url: URL };
       try {
         fetched = await fetchPage(u, gate);
@@ -166,13 +176,23 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
       // https://www.w3.org/TR/CSP3/#csp-header) (PR #71 review).
       const own = res.headers.get('content-security-policy');
       const csp = own && own.trim() ? `${own}, ${RENDER_CSP}` : RENDER_CSP;
-      return void (req.isInterceptResolutionHandled() || (await req.respond({ status: res.status, contentType, headers: { 'content-security-policy': csp }, body })));
+      // The page's other headers go with it, cookies included, so the scripts that follow see the state the site set
+      // for them, as a visitor's browser would (RFC 6265 §3: https://www.rfc-editor.org/rfc/rfc6265#section-3)
+      // (PR #71 review).
+      const headers: Record<string, string | string[]> = {};
+      res.headers.forEach((value, name) => { if (!NOT_FORWARDED.has(name.toLowerCase())) headers[name.toLowerCase()] = value; });
+      const cookies = res.headers.getSetCookie();
+      if (cookies.length) headers['set-cookie'] = cookies;
+      headers['content-security-policy'] = csp;
+      return void (req.isInterceptResolutionHandled() || (await req.respond({ status: res.status, contentType, headers, body })));
     }
     if (!origins.has(u.origin)) {
       if (origins.size >= MAX_ORIGINS) return void (await refuse());
       origins.add(u.origin);
     }
     if (!(await gate(u))) return void (await refuse());
+    if (budget.left <= 0) return void (await refuse());
+    budget.left--;
     if (!req.isInterceptResolutionHandled()) await req.continue();
   };
 

@@ -148,7 +148,9 @@ export async function readPage(raw: string, gate?: FetchGate, allowShort = false
   const title = decode((body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? url.hostname).trim()).slice(0, 200);
   const text = decode(
     body
-      .replace(/<(script|style|noscript|svg|nav|footer)[\s\S]*?<\/\1>/gi, ' ')
+      // The head (title and meta included) is not page text: the title is returned on its own, so a script-only page
+      // with a long title is still seen as having almost no text (PR #71 review).
+      .replace(/<(head|title|script|style|noscript|svg|nav|footer)\b[\s\S]*?<\/\1\s*>/gi, ' ')
       .replace(/<br\s*\/?>|<\/(p|div|li|h[1-6]|section|article)>/gi, '\n')
       .replace(/<[^>]+>/g, ' '),
   )

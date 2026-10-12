@@ -122,7 +122,10 @@ function indexObjects(text: string): Indexed[] {
     const found = dictAt(text, m.index + m[0].length);
     if (!found) continue;
     const entry: Indexed = { num: Number(m[1]), pos: m.index, dict: found.dict };
-    const kw = /[\0\t\n\f\r ]*stream(\r\n|\n)/y;
+    // ISO 32000-1 §7.3.8.1: "stream" is followed by CRLF or LF, "and not by a CARRIAGE RETURN alone". A lone CR is
+    // still accepted when the next byte is not LF, where it cannot be misread, as other readers do for files that break
+    // the rule (pdf-lib: https://github.com/Hopding/pdf-lib/issues/59) (PR #71 review).
+    const kw = /[\0\t\n\f\r ]*stream(\r\n|\n|\r(?!\n))/y;
     kw.lastIndex = found.end;
     if (kw.exec(text)) {
       const start = kw.lastIndex;
