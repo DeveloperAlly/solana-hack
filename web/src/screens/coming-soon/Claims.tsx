@@ -46,7 +46,7 @@ export function Claims({ data, state = 'success' }: { data: ClaimsData; state?: 
     setEvidenceFor(null);
   };
   return (
-    <SoonPage header={{ title: 'Claims', intro: 'Every factual claim your posts may make, with its evidence, an owner and an expiry.', definedIn: 'component inventory D19 ClaimTable, D14; screen map row Claims / Claims-Empty' }}>
+    <SoonPage artboard="Claims" header={{ title: 'Claims', intro: 'Every factual claim your posts may make, with its evidence, an owner and an expiry.', definedIn: 'component inventory D19 ClaimTable, D14; screen map row Claims / Claims-Empty' }}>
       <DataTable<Claim>
         caption="Claims"
         hideCaption

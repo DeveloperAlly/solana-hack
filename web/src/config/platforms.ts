@@ -11,7 +11,7 @@
 // - Connect methods named only where a repo doc names them (X and LinkedIn OAuth: backend map §9; the Discord bot and
 //   the Telegram brand bot: canvas Inbox-Connect; a feed URL for blogs: the site ingest); the rest stay bracketed.
 
-import { platformLimit } from '../lib/xLength';
+import { platformLimit, xWeightedLength } from '../lib/xLength';
 
 export const platformKinds = [
   { id: 'social', label: 'Social' },
@@ -53,6 +53,17 @@ export interface PostingRule {
   source: Source | null;
 }
 
+/**
+ * A hard length limit on one post, with how the platform counts it and where that comes from. Optional: a platform
+ * with no sourced limit has none here, and Distribute-Adapt checks nothing for it rather than guess.
+ */
+export interface PostLimit {
+  max: number;
+  /** `x-weighted`: X's weighted count (lib/xLength.ts, the Worker's rule). `characters`: Unicode code points. */
+  count: 'x-weighted' | 'characters';
+  source: Source;
+}
+
 export interface Platform {
   id: string;
   name: string;
@@ -63,6 +74,8 @@ export interface Platform {
   /** How a brand connects it; bracketed where no repo doc names the method. */
   connect: string;
   rules: PostingRule[];
+  /** Post length limit, where a source gives one (Distribute-Adapt checks it). */
+  limit?: PostLimit;
   /** What works today, with its source (only where the repo shows it). */
   today?: { text: string; source: Source };
   /** The platform's hard character limit for a post, with its source; absent where it has none or none is known. */
@@ -77,6 +90,7 @@ const deckWhyNow: Source = {
   href: 'https://docs.x.com/developer-terms/policy',
 };
 const backendMapApis: Source = { label: 'Backend map §9, external API facts (verified 2026-10-06)', href: 'https://docs.x.com/x-api/posts/create-post' };
+const threadsOverview: Source = { label: 'Meta, Threads API overview', href: 'https://developers.facebook.com/documentation/threads/overview' };
 const createDrafts: Source = { label: 'web/worker/posts.ts: drafts take a channel; platformLimit enforces X’s 280 characters' };
 
 export const platforms: Platform[] = [
@@ -92,6 +106,7 @@ export const platforms: Platform[] = [
       { text: 'A post is at most 280 characters, counted the way X counts them (weighted characters).', source: createDrafts },
       { text: 'A paid post can carry X’s paid-partnership label (the paid_partnership field).', source: backendMapApis },
     ],
+    limit: { max: 280, count: 'x-weighted', source: createDrafts },
     today: { text: 'Create drafts X posts and holds them to X’s 280-character limit.', source: createDrafts },
     // The Worker's own limit (lib/xLength mirrors web/worker/posts.ts platformLimit, with a parity test).
     charLimit: { value: platformLimit('x') as number, source: createDrafts },
@@ -124,9 +139,10 @@ export const platforms: Platform[] = [
     plans: ['draft', 'publish', 'verify'],
     connect: toConfirm,
     rules: [
-      { text: 'Text posts are limited to 500 characters.', source: { label: 'Meta, Threads API overview', href: 'https://developers.facebook.com/documentation/threads/overview' } },
-      { text: 'A profile can publish 250 posts through the API in any 24 hours; a carousel counts as one.', source: { label: 'Meta, Threads API overview', href: 'https://developers.facebook.com/documentation/threads/overview' } },
+      { text: 'Text posts are limited to 500 characters.', source: threadsOverview },
+      { text: 'A profile can publish 250 posts through the API in any 24 hours; a carousel counts as one.', source: threadsOverview },
     ],
+    limit: { max: 500, count: 'characters', source: threadsOverview },
   },
   { id: 'instagram', name: 'Instagram', kind: 'social', status: 'planned', plans: ['draft', 'publish', 'inbox', 'verify'], connect: toConfirm, rules: unsourced },
   { id: 'tiktok', name: 'TikTok', kind: 'social', status: 'planned', plans: ['draft', 'publish', 'verify'], connect: toConfirm, rules: unsourced },
@@ -169,6 +185,10 @@ export const platforms: Platform[] = [
 
 export const statusLabel = (s: PlatformStatus): string => platformStatuses.find((x) => x.id === s)!.label;
 export const kindLabel = (k: PlatformKind): string => platformKinds.find((x) => x.id === k)!.label;
+/** A post's length as the platform counts it (X weighted, else code points, as web/worker/posts.ts counts). */
+export function postLength(platform: Pick<Platform, 'limit'>, text: string): number {
+  return platform.limit?.count === 'x-weighted' ? xWeightedLength(text) : [...text].length;
+}
 export const findPlatform = (id: string | null | undefined): Platform | undefined => platforms.find((p) => p.id === id);
 /** The hard character limit of a post on this platform, or null where it has none (a blog) or none is known. */
 export const charLimitFor = (id: string | null | undefined): number | null => findPlatform(id)?.charLimit?.value ?? null;

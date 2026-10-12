@@ -1,4 +1,5 @@
 import { canvasPages, type ScreenEntry } from '../screens/registry-types';
+import { homeForPage, type HomeId } from '../config/nav';
 
 // Every page registers its screens in its own src/screens/<folder>/registry.ts, collected here at build time,
 // so page PRs never edit a shared file (issue #46).
@@ -21,3 +22,9 @@ for (const s of allScreens) {
 export function findScreen(artboard: string | undefined): ScreenEntry | undefined {
   return allScreens.find((s) => s.artboard === artboard);
 }
+
+/**
+ * The home of a registered screen, derived from its canvas page (config/nav.ts `homeForPage`; ADR-012: every screen
+ * has exactly one home and one shell). Undefined for an archived board. Never written per entry.
+ */
+export const screenHome = (entry: ScreenEntry): HomeId | undefined => (entry.page === 'licensee' ? undefined : homeForPage(entry.page, entry.artboard));

@@ -1,0 +1,6 @@
+.root { display: flex; flex-direction: column; gap: var(--wl-space-2); min-width: 0; }
+.list { display: flex; flex-direction: column; gap: var(--wl-space-2); margin: 0; padding: 0; list-style: none; }
+.list > li { display: flex; flex-direction: column; gap: var(--wl-space-half); }
+.quote { margin: 0; padding-inline-start: var(--wl-space-3); border-inline-start: var(--wl-border-width-indicator) solid var(--wl-border-strong); font-size: var(--wl-font-size-sm); font-style: italic; }
+.line { margin: 0; font-size: var(--wl-font-size-sm); }
+.muted { margin: 0; font-size: var(--wl-font-size-xs); color: var(--wl-text-secondary); }

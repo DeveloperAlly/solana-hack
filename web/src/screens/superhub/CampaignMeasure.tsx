@@ -29,7 +29,7 @@ export function CampaignMeasure({ data }: { data: CampaignData }) {
   const step = useMeasureStep();
   const intro = 'Pick one main goal and up to three supporting numbers. Each shows where the number comes from.';
   return (
-    <HubPage section="create" sub="campaigns" width="wizard">
+    <HubPage artboard="Campaign-v2-2-Measure" width="wizard">
     <CampaignStepFrame flow={step.flow} title="How will you know it worked?" intro={step.campaignName ? `${step.campaignName}: ${intro}` : intro} missing={step.missing}>
       <Stack gap={5}>
         <Card as="div">

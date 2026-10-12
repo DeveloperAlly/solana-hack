@@ -1,0 +1,24 @@
+/* C36 GatedButton: the action, then its gate's reason; wraps under the button when narrow. Tokens only. */
+.root {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wl-space-2) var(--wl-space-3);
+  max-width: 100%;
+}
+
+.blocked,
+.pass {
+  font-size: var(--wl-font-size-sm);
+  line-height: var(--wl-font-lineHeight-body);
+  overflow-wrap: anywhere;
+}
+
+.blocked {
+  color: var(--wl-status-warning-fg);
+  font-weight: var(--wl-font-weight-semibold);
+}
+
+.pass {
+  color: var(--wl-text-secondary);
+}

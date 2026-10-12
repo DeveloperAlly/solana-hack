@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { Icon } from '../primitives/Icon';
 import styles from './StatusTimeline.module.css';
 
-export type TimelineStepState = 'done' | 'current' | 'failed' | 'todo';
+/** `blocked`: was done, now needs a person again (an approval gone stale). */
+export type TimelineStepState = 'done' | 'current' | 'failed' | 'blocked' | 'todo';
 
 export interface TimelineStep {
   label: string;
@@ -20,7 +21,7 @@ export interface StatusTimelineProps {
   label?: string;
 }
 
-const spoken: Record<TimelineStepState, string> = { done: 'done', current: 'in progress', failed: 'failed', todo: 'not started' };
+const spoken: Record<TimelineStepState, string> = { done: 'done', current: 'in progress', failed: 'failed', blocked: 'blocked, needs you', todo: 'not started' };
 
 /**
  * C9 StatusTimeline: steps that are each done, current, failed or to do, with a note and an optional action;
@@ -32,7 +33,7 @@ export function StatusTimeline({ steps, orientation = 'horizontal', label = 'Sta
   return (
     <ol className={`${styles.list} ${styles[orientation]}`} aria-label={label}>
       {steps.map((s) => (
-        <li key={s.label} className={`${styles.step} ${styles[s.state]}`} aria-current={s.state === 'current' || s.state === 'failed' ? 'step' : undefined}>
+        <li key={s.label} className={`${styles.step} ${styles[s.state]}`} aria-current={s.state === 'current' || s.state === 'failed' || s.state === 'blocked' ? 'step' : undefined}>
           <span className={styles.label}>
             {s.label}
             {s.state === 'done' && <Icon name="check" size="sm" />}

@@ -41,7 +41,7 @@ export function PublishCalendar({ data, state = 'success' }: { data: PublishCale
     clearSelection();
   };
   return (
-    <SoonPage header={{ title: 'Schedule', intro: 'Approved posts and when they go out.', definedIn: 'component inventory D8 SchedulePicker, D52; delivery plan R4 publishing' }}>
+    <SoonPage artboard="Publish-Calendar" header={{ title: 'Schedule', intro: 'Approved posts and when they go out.', definedIn: 'component inventory D8 SchedulePicker, D52; delivery plan R4 publishing' }}>
       <StateView
         state={state}
         loading={{ title: 'Loading your schedule', body: 'Reading approved posts and their slots.' }}

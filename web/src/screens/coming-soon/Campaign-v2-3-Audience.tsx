@@ -33,7 +33,7 @@ export function CampaignAudience({ data, state = 'success' }: { data: CampaignAu
   const flow = useCampaignFlow('audience', { stepComplete: !isEmpty && chosen.length > 0 });
   const toggle = (id: string, on: boolean) => flow.set('audience', on ? [...chosen, id] : chosen.filter((x) => x !== id));
   return (
-    <SoonPage header={{ title: 'New campaign: audience', definedIn: 'component inventory screen map, Campaign v2 step 2 (C7, D16)' }}>
+    <SoonPage artboard="Campaign-v2-3-Audience" header={{ title: 'New campaign: audience', definedIn: 'component inventory screen map, Campaign v2 step 2 (C7, D16)' }}>
       <CampaignStepFrame flow={flow} title="Who is this campaign for?" intro={data.source} titleLevel={2} missing={['choose at least one audience segment']}>
         {isEmpty ? (
           <EmptyState title="Your kit has no audience yet" body="Add the audience section to your kit, then come back." actions={<Button href={routes.brandBuild}>Open your kit</Button>} />

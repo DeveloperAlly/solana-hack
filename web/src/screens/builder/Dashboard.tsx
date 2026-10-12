@@ -27,7 +27,7 @@ import { BuilderSection } from './BuilderSection';
 import { DashboardApproval } from './DashboardApproval';
 import { DashboardCampaigns } from './DashboardCampaigns';
 import { DashboardPayouts } from './DashboardPayouts';
-import { growSubnav, useBoardHref } from './paths';
+import { useBoardHref } from './paths';
 import type { DashboardScreenData } from './types';
 import { activeBrand } from '../../flows/brand/activeBrand';
 
@@ -38,7 +38,7 @@ export function Dashboard({ data: screen }: { data: DashboardScreenData }) {
   const data = screen.byBrand[brandId] ?? screen.byBrand[screen.defaultBrandId];
   return (
     <BuilderHubPage
-      subnav={{ label: 'Grow', items: growSubnav, current: 'ambassadors' }}
+      artboard="Dashboard"
       title={data.title}
       tag="STRETCH"
       intro={data.meta}

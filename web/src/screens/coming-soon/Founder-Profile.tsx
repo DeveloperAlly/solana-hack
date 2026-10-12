@@ -34,7 +34,7 @@ export function FounderProfile({ data }: { data: FounderProfileData }) {
   const add = (v: Record<string, string>) => setSources((s) => [...s, { id: uniqueId('src'), name: v.name, detail: v.detail || undefined, status: 'uploaded' }]);
   const remove = (id: string) => setSources((s) => s.filter((x) => x.id !== id));
   return (
-    <SoonPage header={{ title: `Founder profile: ${data.name}`, intro: 'A person’s own kit, linked to the company. Shares the story bank; keeps its own voice.', definedIn: 'architecture §3 (Person, founder link) and §12.1 step 2a (proposed)' }}>
+    <SoonPage artboard="Founder-Profile" header={{ title: `Founder profile: ${data.name}`, intro: 'A person’s own kit, linked to the company. Shares the story bank; keeps its own voice.', definedIn: 'architecture §3 (Person, founder link) and §12.1 step 2a (proposed)' }}>
       <Card header={<Heading level={2} size="lg">Sources</Heading>}>
         {sources.length === 0 && <Text tone="secondary">No sources yet. Add a CV or a LinkedIn export to start this kit.</Text>}
         <List label="Sources">

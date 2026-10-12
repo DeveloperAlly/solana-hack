@@ -50,7 +50,7 @@ export function InboxNeedsReply({ data }: { data: NeedsReplyData }) {
     </Stack>
   );
   return (
-    <HubPage section="inbox">
+    <HubPage artboard="Inbox-NeedsReply">
       <Columns start={rail}>
         <PageHeader badges={<ComingSoonFlag tag="STRETCH" />}
           title="Needs reply"

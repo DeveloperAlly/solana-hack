@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link as RouterLink } from 'react-router';
 import { Logo } from '../brand/Logo';
+import { MobileTabBar } from './MobileTabBar';
+import type { ShellId } from '../../config/nav';
 import styles from './AppFrame.module.css';
 
 export interface FrameNavItem {
@@ -15,7 +17,7 @@ export interface FrameNav {
   items: FrameNavItem[];
   /** id of the current item. When omitted, the router marks the item whose href matches the URL. */
   current?: string;
-  /** `header` (default): links in the top bar. `tabs`: a bottom tab bar (L4 MobileTabBar). */
+  /** `header` (default): links in the top bar. `tabs`: a bottom tab bar, drawn by L4 MobileTabBar. */
   placement?: 'header' | 'tabs';
 }
 
@@ -45,18 +47,20 @@ export interface AppFrameProps {
   bodyPadding?: 'page' | 'none';
   /** Rendered inside another page (the /system workbench): no skip link, banner or main landmark of its own. */
   preview?: boolean;
+  /** Who the frame is for (ADR-012 shells by role): `app` (default; owner and team) or `ambassador`. Marked as `data-shell`. */
+  shell?: Exclude<ShellId, 'public'>;
   children?: ReactNode;
 }
 
-function NavLinks({ nav, linkClass }: { nav: FrameNav; linkClass: string }) {
+function NavLinks({ nav }: { nav: FrameNav }) {
   return (
-    <ul className={nav.placement === 'tabs' ? styles.tabs : styles.links}>
+    <ul className={styles.links}>
       {nav.items.map((item) => (
         <li key={item.id}>
           {nav.current === undefined ? (
-            <NavLink to={item.href} className={linkClass}>{item.label}</NavLink>
+            <NavLink to={item.href} className={styles.link}>{item.label}</NavLink>
           ) : (
-            <RouterLink to={item.href} className={linkClass} aria-current={item.id === nav.current ? 'page' : undefined}>{item.label}</RouterLink>
+            <RouterLink to={item.href} className={styles.link} aria-current={item.id === nav.current ? 'page' : undefined}>{item.label}</RouterLink>
           )}
         </li>
       ))}
@@ -70,14 +74,14 @@ function NavLinks({ nav, linkClass }: { nav: FrameNav; linkClass: string }) {
  * footer and bottom tab bar; full width or a phone-width column. L1 AppShell is a preset of it for the hub.
  * Replaces BuilderShell, AmbShell, AmbDesktopShell, AmbMobileShell and AmbTabBar (issue #46, shared consolidation).
  */
-export function AppFrame({ homeHref, back, title, context, flags, nav, actions, subnav, pinned, footer, width = 'app', bodyPadding = 'page', preview = false, children }: AppFrameProps) {
+export function AppFrame({ homeHref, back, title, context, flags, nav, actions, subnav, pinned, footer, width = 'app', bodyPadding = 'page', preview = false, shell = 'app', children }: AppFrameProps) {
   const Header = preview ? 'div' : 'header';
   const Main = preview ? 'div' : 'main';
   // The sticky bottom region is a footer landmark, so its content (a footer action's reason text) is in a landmark (axe region; PR #78).
   const Bottom = preview ? 'div' : 'footer';
   const tabs = nav?.placement === 'tabs';
   return (
-    <div className={`${styles.frame} ${styles[width]}`}>
+    <div className={`${styles.frame} ${styles[width]}`} data-shell={shell}>
       {!preview && <a className={styles.skip} href="#main">Skip to content</a>}
       <Header className={styles.header}>
         <div className={styles.bar}>
@@ -91,7 +95,7 @@ export function AppFrame({ homeHref, back, title, context, flags, nav, actions, 
           {flags}
           {(nav && !tabs) || actions ? (
             <div className={styles.end}>
-              {nav && !tabs && <nav aria-label={nav.label}><NavLinks nav={nav} linkClass={styles.link} /></nav>}
+              {nav && !tabs && <nav aria-label={nav.label}><NavLinks nav={nav} /></nav>}
               {actions}
             </div>
           ) : null}
@@ -107,7 +111,7 @@ export function AppFrame({ homeHref, back, title, context, flags, nav, actions, 
       {(footer || (nav && tabs)) && (
         <Bottom className={styles.bottom} data-frame-bottom="">
           {footer != null && <div className={styles.footer}>{footer}</div>}
-          {nav && tabs && <nav aria-label={nav.label} className={styles.tabbar}><NavLinks nav={nav} linkClass={styles.tab} /></nav>}
+          {nav && tabs && <MobileTabBar label={nav.label} items={nav.items} current={nav.current} />}
         </Bottom>
       )}
     </div>

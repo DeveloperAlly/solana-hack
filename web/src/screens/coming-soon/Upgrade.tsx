@@ -41,7 +41,7 @@ export function Upgrade({ data, state = 'success' }: { data: UpgradeData; state?
     setPhase('paid');
   };
   return (
-    <SoonPage header={{ title: `Upgrade to ${name}`, intro: 'One page from choosing a plan to paid.', definedIn: 'backend map G-BILLING (provider not chosen); issue #51' }}>
+    <SoonPage artboard="Upgrade" header={{ title: `Upgrade to ${name}`, intro: 'One page from choosing a plan to paid.', definedIn: 'backend map G-BILLING (provider not chosen); issue #51' }}>
       <StateView state={state} loading={{ title: 'Taking payment', body: 'Waiting for the billing provider. Do not close this page.' }}>
         {phase === 'paid' ? (
           <StatePanel kind="success" title={`You're on ${name}`} body={data.keepNote} actions={<Button href={routes.settingsPlan}>See your plan</Button>} />

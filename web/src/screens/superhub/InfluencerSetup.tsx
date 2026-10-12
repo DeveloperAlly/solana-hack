@@ -37,7 +37,7 @@ export function InfluencerSetup({ data }: { data: InfluencerSetupData }) {
     </Card>
   );
   return (
-    <HubPage section="grow" sub="influencer">
+    <HubPage artboard="Influencer-Setup">
       <Text variant="small" tone="secondary">{data.banner}</Text>
       <PageHeader badges={<ComingSoonFlag tag="EXPERIMENTAL" />} title="Create your influencer" />
       <Columns end={preview}>
