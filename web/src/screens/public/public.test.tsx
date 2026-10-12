@@ -15,7 +15,9 @@ describe('public pages', () => {
       const r = await axe.run(container, { iframes: false, rules: { 'color-contrast': { enabled: false } } });
       if (r.violations.length) console.error(JSON.stringify(r.violations, null, 2));
       expect(r.violations).toHaveLength(0);
-    });
+      // An axe run over the /system workbench took 5.3 s on a CI runner (PR #41, run 38217890143), past vitest's 5 s
+      // default, and the timed-out run then blocked the next page's run ("Axe is already running").
+    }, 30_000);
   }
 });
 

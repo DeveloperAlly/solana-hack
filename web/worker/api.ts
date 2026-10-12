@@ -261,6 +261,34 @@ export async function saveAnswer(env: Env, brand: Brand, step: string, data: Rec
   return { answer: row, stale: sections.filter((s) => (s.citations ?? []).some((id) => gone.has(id))).map((s) => s.section) };
 }
 
+/**
+ * Updates the Basics on the brand row. Every section draft is written for the brand by name (draftSection's system
+ * prompt, above, interpolates brand.name), so after a rename a section's text may still use the old name. A rename
+ * therefore unapproves every section and removes the gates before the new name is saved, following the same
+ * gate-first order as a voice change (saveAnswer); registerKit refuses unapproved sections (issue #31), so a kit can
+ * only register text a person approved under the current name. Found in review of PR #40:
+ * https://github.com/DeveloperAlly/solana-hack/pull/40#discussion_r4245491421
+ * Returns those sections as `reapprove`: they need a person to approve them again, not necessarily a redraft.
+ */
+export async function patchBrand(env: Env, brand: Brand, patch: Record<string, string | null>) {
+  const renamed = 'name' in patch && patch.name !== brand.name;
+  // Removes every gate and unapproves every section; returns the sections it covered.
+  const unapproveAll = async () => {
+    const sections = await db.select<Pick<Section, 'section'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section`);
+    if (!sections.length) return [];
+    await db.del(env, 'gates', db.eq('brand_id', brand.id));
+    await db.update(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&${db.eq('status', 'approved')}`, { status: 'drafted' });
+    return sections.map((s) => s.section);
+  };
+  // Before the name changes, so a failure part-way never leaves old-name approvals under the new name. Again after it,
+  // so an approval that landed between the two writes (another tab, still showing the old name) is undone too; any
+  // approval after the second pass is made under the new name. Found in review of PR #41.
+  const reapprove = renamed ? await unapproveAll() : [];
+  const [row] = await db.update<Brand>(env, 'brands', db.eq('id', brand.id), patch);
+  if (renamed) for (const s of await unapproveAll()) if (!reapprove.includes(s)) reapprove.push(s);
+  return { brand: row, reapprove };
+}
+
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
 export async function publicLimit(req: Request, env: Env, scope: string) {
   if (!env.PUBLIC_LIMITER) return;
@@ -307,8 +335,7 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const patch: Record<string, string | null> = {};
     for (const k of ['name', 'description', 'website', 'goal', 'channel'] as const) if (k in b) patch[k] = str(b[k], 300) || null;
     if ('name' in patch && !patch.name) throw new HttpError(400, 'a brand name is required');
-    const [row] = await db.update<Brand>(env, 'brands', db.eq('id', brand.id), patch);
-    return json({ brand: row });
+    return json(await patchBrand(env, brand, patch));
   }
   // PUT /api/brands/:id/answers/:step  {data, skipped} -> {answer, stale}
   if (p[3] === 'answers' && p[4] && m === 'PUT') {

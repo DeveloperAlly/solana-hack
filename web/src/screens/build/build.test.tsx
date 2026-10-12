@@ -22,11 +22,11 @@ const base = {
   ],
 };
 
-function mount(path: string, putReply: unknown = { answer: {}, stale: [] }) {
+function mount(path: string, putReply: unknown = { answer: {}, stale: [] }, patchReply: unknown = { brand, reapprove: [] }) {
   const puts: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === 'PUT') puts.push(url);
-    const body = url === '/api/me' ? { brands: [brand] } : init?.method === 'PUT' ? putReply : url === `/api/brands/${brand.id}` ? base : {};
+    const body = url === '/api/me' ? { brands: [brand] } : init?.method === 'PUT' ? putReply : init?.method === 'PATCH' ? patchReply : url === `/api/brands/${brand.id}` ? base : {};
     return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
   }));
   const r = render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/build/*" element={<Build />} /></Routes></MemoryRouter>);
@@ -54,6 +54,13 @@ describe('Build kit integrity', () => {
     expect(puts).toEqual([`/api/brands/${brand.id}/answers/origin`]);
     expect(screen.getByRole('heading', { level: 1, name: 'Origin' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+  });
+  it('a rename asks to approve every section again, not to redraft it (PR #41 review)', async () => {
+    mount('/build/basics', { answer: {}, stale: [] }, { brand: { ...brand, name: 'JamJam Labs' }, reapprove: ['purpose', 'messaging'] });
+    await userEvent.click(await screen.findByRole('button', { name: 'Save and continue' }));
+    const notice = await screen.findByText('You renamed the brand: approve these sections again');
+    expect(within(notice.parentElement!).getByRole('link', { name: 'Gate 1: purpose' })).toHaveAttribute('href', '/build/purpose');
+    expect(screen.queryByText('These drafts used your old answer: redraft them')).not.toBeInTheDocument();
   });
   it('an edit made after the stale notice brings Save back, so it is never dropped (PR #40 review)', async () => {
     const { puts } = mount('/build/origin', { answer: {}, stale: ['purpose'] });

@@ -55,6 +55,19 @@ export function StaleNotice({ stale }: { stale: string[] }) {
   );
 }
 
+/** Shown after a rename: every section was unapproved because its text may still use the old name (PATCH reapprove). */
+export function ReapproveNotice({ sections }: { sections: string[] }) {
+  if (!sections.length) return null;
+  return (
+    <Alert tone="warning" title="You renamed the brand: approve these sections again">
+      <Stack gap={2}>
+        <SectionLinks sections={sections} />
+        <Text as="span" variant="small">Check each one for the old name, edit or redraft it if needed, then approve it. The kit cannot be registered until each one is approved.</Text>
+      </Stack>
+    </Alert>
+  );
+}
+
 function Progress({ current }: { current: number }) {
   return (
     <Text variant="small" tone="secondary">
@@ -148,7 +161,7 @@ function BasicsStep({ state, onSaved, onRefresh }: { state: BrandState | null; o
   const b = state?.brand;
   // Stale drafts reported by the last save, with the form as it was saved: Continue is offered only while the form is
   // unchanged since then, so an edit made while reading the notice is saved, never dropped.
-  const [stale, setStale] = useState<{ id: string; sections: string[]; saved: string } | null>(null);
+  const [stale, setStale] = useState<{ id: string; sections: string[]; reapprove: string[]; saved: string } | null>(null);
   const [form, setForm] = useState({ name: b?.name ?? '', type: b?.type ?? 'company', description: b?.description ?? '', website: b?.website ?? '', goal: b?.goal ?? '', channel: b?.channel ?? '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,12 +174,14 @@ function BasicsStep({ state, onSaved, onRefresh }: { state: BrandState | null; o
     setError(null);
     try {
       const res = b
-        ? await api<{ brand: Brand }>(`/brands/${b.id}`, { method: 'PATCH', body: form })
-        : await api<{ brand: Brand }>('/brands', { body: form });
+        ? await api<{ brand: Brand; reapprove?: string[] }>(`/brands/${b.id}`, { method: 'PATCH', body: form })
+        : await api<{ brand: Brand; reapprove?: string[] }>('/brands', { body: form });
       const saved = await api<{ stale?: string[] }>(`/brands/${res.brand.id}/answers/basics`, { method: 'PUT', body: { data: { description: form.description, goal: form.goal, channel: form.channel, type: form.type } } });
-      // Drafts that cited the old answer are stale: say so here, before moving on.
-      if (saved.stale?.length) {
-        setStale({ id: res.brand.id, sections: saved.stale, saved: JSON.stringify(form) });
+      // Say so here, before moving on: drafts that cited a changed answer (PUT) must be redrafted, and after a rename
+      // (PATCH) every section must be approved again.
+      const reapprove = res.reapprove ?? [];
+      if (saved.stale?.length || reapprove.length) {
+        setStale({ id: res.brand.id, sections: saved.stale ?? [], reapprove, saved: JSON.stringify(form) });
         await onRefresh?.();
         return;
       }
@@ -190,6 +205,7 @@ function BasicsStep({ state, onSaved, onRefresh }: { state: BrandState | null; o
         <Field label="Main channel" hint="For example LinkedIn, X, a newsletter" value={form.channel} onChange={set('channel')} />
         {error && form.name.trim() && <Alert tone="danger">{error}</Alert>}
         {stale && <StaleNotice stale={stale.sections} />}
+        {stale && <ReapproveNotice sections={stale.reapprove} />}
         <Nav>
           {stale && stale.saved === JSON.stringify(form)
             ? <Button onClick={() => onSaved(stale.id)}>Continue</Button>
