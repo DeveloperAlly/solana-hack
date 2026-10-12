@@ -43,8 +43,15 @@ export const db = {
     rest<T[]>(env, `${table}?on_conflict=${onConflict}`, {
       method: 'POST', body: JSON.stringify(row), prefer: 'return=representation,resolution=merge-duplicates',
     }),
+  /** Inserts rows, skipping any whose conflict key already exists (PostgREST resolution=ignore-duplicates). */
+  insertNew: <T>(env: Env, table: string, rows: unknown, onConflict: string) =>
+    rest<T[]>(env, `${table}?on_conflict=${onConflict}`, {
+      method: 'POST', body: JSON.stringify(rows), prefer: 'return=representation,resolution=ignore-duplicates',
+    }),
   update: <T>(env: Env, table: string, filter: string, patch: unknown) =>
     rest<T[]>(env, `${table}?${filter}`, { method: 'PATCH', body: JSON.stringify(patch), prefer: 'return=representation' }),
   del: (env: Env, table: string, filter: string) => rest<null>(env, `${table}?${filter}`, { method: 'DELETE' }),
+  /** Calls a Postgres function through PostgREST (POST /rest/v1/rpc/name with named arguments). */
+  rpc: <T>(env: Env, fn: string, args: Record<string, unknown>) => rest<T>(env, `rpc/${fn}`, { method: 'POST', body: JSON.stringify(args) }),
   eq: (col: string, v: string) => `${col}=eq.${q(v)}`,
 };

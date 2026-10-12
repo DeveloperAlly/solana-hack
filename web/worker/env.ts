@@ -1,4 +1,5 @@
 import type { SourceEnv } from './sources/types';
+import type { WorkflowBinding } from './engine/executor';
 
 export interface Env {
   ASSETS: { fetch(req: Request): Promise<Response> };
@@ -15,6 +16,7 @@ export interface Env {
   EXA_API_KEY?: string; // secret: Exa contents for the site adapter; without it the site adapter reads the home page directly
   AI?: SourceEnv['AI']; // Workers AI binding (wrangler.jsonc "ai"), for document conversion
   BROWSER?: SourceEnv['BROWSER']; // Browser Run binding (wrangler.jsonc "browser"), for script-only sites in the site adapter
+  RUN_WORKFLOW?: WorkflowBinding; // Cloudflare Workflows binding for durable runs (wrangler.jsonc "workflows"; issue #32)
 }
 
 export const json = (body: unknown, status = 200) =>

@@ -41,5 +41,9 @@
   // request interception, so robots.txt is checked before every request the browser makes (architecture §6.1, PR #71).
   // Available on Workers Free (10 browser minutes a day) and Paid: https://developers.cloudflare.com/browser-run/limits/
   // https://developers.cloudflare.com/browser-run/reference/wrangler/#bindings
-  "browser": { "binding": "BROWSER" }
+  "browser": { "binding": "BROWSER" },
+  // Durable runs (issue #32): one Workflow, bound as env.RUN_WORKFLOW, running the RunWorkflow class exported from
+  // worker/index.ts. Each instance is one row in the runs table. Deploying creates the Workflow.
+  // Syntax: https://developers.cloudflare.com/workflows/build/workers-api/#call-workflows-from-workers
+  "workflows": [{ "name": "jamjam-runs", "binding": "RUN_WORKFLOW", "class_name": "RunWorkflow" }]
 }

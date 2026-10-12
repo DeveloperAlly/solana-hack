@@ -14,7 +14,7 @@ vi.mock('../../worker/registry', () => ({
   NotLanded: class extends Error {},
   explorerTx: (s: string) => s,
 }));
-const { registerKit, reviewEvidence, ingest, draftSection } = await import('../../worker/api');
+const { registerKit, reviewEvidence, draftSection } = await import('../../worker/api');
 const { approvePost, allEvidence } = await import('../../worker/posts');
 const { factTrust, usableFact, snapshotFact, SOURCE_TYPES, urlKind } = await import('../../worker/sources/registry');
 
@@ -208,41 +208,8 @@ describe('drafting and registration use the allow-list', () => {
     // Another brand's fact is not found: the filter carries the brand id.
     await expect(reviewEvidence(env, { ...brand, id: 'other' }, 'e-third', 'approved')).rejects.toMatchObject({ status: 404 });
   });
-  it('ingest records the trust class from the registry', async () => {
-    tables = { sources: [], evidence: [] };
-    page = '<html><title>JamJam</title><body><p>JamJam was founded in 2024 to help brands prove what they say.</p></body></html>';
-    llm = () => ({ facts: [{ section: 'purpose', claim: 'Founded 2024', quote: 'JamJam was founded in 2024' }] });
-    await ingest(env, { ...brand, website: 'example.com' }, 'https://www.example.com/about');
-    expect(tables.evidence[0]).toMatchObject({ origin: 'source', trust: 'owned', review_status: 'approved' });
-    expect(tables.sources[0]).toMatchObject({ kind: 'site' });
-  });
-  it('a page off the brand website is third-party and waits for the owner (PR #63 review)', async () => {
-    tables = { sources: [], evidence: [] };
-    page = '<html><title>News</title><body><p>JamJam was founded in 2024 to help brands prove what they say.</p></body></html>';
-    llm = () => ({ facts: [{ section: 'purpose', claim: 'Founded 2024', quote: 'JamJam was founded in 2024' }] });
-    const r = await ingest(env, { ...brand, website: 'jamjam.tech' }, 'https://news.example.org/jamjam');
-    expect(tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
-    expect(tables.sources[0]).toMatchObject({ kind: 'page' });
-    expect(r).toMatchObject({ kind: 'page', needsReview: 1 });
-    // With no website set, nothing counts as owned.
-    tables = { sources: [], evidence: [] };
-    await ingest(env, brand, 'https://jamjam.tech');
-    expect(tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
-  });
-  it('an on-site link that redirects off the website is third-party (PR #63 review)', async () => {
-    tables = { sources: [], evidence: [] };
-    page = '<html><title>Elsewhere</title><body><p>JamJam was founded in 2024 to help brands prove what they say.</p></body></html>';
-    llm = () => ({ facts: [{ section: 'purpose', claim: 'Founded 2024', quote: 'JamJam was founded in 2024' }] });
-    const realFetch = globalThis.fetch;
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-      const res = await realFetch(url, init);
-      if (url.startsWith('https://jamjam.tech')) Object.defineProperty(res, 'url', { value: 'https://elsewhere.example/landing' });
-      return res;
-    }));
-    await ingest(env, { ...brand, website: 'jamjam.tech' }, 'https://jamjam.tech/go');
-    expect(tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
-    expect(tables.sources[0]).toMatchObject({ kind: 'page', url: 'https://elsewhere.example/landing' });
-  });
+  // Ingest runs on the workflow engine (issue #32): its trust-class tests (registry kind, off-site page, redirect off
+  // the website) moved to worker-engine.test.ts, 'evidence trust through the engine'.
   it('urlKind matches the website and its subdomains only', () => {
     expect(urlKind('https://blog.jamjam.tech/post', 'https://www.jamjam.tech')).toBe('site');
     expect(urlKind('https://jamjam.tech', 'jamjam.tech')).toBe('site');

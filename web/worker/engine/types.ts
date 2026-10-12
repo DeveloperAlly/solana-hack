@@ -1,0 +1,73 @@
+// Workflow engine types (issue #32; backlog X4, X5, X14). Definitions are data (workflow_defs.spec, spec/db/010); the
+// step types are code. Contract: backend map §10.2 "Workflow engine", architecture §6.1 system map.
+
+/** Retry policy for one step, in the shape of a Cloudflare Workflows step config
+ * (https://developers.cloudflare.com/workflows/build/sleeping-and-retrying/#retry-steps). */
+export interface RetrySpec { limit: number; delay: string; backoff: 'constant' | 'linear' | 'exponential' }
+
+interface StepBase { id: string; label: string; retries?: RetrySpec; timeout?: string }
+/** Reads one public page (ingest.ts readPage). Output: {url, title, text, excerpt}. The text keeps at most maxChars
+ * UTF-16 units and maxBytes UTF-8 bytes, so the step result stays under Workflows' 1 MiB limit in either encoding. */
+export interface FetchStep extends StepBase { type: 'fetch'; url: string; maxChars: number; maxBytes: number; excerptChars: number }
+/** One call through the LLM gateway (llm.ts chat) with a versioned prompt (prompt_versions) as the system message. */
+export interface LlmStep extends StepBase { type: 'llm'; prompt: string; promptVersion?: number; vars?: Record<string, string>; user: string; userVars?: Record<string, string>; json?: boolean }
+/** A named pure function from the code registry (steps.ts CODE). */
+export interface CodeStep extends StepBase { type: 'code'; fn: string; args: Record<string, string> }
+/** A named, idempotent database write from the registry (steps.ts WRITES). */
+export interface WriteStep extends StepBase { type: 'write'; op: string; args: Record<string, string> }
+/** Runs an inner step once per item of a list, each item as its own durable step. Output: the list of results. */
+export interface MapStep extends StepBase { type: 'map'; over: string; max: number; step: Exclude<StepSpec, MapStep> }
+export type StepSpec = FetchStep | LlmStep | CodeStep | WriteStep | MapStep;
+
+export interface WorkflowSpec {
+  id: string;
+  version: number;
+  title: string;
+  /** 'parallel': runs of this kind may overlap; 'supersede': a new run marks the brand's active run of this kind superseded. */
+  concurrency: 'parallel' | 'supersede';
+  retries: RetrySpec;
+  steps: StepSpec[];
+  /** A reference ($steps.x...) whose value becomes runs.output. */
+  output: string;
+  /** A write op called with {error} when the run fails, so the rows it started (a pending source) are closed. */
+  onFailure?: { op: string; args: Record<string, string> };
+}
+
+export type RunStatus = 'running' | 'paused' | 'done' | 'failed' | 'superseded';
+
+export interface StepProgress { id: string; label: string; status: 'pending' | 'running' | 'done' | 'failed' | 'paused' }
+export interface Progress { steps: StepProgress[]; done: number; total: number; message?: string | null }
+
+export interface RunRow {
+  id: string;
+  brand_id: string;
+  kind: string;
+  workflow_version: number;
+  executor: 'workflows' | 'inline';
+  status: RunStatus;
+  input: Record<string, unknown>;
+  output: unknown;
+  progress: Progress;
+  resume_at: string | null;
+  error: string | null;
+  error_code: number | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** One attempt of one step (run_steps). Never holds prompt or page content: ids, versions, counts and timings only. */
+export interface StepTrace {
+  step: string;
+  attempt: number;
+  type: StepSpec['type'];
+  outcome: 'ok' | 'error' | 'paused';
+  prompt_key?: string | null;
+  prompt_version?: number | null;
+  prompt_hash?: string | null;
+  model?: string | null;
+  tokens_in?: number | null;
+  tokens_out?: number | null;
+  duration_ms: number;
+  error?: string | null;
+}
