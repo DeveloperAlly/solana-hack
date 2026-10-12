@@ -65,12 +65,15 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState<string>();
   const ctrl = useRef(new AbortController());
   const currentId = useRef(brandId); currentId.current = brandId;
+  const reloadRevision = useRef(0);
+  const postReadRevision = useRef(0);
   const initialSource = useRef<{ id: string; url: string } | null>(null);
   const patch = useCallback((p: Partial<JourneySelections>) => setSelections(s => ({ ...s, ...p })), []);
   const reload = useCallback(async (id = currentId.current, signal = ctrl.current.signal) => {
     if (!id) return;
+    const revision = ++reloadRevision.current;
     const result = await api<JourneyBrandState>(`/brands/${id}`, { signal });
-    if (signal.aborted || currentId.current !== id) return;
+    if (signal.aborted || currentId.current !== id || revision !== reloadRevision.current) return;
     heldState.current = result; setState(result);
     setSelections(s => ({ ...s, site: result.brand.website || '', kitRegistered: result.kits.some(k => k.status === 'registered'),
       answers: { ...Object.fromEntries(result.answers.flatMap(a => Object.entries(a.data).map(([k, v]) => [`${a.step}.${k}`, v]))), ...s.answers },
@@ -81,7 +84,7 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
     const result = await followRun(runId, {
       get: async rid => (await api<{ run: RunView }>(`/runs/${rid}`, { signal })).run,
       sleep: ms => sleep(ms, signal), cancelled: () => signal.aborted || currentId.current !== id,
-      onUpdate: run => { if (!signal.aborted && currentId.current === id) setProgress(run.progress?.message || (run.status === 'paused' ? 'Waiting for the AI allowance; your read will resume automatically.' : 'Working on your brand…')); },
+      onUpdate: run => { if (!signal.aborted && currentId.current === id) { void reload(id, signal).catch(() => undefined); setProgress(run.progress?.message || (run.status === 'paused' ? 'Waiting for the AI allowance; your read will resume automatically.' : 'Working on your brand…')); } },
     });
     if (!result) return;
     await reload(id, signal);
@@ -94,9 +97,12 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
     let result: { runId?: string; run?: { id: string } };
     try {
       if (input.kind === 'url') result = await api(`/brands/${id}/sources`, { body: { url: input.value }, signal });
-      else {
+      else if (input.kind === 'text' || /\.(txt|md)$/i.test(input.file.name)) {
+        const text = input.kind === 'text' ? input.value : await input.file.text();
+        result = await api(`/brands/${id}/runs`, { body: { kind: 'extract_facts', reader: 'paste', text, name: input.kind === 'file' ? input.file.name : 'Pasted text' }, signal });
+      } else {
         const data = new FormData();
-        data.append('file', input.kind === 'file' ? input.file : new File([input.value], 'Pasted text.txt', { type: 'text/plain' }));
+        data.append('file', input.file);
         result = await api(`/brands/${id}/sources/document`, { body: data, signal });
       }
     } catch (e) {
@@ -127,13 +133,14 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
   const loadPost = useCallback(async (id = currentId.current, withClaims = true) => {
     if (!id) throw new Error('No brand is selected.');
     const signal = ctrl.current.signal;
+    const revision = ++postReadRevision.current;
     const result = await api<{ posts: Post[] }>(`/brands/${id}/posts?limit=1`, { signal });
-    if (signal.aborted || currentId.current !== id) return null;
+    if (signal.aborted || currentId.current !== id || revision !== postReadRevision.current) return null;
     const latest = result.posts[0] || null; heldPost.current = latest; setPost(latest); setClaimMap(null);
     if (latest?.status === 'registered') patch({ post: { channelLabel: latest.channel || 'Post', text: latest.body } });
     if (latest && withClaims) {
       const response = await api<{ claimMap: ClaimMap }>(`/brands/${id}/posts/${latest.id}/claims`, { body: { rev: latest.rev }, signal });
-      if (!signal.aborted && currentId.current === id && heldPost.current?.rev === response.claimMap.rev) setClaimMap(response.claimMap);
+      if (!signal.aborted && currentId.current === id && revision === postReadRevision.current && heldPost.current?.id === latest.id && heldPost.current.rev === response.claimMap.rev) setClaimMap(response.claimMap);
     }
     return latest;
   }, [patch]);
@@ -263,7 +270,7 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
     reviewPost: async () => { await loadPost(); },
     verifyPost: async text => { const result = await api<{ official: boolean; checked: boolean; note?: string }>('/verify', { body: { text } }); if (!result.checked) throw new Error(result.note || 'Solana could not be checked. Try again.'); return { official: result.official, note: result.note || (result.official ? 'This text matches a registered approval on Solana. Brand names are self-declared.' : 'No matching registered text was found.') }; },
   };
-  const visibleState = session && (!state?.brand.owner_id || state.brand.owner_id === session.user.id) ? state : null;
+  const visibleState = session && (!catalog.id || catalog.id === state?.brand.id) && (!state?.brand.owner_id || state.brand.owner_id === session.user.id) ? state : null;
   const sources = visibleState ? readView(visibleState).sources : [];
   return <LiveContext.Provider value={{ state: visibleState, loading, error, reload, prepare, voice, post: visibleState ? post : null, claimMap: visibleState ? claimMap : null }}>
     <JourneyHrefContext.Provider value={liveJourneyHref}>
