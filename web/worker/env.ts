@@ -1,4 +1,5 @@
 import type { WorkflowBinding } from './engine/executor';
+import type { SourceEnv } from './sources/types';
 
 export interface Env {
   ASSETS: { fetch(req: Request): Promise<Response> };
@@ -12,6 +13,10 @@ export interface Env {
   OPENROUTER_MODEL?: string; // optional model slug; default openrouter/free (free models only)
   PUBLIC_LIMITER?: { limit(o: { key: string }): Promise<{ success: boolean }> }; // Workers rate limiting binding
   RUN_WORKFLOW?: WorkflowBinding; // Cloudflare Workflows binding for durable runs (wrangler.jsonc "workflows"; issue #32)
+  // Source adapters (worker/sources, issue #33). All optional: each adapter says what it did without them.
+  EXA_API_KEY?: string; // secret: Exa contents for the site adapter; without it the site adapter reads the home page directly
+  AI?: SourceEnv['AI']; // Workers AI binding (wrangler.jsonc "ai"), for document conversion
+  BROWSER?: SourceEnv['BROWSER']; // Browser Run binding (wrangler.jsonc "browser"), for script-only sites in the site adapter
 }
 
 export const json = (body: unknown, status = 200) =>

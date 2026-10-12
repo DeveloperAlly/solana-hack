@@ -23,6 +23,10 @@ export const SOURCE_TYPES = {
   // Any other page someone links to: a news article, a profile, a directory listing. The owner does not control it,
   // so its facts wait for the owner's approval (PR #63 review). See urlKind.
   page: { kind: 'page', trust: 'third_party', label: 'A page about the brand that you do not control' },
+  // Text the owner pastes (sources/paste.ts, #33): owner-supplied, so owned.
+  paste: { kind: 'paste', trust: 'owned', label: 'Text you paste in' },
+  // A file the owner uploads, PDF, DOCX or XLSX (sources/document.ts, #33): the brand's own upload, so owned (plan v2 §5).
+  document: { kind: 'document', trust: 'owned', label: 'A document you upload (PDF, DOCX, XLSX)' },
   // Planned (#33, #35): no code writes these yet. Declared now so their facts arrive as third-party, never owned.
   search_result: { kind: 'search_result', trust: 'third_party', label: 'A web search result about the brand' },
   competitor_page: { kind: 'competitor_page', trust: 'third_party', label: 'A competitor page' },
