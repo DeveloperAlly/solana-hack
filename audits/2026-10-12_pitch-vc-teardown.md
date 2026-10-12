@@ -50,7 +50,7 @@ Brands sign in with email, so a business that never touches crypto still ends up
 
 **Answer.** The kit is the free hook (slide 9); the subscription pays for the brand team's ongoing work:
 - content approved without editing, including posts, carousels and video;
-- publishing to every channel;
+- direct publishing to X, LinkedIn, Bluesky and Threads, and copy-and-paste-back for any other network (backlog rows P1 to P3a);
 - the inbox and analytics;
 - community payouts.
 
