@@ -2,7 +2,7 @@
 type: research
 status: active
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [research, demo-brands, ingest]
 ---
@@ -44,7 +44,7 @@ tags: [research, demo-brands, ingest]
   - Claims: MIT spec v2.5; 74 vaults, "every one of them on a single computer, ours".
   - Visual: pixel-art cyan helix, Tokyo Night palette.
 
-## Waterlily: zero for the new brand, thin legacy
+## JamJam (formerly Waterlily): zero for the new brand, thin legacy
 - **Site:** [waterlily.ai](https://waterlily.ai) returns HTTP 402.
 - **Legacy sources (2023 ethical AI art):**
   - [repo](https://github.com/bacalhau-project/Waterlily)
@@ -56,7 +56,7 @@ tags: [research, demo-brands, ingest]
 - **Maturity:** this is the purest interview-only case.
 
 ## Coverage (E = evidenced, I = inferable, A = must ask; GamersLab = gamerslab.gg, public sources only)
-| Section | film.fun | GamersLab | aDNA | Waterlily |
+| Section | film.fun | GamersLab | aDNA | JamJam |
 |---|---|---|---|---|
 | Identity | E | E* | E | E(legacy)/A |
 | Purpose | E | I | E | E(legacy)/A |

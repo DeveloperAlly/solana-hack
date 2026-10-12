@@ -2,7 +2,7 @@
 type: adr
 status: proposed
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [adr, ui, react, design-tokens, theming, components]
 ---
@@ -24,7 +24,7 @@ tags: [adr, ui, react, design-tokens, theming, components]
 3. **Design tokens are the only source of style values.**
    - Raw palette values live in `primitives`. Components read only `semantic` tokens (for example `text.primary`, `action.primary.bg`), exposed as CSS custom properties.
    - A **theme** is one JSON file that remaps semantic tokens. Changing a colour means editing one value; creating a theme means adding one file.
-   - Themes: `wireframe` (grayscale, used now), `waterlily` (from the brand work), optional `dark`.
+   - Themes: `wireframe` (grayscale, used now), `jamjam` (from the brand work), optional `dark`.
 4. **Zero-runtime styling:** CSS Modules reading CSS variables. No component hardcodes a colour, spacing, radius or font value; a CI check enforces this.
 5. **Config drives repeated structure**, not copied markup: navigation and page tags, channels and their limits, voice dimensions and templates, Brand Kit sections, check types. When research changes (for example 9 vs 10 voice dimensions), only config changes.
 6. **In-app workbench and theme editor** (`/system`) instead of a separate Storybook. It shows every component in every variant and state, edits tokens live, checks contrast and exports theme JSON.

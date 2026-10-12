@@ -482,7 +482,7 @@ export async function reconcilePost(env: Env, post: Post) {
 }
 
 /**
- * Public: is this text an official post of a Waterlily brand? Identical text can be registered by more than one
+ * Public: is this text an official post of a JamJam brand? Identical text can be registered by more than one
  * brand, so every match is returned, earliest first; the top-level fields describe the earliest registration.
  */
 export async function verifyText(env: Env, text: string) {

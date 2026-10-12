@@ -2,7 +2,7 @@
 type: manifest
 status: active
 created: 2026-10-06
-updated: 2026-10-07
+updated: 2026-10-12
 last_edited_by: agent
 tags: [manifest, index]
 ---
@@ -11,15 +11,15 @@ tags: [manifest, index]
 ## Identity
 | Field | Value |
 |---|---|
-| Name | Waterlily |
+| Name | JamJam |
 | Owner | Ally Haire |
-| Domain | waterlily.ai (fallback: waterlily.world) |
+| Domain | jamjam.tech |
 | Hosting | Cloudflare |
 | Chain | Solana |
 | Standard | aDNA v2.5, embedded form (`.agentic/`) |
 
 ## Scope
-The Waterlily product and its Colosseum Crypto World's Fair submission. Purpose: [ADR-002](./.agentic/what/decisions/adr_002_purpose_build_run_prove.md). Business model and product map: [ADR-003](./.agentic/what/decisions/adr_003_superhub_business_model.md). PRD: [issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2). Build plan: [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4). Live status: [STATE.md](./STATE.md).
+The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [ADR-002](./.agentic/what/decisions/adr_002_purpose_build_run_prove.md). Business model and product map: [ADR-003](./.agentic/what/decisions/adr_003_superhub_business_model.md). PRD: [issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2). Build plan: [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4). Live status: [STATE.md](./STATE.md).
 
 ## INDEX
 | Path | Status | Purpose |

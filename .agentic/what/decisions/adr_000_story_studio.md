@@ -2,12 +2,14 @@
 type: adr
 status: superseded
 created: 2026-09-28
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [adr, product-direction, story-studio]
 superseded_by: adr_001_brand_voice_licensing
 ---
 > **Status: superseded** by [ADR-001](./adr_001_brand_voice_licensing.md). Story Studio / Waterlily for authors (Sep 28 to Oct 4).
+
+> **Note (2026-10-12):** the product is now called JamJam (owner decision recorded in [STATE.md](../../../STATE.md), Recent decisions). This historical record keeps its original name, Waterlily.
 
 # ADR-000: Story Studio (Waterlily for authors)
 

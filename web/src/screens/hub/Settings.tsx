@@ -55,7 +55,7 @@ export function Settings() {
                 status={proofOn ? 'On (devnet)' : health?.registrar && health.rpcConfigured === false ? 'Not connected' : health ? 'Not configured' : 'Unknown'}
                 tone={proofOn ? 'success' : 'warning'}
                 detail={proofOn
-                  ? `Waterlily signs registrations for you from ${health!.registrar}. You never need a wallet to register.`
+                  ? `JamJam signs registrations for you from ${health!.registrar}. You never need a wallet to register.`
                   : health?.registrar && health.rpcConfigured === false
                     ? 'The registrar key is set but no Solana RPC is configured, so registrations cannot reach Solana.'
                     : health ? 'No registrar is configured, so registrations cannot be signed.'

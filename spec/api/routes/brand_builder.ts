@@ -1,5 +1,5 @@
 /**
- * Waterlily: Brand Builder API (BOILERPLATE, proposed 2026-10-06). Not runnable.
+ * JamJam: Brand Builder API (BOILERPLATE, proposed 2026-10-06). Not runnable.
  * Screens: Main, Onboard-1/2/2b/3/3b, Ingest-Error, BB-1…BB-6, Gates 1–3, Coverage-Map,
  * Brand-Build, Onboard-6, Kit-RegisterFailed, Kit-Export, Claims (screen missing, see UI review #5).
  * Pipeline: architecture §2 and §12.2. External clients: lib/clients.ts. Tables: schema.sql.
@@ -43,7 +43,7 @@ export async function upsertProfile(req: Request, env: any) {}
 export async function createBrand(req: Request, env: any) {}
 
 /**
- * POST /api/brands/:id/domain/token  → {txtName:"_waterlily.<domain>", txtValue}
+ * POST /api/brands/:id/domain/token  → {txtName:"_jamjam.<domain>", txtValue}
  * Screens: Onboard-2-Domain (Copy value).
  * Writes: brands.domain, brands.domain_txt_token (a random value).
  */

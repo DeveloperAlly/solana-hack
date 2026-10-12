@@ -20,7 +20,7 @@ export async function readPage(raw: string): Promise<{ url: string; title: strin
   if (url.port && url.port !== '80' && url.port !== '443') throw new HttpError(400, 'that link uses an unusual port');
   let res: Response;
   try {
-    res = await fetch(url.toString(), { redirect: 'follow', signal: AbortSignal.timeout(12000), headers: { 'user-agent': 'WaterlilyBot/0.1 (+https://jamjam.tech)' } });
+    res = await fetch(url.toString(), { redirect: 'follow', signal: AbortSignal.timeout(12000), headers: { 'user-agent': 'JamJamBot/0.1 (+https://jamjam.tech)' } });
   } catch {
     throw new HttpError(502, 'the site did not answer in time');
   }

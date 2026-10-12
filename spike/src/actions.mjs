@@ -1,4 +1,4 @@
-// Waterlily devnet spike: shared actions (Node runner and workerd test both import this).
+// JamJam devnet spike: shared actions (Node runner and workerd test both import this).
 // Devnet only. Keys are 64-byte arrays (secret||public), never committed in plaintext.
 import {
   createSolanaRpc, createKeyPairSignerFromBytes, generateKeyPairSigner, pipe,
@@ -94,6 +94,7 @@ export async function run(action, keys, rpcUrl, rpcConfig) {
     throw new Error("skipped: Registrar has no devnet SOL (airdrop failed), so it cannot pay fees");
   if (action === "sas") {
     const out = {};
+    // "WATERLILY" is the product's former name, kept on purpose: the credential address is derived from it on chain.
     const [credential] = await findCredentialPda({ authority: registrar.address, name: "WATERLILY" });
     if (!(await rpc.getAccountInfo(credential, { encoding: "base64" }).send()).value) {
       out.credentialTx = explorer(await send(rpc, registrar, [getCreateCredentialInstruction({

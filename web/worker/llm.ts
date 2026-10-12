@@ -12,7 +12,7 @@ export async function chat(env: Env, system: string, user: string): Promise<{ te
       headers: {
         authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
         'content-type': 'application/json',
-        'X-OpenRouter-Title': 'Waterlily',
+        'X-OpenRouter-Title': 'JamJam',
       },
       body: JSON.stringify({ model, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
     });

@@ -11,7 +11,7 @@ export function Home() {
       <AppShell>
         <Container width="app">
           <Stack gap={5} align="start">
-            <Heading level={1}>Welcome to Waterlily</Heading>
+            <Heading level={1}>Welcome to JamJam</Heading>
             <Text tone="secondary">Start by building your brand: about {INTERVIEW_MINUTES} minutes of questions (<Link href="/how-it-works">how it works</Link>).</Text>
             <Button href="/build/basics">Build my brand</Button>
           </Stack>

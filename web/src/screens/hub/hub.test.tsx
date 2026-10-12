@@ -7,7 +7,7 @@ import { Brand } from './Brand';
 import { Settings } from './Settings';
 import { Create } from '../create/Create';
 
-const brand = { id: '11111111-1111-1111-1111-111111111111', name: 'Waterlily', type: 'company', description: 'Build your brand, run it, prove it.', website: null, goal: null, channel: 'LinkedIn' };
+const brand = { id: '11111111-1111-1111-1111-111111111111', name: 'JamJam', type: 'company', description: 'Build your brand, run it, prove it.', website: null, goal: null, channel: 'LinkedIn' };
 const state = {
   brand, answers: [], evidence: [{ id: 'e1', section: 'purpose', claim: 'why: brands need proof', quote: null, origin: 'owner_answer', source_id: null }],
   sources: [{ id: 's1', url: 'https://example.com', title: 'Example', status: 'read', error: null }],
@@ -15,7 +15,7 @@ const state = {
   gates: [{ gate: 'purpose', approved_by: 'u', approved_at: '2026-10-08T00:00:00Z', note: null }],
   kits: [],
 };
-const post = { id: '22222222-2222-2222-2222-222222222222', brief: 'launch', channel: 'LinkedIn', body: 'We built Waterlily.', status: 'drafted', kit_version: 1, hash: null, checks: { slop: { passed: true, hits: [] }, voiceFit: 82, platform: 74, notes: [], history: ['Earlier text'] }, signature: null, published_url: null };
+const post = { id: '22222222-2222-2222-2222-222222222222', brief: 'launch', channel: 'LinkedIn', body: 'We built JamJam.', status: 'drafted', kit_version: 1, hash: null, checks: { slop: { passed: true, hits: [] }, voiceFit: 82, platform: 74, notes: [], history: ['Earlier text'] }, signature: null, published_url: null };
 
 function mockApi() {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
@@ -38,7 +38,7 @@ describe('hub screens (mocked API)', () => {
   it('Home shows the next action and status cards', async () => {
     mockApi();
     const { container } = renderWithRouter(<Home />);
-    expect(await screen.findByRole('heading', { level: 1, name: 'Waterlily' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'JamJam' })).toBeInTheDocument();
     expect(screen.getAllByText('Continue building your brand').length).toBeGreaterThan(0);
     expect(screen.getByText('1 of 3 approved')).toBeInTheDocument();
     await noViolations(container);

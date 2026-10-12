@@ -2,11 +2,11 @@
 type: spec
 status: proposed
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [ui, components, design-tokens, inventory, dry]
 ---
-> **Status: proposed.** Full inventory of reusable UI components for Waterlily, with every screen mapped to its components and its build slice. Components are built in the slice where a screen first needs them ([UI build mission](../../how/missions/mission_ui_build.md)); progress is in [STATE.md](../../../STATE.md).
+> **Status: proposed.** Full inventory of reusable UI components for JamJam, with every screen mapped to its components and its build slice. Components are built in the slice where a screen first needs them ([UI build mission](../../how/missions/mission_ui_build.md)); progress is in [STATE.md](../../../STATE.md).
 
 # Component inventory
 
@@ -75,7 +75,7 @@ Components read only **semantic** tokens. Themes remap semantic tokens to primit
 | Theme | Purpose | When |
 |---|---|---|
 | `wireframe` | Grayscale, matches the canvas; lets the build start now | S0 |
-| `waterlily` | The brand identity, once ratified | S8 |
+| `jamjam` | The brand identity, once ratified | S8 |
 | `dark` | Optional | After the hackathon |
 
 Creating a theme = one JSON file in `tokens/themes/`. Every theme must pass the automatic contrast check: text 4.5:1 and large text 3:1 ([WCAG 2.2 SC 1.4.3](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum)); UI components and graphical objects 3:1 ([SC 1.4.11](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast)).
@@ -115,7 +115,7 @@ No domain knowledge. Each is a thin, accessible wrapper over HTML.
 | P28 | MediaFrame | aspect ratio; placeholder; overlay slot | loading, missing | influencer, post previews |
 
 ## 4. Layer 2: composites
-Generic combinations; still no Waterlily data types.
+Generic combinations; still no JamJam data types.
 
 | ID | Component | Variants and props | States | Used by |
 |---|---|---|---|---|
@@ -164,7 +164,7 @@ Generic combinations; still no Waterlily data types.
 | L10 | PublicShell | public nav (How it works, Check a post, Ledger, Sign in; matches the reworked landing, which is itself the brand pitch, so there is no separate "For brands" item) | signed out, signed in | landing, verify, ledger, ambassador browse |
 
 ## 6. Layer 4: domain patterns
-Know Waterlily data types (M6). Grouped by area.
+Know JamJam data types (M6). Grouped by area.
 
 ### 6.1 Approval family (the biggest reuse)
 | ID | Component | Variants and props | States | Used by |
@@ -239,7 +239,7 @@ Know Waterlily data types (M6). Grouped by area.
 | D45 | PersonaSetup | persona fields + disclosure (C26 locked items) | draft, created | Influencer-Setup |
 | D46 | WatermarkOverlay | P28 overlay "AI-generated"; blocks approval when missing | present, missing | Influencer-Setup, Influencer-Queue, D10 |
 | D47 | BreakdownCard | C22 with title and sample-data flag | loading, empty | Analytics, Hub-Home (snapshot) |
-| D48 | BrandSwitcher | C16 with D36 status per brand; brands come from the account (demo fixtures: Waterlily, aDNA, film.fun, GamersLab) | n/a | L1 |
+| D48 | BrandSwitcher | C16 with D36 status per brand; brands come from the account (demo fixtures: JamJam, aDNA, film.fun, GamersLab) | n/a | L1 |
 
 ### 6.7 Quests and settings
 | ID | Component | Variants and props | States | Used by |
@@ -260,7 +260,7 @@ Not visual, but they are what keeps the UI DRY.
 | M4 | Brand Kit sections: 17 sections, required flag, gate, exercise, inference sources ([architecture §4](./brand_builder_architecture.md)) | D13, D15, D16, D17, L8 |
 | M5 | Check registry: kinds, thresholds, fix actions | D3, D4, D46 |
 | M6 | Domain types: Brand, Person, Source, Evidence, KitVersion, KitSection, Claim, Voice, Audience, Decision, Registration ([architecture §3](./brand_builder_architecture.md)), plus Draft, Campaign, Payout, Thread, Message, Lead, Persona | all D components |
-| M7 | Data adapters: one interface, `mock` (fixtures for Waterlily, aDNA, film.fun, GamersLab) and `live` | all screens |
+| M7 | Data adapters: one interface, `mock` (fixtures for JamJam, aDNA, film.fun, GamersLab) and `live` | all screens |
 | M8 | Formatters: USDC amounts, relative times, receipt URLs, percentages | everywhere |
 
 ## 8. Screen-to-component map

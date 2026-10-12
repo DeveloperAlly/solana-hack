@@ -1,8 +1,8 @@
-# Waterlily
+# JamJam
 
-**Waterlily: build your brand, run it, prove it.**
+**JamJam: build your brand, run it, prove it.**
 
-Waterlily builds a brand from scratch through a short guided interview. It then drafts content in that brand's voice, and a person approves everything. A proof layer on Solana records what is official, so anyone can check that a post really came from the brand. Purpose: [ADR-002](./.agentic/what/decisions/adr_002_purpose_build_run_prove.md). Product map: [ADR-003](./.agentic/what/decisions/adr_003_superhub_business_model.md). Hackathon scope: [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed).
+JamJam builds a brand from scratch through a short guided interview. It then drafts content in that brand's voice, and a person approves everything. A proof layer on Solana records what is official, so anyone can check that a post really came from the brand. Purpose: [ADR-002](./.agentic/what/decisions/adr_002_purpose_build_run_prove.md). Product map: [ADR-003](./.agentic/what/decisions/adr_003_superhub_business_model.md). Hackathon scope: [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed).
 
 **Live (devnet):** https://jamjam.tech
 **Built for:** Colosseum Crypto World's Fair (submissions close Oct 12, 11:59pm PT).
@@ -11,7 +11,7 @@ Waterlily builds a brand from scratch through a short guided interview. It then 
 All of the features below are on main. What is live and proven, and what is blocked, is tracked only in [STATE.md](./STATE.md).
 
 1. **Sign in with an email code**. There is no password, no wallet and no seed phrase. A server Registrar signs every on-chain registration ([ADR-006](./.agentic/what/decisions/adr_006_wallet_identity_split.md)). The code only arrives once the Supabase email template includes it (an owner setting, tracked in STATE).
-2. **Read before asking**. Paste your site and Waterlily extracts facts. A fact is kept only if its supporting quote appears word for word on the page, and each one keeps its source. The fact itself is the model's reading of that quote and is not checked further, so you confirm it in the interview. Facts found are shown beside the question step for the same topic (purpose, origin, audience and voice, and positioning beside the Alternatives questions). Facts tagged only for messaging are used in drafting and are not shown in the interview. Removing a link removes the facts read from it; sections that cited them must be redrafted before the next kit version.
+2. **Read before asking**. Paste your site and JamJam extracts facts. A fact is kept only if its supporting quote appears word for word on the page, and each one keeps its source. The fact itself is the model's reading of that quote and is not checked further, so you confirm it in the interview. Facts found are shown beside the question step for the same topic (purpose, origin, audience and voice, and positioning beside the Alternatives questions). Facts tagged only for messaging are used in drafting and are not shown in the interview. Removing a link removes the facts read from it; sections that cited them must be redrafted before the next kit version.
 3. **Short interview**, about 15 minutes: basics and origin; why, how and what; alternatives and audience; voice. Basics needs a brand name. Every question step after it can be skipped and finished later. The voice step has 12 templates and 8 dials, with claims treated as a gate rather than a slider ([research 06](./.agentic/what/context/research/06_voice_templates.md)).
 4. **AI-drafted kit**. Purpose, positioning, audience, voice, origin and messaging are drafted from your answers and sources. The model is asked to cite the evidence it used and to label unsupported points as assumptions. That labelling is not validated, so the screen marks a whole section as an assumption only when it cites no evidence at all.
 5. **Three decision gates**. Purpose, positioning and voice must each be approved by a person. Each approval records who approved it and when.
@@ -35,7 +35,7 @@ Coming soon: X and LinkedIn publishing, ambassador campaigns with USDC payouts, 
 | Data | Supabase Postgres, with RLS on and no policies, so only the Worker's server key can read or write | `spec/db` |
 | Auth | Supabase email OTP. The Worker checks every token with Supabase Auth | `web/worker/auth.ts` |
 | AI | OpenRouter (default `openrouter/auto`) behind one gateway with retries and logging | `web/worker/llm.ts` |
-| Proof | SAS on Solana devnet: credential `WATERLILY`, schema `WL-KIT` v1, Registrar-signed | `web/worker/registry.ts`, `spike/` |
+| Proof | SAS on Solana devnet: credential `WATERLILY` (the product's former name, fixed on chain), schema `WL-KIT` v1, Registrar-signed | `web/worker/registry.ts`, `spike/` |
 | Deploy | GitHub Actions to Cloudflare (custom domain jamjam.tech), followed by Playwright and registry checks | `.github/workflows` |
 
 ## Repo map

@@ -18,7 +18,7 @@ export function ComingSoon({ route }: { route: RouteDef }) {
             <Heading level={1}>{route.label}</Heading>
             <Badge>{route.tag === 'ROADMAP' ? 'Roadmap' : 'Coming soon'}</Badge>
           </Stack>
-          <Text>{copy[route.path] ?? 'This part of Waterlily is not built yet.'}</Text>
+          <Text>{copy[route.path] ?? 'This part of JamJam is not built yet.'}</Text>
         </Stack>
       </Container>
     </AppShell>
