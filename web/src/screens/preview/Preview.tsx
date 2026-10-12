@@ -1,4 +1,4 @@
-// Reuse the existing registered screens; previews never call the backend (delivery #114).
+// Reuse the existing registered screens; previews never call the backend (delivery issue 114).
 import { Fragment } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { findScreen } from '../../gallery/registry';

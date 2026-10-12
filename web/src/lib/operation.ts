@@ -1,7 +1,7 @@
 import { api, ApiError } from './api';
 import { followRun, type RunView } from '../screens/create/followRun';
 
-/** Follow the server's accepted operation; a 409 with a run ID means work continues (#114). */
+/** Follow the server's accepted operation; a 409 with a run ID means work continues (issue 114). */
 export async function operation<T>(request: () => Promise<T & { runId?: string }>, signal: AbortSignal, onProgress?: (run: RunView) => void): Promise<T> {
   let first: T & { runId?: string };
   try { first = await request(); }

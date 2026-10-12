@@ -1,4 +1,4 @@
-// Live account selection, separate from sample brands (delivery #114).
+// Live account selection, separate from sample brands (delivery issue 114).
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError } from './api';
 import { useAuth } from './auth';

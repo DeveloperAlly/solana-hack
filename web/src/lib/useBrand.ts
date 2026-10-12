@@ -4,7 +4,7 @@ import { useAuth } from './auth';
 import { useLiveBrands } from './liveBrands';
 import type { BrandState } from '../screens/build/Build';
 
-/** Selected live brand; older responses cannot replace a newly selected brand (delivery #114). */
+/** Selected live brand; older responses cannot replace a newly selected brand (delivery issue 114). */
 export function useBrand() {
   const catalog = useLiveBrands();
   const { session } = useAuth();
