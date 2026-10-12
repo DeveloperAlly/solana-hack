@@ -140,6 +140,8 @@ Beliefs, values, messaging and vocabulary are then drafted from these answers an
 
 Moved here from the 2026-10-12 delivery plan so the repo holds it. Each component has its state on main (9da167b), the option chosen for the best output with the alternatives it beat, and the measure that proves it. IDs are the [backlog](../../how/backlog/backlog.md) IDs. A component is done only when its measure passes on the fixtures in §13. The rule throughout: **nothing grades itself.** Today the drafting prompt scores its own voice fit and platform fit (`posts.ts` `draftPost`); every measure below replaces that with a check the generator cannot influence. Sources: §13.5.
 
+**System map.** Every component reads from or writes to one evidence store, and nothing reaches Solana unless a person approved it. Read top to bottom: a person acts in a surface, which starts a durable run (backlog X4, #32); runs call agents through one LLM gateway (X1); agents read and write evidence (§3); only approved records are hashed and attested (§7).
+
 #### Intake and evidence (B2, B3, B4, B5, B6)
 
 | Component | On main today | Best-output option (alternatives considered) | Measured by |
