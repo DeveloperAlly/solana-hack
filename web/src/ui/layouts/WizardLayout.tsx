@@ -24,6 +24,8 @@ export interface WizardLayoutProps {
   /** Step error, shown above the body (an Alert or StatePanel). */
   error?: ReactNode;
   hrefFor?: (index: number) => string | undefined;
+  /** Done marks per step, passed to the Stepper (default: steps before `current`). */
+  done?: readonly boolean[];
   /** Heading level of the title: 1 on a screen (default), lower when previewed inside another page. */
   titleLevel?: HeadingLevel;
   children?: ReactNode;
@@ -34,12 +36,12 @@ export interface WizardLayoutProps {
  * States: first, middle and last step (from current), resumed (open at the saved step), saving, step error.
  * The page shell (header, logo) is the caller's; this lays out the content area only.
  */
-export function WizardLayout({ steps, current, title, intro, estimate, headerActions, flag, footer, saving, error, hrefFor, titleLevel = 1, children }: WizardLayoutProps) {
+export function WizardLayout({ steps, current, title, intro, estimate, headerActions, flag, footer, saving, error, hrefFor, done, titleLevel = 1, children }: WizardLayoutProps) {
   return (
     <Container width="wizard">
       <div className={styles.layout}>
         <div className={styles.progress}>
-          <Stepper steps={steps} current={current} hrefFor={hrefFor} label={`Step ${current + 1} of ${steps.length}`} />
+          <Stepper steps={steps} current={current} hrefFor={hrefFor} done={done} label={`Step ${current + 1} of ${steps.length}`} />
           <div className={styles.meta}>
             {estimate && <Badge>{estimate}</Badge>}
             {flag}

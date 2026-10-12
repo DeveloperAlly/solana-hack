@@ -2,11 +2,12 @@ import type { ReactNode } from 'react';
 import { Link } from '../ui/primitives/Link';
 import { Button, type ButtonVariant } from '../ui/primitives/Button';
 import type { ScreenState } from '../ui/composites/DemoStateSwitcher';
+import type { ArtboardName } from '../config/artboards';
 import { useScreenHref } from './screenPath';
 
 export interface ScreenLinkProps {
   /** Target artboard, e.g. "Verify-1-Match". */
-  artboard: string;
+  artboard: ArtboardName;
   /** Open the target in this state; leave out for its default state. */
   state?: ScreenState;
   /** Render as a P7 Link (default) or a P8 Button styled link. */
