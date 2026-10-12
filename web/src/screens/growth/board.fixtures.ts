@@ -4,7 +4,8 @@
 // 4.4 / 96, 2.2 / 41, 4.6 / 58); only [Summit] VIP dinner has a per-question split on the canvas. The other splits are
 // sample values chosen to give the board's overall score. Ratings are append-only (ADR-012, canvas v26): one VIP-dinner
 // rating has an earlier version, and one was removed after a report and stays as a tombstone that still counts as
-// registered (41 registered · 40 shown). Attendance is the viewer's sample proof: nothing is checked.
+// registered (41 registered · 40 shown). The viewer already rated [City] builders meetup (viewerRatingId), so that
+// event offers Edit, never a second rating. Attendance is the viewer's sample proof: nothing is checked.
 import type { EventRating, RatingQuestionId } from '../../domain/rating';
 import type { BoardEvent, EventRatingData, EventsBoardData } from './types';
 
@@ -25,12 +26,14 @@ export const boardEvents: BoardEvent[] = [
     line: 'Great talks, crowded side events', summary: { count: 212, removed: 0, averages: split(4.5, 4.0, 4.2, 3.6, 4.2) },
     ratings: [rating('r-main-1', 'b-main', 4, '“Great talks; the side events were packed.”')], replies: [],
     attendance: { lumaCheckedIn: true, guestList: [] },
+    viewerRatingId: null,
   },
   {
     id: 'b-demo', name: '[Hackathon] demo day', place: 'Online', when: 'Aug', kind: 'hackathon', endsOn: '2026-08-30', organiser: '[Organiser]',
     line: 'Organised, real builders, good judges', summary: { count: 96, removed: 0, averages: split(4.3, 4.6, 4.5, 4.1, 4.5) },
     ratings: [rating('r-demo-1', 'b-demo', 5, '“Real builders and judges who read the code.”')], replies: [],
     attendance: { lumaCheckedIn: false, guestList: ['attendee@example.com'] },
+    viewerRatingId: null,
   },
   {
     id: 'b-vip', name: '[Summit] VIP dinner', place: 'Dubai', when: 'Apr', kind: 'side-event', endsOn: '2026-04-22', organiser: '[Organiser]',
@@ -45,17 +48,20 @@ export const boardEvents: BoardEvent[] = [
     ],
     replies: [{ id: 'rep-vip-2', ratingId: 'r-vip-2', organiser: '[Organiser]', text: '“Thanks; next year the investor table will be curated.”' }],
     attendance: { lumaCheckedIn: false, guestList: [] },
+    viewerRatingId: null,
   },
   {
     id: 'b-meetup', name: '[City] builders meetup', place: 'Melbourne', when: 'monthly', kind: 'meetup', endsOn: '2026-09-02', organiser: '[Organiser]',
     line: 'Small, technical, worth it', summary: { count: 58, removed: 0, averages: split(4.6, 4.7, 4.6, 4.3, 4.8) },
-    ratings: [rating('r-meetup-1', 'b-meetup', 5, '“Small, technical, worth it.”')], replies: [],
+    ratings: [{ ...rating('r-meetup-you', 'b-meetup', 4, '“Good talks; I’d go again.”'), author: 'You' }, rating('r-meetup-1', 'b-meetup', 5, '“Small, technical, worth it.”')], replies: [],
     attendance: { lumaCheckedIn: true, guestList: [] },
+    viewerRatingId: 'r-meetup-you',
   },
   {
     id: 'b-night', name: '[Conference] side event: agent tooling night', place: 'Singapore', when: 'Oct', kind: 'side-event', endsOn: '2026-10-16', organiser: '[Organiser]',
     line: 'Not rated yet', summary: { count: 0, removed: 0, averages: null }, ratings: [], replies: [],
     attendance: { lumaCheckedIn: true, guestList: [] },
+    viewerRatingId: null,
   },
 ];
 

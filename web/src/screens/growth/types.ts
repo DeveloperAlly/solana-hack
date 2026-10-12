@@ -300,6 +300,8 @@ export interface BoardEvent {
   ratings: EventRating[];
   replies: OrganiserReply[];
   attendance: SampleAttendance;
+  /** The viewer's own rating among `ratings`, when they have one (one rating per attendee per event); null otherwise. */
+  viewerRatingId: string | null;
 }
 
 export interface EventsBoardData {

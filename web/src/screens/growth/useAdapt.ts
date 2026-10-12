@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { approveThrough, isCurrent, type Approval, type Approver, type Gate } from '../../lib/approval';
-import { postInputs } from '../../domain/post';
+import { postApprovalInputs } from '../../domain/post';
 import { findPlatform, postLength, type Platform } from '../../config/platforms';
 import { useBrainVersion } from '../../flows/loop/brainVersion';
 import { originalCheck, runChecks, scheduleGate, versionCheck, type CheckResult } from './adaptChecks';
@@ -77,7 +77,7 @@ export function useAdapt(data: AdaptData): AdaptFlow {
   const original = edits.original ?? data.post.text;
   const originalChecks = checksFor(ORIGINAL, original, data.post.text, data.originalUnsourcedClaims);
   const originalGate = originalCheck(original, originalChecks);
-  const originalInputs = postInputs({ ...data.post, text: original }, brainVersion);
+  const originalInputs = postApprovalInputs({ ...data.post, text: original }, brainVersion);
   const originalApproval = approvalOf(edits.originalApproval ?? data.post.lifecycle.approval, originalInputs);
   const chosen = edits.chosen ?? data.chosen;
   const platforms = useMemo(() => data.platformIds.map((id) => findPlatform(id)).filter((p): p is Platform => Boolean(p)), [data.platformIds]);

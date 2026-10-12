@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import type { Gate } from '../../lib/approval';
-import { nextBrainVersion, rulesWith } from '../../domain/brain';
-import { gateFor, primaryActions, type QueueItem, type QueueKind } from '../../domain/queue';
+import type { Gate } from '../../domain/approval';
+import { rulesWith } from '../../domain/brain';
+import { proposalNote } from '../../domain/proposal';
+import { gateFor, primaryActions, type DraftItem, type QueueItem, type QueueKind } from '../../domain/queue';
 import { approveSubmission, payoutOutcome, questWithPayouts } from '../../domain/quest';
 import { stageById } from '../../config/nav';
 import { loopProgressLabel, type LoopStepState } from '../../domain/loop';
@@ -36,6 +37,9 @@ export function selectQueue(rows: QueueRow[]) {
   return { needsYou, oneTap: needsYou.filter((r) => r.act && !r.gate.blocking), done: rows.filter((r) => r.outcome) };
 }
 
+/** What a draft approval covers: the text and its check results (slop, claims, disclosure); the Brain version is added by the store. */
+const draftInputs = (i: DraftItem) => ({ text: i.text, checks: i.checks });
+
 /** Where a decided item stands, from the shared loop state, so a decision made on another screen shows here too. */
 function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | 'status'> {
   if (item.kind === 'learnedRule') {
@@ -51,9 +55,9 @@ function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | '
   if (item.kind === 'draft') {
     const view = {
       valid: { outcome: primaryActions.draft?.done },
-      stale: { status: 'Your approval went stale: the Brain changed since. Approve it again.' },
+      stale: { status: 'Your approval went stale: the draft, its checks or the Brain changed since. Approve it again.' },
     };
-    const a = loop.approvalOf(item.id, item.text);
+    const a = loop.approvalOf(item.id, draftInputs(item));
     return a ? view[a] : {};
   }
   const done = loop.outcome(item.id);
@@ -68,14 +72,13 @@ function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | '
 export function useToday(data: TodayData) {
   const loop = useLoop(data);
   const [filter, setFilter] = useState<QueueFilter>('all');
-  const submissions = data.queue.flatMap((i) => (i.kind === 'ambassadorPost' ? [{ id: i.id, questId: i.questId }] : []));
   const quest = (id: string) => {
     const q = data.quests?.find((x) => x.id === id);
-    return q && questWithPayouts(q, submissions, loop.outcomes);
+    return q && questWithPayouts(q, loop.payouts);
   };
   const ctx = { brainVersion: loop.brain.version, proposal: loop.proposal, quest };
   const acts: Partial<Record<QueueKind, (item: QueueItem) => void>> = {
-    draft: (i) => loop.approveItem(i.id, i.text),
+    draft: (i) => i.kind === 'draft' && loop.approveItem(i.id, draftInputs(i), gateFor(i, ctx)),
     reply: (i) => loop.finish(i.id, primaryActions.reply?.done ?? ''),
     // Every payout goes through domain/quest.ts: a quest submission through approveSubmission (it re-runs the quest
     // gate), a seat post through its gate and the shared payout outcome. Today builds no payout path of its own.
@@ -83,7 +86,7 @@ export function useToday(data: TodayData) {
       if (i.kind !== 'ambassadorPost') return;
       const gate = gateFor(i, ctx);
       const outcome = i.questId ? approveSubmission(i, quest(i.questId), gate) : !gate.blocking && payoutOutcome(i.payout);
-      if (outcome) loop.finish(i.id, outcome);
+      if (outcome) loop.pay({ questId: i.questId, submissionId: i.id, amount: i.payout.amount, unit: i.payout.unit }, outcome);
     },
     learnedRule: (i) => {
       const p = i.kind === 'learnedRule' && loop.proposal(i.proposalId);
@@ -92,7 +95,8 @@ export function useToday(data: TodayData) {
   };
   const rows: QueueRow[] = data.queue.map((item) => {
     const act = acts[item.kind];
-    const meta = item.kind === 'learnedRule' ? `${item.meta} · becomes Brain v${nextBrainVersion(loop.brain.version)} if you approve` : item.meta;
+    const p = item.kind === 'learnedRule' ? loop.proposal(item.proposalId) : undefined;
+    const meta = p ? `${item.meta} · ${proposalNote(p, loop.brain.version)}` : item.meta;
     return { item: { ...item, meta }, gate: gateFor(item, ctx), ...standing(item, loop), act: act && (() => act(item)) };
   });
   const { needsYou, oneTap, done } = selectQueue(rows);

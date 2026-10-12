@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { renderWithRouter } from '../../test/render';
 import { loopStore } from '../../flows/loop/store';
+import { resetActiveBrand, selectBrand } from '../../flows/brand/activeBrand';
 import { Today } from './Today';
 import { MToday } from './MToday';
 import { Brain } from './Brain';
@@ -12,7 +14,10 @@ import { VerifyHome } from './VerifyHome';
 import { brainScreen, learnRules, learnRulesCollecting, postDetail, today, verifyHome } from './fixtures';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
-beforeEach(() => loopStore.reset());
+beforeEach(() => {
+  loopStore.reset();
+  resetActiveBrand();
+});
 
 const queueRow = (text: RegExp) => screen.getAllByRole('listitem').find((li) => text.test(li.textContent ?? ''))!;
 
@@ -48,6 +53,18 @@ describe('Today', () => {
     expect(screen.getByRole('heading', { name: 'Needs you · 5' })).toBeInTheDocument();
   });
 
+  it('a draft approval covers its check results: a changed check makes it stale, and the gate blocks re-approval', async () => {
+    const { rerender } = renderWithRouter(<Today data={today} />);
+    await userEvent.click(within(queueRow(/Your agent didn't forget/)).getByRole('button', { name: 'Approve' }));
+    expect(within(queueRow(/Your agent didn't forget/)).getByText(/It publishes on its schedule/)).toBeInTheDocument();
+    const failed = { ...today, queue: today.queue.map((i) => (i.id === 'q-draft-x' && i.kind === 'draft' ? { ...i, checks: { ...i.checks, slop: 'failed' as const } } : i)) };
+    rerender(<MemoryRouter><Today data={failed} /></MemoryRouter>);
+    const row = queueRow(/Your agent didn't forget/);
+    expect(within(row).getByText(/approval went stale/)).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Approve' })).toBeDisabled();
+    expect(within(row).getByText(/Blocked: Failed the no-AI-slop pass/)).toBeInTheDocument();
+  });
+
   it('approving a learned rule bumps the Brain; an earlier draft approval goes stale', async () => {
     renderWithRouter(<Today data={today} />);
     await userEvent.click(within(queueRow(/Your agent didn't forget/)).getByRole('button', { name: 'Approve' }));
@@ -55,6 +72,8 @@ describe('Today', () => {
     expect(within(queueRow(/Open X threads/)).getByText(/becomes Brain v3.2 if you approve/)).toBeInTheDocument();
     await userEvent.click(within(queueRow(/Open X threads/)).getByRole('button', { name: 'Approve rule' }));
     expect(within(queueRow(/Open X threads/)).getByText(/active in Brain v3.2; the kit is unchanged/)).toBeInTheDocument();
+    expect(within(queueRow(/Open X threads/)).getByText(/active in Brain v3.2$/)).toBeInTheDocument();
+    expect(within(queueRow(/Open X threads/)).queryByText(/if you approve/)).toBeNull();
     const draft = queueRow(/Your agent didn't forget/);
     expect(within(draft).getByText(/approval went stale/)).toBeInTheDocument();
     expect(within(draft).getByRole('button', { name: 'Approve' })).toBeEnabled();
@@ -73,7 +92,17 @@ describe('Today: quest submissions (ambassador posts with a questId) pay through
     const second = queueRow(/\[Creator B\]/);
     expect(within(second).getByRole('button', { name: 'Approve and pay' })).toBeDisabled();
     expect(within(second).getByText(/Blocked: All 2 slots are paid; the budget is reached/)).toBeInTheDocument();
-    expect(Object.keys(loopStore.read().outcomes)).toEqual(['q-sub-1']);
+    expect(loopStore.read().payouts.map((p) => p.submissionId)).toEqual(['q-sub-1']);
+  });
+
+  it('a paid slot stays used after its submission leaves the queue; the next one is blocked when that was the last slot', async () => {
+    const { rerender } = renderWithRouter(<Today data={data} />);
+    await userEvent.click(within(queueRow(/\[Creator A\]/)).getByRole('button', { name: 'Approve and pay' }));
+    rerender(<MemoryRouter><Today data={{ ...data, queue: [sub('q-sub-2', '[Creator B]')] }} /></MemoryRouter>);
+    const row = queueRow(/\[Creator B\]/);
+    expect(within(row).getByRole('button', { name: 'Approve and pay' })).toBeDisabled();
+    expect(within(row).getByText(/Blocked: All 2 slots are paid/)).toBeInTheDocument();
+    expect(loopStore.read().payouts).toEqual([expect.objectContaining({ questId: 'quest-tut', submissionId: 'q-sub-1', amount: 50 })]);
   });
 
   it('a submission whose quest is not found is blocked ("Quest not found"), never paid as a seat post', async () => {
@@ -151,6 +180,17 @@ describe('Brain and Learn-Rules share the Brain', () => {
     expect(screen.getByText(/1 suggested, waiting on you/)).toBeInTheDocument();
     expect(screen.queryByRole('rowheader', { name: 'Post event recaps within 24 hours' })).toBeNull();
     expect(screen.getByText('Brain v3.1')).toBeInTheDocument();
+  });
+
+  it('the loop state is kept per brand: a rule approved for aDNA does not change another brand', async () => {
+    renderWithRouter(<Brain data={brainScreen} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Approve: Open X threads with the problem, not the product' }));
+    expect(screen.getByText('Brain v3.2')).toBeInTheDocument();
+    act(() => selectBrand('gamerslab'));
+    expect(screen.getByText('Brain v3.1')).toBeInTheDocument();
+    expect(screen.getByText(/2 suggested, waiting on you/)).toBeInTheDocument();
+    act(() => selectBrand('adna'));
+    expect(screen.getByText('Brain v3.2')).toBeInTheDocument();
   });
 
   it('collecting shows nothing to suggest yet', () => {

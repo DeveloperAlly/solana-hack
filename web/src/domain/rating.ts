@@ -165,3 +165,12 @@ export function ratingGate(open: boolean, proof: AttendanceProof, draft: RatingD
 
 /** "41 registered · 40 shown": removed ratings still count as registered (canvas v26 Events-Board). */
 export const registeredLabel = (s: RatingSummary): string => `${s.count} registered · ${shownCount(s)} shown`;
+
+/** The summary with one shown rating's scores replaced by its new version's (an edit never adds a rating). */
+export function replaceInSummary(summary: RatingSummary, before: RatingScores, after: RatingScores): RatingSummary {
+  const n = shownCount(summary);
+  if (!summary.averages || n === 0) return summary;
+  const a = summary.averages;
+  const averages = Object.fromEntries(ratingQuestions.map((q) => [q.id, a[q.id] + (after[q.id] - before[q.id]) / n])) as Record<RatingQuestionId, number>;
+  return { ...summary, averages };
+}

@@ -39,7 +39,8 @@ export function useEventRating(data: EventRatingData): EventRatingFlow {
   const param = useGrowthParam('event');
   const event = events.find((e) => e.id === param) ?? events.find((e) => e.id === data.defaultId) ?? events[0];
   const [session, set] = growthSession.use();
-  const mine = session.myRatings[event.id];
+  // The viewer's rating: this session's latest, else the one the loaded data already holds (Codex review on PR 102).
+  const mine = session.myRatings[event.id] ?? event.ratings.find((r) => r.id === event.viewerRatingId);
   const [proof, setProof] = useState<AttendanceProof>({ status: 'not-proven' });
   const [scores, setScores] = useState<RatingDraftScores>(emptyRatingDraft);
   const [line, setLine] = useState('');

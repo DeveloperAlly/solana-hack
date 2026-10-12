@@ -496,15 +496,16 @@ describe('Codex round 2 on PR 102', () => {
     const data = { ...quests, submissions: pending, quests: quests.quests.map((q) => (q.id === 'qst-answers' ? { ...q, slots: 3, paid: 2 } : q)) };
     render(<MemoryRouter><QuestsScreen data={data} /></MemoryRouter>);
     await user.click(within(screen.getByRole('list', { name: 'Quest submissions' })).getAllByRole('button', { name: 'Approve and pay' })[0]);
-    // Today's path: the same gateFor, given the quest slots and the shared loop store outcomes.
-    const outcomes = loopStore.read().outcomes;
-    const questOf = (o: Record<string, string>) => (id: string) => { const q = data.quests.find((x) => x.id === id); return q && questWithPayouts(q, pending, o); };
-    const ctx: GateContext = { brainVersion: '3.1', proposal: () => undefined, quest: questOf(outcomes) };
+    // Today's path: the same gateFor, given the quests counted from the loop store's payout records.
+    const payouts = loopStore.read().payouts;
+    expect(payouts).toEqual([expect.objectContaining({ questId: 'qst-answers', submissionId: 'q-quest-answers-1', amount: 10 })]);
+    const questOf = (p: typeof payouts) => (id: string) => { const q = data.quests.find((x) => x.id === id); return q && questWithPayouts(q, p); };
+    const ctx: GateContext = { brainVersion: '3.1', proposal: () => undefined, quest: questOf(payouts) };
     const gate = gateFor(pending[1], ctx);
     expect(gate).toEqual({ blocking: true, label: 'All 3 slots are paid; the budget is reached.' });
     expect(approveSubmission(pending[1], ctx.quest!('qst-answers'), gate)).toBeNull();
     // And the other way: with the slot still free, Today's approval of it uses the same action and outcome.
-    const fresh: GateContext = { ...ctx, quest: questOf({}) };
+    const fresh: GateContext = { ...ctx, quest: questOf([]) };
     expect(approveSubmission(pending[1], fresh.quest!('qst-answers'), gateFor(pending[1], fresh))).toBe('Approved. The 10 USDC payout is queued.');
   });
 
@@ -567,5 +568,22 @@ describe('Nothing is actionable before the data loads (Codex review on PR 102)',
     const { unmount } = render(<MemoryRouter initialEntries={[screenPath('Quests', 'error')]}><Routes><Route path="/screens/:artboard" element={<GalleryScreen />} /></Routes></MemoryRouter>);
     expect(screen.queryByRole('button', { name: 'New quest' })).toBeNull();
     unmount();
+  });
+});
+
+describe('Event-Rating knows the viewer’s rating from loaded data (Codex review on PR 102)', () => {
+  it('offers Edit, never a second Register, and an edit adds a version without changing the count', async () => {
+    const user = at(withParam('Event-Rating', 'event', 'b-meetup'));
+    expect(screen.getAllByText(/58 registered · 58 shown/)[0]).toBeInTheDocument();
+    expect(screen.getByText('You rated it 4.0 of 5')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Register my rating' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Edit my rating' }));
+    await user.click(screen.getByRole('button', { name: 'Prove I went with Luma' }));
+    await screen.findByText('You went');
+    await user.selectOptions(screen.getByLabelText('Talks worth it'), '2');
+    await user.click(screen.getByRole('button', { name: 'Register my edit' }));
+    expect(screen.getAllByText(/58 registered · 58 shown/)[0]).toBeInTheDocument();
+    expect(screen.getByText('Edited, see earlier versions (1)')).toBeInTheDocument();
+    expect(screen.getByText(/Version 2; your earlier versions stay visible/)).toBeInTheDocument();
   });
 });

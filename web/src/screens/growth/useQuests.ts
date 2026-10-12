@@ -2,11 +2,11 @@ import { useState } from 'react';
 import type { Gate } from '../../lib/approval';
 import { gateFor, type AmbassadorPostItem, type GateContext } from '../../domain/queue';
 import {
-  approveSubmission, budgetCap, isPayoutOutcome, emptyQuestDraft, isQuestFormat, parseReward, parseSlots, questWithPayouts, questState,
+  approveSubmission, budgetCap, emptyQuestDraft, isQuestFormat, parseReward, parseSlots, questWithPayouts, questState,
   type Quest, type QuestDraft, type QuestState,
 } from '../../domain/quest';
-import { loopStore } from '../../flows/loop/store';
-import { useBrainVersion } from '../../flows/loop/brainVersion';
+import { useLoop } from '../../flows/loop/useLoop';
+import { brainScreen } from '../loop/fixtures';
 import { uniqueId } from '../../lib/id';
 import { eventDay } from './eventPlan';
 import { growthSession } from './session';
@@ -53,28 +53,28 @@ function terms(q: Quest, waiting: number): string {
 /** Quests flow state (one hook): quests with their state, submissions as items of the one queue, the new-quest form. */
 export function useQuests(data: QuestsData): QuestsFlow {
   const [session, set] = growthSession.use();
-  const [loop, setLoop] = loopStore.use();
-  const brainVersion = useBrainVersion();
+  // The loop flow every queue uses: its brand-scoped outcomes and payout records (Today reads the same).
+  const loop = useLoop(brainScreen);
   const [focus, setFocus] = useState<string | null>(null);
   const [form, setForm] = useState<QuestsFlow['form']>(null);
-  const decided = (id: string) => Boolean(loop.outcomes[id]);
+  const decided = (id: string) => Boolean(loop.outcome(id));
   const all = [...session.questsAdded, ...data.quests];
   // The same context Today gives gateFor: quest slots with this session's payouts counted.
-  const ctx: GateContext = {
-    brainVersion,
-    proposal: () => undefined,
-    quest: (id) => { const q = all.find((x) => x.id === id); return q && questWithPayouts(q, data.submissions, loop.outcomes); },
-  };
+  const questOf = (id: string, payouts: typeof loop.payouts) => { const q = all.find((x) => x.id === id); return q && questWithPayouts(q, payouts); };
+  const ctx: GateContext = { brainVersion: loop.brain.version, proposal: loop.proposal, quest: (id) => questOf(id, loop.payouts) };
+  // A decided submission shows its gate as it stood when it was decided: without its own payout record, never re-run
+  // without its quest (Codex review on PR 102).
+  const atDecision = (itemId: string): GateContext => ({ ...ctx, quest: (id) => questOf(id, loop.payouts.filter((p) => p.submissionId !== itemId)) });
   const quests = all.map((q) => {
-    const quest = questWithPayouts(q, data.submissions, loop.outcomes);
+    const quest = questWithPayouts(q, loop.payouts);
     const waiting = data.submissions.filter((s) => s.questId === q.id && !decided(s.id)).length;
     return { quest, state: questState(quest, waiting), waiting, terms: terms(quest, waiting) };
   });
   const submissions = data.submissions
     .filter((s) => !focus || s.questId === focus)
-    // A decided submission shows its own checks: the slot it filled never marks it blocked afterwards.
-    .map((item) => ({ item, gate: gateFor(item, decided(item.id) ? { ...ctx, quest: () => undefined } : ctx), outcome: loop.outcomes[item.id] }));
-  const paidSession = data.submissions.filter((s) => isPayoutOutcome(loop.outcomes[s.id])).reduce((n, s) => n + s.payout.amount, 0);
+    .map((item) => ({ item, gate: gateFor(item, decided(item.id) ? atDecision(item.id) : ctx), outcome: loop.outcome(item.id) }));
+  const questIds = new Set(all.map((q) => q.id));
+  const paidSession = loop.payouts.filter((p) => p.questId && questIds.has(p.questId)).reduce((n, p) => n + p.amount, 0);
 
   return {
     quests,
@@ -97,8 +97,8 @@ export function useQuests(data: QuestsData): QuestsFlow {
     approve: (id) => {
       const item = data.submissions.find((s) => s.id === id);
       if (!item || decided(id)) return;
-      const outcome = approveSubmission(item, item.questId ? ctx.quest?.(item.questId) : undefined, gateFor(item, ctx));
-      if (outcome) setLoop({ outcomes: { ...loop.outcomes, [id]: outcome } });
+      const outcome = approveSubmission(item, item.questId ? questOf(item.questId, loop.payouts) : undefined, gateFor(item, ctx));
+      if (outcome) loop.pay({ questId: item.questId, submissionId: id, amount: item.payout.amount, unit: item.payout.unit }, outcome);
     },
   };
 }

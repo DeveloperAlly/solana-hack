@@ -1,0 +1,17 @@
+2026-10-12T21:13:06.440Z proof-s0 start; token action.primary.bg -> #006633; chromium from CHROMIUM_PATH or the default path
+2026-10-12T21:13:08.263Z build (original): exit 0
+2026-10-12T21:13:09.086Z vite preview ready at http://127.0.0.1:4977
+2026-10-12T21:13:10.157Z before: computed background-color of "Build my brand" = rgb(26, 26, 26); screenshot proof/2026-10-12T21-13-06-439Z-landing-before.png
+2026-10-12T21:13:10.511Z axe in chromium (/, colour contrast on): 0 violations, 38 rules passed 
+2026-10-12T21:13:10.512Z edit themes/wireframe.json: action.primary.bg "{color.neutral.900}" -> "#006633"
+2026-10-12T21:13:12.146Z build (edited): exit 0
+2026-10-12T21:13:12.503Z after: computed background-color of "Build my brand" = rgb(0, 102, 51); screenshot proof/2026-10-12T21-13-06-439Z-landing-after.png
+2026-10-12T21:13:12.503Z ASSERT PASS: background changed rgb(26, 26, 26) -> rgb(0, 102, 51)
+2026-10-12T21:13:12.504Z reverted themes/wireframe.json
+2026-10-12T21:13:14.005Z build (reverted): exit 0
+2026-10-12T21:13:14.209Z ASSERT PASS: reverted background = rgb(26, 26, 26)
+2026-10-12T21:13:17.841Z /system screenshot proof/2026-10-12T21-13-06-439Z-system.png
+2026-10-12T21:13:20.372Z axe in chromium (/system, colour contrast on): 0 violations, 58 rules passed 
+2026-10-12T21:13:21.115Z shell preview border.nav: rgb(207, 207, 207) -> edited rgb(255, 0, 0) -> after frame reload rgb(255, 0, 0)
+2026-10-12T21:13:21.115Z ASSERT PASS: theme edits reach the PublicShell preview, including after reload
+2026-10-12T21:13:21.115Z proof-s0 PASS

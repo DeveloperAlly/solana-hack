@@ -1,7 +1,7 @@
 // Ordinary drafts for the Growth loop screens, in the shared Post type (domain/post.ts): event plan items and the
 // post Distribute-Adapt adapts are the same drafts Create shows, never a second draft system (issue #90, row "Events").
 // Provenance values are placeholders (README "Fixtures"): the kit and Brain versions follow the loop fixtures.
-import { postInputs, approvalState, type Post } from '../../domain/post';
+import { postApprovalInputs, approvalState, type Post } from '../../domain/post';
 import { baseBrainVersion } from '../../flows/loop/brainVersion';
 import { approve } from '../../lib/approval';
 import { checksGate } from '../../domain/queue';
@@ -51,7 +51,7 @@ export function sampleDraft(seed: DraftSeed): Post {
     },
   };
   if (!seed.approved && !seed.published) return base;
-  const approval = approve(postInputs(base, sampleBrainVersion), { by: sampleApprover, at: '[date]' });
+  const approval = approve(postApprovalInputs(base, sampleBrainVersion), { by: sampleApprover, at: '[date]' });
   return { ...base, lifecycle: { ...base.lifecycle, approval } };
 }
 
