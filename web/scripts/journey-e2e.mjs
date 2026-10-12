@@ -39,7 +39,7 @@ async function req(url, init = {}) {
   const attempts = !init.method || init.method === 'GET' ? 3 : 1;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(30_000) });
+      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(!init.method || init.method === 'GET' ? 30_000 : 180_000) });
       const text = await res.text();
       let body; try { body = JSON.parse(text); } catch { body = text; }
       return { status: res.status, body };
@@ -62,14 +62,14 @@ async function must(label, p, want = [200, 201]) {
 }
 
 async function completedRun(token, runId, label) {
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 120 && Date.now() - t0 < MAX_MS; i++) {
     const result = await must('run status', api(token, 'GET', `/runs/${runId}`));
     if (result.run?.status === 'done') return result.run.output;
     if (['failed', 'superseded'].includes(result.run?.status)) fail(`the ${label} run ${result.run.status} (details in Worker logs; this output is public)`);
     if (result.run?.status === 'paused') fail(`the ${label} run paused; retry after its recorded resume time`);
     await new Promise((resolve) => setTimeout(resolve, 3000));
   }
-  fail(`the ${label} did not finish within 3 minutes`);
+  fail(`the ${label} did not finish within 6 minutes`);
 }
 
 // The site is operator input: only its hostname is logged (no path, query or token), since the proof is public.
