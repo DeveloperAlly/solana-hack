@@ -114,7 +114,8 @@ export const FIND_COMPETITORS: WorkflowSpec = {
   concurrency: 'supersede',
   retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
   steps: [
-    // One paid Exa findSimilar call, declared so admission (spec/db/011 admit_run) counts it against the brand's budget.
+    // One paid Exa /search call (sources/search.ts readCompetitors), declared so admission (spec/db/011 admit_run)
+    // counts it against the brand's budget.
     { id: 'read', type: 'fetch', label: 'Looking for similar companies', reader: '$input.reader', args: '$input.args', maxChars: 20000, maxBytes: 60000, metered: 1 },
     { id: 'save', type: 'write', label: 'Saving the candidates', op: 'save_competitor_candidates', args: { read: '$steps.read' } },
   ],

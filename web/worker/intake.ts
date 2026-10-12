@@ -146,7 +146,7 @@ export async function addSocialExport(env: Env, ctx: WaitUntil | undefined, call
   });
 }
 
-/** POST /api/brands/:id/competitors: starts a find_competitors run (Exa findSimilar on the brand's website). */
+/** POST /api/brands/:id/competitors: starts a find_competitors run (an Exa search for pages similar to the brand's website). */
 export async function findCompetitors(env: Env, ctx: WaitUntil | undefined, caller: Caller, brand: BrandRef): Promise<IntakeReply> {
   return { status: 202, body: { run: await startRun(env, ctx, caller, brand, 'find_competitors', {}) } };
 }
