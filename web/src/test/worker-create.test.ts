@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BRAND, db, env, fakeDb, fakeStep, seedTables, type Row } from './engine-harness';
+import { BRAND, db, env, fakeDb, fakeDbResponse, fakeStep, seedTables, type Row } from './engine-harness';
 
 // Create intelligence (issue #93; backlog T1, T1a, T1b, G2, G4, X16; architecture §6.1, §6.2, §13). Supabase is the
 // in-memory PostgREST in engine-harness.ts and OpenRouter is a stubbed fetch, so every model is mocked: the drafter
@@ -104,7 +104,7 @@ beforeEach(async () => {
     if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'u', email: 'o@example.com' }));
     if (url.startsWith('https://db.test')) {
       if (failWrites && (init?.method ?? 'GET') !== 'GET' && failWrites.test(url)) return new Response('{"code":"23503"}', { status: 500 });
-      return new Response(JSON.stringify(fakeDb(url, init)));
+      return fakeDbResponse(url, init);
     }
     if (url.startsWith('https://openrouter.ai')) {
       const body = JSON.parse(String(init!.body)) as { models?: string[]; messages: { content: string }[]; response_format?: { json_schema?: { name?: string } } };
@@ -239,9 +239,9 @@ describe('draft_post on the engine (T1, T1b): best of 3, every candidate and ver
   });
 
   it('counts against the brand\'s daily model-call budget: 6 planned calls, refused before any row when they do not fit', async () => {
-    const { plannedModelCalls } = await import('../../worker/engine/guards');
-    expect(plannedModelCalls(DRAFT_POST)).toBe(6);
-    db.tables.engine_config.push({ key: 'model_call_budget', value: { permanent: 5 } });
+    const { plannedMeteredCalls } = await import('../../worker/engine/guards');
+    expect(plannedMeteredCalls(DRAFT_POST)).toBe(6);
+    db.tables.engine_config.push({ key: 'metered_call_budget', value: { permanent: 5 } });
     const r = await draft();
     expect(r.status).toBe(429);
     expect([db.tables.runs.length, db.tables.posts.length]).toEqual([0, 1]);

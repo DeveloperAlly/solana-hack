@@ -1,4 +1,4 @@
-import { readCapped, USER_AGENT } from '../ingest';
+import { readCapped, redirectLocation, USER_AGENT } from '../ingest';
 
 /**
  * robots.txt check for the site adapter, following RFC 9309 (https://www.rfc-editor.org/rfc/rfc9309.html):
@@ -118,11 +118,11 @@ export async function fetchRobots(origin: string, fetcher: RobotsFetch = plainRo
   try {
     let url = new URL('/robots.txt', origin);
     let res = await fetcher(url);
-    for (let hop = 0; res.status >= 300 && res.status < 400 && res.headers.get('location'); hop++) {
+    for (let hop = 0; redirectLocation(res); hop++) {
       await res.body?.cancel().catch(() => undefined);
       // Past five, RFC 9309 lets a crawler treat the file as unavailable; reading nothing is the stricter choice.
       if (hop >= ROBOTS_MAX_REDIRECTS) return { state: 'unreachable' };
-      url = new URL(res.headers.get('location')!, url);
+      url = new URL(redirectLocation(res)!, url);
       if (url.protocol !== 'https:' && url.protocol !== 'http:') return { state: 'unreachable' };
       res = await fetcher(url);
     }

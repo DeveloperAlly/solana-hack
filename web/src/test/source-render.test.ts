@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createRenderer, launchFailure, MAX_ORIGINS, MAX_REQUESTS, PAGE_TEXT, RENDER_CSP, type InterceptedRequest, type RenderBrowser, type RenderPage } from '../../worker/sources/render';
+import { createRenderer, launchFailure, MAX_ORIGINS, MAX_REQUESTS, pageData, PRE_SCRIPT, RENDER_CSP, type InterceptedRequest, type RenderBrowser, type RenderPage, type RenderTarget } from '../../worker/sources/render';
 import { BROWSER_UNAVAILABLE, readSite } from '../../worker/sources/site';
 import { fetchRobots, robotsAllows } from '../../worker/sources/robots';
-import { MAX_BYTES } from '../../worker/ingest';
+import { MAX_BYTES, MAX_LINK_LENGTH, MAX_PAGE_LINKS } from '../../worker/ingest';
 
 // Rendered reading for script-only pages (architecture §6.1; PR #71 review). The browser is a fake that issues the
 // requests a real page would, through the same request-interception handler, and records how each was resolved.
@@ -41,19 +41,44 @@ function gate() {
   };
 }
 
+/**
+ * Runs an in-browser read against `html` with the test environment's DOMParser, with `text` standing in for innerText
+ * (jsdom has no layout). A parsed document takes this window's address, so the page's own address is given as its base
+ * when it has none, and the value comes back by value, as Runtime.evaluate's returnByValue does.
+ */
+function evalIn(html: string, url: string, expression: string, text: string) {
+  const document = new DOMParser().parseFromString(/<base\b/i.test(html) ? html : `<base href="${url}">${html}`, 'text/html');
+  if (document.body) Object.defineProperty(document.body, 'innerText', { get: () => text, configurable: true });
+  return { value: JSON.parse(JSON.stringify(new Function('document', `return ${expression}`)(document))) as unknown, document };
+}
+
 type Outcome = { url: string; type: string; how: 'continue' | 'abort' | 'respond'; status?: number; headers?: Record<string, string | string[]>; body?: string };
 /**
  * A fake browser. `goto` issues the main document request; when the page is answered with HTML, the page's own
  * behaviour (`after`) runs: further requests (scripts, frames, a client-side navigation). A 302 answer is followed,
  * as a browser does, with a new request. `text` is what the page shows once rendered.
  */
-function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' | 'child') => Promise<Outcome>) => Promise<void> = async () => undefined, text = 'JamJam renders on the client, and this is the text the page shows once its scripts have run.') {
+type Popup = () => Promise<{ closed: () => boolean }>;
+function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' | 'child') => Promise<Outcome>, popup: Popup) => Promise<void> = async () => undefined, text = 'JamJam renders on the client, and this is the text the page shows once its scripts have run.', evaluated: (v: unknown) => unknown = (v) => v) {
   const outcomes: Outcome[] = [];
+  // Every DevTools call the renderer made.
+  const cdp: { method: string; params?: Record<string, unknown> }[] = [];
   let launched = 0;
   let closed = 0;
   const main = { name: 'main' };
   const child = { name: 'child' };
+  // "targetcreated" listeners, told of every page the browser opens, as Puppeteer's Browser does.
+  const listeners: ((t: RenderTarget) => void)[] = [];
+  const created = (page: RenderPage) => { for (const l of listeners) l({ page: async () => page }); };
+  // A page the browser opens on its own (a popup): only its close is observable.
+  const popup: Popup = async () => {
+    let isClosed = false;
+    created({ close: async () => { isClosed = true; } } as unknown as RenderPage);
+    await new Promise((r) => setTimeout(r, 0));
+    return { closed: () => isClosed };
+  };
   const browser: RenderBrowser = {
+    on(_event, handler) { listeners.push(handler); },
     async newPage() {
       let handler: ((r: InterceptedRequest) => void) | null = null;
       let current = 'about:blank';
@@ -117,20 +142,29 @@ function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' |
               return o;
             }
             return issue(u, type, frame);
-          });
+          }, popup);
           return null;
         },
         url: () => current,
-        title: async () => html.match(/<title>([^<]*)<\/title>/)?.[1] ?? '',
-        content: async () => html,
-        evaluate: async () => text,
+        // The DevTools session the renderer reads through: an isolated world, then Runtime.evaluate by value.
+        createCDPSession: async () => ({
+          async send(method: string, params?: Record<string, unknown>) {
+            cdp.push({ method, params });
+            if (method === 'Page.getFrameTree') return { frameTree: { frame: { id: 'main-frame' } } };
+            if (method === 'Page.createIsolatedWorld') return { executionContextId: 42 };
+            if (method === 'Runtime.evaluate') return { result: { value: evaluated(evalIn(html, current, String(params?.expression), text).value) } };
+            throw new Error(`unexpected ${method}`);
+          },
+          detach: async () => undefined,
+        }),
         close: async () => undefined,
       };
+      created(page);
       return page;
     },
     async close() { closed++; },
   };
-  return { launch: async () => { launched++; return browser; }, outcomes, stats: () => ({ launched, closed }) };
+  return { launch: async () => { launched++; return browser; }, outcomes, cdp, stats: () => ({ launched, closed }) };
 }
 
 const APP = '<html><title>JamJam</title><body><div id="app"></div><a href="/about">About</a></body></html>';
@@ -324,22 +358,18 @@ describe('renderer: bounded reads (PR #71 review)', () => {
     expect(big.seen.cancelled).toBe(true);
   });
   it('reads page text without removing stylesheets, so content a stylesheet hides stays hidden', () => {
-    const removed: string[] = [];
-    const hidden: string[] = [];
-    const selectors: string[] = [];
-    const el = (tag: string) => ({ remove: () => removed.push(tag), style: { setProperty: (p: string, v: string, pr: string) => hidden.push(`${tag} ${p}:${v} ${pr}`) } });
-    const doc = { querySelectorAll: (sel: string) => { selectors.push(sel); return sel.split(',').map(el); }, body: { innerText: 'What the page shows.' } };
-    const text = new Function('document', `return ${PAGE_TEXT}`)(doc);
-    expect(text).toBe('What the page shows.');
+    const page = '<html><head><style>.x { display: none }</style><link rel="stylesheet" href="/s.css"></head><body><nav>Menu</nav><p class="x">Hidden</p><footer>Foot</footer><svg></svg></body></html>';
+    const { document } = evalIn(page, 'https://a.test/', pageData(100), 'What the page shows.');
     // innerText already leaves out scripts, styles, templates and hidden elements; only the reader's own furniture is hidden.
-    expect(removed).toEqual([]);
-    expect(selectors.join(',').split(',')).toEqual(['svg', 'nav', 'footer']);
-    expect(hidden).toEqual(['svg display:none important', 'nav display:none important', 'footer display:none important']);
+    expect(document.querySelectorAll('style, link').length).toBe(2);
+    for (const tag of ['nav', 'footer', 'svg']) expect((document.querySelector(tag) as HTMLElement).style.getPropertyValue('display')).toBe('none');
   });
 });
 
 describe('site adapter: a shell whose only text is not shown is rendered (PR #71 review)', () => {
   const cases: [string, string][] = [
+    ['a class its own style sheet hides', `<style>body { color: black } .bootstrap { display: none }</style><div class="bootstrap"><p>${'Placeholder text the app replaces once it loads. '.repeat(3)}</p></div>`],
+    ['an id its own style sheet hides from view', `<style>#boot.splash, .other { color: red; visibility: hidden }</style><div id="boot" class="splash"><p>${'Splash text shown only until the app is ready. '.repeat(3)}</p></div>`],
     ['a template', `<template><p>${'Hidden template text for a later render. '.repeat(3)}</p></template>`],
     ['a nested template', `<template><template>x</template><p>${'Text after an inner template. '.repeat(3)}</p></template>`],
     ['an element with the hidden attribute', `<div hidden><p>${'Text kept for later in a hidden block. '.repeat(3)}</p></div>`],
@@ -444,5 +474,74 @@ describe('renderer: one session with the site read, and only successful pages (P
     expect(await createRenderer(b.launch, gate(), 9, session).read(new URL('https://a.test/'))).not.toBeNull();
     expect(session.left).toBe(0);
     expect(await createRenderer(fakeBrowser().launch, gate(), 9, session).read(new URL('https://a.test/'))).toBeNull();
+  });
+});
+
+describe('renderer: no page but the one being read (PR #71 review)', () => {
+  it('closes a page the browser opens on its own, and keeps its own page', async () => {
+    network({ 'https://a.test/': { body: APP } });
+    let pop: { closed: () => boolean } | null = null;
+    const b = fakeBrowser(async (_issue, popup) => { pop = await popup(); });
+    const r = createRenderer(b.launch, gate(), 9);
+    const page = await r.read(new URL('https://a.test/'));
+    expect(page).toMatchObject({ url: 'https://a.test/' });
+    expect(pop!.closed()).toBe(true);
+    expect(r.closedStrays).toBe(1);
+  });
+  it('serves every page with a sandbox that does not allow popups', () => {
+    const sandbox = RENDER_CSP.split(';').map((d) => d.trim()).find((d) => d.startsWith('sandbox'));
+    expect(sandbox?.split(/\s+/).sort()).toEqual(['allow-same-origin', 'allow-scripts', 'sandbox']);
+  });
+  it('makes window.open open nothing, before any page script runs', () => {
+    const g: Record<string, unknown> = { open: () => ({ name: 'a window' }), WebSocket: class {} };
+    new Function('globalThis', PRE_SCRIPT)(g);
+    expect((g.open as () => unknown)()).toBeNull();
+    expect(g.WebSocket).toBeUndefined();
+  });
+});
+
+describe('renderer: what comes back from the browser is capped inside it (PR #71 review)', () => {
+  it('reads in an isolated world, by value, and caps text, links and link length before the transfer', async () => {
+    const many = Array.from({ length: 3 * MAX_PAGE_LINKS }, (_, i) => `<a href="/p/${i}">${i}</a>`).join('');
+    const long = `<a href="/${'l'.repeat(MAX_LINK_LENGTH)}">long</a>`;
+    const page = `<html><title>${'T'.repeat(5000)}</title><body>${long}<svg><a href="/in-svg">x</a></svg>${many}</body></html>`;
+    network({ 'https://a.test/': { body: page } });
+    const sent: unknown[] = [];
+    const b = fakeBrowser(async () => undefined, 'x'.repeat(50 * 1000), (v) => (sent.push(v), v));
+    const r = await createRenderer(b.launch, gate(), 9, undefined, 1000).read(new URL('https://a.test/'));
+    expect(r).not.toBeNull();
+    // What crossed from the browser was already within the bounds.
+    const v = sent[0] as { title: string; text: string; links: string[] };
+    expect(v.text.length).toBe(1000);
+    expect(v.title.length).toBe(200);
+    expect(v.links).toHaveLength(MAX_PAGE_LINKS);
+    expect(v.links.every((l) => l.length <= MAX_LINK_LENGTH && !l.includes('in-svg'))).toBe(true);
+    expect(v.links[0]).toBe('https://a.test/p/0');
+    // Evaluated in an isolated world of the main frame, returned by value.
+    const world = b.cdp.find((c) => c.method === 'Page.createIsolatedWorld');
+    const evaluate = b.cdp.find((c) => c.method === 'Runtime.evaluate');
+    expect(world?.params).toMatchObject({ frameId: 'main-frame' });
+    expect(evaluate?.params).toMatchObject({ contextId: 42, returnByValue: true });
+  });
+  it('does not take a value from the browser that is over the bounds; that page is not read', async () => {
+    network({ 'https://a.test/': { body: APP } });
+    const b = fakeBrowser(async () => undefined, 'x', () => ({ title: 'A', text: 'y'.repeat(2000), links: [] }));
+    expect(await createRenderer(b.launch, gate(), 9, undefined, 1000).read(new URL('https://a.test/'))).toBeNull();
+  });
+  it('passes the site read\'s character limit to the renderer', async () => {
+    network({ 'https://a.test/': { body: APP } });
+    let chars = 0;
+    await readSite({}, 'https://a.test/', { website: 'a.test', subpages: 0, maxCharacters: 1234 }, (g, max, session, c) => { chars = c; return createRenderer(fakeBrowser().launch, g, max, session, c); });
+    expect(chars).toBe(1234);
+  });
+});
+
+describe('renderer: only the redirect statuses are redirects (PR #71 review)', () => {
+  it('serves a 300 with a Location as the final response, refused as an error, never followed', async () => {
+    network({ 'https://a.test/': { status: 300, headers: { 'content-type': 'text/html', location: 'https://a.test/other' }, body: '<p>Choose one.</p>' }, 'https://a.test/other': { body: APP } });
+    const b = fakeBrowser();
+    expect(await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/'))).toBeNull();
+    expect(b.outcomes.map((o) => [o.url, o.how])).toEqual([['https://a.test/', 'abort']]);
+    expect(fetched).not.toContain('https://a.test/other');
   });
 });

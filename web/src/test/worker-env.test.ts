@@ -34,12 +34,35 @@ describe('database error logging', () => {
     const logged: unknown[] = [];
     const spy = vi.spyOn(console, 'error').mockImplementation((...a) => { logged.push(a); });
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ code: '23505', message: 'duplicate', details: 'Key (email)=(a@b.c) exists' }), { status: 409 })));
-    await expect(db.select({ SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k' } as never, 'brands', 'owner_id=eq.user-123')).rejects.toMatchObject({ status: 500 });
+    // A unique violation keeps PostgREST's 409 with a fixed message: never the details, which name the value.
+    await expect(db.select({ SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k' } as never, 'brands', 'owner_id=eq.user-123')).rejects.toMatchObject({ status: 409, message: 'that already exists' });
     const out = JSON.stringify(logged);
     expect(out).toContain('"table":"brands"');
     expect(out).toContain('23505');
     expect(out).not.toContain('user-123');
     expect(out).not.toContain('a@b.c');
+    spy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+  it('maps errors code by code: a function\'s PT4xx keeps its status and message, anything else unknown is a plain 500', async () => {
+    const { db } = await import('../../worker/db');
+    const { vi } = await import('vitest');
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k' } as never;
+    const reply = (status: number, body: Record<string, unknown>) => vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body), { status })));
+    reply(409, { code: 'PT409', message: 'this conflict is already resolved', details: null, hint: null });
+    await expect(db.rpc(env, 'resolve_fact_conflict', {})).rejects.toMatchObject({ status: 409, message: 'this conflict is already resolved' });
+    reply(404, { code: 'PT404', message: 'no such conflict for this brand' });
+    await expect(db.rpc(env, 'resolve_fact_conflict', {})).rejects.toMatchObject({ status: 404, message: 'no such conflict for this brand' });
+    reply(429, { code: 'PT429', message: 'this brand has started 2 runs in the last hour; wait a little and try again' });
+    await expect(db.rpc(env, 'admit_run', {})).rejects.toMatchObject({ status: 429 });
+    // A 5xx stays generic, even from a PT code; so does PostgREST's own parse error, and a status that does not match the code.
+    for (const [status, body] of [[500, { code: 'PT500', message: 'internal detail' }], [400, { code: 'PGRST100', message: 'parse error near "x"' }], [500, { code: 'XX000', message: 'boom' }], [400, { code: 'PT409', message: 'mismatch' }], [400, { code: '42703', message: 'column "x" does not exist' }]] as const) {
+      reply(status, body);
+      await expect(db.rpc(env, 'f', {})).rejects.toMatchObject({ status: 500, message: 'database error' });
+    }
+    reply(400, { code: '23514', message: 'new row violates check constraint "evidence_page_url_check"', details: 'Failing row contains (secret)' });
+    await expect(db.rpc(env, 'f', {})).rejects.toMatchObject({ status: 400, message: 'that value is not allowed' });
     spy.mockRestore();
     vi.unstubAllGlobals();
   });

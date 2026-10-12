@@ -1,5 +1,6 @@
 import { HttpError, type Env } from './env';
 import type { NamedSchema } from './schema';
+import { MeteredFailure } from './metering';
 
 /** Optional settings for one call. Existing callers pass none and get the request they always sent. */
 export interface ChatOptions {
@@ -71,6 +72,12 @@ export async function chat(env: Env, system: string, user: string, opts: ChatOpt
       // Logging policy: status and provider error code only. Provider messages are never logged, so prompt content cannot reach the logs.
       console.error('llm error', { status: res.status, code: typeof data.error?.code === 'string' || typeof data.error?.code === 'number' ? data.error.code : undefined });
       throw new HttpError(502, 'the AI model returned an error');
+    }
+    // A reply with no choices was still a completed (and possibly charged) call: refuse it with its reported cost
+    // (metering.ts), so the run records the spend; the step retries it as any 502.
+    if (!Array.isArray(data.choices) || !data.choices.length) {
+      const cost = typeof data.usage?.cost === 'number' ? data.usage.cost : null;
+      throw new MeteredFailure(502, 'the AI model reply was not usable, try again', cost, { model: data.model ?? null, tokens_in: data.usage?.prompt_tokens ?? null, tokens_out: data.usage?.completion_tokens ?? null });
     }
     const text = data.choices?.[0]?.message?.content ?? '';
     console.log('llm call', { model: data.model ?? (opts.models ? '' : model), chars: text.length, schema: opts.schema?.name });

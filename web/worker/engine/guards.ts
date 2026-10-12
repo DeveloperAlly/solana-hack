@@ -1,12 +1,13 @@
 // Checks every run start passes before anything is written (engine/api.ts start(), so every route that starts a run is
 // covered: POST /runs, POST /sources and any later caller of startRun). Design review on PR #91: a per-brand daily
-// budget of model calls, and, for a brand whose owner is an anonymous visitor (reading before sign-in, decision D1 and
-// PR #96), a per-IP limit and a smaller budget. Owner types are read from the caller (`isAnonymous`, set by auth for a
+// budget of metered calls (model calls and paid service calls, declared per step: types.ts StepBase.metered), a
+// per-brand run rate (Codex review on PR #100: a run kind with no model call still costs money), and, for a brand whose
+// owner is an anonymous visitor (reading before sign-in, decision D1 and PR #96), a per-IP limit and smaller caps. Owner types are read from the caller (`isAnonymous`, set by auth for a
 // Supabase anonymous user in PR #96); without it every caller is a permanent account, so this does not depend on #96.
 import { db } from '../db';
 import { HttpError, type Env } from '../env';
 import type { BrandRef } from './kinds';
-import type { WorkflowSpec } from './types';
+import type { StepSpec, WorkflowSpec } from './types';
 
 /** Who is starting the run: the signed-in user, whether Supabase marks them anonymous, and their IP when known. */
 export interface Caller { id: string; isAnonymous?: boolean; ip?: string | null }
@@ -14,52 +15,62 @@ export type OwnerType = 'permanent' | 'anonymous';
 export type StartGuard = (env: Env, caller: Caller, brand: BrandRef, spec: WorkflowSpec) => Promise<void>;
 
 /**
- * Model calls a brand may start per UTC day, by owner type (engine_config 'model_call_budget' overrides either). Sized
- * against OpenRouter's free-model limit, which is per account and shared by every brand: 50 requests a day under 10
- * credits purchased, 1,000 at or above (https://openrouter.ai/docs/api/reference/limits). A permanent brand may use at
- * most 300 (5 worst-case extract_facts sources of 60 calls, or about 40 typical ones); an anonymous visitor 120, two
- * worst-case sources, within PR #96's cap of 8 sources (ANON_MAX_SOURCES).
+ * Metered calls a brand may start per UTC day, by owner type (engine_config 'metered_call_budget' overrides either). A
+ * metered call is a model call or a call to a paid or rate-limited service (types.ts StepBase.metered). Sized against
+ * OpenRouter's free-model limit, which is per account and shared by every brand: 50 requests a day under 10 credits
+ * purchased, 1,000 at or above (https://openrouter.ai/docs/api/reference/limits). A permanent brand may use at most
+ * 300 (4 worst-case extract_facts sources of 61, or about 30 typical ones); an anonymous visitor 120, within PR #96's
+ * cap of 8 sources (ANON_MAX_SOURCES).
  */
-export const DEFAULT_MODEL_CALL_BUDGET: Record<OwnerType, number> = { permanent: 300, anonymous: 120 };
+export const DEFAULT_METERED_CALL_BUDGET: Record<OwnerType, number> = { permanent: 300, anonymous: 120 };
+/** Runs a brand may start per rolling hour, by owner type (engine_config 'run_rate' overrides either): a cap on how fast
+ * any run kind, metered or not, can be started, including kinds whose cost is not a model call. */
+export const DEFAULT_RUN_RATE: Record<OwnerType, number> = { permanent: 30, anonymous: 10 };
 
-/** Most model calls one run of this definition makes, before retries: one per llm step, `max` per map of llm steps. */
-export function plannedModelCalls(spec: WorkflowSpec): number {
-  return spec.steps.reduce((n, s) => n + (s.type === 'llm' ? 1 : s.type === 'map' && s.step.type === 'llm' ? s.max : 0), 0);
+/**
+ * US dollars a brand may spend per UTC day on paid services, by owner type (engine_config 'daily_spend_usd' overrides
+ * either): once today's recorded cost_usd reaches it, runs with metered steps are refused. At Exa's prices
+ * (https://exa.ai/pricing: $7 per 1,000 searches, $1 per 1,000 content pages) $0.50 is about 70 searches or 500
+ * pages a day for a permanent brand, and $0.05 about 7 searches for an anonymous visitor. Free models cost 0.
+ */
+export const DEFAULT_DAILY_SPEND_USD: Record<OwnerType, number> = { permanent: 0.5, anonymous: 0.05 };
+
+/** Most metered calls one step makes per run (types.ts StepBase.metered and its defaults); a map counts its inner step
+ * once per item, up to its max. */
+export function meteredCalls(s: StepSpec): number {
+  if (s.type === 'map') return meteredCalls(s.step) * s.max;
+  if (typeof s.metered === 'number' && Number.isFinite(s.metered) && s.metered >= 0) return s.metered;
+  return s.type === 'llm' || (s.type === 'fetch' && s.reader !== undefined) ? 1 : 0;
+}
+/** Most metered calls one run of this definition makes, before retries. */
+export function plannedMeteredCalls(spec: WorkflowSpec): number {
+  return spec.steps.reduce((n, s) => n + meteredCalls(s), 0);
 }
 
 const ownerType = (c: Caller): OwnerType => (c.isAnonymous ? 'anonymous' : 'permanent');
-const startOfUtcDay = (now = Date.now()) => new Date(Math.floor(now / 86_400_000) * 86_400_000).toISOString();
 
-/** The brand's budget for today, from engine_config or the default for its owner type. */
-export async function modelCallBudget(env: Env, type: OwnerType): Promise<number> {
-  const [row] = await db.select<{ value: unknown }>(env, 'engine_config', `${db.eq('key', 'model_call_budget')}&select=value`);
-  const v = Number((row?.value as Record<string, unknown> | undefined)?.[type]);
-  return Number.isInteger(v) && v >= 0 ? v : DEFAULT_MODEL_CALL_BUDGET[type];
+/** A per-owner-type setting from engine_config, or its default. */
+async function setting(env: Env, key: string, type: OwnerType, fallback: Record<OwnerType, number>, integer = true): Promise<number> {
+  const [row] = await db.select<{ value: unknown }>(env, 'engine_config', `${db.eq('key', key)}&select=value`);
+  const raw = (row?.value as Record<string, unknown> | undefined)?.[type];
+  const v = typeof raw === 'number' ? raw : NaN;
+  return (integer ? Number.isInteger(v) : Number.isFinite(v)) && v >= 0 ? v : fallback[type];
 }
 
 /**
- * Admits a run only if the brand's model calls today (every recorded llm attempt), plus the planned calls of its runs
- * still going, plus this run's planned calls, fit the budget. Runs still going are counted in full even when some of
- * their calls are already recorded: the check can refuse early, never late.
+ * The caps and plan one start is admitted against (spec/db/011 admit_run, which counts, checks and writes the run row
+ * in one transaction serialised per brand, so two starts at the edge cannot both pass: Codex review on PR #91):
+ * planned metered calls, the brand's daily metered-call budget and its hourly run rate, for the caller's owner type.
  */
-export const budgetGuard: StartGuard = async (env, caller, brand, spec) => {
-  const planned = plannedModelCalls(spec);
-  if (!planned) return;
-  const budget = await modelCallBudget(env, ownerType(caller));
-  const today = startOfUtcDay();
-  const runs = await db.select<{ id: string; kind: string; workflow_version: number; status: string }>(env, 'runs', `${db.eq('brand_id', brand.id)}&updated_at=gte.${today}&select=id,kind,workflow_version,status`);
-  let used = 0;
-  if (runs.length) {
-    const steps = await db.select<{ id: string }>(env, 'run_steps', `run_id=in.(${runs.map((r) => r.id).join(',')})&type=eq.llm&created_at=gte.${today}&select=id&limit=${budget + 1}`);
-    used = steps.length;
-  }
-  const going = runs.filter((r) => r.status === 'running' || r.status === 'paused');
-  const defs = going.length ? await db.select<{ id: string; version: number; spec: WorkflowSpec }>(env, 'workflow_defs', `id=in.(${[...new Set(going.map((r) => r.kind))].join(',')})&select=id,version,spec`) : [];
-  const reserved = going.reduce((n, r) => n + plannedModelCalls(defs.find((d) => d.id === r.kind && d.version === r.workflow_version)?.spec ?? { steps: [] } as never), 0);
-  if (used + reserved + planned > budget) {
-    throw new HttpError(429, `this brand has used its ${budget} AI model calls for today (${used} made, ${reserved} reserved by runs still going, ${planned} needed); try again after 00:00 UTC`);
-  }
-};
+export async function admissionLimits(env: Env, caller: Caller, spec: WorkflowSpec) {
+  const type = ownerType(caller);
+  const [budget, runRate, spendCap] = await Promise.all([
+    setting(env, 'metered_call_budget', type, DEFAULT_METERED_CALL_BUDGET),
+    setting(env, 'run_rate', type, DEFAULT_RUN_RATE),
+    setting(env, 'daily_spend_usd', type, DEFAULT_DAILY_SPEND_USD, false),
+  ]);
+  return { planned: plannedMeteredCalls(spec), budget, runRate, spendCap };
+}
 
 /** Anonymous visitors: one Workers rate-limit check per run start, keyed by IP (wrangler.jsonc PUBLIC_LIMITER). No-op
  * without the binding (tests, local) and for permanent accounts. */
@@ -69,8 +80,12 @@ export const anonymousIpGuard: StartGuard = async (env, caller) => {
   if (!success) throw new HttpError(429, 'too many reads from your network; wait a minute and try again');
 };
 
-/** Guards run in order; the first that refuses stops the start. Other caps (for example PR #96's source cap) register here. */
-export const START_GUARDS: StartGuard[] = [anonymousIpGuard, budgetGuard];
+/**
+ * Checks that need nothing from the database run first, in order; the first that refuses stops the start. The budget
+ * and run rate are not guards: they are checked and reserved atomically by admit_run. Other caps (for example PR #96's
+ * source cap) register here.
+ */
+export const START_GUARDS: StartGuard[] = [anonymousIpGuard];
 export function registerStartGuard(g: StartGuard) {
   if (!START_GUARDS.includes(g)) START_GUARDS.push(g);
 }

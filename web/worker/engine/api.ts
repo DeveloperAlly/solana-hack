@@ -12,7 +12,7 @@ import { db } from '../db';
 import { HttpError, type Env } from '../env';
 import { checkExecutor, engineConfig, launch, waitForRun, type WaitUntil } from './executor';
 import { progressAt } from './runner';
-import { checkStart, type Caller } from './guards';
+import { admissionLimits, checkStart, type Caller } from './guards';
 import { KINDS, type BrandRef } from './kinds';
 // Registers the draft_post kind (issue #93).
 import '../create/kind';
@@ -58,22 +58,34 @@ async function start(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand:
   const [spec, config] = await Promise.all([activeDef(env, kind), engineConfig(env)]);
   const { executor } = config;
   checkExecutor(env, executor, spec, opts);
-  // Budget and caps (engine/guards.ts) before prepare(), which may write a source row.
   await checkStart(env, user, brand, spec);
-  const input = await prepare(env, brand, body);
-  // Everything after prepare() is in one cleanup path (PR #70 review): if superseding, writing the run row or handing
-  // it to the executor fails, the run (if written) and any source prepare() created are marked failed, so no pending
-  // source is left without a run to finish it. Cleanup is best effort: the database may be the thing that failed.
-  let run: RunRow | undefined;
+  // Admission is the first write (spec/db/011 admit_run): the run rate and the metered-call budget are checked and the
+  // run row is written as the reservation in one transaction, serialised per brand. A refusal (429) writes nothing.
+  const limits = await admissionLimits(env, user, spec);
+  let run = await db.rpc<RunRow>(env, 'admit_run', {
+    p_brand: brand.id, p_kind: kind, p_version: spec.version, p_executor: executor, p_progress: progressAt(spec, 0),
+    p_created_by: user.id, p_planned: limits.planned, p_budget: limits.budget, p_run_rate: limits.runRate, p_spend_cap: limits.spendCap,
+  });
+  let input: Record<string, unknown>;
   try {
+    input = await prepare(env, brand, body);
+  } catch (e) {
+    // The request was not usable (or prepare failed): release the reservation, so nothing of this start remains.
+    await db.del(env, 'runs', `${db.eq('id', run.id)}&${db.eq('brand_id', brand.id)}`).catch(() => undefined);
+    throw e instanceof HttpError ? e : new HttpError(503, 'the run could not start, try again');
+  }
+  // Everything after prepare() is in one cleanup path (PR #70 review): if writing the input, superseding or handing the
+  // run to the executor fails, the run and any source prepare() created are marked failed, so no pending source is left
+  // without a run to finish it. Cleanup is best effort: the database may be the thing that failed.
+  try {
+    [run] = await db.update<RunRow>(env, 'runs', db.eq('id', run.id), { input, updated_at: new Date().toISOString() });
     if (spec.concurrency === 'supersede') {
-      await db.update(env, 'runs', `${db.eq('brand_id', brand.id)}&${db.eq('kind', kind)}&status=in.(running,paused)`, { status: 'superseded', updated_at: new Date().toISOString() });
+      await db.update(env, 'runs', `${db.eq('brand_id', brand.id)}&${db.eq('kind', kind)}&id=neq.${run.id}&status=in.(running,paused)`, { status: 'superseded', updated_at: new Date().toISOString() });
     }
-    [run] = await db.insert<RunRow>(env, 'runs', { brand_id: brand.id, kind, workflow_version: spec.version, executor, status: 'running', input, progress: progressAt(spec, 0), created_by: user.id });
     await launch(env, opts.awaited ? undefined : ctx, run);
   } catch (e) {
     const note = 'the run could not start';
-    if (run) await db.update(env, 'runs', db.eq('id', run.id), { status: 'failed', error: note, error_code: 503, updated_at: new Date().toISOString() }).catch(() => undefined);
+    await db.update(env, 'runs', db.eq('id', run.id), { status: 'failed', error: note, error_code: 503, updated_at: new Date().toISOString() }).catch(() => undefined);
     if (typeof input.sourceId === 'string') await db.update(env, 'sources', `${db.eq('id', input.sourceId)}&${db.eq('brand_id', brand.id)}`, { status: 'failed', error: note }).catch(() => undefined);
     throw e instanceof HttpError ? e : new HttpError(503, 'the run could not start, try again');
   }

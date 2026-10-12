@@ -5,7 +5,16 @@
  * (https://developers.cloudflare.com/workflows/build/sleeping-and-retrying/#retry-steps). */
 export interface RetrySpec { limit: number; delay: string; backoff: 'constant' | 'linear' | 'exponential' }
 
-interface StepBase { id: string; label: string; retries?: RetrySpec; timeout?: string }
+interface StepBase {
+  id: string; label: string; retries?: RetrySpec; timeout?: string;
+  /**
+   * Most metered external calls one run of this step makes (paid or rate-limited calls whose cost is recorded as
+   * run_steps.cost_usd): the start budget (engine/guards.ts) counts them. Default: 1 for an llm step and for a fetch
+   * step with a reader (a reader may call a paid service such as Exa), 0 otherwise. Declare it on any other step kind
+   * that calls a metered service.
+   */
+  metered?: number;
+}
 /** Reads one public page (ingest.ts readPage). Output: {url, title, text, excerpt}. The text keeps at most maxChars
  * UTF-16 units and maxBytes UTF-8 bytes, so the step result stays under Workflows' 1 MiB limit in either encoding. */
 export interface FetchStep extends StepBase { type: 'fetch'; reader?: undefined; url: string; maxChars: number; maxBytes: number; excerptChars: number }

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { exaReplyCap, MAX_SITE_REQUESTS, readSite, siteUrl, SITE_DEFAULTS } from '../../worker/sources/site';
-import { MAX_BYTES, pageLinks, readCapped, readPage } from '../../worker/ingest';
+import { hidingSelectors, MAX_BYTES, pageLinks, pageText, readCapped, readPage, REDIRECT_STATUSES } from '../../worker/ingest';
 import { allowedBy, normalisePath, parseRobots, ROBOTS_MAX_BYTES, ruleMatches } from '../../worker/sources/robots';
 
 // Site adapter (issue #33). Exa and the site are mocked; each test sets what they answer. Any call to Cloudflare's
@@ -292,6 +292,46 @@ describe('readers: every response body is read to a bound, then cancelled (PR #7
     const { readText } = await import('../../worker/ingest');
     expect(await readText(new Response('a\u00E9\u00E9'), 4)).toBe('a\u00E9');
     expect(await readText(new Response('\uFEFFhi'))).toBe('hi');
+  });
+});
+
+describe('redirects: only 301, 302, 303, 307 and 308 (Fetch standard "redirect status"; PR #71 review)', () => {
+  it('reads a 300 with a Location as the final response, which is not a page, and never requests the Location', async () => {
+    const calls = stub({ page: (u) => (u === 'https://a.test/' ? new Response('<p>Choose one.</p>', { status: 300, headers: { location: 'https://a.test/other', 'content-type': 'text/html' } }) : html('Other', LONG)) });
+    await expect(readPage('https://a.test/', async () => true)).rejects.toThrow(/HTTP 300/);
+    expect(calls.map((c) => c.url)).not.toContain('https://a.test/other');
+  });
+  it('follows each redirect status, and reads robots.txt through them the same way', async () => {
+    expect([...REDIRECT_STATUSES].sort()).toEqual([301, 302, 303, 307, 308]);
+    for (const status of REDIRECT_STATUSES) {
+      stub({ page: (u) => (u === 'https://a.test/' ? new Response(null, { status, headers: { location: 'https://a.test/next' } }) : html('Next', LONG)) });
+      expect((await readPage('https://a.test/', async () => true)).url).toBe('https://a.test/next');
+    }
+    // A robots.txt answered with a 300 and a Location is not followed: it is not a redirect, so the file is unreachable.
+    const calls = stub({ robots: (u) => (u === 'https://a.test/robots.txt' ? new Response('', { status: 300, headers: { location: 'https://a.test/elsewhere/robots.txt' } }) : new Response('User-agent: *\nAllow: /\n')), page: () => html('A', LONG) });
+    const r = await readSite({}, 'https://a.test/');
+    expect(r).toMatchObject({ ok: false, code: 'robots_disallowed' });
+    expect(calls.map((c) => c.url)).not.toContain('https://a.test/elsewhere/robots.txt');
+  });
+});
+
+describe('page text: rules in the page\'s own style sheets (PR #71 review)', () => {
+  it('hides what a top-level rule hides by tag, class or id, and nothing else', () => {
+    const page = (css: string, body: string) => pageText(`<style>${css}</style>${body}`).text;
+    expect(page('.bootstrap { display: none }', '<div class="a bootstrap">Hidden</div><p>Shown</p>')).toBe('Shown');
+    expect(page('p.x, #y { visibility: hidden }', '<p class="x">H1</p><div id="y">H2</div><p>Shown</p>')).toBe('Shown');
+    // The last declaration wins; a rule that only sometimes applies, or needs a style engine to match, is left alone.
+    expect(page('.a { display: none; display: block }', '<div class="a">Shown</div>')).toBe('Shown');
+    expect(page('@media print { .a { display: none } }', '<div class="a">Shown</div>')).toBe('Shown');
+    expect(page('div > .a, .a:hover, [data-x] { display: none }', '<div class="a" data-x="1">Shown</div>')).toBe('Shown');
+    expect(pageText('<style media="print">.a { display: none }</style><template><style>.b { display: none }</style></template><div class="a b">Shown</div>').text).toBe('Shown');
+    expect(page('/* .a { display: none } */ @import url(x.css); .b { display: none }', '<div class="a">Shown</div><div class="b">Hidden</div>')).toBe('Shown');
+  });
+  it('reads the selectors in time linear in the style sheet', () => {
+    const big = '@a{}'.repeat(200_000) + '.z{display:none}';
+    const t = Date.now();
+    expect(hidingSelectors(big)).toEqual([{ tag: null, classes: ['z'], id: null }]);
+    expect(Date.now() - t).toBeLessThan(2000);
   });
 });
 
