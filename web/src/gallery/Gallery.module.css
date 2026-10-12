@@ -9,6 +9,7 @@
   background: var(--wl-bg-subnav);
   font-size: var(--wl-font-size-sm);
 }
+.bottom { position: sticky; bottom: 0; z-index: var(--wl-z-sticky); border-bottom: 0; border-top: var(--wl-border-width-default) dashed var(--wl-border-input); }
 .toolbarTitle { font-weight: var(--wl-font-weight-semibold); margin-right: auto; }
 .switch { display: flex; align-items: center; flex-wrap: wrap; gap: var(--wl-space-2); }
 .switchLabel { color: var(--wl-text-secondary); font-weight: var(--wl-font-weight-semibold); }

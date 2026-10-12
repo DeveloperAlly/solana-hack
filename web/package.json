@@ -11,7 +11,8 @@
     "typecheck": "npm run tokens && tsc --noEmit -p tsconfig.json && tsc -p worker/tsconfig.json",
     "lint:tokens": "node scripts/build-tokens.mjs && node scripts/lint-tokens.mjs",
     "test": "npm run tokens && vitest run",
-    "proof": "node scripts/proof-s0.mjs"
+    "proof": "node scripts/proof-s0.mjs",
+    "check:gallery": "node scripts/check-gallery.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
@@ -20,6 +21,7 @@
     "react-router": "^8.4.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",

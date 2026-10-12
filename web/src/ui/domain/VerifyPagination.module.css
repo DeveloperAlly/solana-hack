@@ -1,0 +1,11 @@
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wl-space-3);
+}
+.position {
+  color: var(--wl-text-secondary);
+  font-family: var(--wl-font-body);
+  font-size: var(--wl-font-size-sm);
+}
