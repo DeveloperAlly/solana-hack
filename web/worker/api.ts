@@ -5,6 +5,7 @@ import { db } from './db';
 import { HttpError, json, safeError, sha256Hex, type Env } from './env';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
+import { loadTaskModels } from './models';
 import { registerKitAttestation, registrarFromSecret } from './registry';
 import { draftChecks } from './create/checks';
 import { activeRun, activeRuns, draftRun, getRun, ingestSource, startRun } from './engine/api';
@@ -77,14 +78,15 @@ function answerText(answers: Answer[], steps: readonly string[]) {
 }
 
 export async function draftSection(env: Env, brand: Brand, section: SectionId) {
-  const st = await brandState(env, brand);
+  const [st, configuredModels] = await Promise.all([brandState(env, brand), loadTaskModels(env, ['create.draft'])]);
+  const models = configuredModels['create.draft'];
   // Only facts that may enter a kit are offered to the drafter (issue #57): approved, and owned, an owner answer or an
   // approved third-party fact. A proposed or rejected fact cannot be cited, so it cannot reach a registered kit.
   const ev = st.evidence.filter(usableFact);
   const evText = ev.map((e) => `[${e.id}] (${e.trust}${e.quote ? `, quote: "${e.quote.slice(0, 200)}"` : ''}) ${e.claim}`).join('\n') || '(no evidence yet)';
   const system = `You draft one section of a brand kit for "${brand.name}". Use only the owner's answers and the evidence list. Cite the evidence ids you rely on. If something is not supported, write it anyway as a clearly labelled assumption ("Assumption:"). ${SLOP_RULES} Reply with JSON only: {"body": string, "citations": string[]}.`;
   const user = `Section: ${SECTIONS[section].title}\nWhat to write: ${SECTION_GUIDE[section]}\n\nOwner answers:\n${answerText(st.answers, SECTIONS[section].from) || '(none)'}\n\nEvidence:\n${evText}`;
-  const { text, model } = await chat(env, system, user);
+  const { text, model } = await chat(env, system, user, { ...(models ? { models } : {}) });
   const out = parseJson<{ body?: string; citations?: string[] }>(text);
   const known = new Set(ev.map((e) => e.id));
   const citations = (out.citations ?? []).filter((c) => known.has(c));

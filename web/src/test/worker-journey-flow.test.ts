@@ -187,6 +187,16 @@ describe('first-run journey, J0 to J7, end to end through the router', () => {
     const kit = await ok('register kit', call('perm', 'POST', `/brands/${brand.id}/kit/register`));
     expect(kit.kit).toMatchObject({ version: 1, status: 'registered' });
     expect(kit.explorer).toContain('explorer.solana.com/tx/');
+    const writerRequests = vi.mocked(fetch).mock.calls
+      .filter(([url]) => String(url).startsWith('https://openrouter.ai'))
+      .map(([, init]) => JSON.parse(String(init!.body)))
+      .filter((body) => /You show a brand owner|You draft one section/.test(body.messages[0].content));
+    expect(writerRequests).toHaveLength(8);
+    for (const request of writerRequests) {
+      expect(request.models).toEqual(['nvidia/nemotron-3-super-120b-a12b:free', 'apodex/apodex-1.1-mini:free']);
+      expect(request.reasoning).toEqual({ effort: 'low' });
+    }
+
 
     // J6: the first post with no brief; its claims with their evidence; approved; registered.
     const { post } = await ok('first post', call('perm', 'POST', `/brands/${brand.id}/posts`, {}));

@@ -7,6 +7,7 @@ import { db } from './db';
 import { HttpError, type Env } from './env';
 import { SECTIONS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
+import { loadTaskModels } from './models';
 import { usableFact } from './sources/registry';
 import { contrastingTemplates, nearestTemplates, templateById, voiceAnswerFor, type VoiceTemplate } from './voice';
 
@@ -89,6 +90,7 @@ export async function voiceSamples(env: Env, brand: { id: string; name: string }
   } else {
     candidates = contrastingTemplates(3);
   }
+  const models = (await loadTaskModels(env, ['create.draft']))['create.draft'];
   const facts = evidence.slice(0, 40).map((e) => `- ${e.claim}`).join('\n');
   const list = candidates.map((id, i) => `${i + 1}. ${id}: ${templateById(id)!.label}`).join('\n');
   const system = `You show a brand owner how "${brand.name}" could sound. Write exactly three paragraphs, one in each template listed, in the listed order. Each paragraph is 40 to 70 words introducing the brand, using only the facts given; no numbers, customers or claims that are not in the facts. ${SLOP_RULES} Reply with JSON only, no other text: {"samples": [{"template": "<template id from the list>", "text": string}]}.`;
@@ -96,7 +98,7 @@ export async function voiceSamples(env: Env, brand: { id: string; name: string }
   // (https://github.com/DeveloperAlly/solana-hack/issues/112).
   let out: VoiceSample[] = [];
   for (let attempt = 0; attempt < 2 && out.length < 3; attempt++) {
-    const { text } = await chat(env, system, `Templates:\n${list}\n\nFacts:\n${facts}`);
+    const { text } = await chat(env, system, `Templates:\n${list}\n\nFacts:\n${facts}`, { ...(models ? { models } : {}) });
     try { out = samplesFrom(parseJson<unknown>(text), candidates); }
     catch (e) { if (!(e instanceof HttpError)) throw e; out = []; }
     if (out.length < 3) console.warn('voice samples unusable', { round, attempt, usable: out.length });
