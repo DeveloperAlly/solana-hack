@@ -19,8 +19,8 @@ function linkError(hash: string): string | null {
  * Onboard-1-SignIn: email, then either the emailed link or the code in it (Supabase email OTP). The project sets the code length; Supabase allows 6 to 10 digits
  * (mailer_otp_length, minimum 6, maximum 10, in UpdateAuthConfigBody of
  * https://github.com/supabase/supabase/blob/master/apps/docs/spec/api_v1_openapi.json). No wallet, no seed phrase (R26, ADR-006).
- * The hosted project's default email carries only a link (its template can't change without custom SMTP), so the link is the main route:
- * it returns here, the client reads the session from the URL fragment (implicit flow, the supabase-js default), and the redirect below fires.
+ * The email (custom SMTP and template set by .github/workflows/supabase-auth-config.yml) carries both. The link
+ * returns here, the client reads the session from the URL fragment (implicit flow, the supabase-js default), and the redirect below fires.
  */
 export function SignIn() {
   const { session } = useAuth();
