@@ -11,11 +11,11 @@ export function FailedView({ data, flow }: StatusViewProps) {
     <Stack gap={5}>
       <StatePanel
         kind="error"
-        title={failure.title}
+        title={failure.title[data.piece.channel]}
         body={
           <Stack gap={3}>
             <span><Badge tone="solid">{failure.chip}</Badge></span>
-            <Stack as="ul" gap={1}>{failure.reasons.map((r) => <li key={r}><Text>{r}</Text></li>)}</Stack>
+            <Stack as="ul" gap={1}>{failure.reasons[data.piece.channel].map((r) => <li key={r}><Text>{r}</Text></li>)}</Stack>
             {data.submittedUrl && <Text variant="small">Link checked: {data.submittedUrl}</Text>}
             <Text variant="small" tone="secondary">{failure.held}</Text>
           </Stack>

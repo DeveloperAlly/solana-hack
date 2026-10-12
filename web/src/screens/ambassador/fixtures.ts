@@ -222,11 +222,15 @@ export const statusFailed: PostStatusData = {
   times: { published: '16:40', failed: '16:41' },
   failure: {
     chip: 'Check failed',
-    title: "The post at that link doesn't match your draft",
-    reasons: [
-      "Text differs from your approved draft by 38%. Small edits are fine; rewrites aren't.",
-      'Or the post is from a different LinkedIn account than the one on your profile (@[ambassador handle]).',
-    ],
+    // Canvas Amb-5c draws the LinkedIn case; the blog case keeps only the reason that applies to a page.
+    title: { linkedin: "The post at that link doesn't match your draft", blog: "The page at that link doesn't match your draft" },
+    reasons: {
+      linkedin: [
+        "Text differs from your approved draft by 38%. Small edits are fine; rewrites aren't.",
+        'Or the post is from a different LinkedIn account than the one on your profile (@[ambassador handle]).',
+      ],
+      blog: ["Text differs from your approved draft by 38%. Small edits are fine; rewrites aren't."],
+    },
     held: 'Nothing has been paid. Your slot is held until 12 Oct, 23:59.',
     recoveries: [
       { id: 'link', title: 'Wrong link?', body: 'Paste the URL of the post you made from your draft.', actionLabel: 'Paste a different URL', to: 'publish' },

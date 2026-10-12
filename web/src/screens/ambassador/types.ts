@@ -193,6 +193,7 @@ export interface PostStatusData {
     postLink: string;
     balance: string;
   };
-  failure?: { chip: string; title: string; reasons: string[]; held: string; recoveries: Recovery[] };
+  /** Title and reasons per channel: a LinkedIn post and a blog page fail in different ways. */
+  failure?: { chip: string; title: Record<Channel, string>; reasons: Record<Channel, string[]>; held: string; recoveries: Recovery[] };
   budget?: { chip: string; budget: AmbBudget; caption: string; optInLabel: string; optedInLabel: string };
 }

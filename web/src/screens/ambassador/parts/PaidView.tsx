@@ -13,6 +13,8 @@ export function PaidView({ data, flow, onReceipt }: StatusViewProps) {
   const { paid } = data;
   if (!paid) return null;
   const desktop = flow.device === 'desktop';
+  // The link the ambassador submitted, when they posted it themselves; otherwise the post JamJam published (bracketed until wired).
+  const postLink = data.submittedUrl ? <Link href={data.submittedUrl} external>{data.submittedUrl}</Link> : paid.postLink;
   const progress = campaignProgress(data);
   const { next } = progress;
   // Starting the next piece picks it on Generate, with that piece's default draft.
@@ -30,7 +32,7 @@ export function PaidView({ data, flow, onReceipt }: StatusViewProps) {
           items={[
             { label: 'Amount', value: `${data.piece.payout} to your wallet` },
             { label: 'Receipt', value: <Button variant="secondary" onClick={onReceipt} aria-haspopup="dialog">View onchain receipt</Button> },
-            { label: 'Post', value: <>{paid.postLink} · <Link href={flow.pages.verifyMatch}>See public check</Link></> },
+            { label: 'Post', value: <>{postLink} · <Link href={flow.pages.verifyMatch}>See public check</Link></> },
           ]}
         />
       </Card>

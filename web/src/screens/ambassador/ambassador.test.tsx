@@ -562,3 +562,24 @@ describe('Codex review round 2 on PR #78', () => {
     expect(ambSession.get().piece?.id).toBe('linkedin');
   });
 });
+
+describe('Codex review round 3 on PR #78', () => {
+  it('paid shows the link the ambassador submitted', async () => {
+    ambSession.update({ piece: adnaFormats[2], route: 'blog-url', submittedUrl: 'https://mai.dev/agents-context' });
+    at('/screens/Amb-5b-Paid');
+    await h1('Paid 50 USDC');
+    expect(screen.getByRole('link', { name: /https:\/\/mai\.dev\/agents-context/ })).toHaveAttribute('href', 'https://mai.dev/agents-context');
+    expect(screen.queryByText(/\[LinkedIn post link\]/)).not.toBeInTheDocument();
+  });
+  it('a failed blog page gets page reasons, not LinkedIn ones', async () => {
+    ambSession.update({ piece: adnaFormats[2], route: 'blog-url', submittedUrl: 'https://mai.dev/agents-context' });
+    at('/screens/Amb-5c-VerifyFailed');
+    await h1("We couldn't verify your post");
+    expect(screen.getByText("The page at that link doesn't match your draft")).toBeInTheDocument();
+    expect(screen.queryByText(/LinkedIn account/)).not.toBeInTheDocument();
+  });
+  it('a failed LinkedIn post keeps the canvas reasons', async () => {
+    at('/screens/Amb-5c-VerifyFailed');
+    expect(await screen.findByText(/different LinkedIn account/)).toBeInTheDocument();
+  });
+});
