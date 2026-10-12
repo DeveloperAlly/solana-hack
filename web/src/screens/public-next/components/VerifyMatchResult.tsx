@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, Stack, Text } from '../../../ui/primitives';
 import { KeyValueList } from '../../../ui/composites/KeyValueList';
+import { VerifyReceiptLink } from '../../../ui/domain/VerifyReceiptLink';
 import { VerifyResultCard } from '../../../ui/domain/VerifyResultCard';
 import { formatDateTime } from '../format';
 import { ledgerHref } from '../paths';
@@ -28,6 +29,7 @@ export function VerifyMatchResult({ post }: { post: ApprovedPost }) {
           { label: 'Kit', value: `v${post.kitVersion}` },
           { label: 'Approved by', value: `${brand.name} · ${post.approver} · ${formatDateTime(post.approvedAt)}` },
           { label: 'Published', value: where },
+          { label: 'Receipt', value: <VerifyReceiptLink signature={post.signature}>Approval transaction</VerifyReceiptLink> },
         ]}
       />
       <Stack gap={1}>
