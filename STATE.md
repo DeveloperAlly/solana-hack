@@ -44,12 +44,12 @@ last_edited_by: agent
 ## Proposed (awaiting owner)
 - ADR-005: UI in React on design tokens (one file changes the look); components are built slice by slice, when a screen first needs them (owner, 2026-10-06), not as a library up front; Vite chosen (owner, 2026-10-06).
 - [Component inventory](./.agentic/what/context/component_inventory.md) with each component's first slice.
-- [UI build mission](./.agentic/how/missions/mission_ui_build.md): proof-driven delivery in timed chunks; slices S0–S8 along the critical path, each checked on the deployed site. S0 live half: the deploy wires in the Registrar key and the provider RPC ([PR #10](https://github.com/DeveloperAlly/solana-hack/pull/10); the RPC secret points at Helius devnet since 2026-10-12), and the live self-test passes since 2026-10-12.
+- [UI build mission](./.agentic/how/missions/mission_ui_build.md): proof-driven delivery in timed chunks; slices S0–S8 along the critical path, each checked on the deployed site. S0 live half: the deploy wires in the Registrar key and the provider RPC ([PR #10](https://github.com/DeveloperAlly/solana-hack/pull/10); the RPC secret points at Helius devnet since 2026-10-12, [self-test on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118094002)), and the live self-test passes since 2026-10-12 ([self-test on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118094002)).
 
 ## Next
 - **Now (2026-10-12):**
   1. Done 2026-10-08: the PR stack is merged.
-  2. Done 2026-10-12: `DEVNET_RPC_URL` points at Helius devnet and the live self-test passes. Now: sign-in email (see Blockers).
+  2. Done 2026-10-12: `DEVNET_RPC_URL` points at Helius devnet and the live self-test passes ([self-test on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118094002)). Now: sign-in email (see Blockers).
   3. Run the full flow on https://jamjam.tech: sign-in, ingest, gates, kit v1, then a post through Verify. Check the rows in Supabase.
   4. Register JamJam's own kit v1 (due Oct 9).
   5. Make the submission assets ([Colosseum hackathon page](https://www.colosseum.com/hackathon)): the presentation video, the product demo video (3 minutes or less), the logo, the go-to-market strategy, demand validation, and the repo link (the README is written for judges).
