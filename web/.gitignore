@@ -6,3 +6,4 @@ src/tokens/tokens.ts
 .env*
 .wrangler/
 proof/gallery-check.txt
+proof/evals/

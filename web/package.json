@@ -12,7 +12,8 @@
     "lint:tokens": "node scripts/build-tokens.mjs && node scripts/lint-tokens.mjs",
     "test": "npm run tokens && vitest run",
     "proof": "node scripts/proof-s0.mjs",
-    "check:gallery": "node scripts/check-gallery.mjs"
+    "check:gallery": "node scripts/check-gallery.mjs",
+    "evals": "node evals/run.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",

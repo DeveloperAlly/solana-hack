@@ -1,7 +1,7 @@
 name: web CI
 on:
   pull_request:
-    paths: ['web/**', '.github/workflows/web-*.yml']
+    paths: ['web/**', '.github/workflows/web-*.yml', '.github/workflows/outcome-evals.yml']
   push:
     branches: [main]
     paths: ['web/**', '.github/workflows/web-*.yml']
@@ -52,3 +52,14 @@ jobs:
           case "$SUPABASE_PUBLISHABLE_KEY" in sb_publishable_*) echo "format ok: SUPABASE_PUBLISHABLE_KEY";; *) echo "WRONG FORMAT: SUPABASE_PUBLISHABLE_KEY"; missing=1;; esac
           case "$SUPABASE_SECRET_KEY" in sb_secret_*) echo "format ok: SUPABASE_SECRET_KEY";; *) echo "WRONG FORMAT: SUPABASE_SECRET_KEY"; missing=1;; esac
           exit $missing
+  # Product-outcome report on every PR: the journeys run against the integration preview (the deployed state this PR
+  # builds on). After merge, web-preview.yml reruns them on the new preview and updates the same comment.
+  outcome-evals:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      pull-requests: write # one outcome-evals comment per PR
+    uses: ./.github/workflows/outcome-evals.yml
+    with:
+      base_url: ${{ vars.PREVIEW_URL || 'https://jamjam-preview.ally-b3e.workers.dev' }}
+      pr: ${{ format('{0}', github.event.pull_request.number) }}
