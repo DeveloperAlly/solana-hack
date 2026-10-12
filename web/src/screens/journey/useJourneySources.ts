@@ -5,18 +5,19 @@
  */
 import { useState } from 'react';
 import { uniqueId } from '../../lib/id';
-import type { JourneySource, JourneyStatusRow, SourceStatus } from './types';
+import type { StatusListRow } from '../../ui/composites/StatusList';
+import type { JourneySource, SourceStatus } from './types';
 
-const statusRow: Record<SourceStatus, (s: JourneySource) => Pick<JourneyStatusRow, 'value' | 'solid'>> = {
-  read: (s) => ({ value: `Read · ${s.facts ?? 0} facts`, solid: true }),
-  reading: () => ({ value: 'Reading…' }),
-  queued: () => ({ value: 'Queued' }),
-  blocked: () => ({ value: 'Blocked', solid: true }),
-  skipped: () => ({ value: 'Skipped' }),
+const statusRow: Record<SourceStatus, (s: JourneySource) => Pick<StatusListRow, 'status' | 'solid' | 'tone'>> = {
+  read: (s) => ({ status: `Read · ${s.facts ?? 0} facts`, solid: true }),
+  reading: () => ({ status: 'Reading…' }),
+  queued: () => ({ status: 'Queued', tone: 'muted' }),
+  blocked: () => ({ status: 'Blocked', solid: true, tone: 'failed' }),
+  skipped: () => ({ status: 'Skipped', tone: 'muted' }),
 };
 
-/** Rows for JourneyStatusList: each source with its status chip. */
-export const sourceRows = (sources: JourneySource[]): JourneyStatusRow[] => sources.map((s) => ({ label: s.label, ...statusRow[s.status](s) }));
+/** Rows for C32 StatusList (the D12 SourceList mapping): each source with its status chip. */
+export const sourceRows = (sources: JourneySource[]): StatusListRow[] => sources.map((s) => ({ id: s.id, label: s.label, ...statusRow[s.status](s) }));
 
 export function useJourneySources(initial: JourneySource[]) {
   const [sources, setSources] = useState(initial);

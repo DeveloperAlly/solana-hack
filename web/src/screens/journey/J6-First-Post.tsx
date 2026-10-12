@@ -18,20 +18,20 @@
  * States: success only (the board draws one state; its blocked-claim panel is an example inside it).
  */
 import { useState } from 'react';
-import { Button, Text } from '../../ui/primitives';
+import { Button, Stack, Text } from '../../ui/primitives';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import { Card } from '../../ui/composites/Card';
 import { Tabs } from '../../ui/composites/Tabs';
 import { JourneyAha } from '../../ui/domain/JourneyAha';
 import { JourneyClaimText } from '../../ui/domain/JourneyClaimText';
-import { JourneyCopyButton } from '../../ui/domain/JourneyCopyButton';
-import { JourneyPolishBar } from '../../ui/domain/JourneyPolishBar';
-import { JourneySplit } from '../../ui/domain/JourneySplit';
-import { JourneyStatusList } from '../../ui/domain/JourneyStatusList';
+import { CopyButton } from '../../ui/composites/CopyButton';
+import { PolishBar } from '../../ui/domain/PolishBar';
+import { Columns } from '../../ui/layouts/Columns';
+import { StatusList } from '../../ui/composites/StatusList';
 import { FirstPostClaimPanel } from './FirstPostClaimPanel';
 import { JourneyNextButton } from './JourneyNextButton';
 import { JourneyStepFrame } from './JourneyStepFrame';
-import { draftClaims, postChecks } from './derive';
+import { draftClaims, postChecks, statusRows } from './derive';
 import { useJourneyHref } from './paths';
 import { useJourneyFlow } from './useJourneyFlow';
 import type { FirstPostData } from './types';
@@ -62,25 +62,13 @@ export function J6FirstPost({ data }: { data: FirstPostData }) {
   }
   return (
     <JourneyStepFrame step="firstPost" title="Your first post, from kit v1" intro="Written in your approved voice. Every claim is linked to the evidence behind it.">
-      <JourneySplit
+      <Columns
         ratio="7-5"
-        first={
-          <Card variant="selected" as="div">
-            <Tabs
-              label="Channel"
-              value={draft.id}
-              onChange={actions.setPostChannel}
-              items={data.channels.map((c) => ({ id: c.id, label: c.label, panel: <JourneyClaimText segments={c.id === draft.id ? draft.segments : c.segments} selected={claim?.id} onSelect={setChosen} /> }))}
-            />
-            <Text variant="caption" tone="secondary">Sample draft for the wireframe. Highlighted = a claim linked to evidence; select one to see it.</Text>
-            {/* INTEGRATION: POST /api/brands/:id/posts/:id/polish {action, rev}; Undo is POST …/undo {rev}. */}
-            {channel.polish && <JourneyPolishBar actions={data.polishActions} applied={steps} onApply={(a) => setSteps([...steps, a])} onUndo={() => setSteps(steps.slice(0, -1))} />}
-          </Card>
-        }
-        second={
-          <>
+        stackBelow="md"
+        end={
+          <Stack gap={3}>
             <JourneyAha n={4}>It's my voice, and every claim is backed.</JourneyAha>
-            <JourneyStatusList title="Checks" rows={checks.rows} />
+            <StatusList label="Checks" title surface="card" rows={statusRows(checks.rows)} />
             {claim && <FirstPostClaimPanel claim={claim} />}
             <Card variant="emphasis" as="div">
               <Text variant="small"><strong>Example: an unsupported claim is blocked</strong></Text>
@@ -95,10 +83,22 @@ export function J6FirstPost({ data }: { data: FirstPostData }) {
             >
               Approve and register
             </JourneyNextButton>
-            <JourneyCopyButton label="Copy text" text={text} />
-          </>
+            <CopyButton label="Copy text" value={text} />
+          </Stack>
         }
-      />
+      >
+          <Card variant="selected" as="div">
+            <Tabs
+              label="Channel"
+              value={draft.id}
+              onChange={actions.setPostChannel}
+              items={data.channels.map((c) => ({ id: c.id, label: c.label, panel: <JourneyClaimText segments={c.id === draft.id ? draft.segments : c.segments} selected={claim?.id} onSelect={setChosen} /> }))}
+            />
+            <Text variant="caption" tone="secondary">Sample draft for the wireframe. Highlighted = a claim linked to evidence; select one to see it.</Text>
+            {/* INTEGRATION: POST /api/brands/:id/posts/:id/polish {action, rev}; Undo is POST …/undo {rev}. */}
+            {channel.polish && <PolishBar actions={data.polishActions.map((a) => ({ id: a, label: a }))} applied={steps} onApply={(a) => setSteps([...steps, a])} onUndo={() => setSteps(steps.slice(0, -1))} />}
+          </Card>
+      </Columns>
     </JourneyStepFrame>
   );
 }

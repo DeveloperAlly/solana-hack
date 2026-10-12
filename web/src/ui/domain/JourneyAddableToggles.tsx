@@ -1,7 +1,5 @@
 import { ToggleGroup } from '../composites/ToggleGroup';
-import { Button } from '../primitives/Button';
-import { useDisclosure } from '../hooks/useDisclosure';
-import { JourneyInlineForm } from './JourneyInlineForm';
+import { InlineForm } from '../composites/InlineForm';
 import styles from './JourneyAddableToggles.module.css';
 
 export interface JourneyAddableTogglesProps {
@@ -17,25 +15,18 @@ export interface JourneyAddableTogglesProps {
 }
 
 /**
- * JourneyAddableToggles: C5 ToggleGroup (multi) plus "+ Add", which opens a validated field for an option of the
- * person's own (canvas board J4-Gaps-Voice, "Pick, edit or add your own"; issue #48). Composes the foundation's
- * ToggleGroup, useDisclosure and JourneyInlineForm; it adds no chip styles of its own.
+ * JourneyAddableToggles: C5 ToggleGroup (multi) plus "+ Add", C30 InlineForm opened in place for an option of the
+ * person's own (canvas board J4-Gaps-Voice, "Pick, edit or add your own"; issue #48). Composition of shared parts only.
  */
 export function JourneyAddableToggles({ label, options, selected, onChange, onAdd, addLabel = 'Add your own' }: JourneyAddableTogglesProps) {
-  const add = useDisclosure();
   const validate = (v: string) => {
     if (!v) return 'Type a name first.';
     return options.includes(v) ? 'That one is already listed.' : null;
   };
   return (
     <div className={styles.root}>
-      <div className={styles.row}>
-        <ToggleGroup mode="multi" label={label} options={options.map((o) => ({ id: o, label: o }))} value={selected} onChange={onChange} />
-        {!add.open && <Button variant="secondary" onClick={add.show}>+ Add</Button>}
-      </div>
-      {add.open && (
-        <JourneyInlineForm label={addLabel} submitLabel="Add" validate={validate} onCancel={add.hide} onSubmit={(v) => { onAdd(v); add.hide(); }} />
-      )}
+      <ToggleGroup mode="multi" label={label} options={options.map((o) => ({ id: o, label: o }))} value={selected} onChange={onChange} />
+      <InlineForm triggerLabel="+ Add" layout="row" fields={[{ name: 'option', label: addLabel, validate }]} submitLabel="Add" onSubmit={({ option }) => onAdd(option)} />
     </div>
   );
 }

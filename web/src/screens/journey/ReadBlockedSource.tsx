@@ -1,7 +1,7 @@
 import { Button, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
-import { JourneyFileButton } from '../../ui/domain/JourneyFileButton';
-import { JourneyInlineForm } from '../../ui/domain/JourneyInlineForm';
+import { FilePicker } from '../../ui/composites/FilePicker';
+import { InlineForm } from '../../ui/composites/InlineForm';
 import { useDisclosure } from '../../ui/hooks/useDisclosure';
 import { required } from './validators';
 import type { JourneySource } from './types';
@@ -24,11 +24,11 @@ export function ReadBlockedSource({ source, onSupply, onSkip }: ReadBlockedSourc
         <strong>{source.label} didn't let us read it</strong>{source.reason ? ` (${source.reason}).` : '.'}
       </Text>
       {paste.open ? (
-        <JourneyInlineForm label={`Text from ${source.label}`} submitLabel="Add" multiline validate={required('Paste the text first.')} onCancel={paste.hide} onSubmit={() => onSupply('pasted text')} />
+        <InlineForm fields={[{ name: 'text', label: `Text from ${source.label}`, multiline: true, validate: required('Paste the text first.') }]} submitLabel="Add" onCancel={paste.hide} onSubmit={() => onSupply('pasted text')} />
       ) : (
         <Stack direction="row" gap={2} wrap>
           <Button variant="secondary" onClick={paste.show}>Paste the text</Button>
-          <JourneyFileButton label="Upload a file" accept=".pdf,.docx,.txt,.md" onFile={(f) => onSupply(f.name)} />
+          <FilePicker label="Upload a file" accept=".pdf,.docx,.txt,.md" onFiles={([file]) => file && onSupply(file.name)} />
           <Button variant="secondary" onClick={onSkip}>Skip</Button>
         </Stack>
       )}

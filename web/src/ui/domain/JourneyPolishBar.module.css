@@ -1,4 +1,0 @@
-.root { display: flex; flex-direction: column; gap: var(--wl-space-2); }
-.actions { display: flex; flex-wrap: wrap; gap: var(--wl-space-2); }
-.status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-2); font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
-.status:empty { display: none; }

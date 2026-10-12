@@ -22,8 +22,8 @@ import { DiffView } from '../../ui/composites/DiffView';
 import { KeyValueList } from '../../ui/composites/KeyValueList';
 import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { JourneyAha } from '../../ui/domain/JourneyAha';
-import { JourneyCopyButton } from '../../ui/domain/JourneyCopyButton';
-import { JourneySplit } from '../../ui/domain/JourneySplit';
+import { CopyButton } from '../../ui/composites/CopyButton';
+import { Columns } from '../../ui/layouts/Columns';
 import { VerifyReceiptLink } from '../../ui/domain/VerifyReceiptLink';
 import { JourneyStepFrame } from './JourneyStepFrame';
 import { ProofCheck } from './ProofCheck';
@@ -47,22 +47,10 @@ export function J7Proof({ data }: { data: ProofData }) {
   return (
     <JourneyStepFrame step="proof" title="Your first post is registered" footer={<Button href={to('hub')}>Plan the rest of my week</Button>}>
       <JourneyAha n={5} tone="inverse">Anyone can check this came from you.</JourneyAha>
-      <JourneySplit
+      <Columns
         ratio="5-7"
-        first={
-          <Card labelledBy="proof-record">
-            <Heading level={2} size="xl" id="proof-record">On the public record</Heading>
-            <KeyValueList items={[...record, { label: 'Transaction', value: <>{transaction} <Badge>{data.network}</Badge></> }]} />
-            <Stack direction="row" gap={2} wrap>
-              <JourneyCopyButton variant="primary" label="Copy post" text={postText} />
-              <JourneyCopyButton label="Copy check link" text={data.checkLink} />
-            </Stack>
-            <Text variant="caption" tone="secondary">
-              Publishing to X and LinkedIn from JamJam: <ComingSoonFlag tag="COMING SOON" />. For now, paste the post and add its link back.
-            </Text>
-          </Card>
-        }
-        second={
+        stackBelow="md"
+        end={
           <Card variant="selected" labelledBy="proof-check" header={<><Heading level={2} size="xl" id="proof-check">Check a post</Heading><Badge>What anyone sees</Badge></>}>
             <ProofCheck key={postText} registeredText={postText} officialNote={data.officialNote} />
             <Card variant="subtle" as="div" header={<><Text variant="small"><strong>Someone edits it?</strong></Text><ComingSoonFlag tag="COMING SOON" /></>}>
@@ -72,7 +60,19 @@ export function J7Proof({ data }: { data: ProofData }) {
             <Link href={to('ledger')}>See JamJam's public ledger</Link>
           </Card>
         }
-      />
+      >
+          <Card labelledBy="proof-record">
+            <Heading level={2} size="xl" id="proof-record">On the public record</Heading>
+            <KeyValueList items={[...record, { label: 'Transaction', value: <>{transaction} <Badge>{data.network}</Badge></> }]} />
+            <Stack direction="row" gap={2} wrap>
+              <CopyButton variant="primary" label="Copy post" value={postText} />
+              <CopyButton label="Copy check link" value={data.checkLink} />
+            </Stack>
+            <Text variant="caption" tone="secondary">
+              Publishing to X and LinkedIn from JamJam: <ComingSoonFlag tag="COMING SOON" />. For now, paste the post and add its link back.
+            </Text>
+          </Card>
+      </Columns>
     </JourneyStepFrame>
   );
 }

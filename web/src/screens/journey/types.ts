@@ -5,17 +5,25 @@
  * Fixtures and screens import from here; nothing else defines these shapes.
  */
 import type { JourneyFact } from '../../ui/domain/JourneyFactCard';
-import type { JourneyChoiceOption } from '../../ui/domain/JourneyChoiceCards';
+import type { ChoiceCardOption as JourneyChoiceOption } from '../../ui/composites/ChoiceCards';
 import type { JourneyClaimSegment } from '../../ui/domain/JourneyClaimText';
 import type { JourneyChecklistItem } from '../../ui/domain/JourneyChecklist';
 import type { JourneyStepCard } from '../../ui/domain/JourneyStepCards';
 import type { DiffSegment } from '../../ui/composites/DiffView';
 import type { EvidenceStatus } from '../../ui/domain/EvidenceChip';
-import type { JourneyStatusRow } from '../../ui/domain/JourneyStatusList';
-import type { JourneyGateDecision } from '../../ui/domain/JourneyGateCard';
+import type { GateDecision } from '../../ui/domain/DecisionGate';
 import type { JourneyTarget } from './paths';
 
-export type { JourneyFact, JourneyChoiceOption, JourneyClaimSegment, JourneyChecklistItem, JourneyStepCard, DiffSegment, EvidenceStatus, JourneyStatusRow };
+export type { JourneyFact, JourneyChoiceOption, JourneyClaimSegment, JourneyChecklistItem, JourneyStepCard, DiffSegment, EvidenceStatus };
+
+/** A label with a short status chip, or a link (checks, drafted sections, the public record); shown with C32 StatusList. */
+export interface JourneyStatusRow {
+  label: string;
+  value: string;
+  /** A done or passed state: solid chip. */
+  solid?: boolean;
+  href?: string;
+}
 
 /** A page or file being read (the `sources` row). */
 export type SourceStatus = 'read' | 'reading' | 'queued' | 'blocked' | 'skipped';
@@ -59,7 +67,7 @@ export interface JourneyGate {
   /** Facts and answers the draft cites. */
   evidence: JourneyFact[];
   /** Set when the gate was already approved (who, when, why). */
-  decision?: JourneyGateDecision;
+  decision?: GateDecision;
 }
 
 /** A claim in a draft and the evidence that backs it (J6). */

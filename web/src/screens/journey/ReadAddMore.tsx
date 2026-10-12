@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Button, Heading, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
-import { JourneyFileButton } from '../../ui/domain/JourneyFileButton';
-import { JourneyInlineForm } from '../../ui/domain/JourneyInlineForm';
+import { FilePicker } from '../../ui/composites/FilePicker';
+import { InlineForm } from '../../ui/composites/InlineForm';
 import { required, siteUrl } from './validators';
 
 type AddForm = 'none' | 'link' | 'text';
@@ -19,11 +19,11 @@ export function ReadAddMore({ onAdd }: { onAdd: (label: string) => void }) {
       <Stack direction="row" gap={2} wrap>
         <Button variant="secondary" onClick={() => setForm('link')}>Another link</Button>
         <Button variant="secondary" onClick={() => setForm('text')}>Paste text</Button>
-        <JourneyFileButton label="PDF or DOCX" accept=".pdf,.docx" onFile={(f) => onAdd(f.name)} />
+        <FilePicker label="PDF or DOCX" accept=".pdf,.docx" onFiles={([file]) => file && onAdd(file.name)} />
       </Stack>
     ),
-    link: <JourneyInlineForm label="Another link" submitLabel="Add" type="url" validate={siteUrl} onCancel={close} onSubmit={(v) => { onAdd(v); close(); }} />,
-    text: <JourneyInlineForm label="Paste text" submitLabel="Add" multiline validate={required('Paste the text first.')} onCancel={close} onSubmit={() => { onAdd('Pasted text'); close(); }} />,
+    link: <InlineForm fields={[{ name: 'url', label: 'Another link', type: 'url', validate: siteUrl }]} submitLabel="Add" onCancel={close} onSubmit={({ url }) => { onAdd(url); close(); }} />,
+    text: <InlineForm fields={[{ name: 'text', label: 'Paste text', multiline: true, validate: required('Paste the text first.') }]} submitLabel="Add" onCancel={close} onSubmit={() => { onAdd('Pasted text'); close(); }} />,
   };
   return (
     <Card variant="subtle" labelledBy="read-add-more">

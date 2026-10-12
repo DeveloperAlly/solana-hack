@@ -1,2 +1,0 @@
-/* The rows sit flush with the card edge, like the canvas `.row` list. */
-.rows { margin-inline: calc(-1 * var(--wl-space-2)); }

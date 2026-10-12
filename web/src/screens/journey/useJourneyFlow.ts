@@ -6,11 +6,26 @@
  * action names the endpoint that will persist it once the flow is wired.
  */
 import { useSyncExternalStore } from 'react';
-import type { JourneyGateDecision } from '../../ui/domain/JourneyGateCard';
+import type { GateDecision } from '../../ui/domain/DecisionGate';
 import { journeySteps, useJourneyHref, type JourneyStepId } from './paths';
 import type { FactDecision, FactRecord } from './types';
 
 export type VoiceRound = 1 | 2;
+
+/** J4's voice: picks over two rounds, or one sentence instead. One shape, so both can never be held at once. */
+export type VoiceChoice =
+  | { mode: 'picks'; round: VoiceRound; picks: Partial<Record<VoiceRound, string>> }
+  | { mode: 'sentence'; sentence: string };
+
+/**
+ * A gate approval bound to the draft it approved: `fingerprint` is the draft and its inputs (derive.ts gateFingerprint).
+ * When the inputs change after approval (an edited J4 answer, a J3 decision), the fingerprints differ and every screen
+ * treats the gate as pending again. null means reopened, which also hides an approval that came with the data.
+ */
+export interface GateApproval {
+  decision: GateDecision;
+  fingerprint: string;
+}
 
 /** J2 sign-in as a state machine: a code is accepted only once an email was sent. */
 export type SignInPhase = 'email' | 'sending' | 'code';
@@ -31,12 +46,9 @@ export interface JourneySelections {
   alternatives: string[];
   customAlternatives: string[];
   answers: Record<string, string>;
-  voiceRound: VoiceRound;
-  voicePicks: Partial<Record<VoiceRound, string>>;
-  voiceSentence: string;
+  voice: VoiceChoice;
   gateDrafts: Record<string, string>;
-  /** A decision per gate; null means reopened, which hides a decision that came with the data. */
-  gateDecisions: Record<string, JourneyGateDecision | null>;
+  gateApprovals: Record<string, GateApproval | null>;
   /** Whether kit v1 reached Solana: true after J5 registers it, false after a retry fails, undefined before J5. */
   kitRegistered?: boolean;
   /** The channel tab chosen on J6. */
@@ -52,11 +64,9 @@ const empty: JourneySelections = {
   alternatives: [],
   customAlternatives: [],
   answers: {},
-  voiceRound: 1,
-  voicePicks: {},
-  voiceSentence: '',
+  voice: { mode: 'picks', round: 1, picks: {} },
   gateDrafts: {},
-  gateDecisions: {},
+  gateApprovals: {},
 };
 
 let state: JourneySelections = empty;
@@ -100,13 +110,16 @@ const actions = {
   setAlternatives: (selected: string[]) => update(() => ({ alternatives: selected })),
   addAlternative: (option: string) => update((s) => ({ customAlternatives: [...s.customAlternatives, option], alternatives: [...s.alternatives, option] })),
   setAnswer: (id: string, value: string) => update((s) => ({ answers: { ...s.answers, [id]: value } })),
-  pickVoice: (round: VoiceRound, value: string) => update((s) => ({ voicePicks: { ...s.voicePicks, [round]: value } })),
-  setVoiceRound: (round: VoiceRound) => update(() => ({ voiceRound: round })),
-  setVoiceSentence: (sentence: string) => update(() => ({ voiceSentence: sentence })),
+  /** A pick switches the voice to picks mode; a sentence held before is dropped. */
+  pickVoice: (round: VoiceRound, value: string) =>
+    update((s) => ({ voice: { mode: 'picks', round, picks: { ...(s.voice.mode === 'picks' ? s.voice.picks : {}), [round]: value } } })),
+  setVoiceRound: (round: VoiceRound) => update((s) => ({ voice: { mode: 'picks', round, picks: s.voice.mode === 'picks' ? s.voice.picks : {} } })),
+  /** One sentence replaces any picks. */
+  setVoiceSentence: (sentence: string) => update(() => ({ voice: { mode: 'sentence', sentence } })),
   // INTEGRATION: PUT /api/brands/:id/sections/:section (edit) and POST …/sections/:section/approve {note} (gate).
-  editGate: (id: string, draft: string) => update((s) => ({ gateDrafts: { ...s.gateDrafts, [id]: draft }, gateDecisions: { ...s.gateDecisions, [id]: null } })),
-  approveGate: (id: string, decision: JourneyGateDecision) => update((s) => ({ gateDecisions: { ...s.gateDecisions, [id]: decision } })),
-  reopenGate: (id: string) => update((s) => ({ gateDecisions: { ...s.gateDecisions, [id]: null } })),
+  editGate: (id: string, draft: string) => update((s) => ({ gateDrafts: { ...s.gateDrafts, [id]: draft }, gateApprovals: { ...s.gateApprovals, [id]: null } })),
+  approveGate: (id: string, decision: GateDecision, fingerprint: string) => update((s) => ({ gateApprovals: { ...s.gateApprovals, [id]: { decision, fingerprint } } })),
+  reopenGate: (id: string) => update((s) => ({ gateApprovals: { ...s.gateApprovals, [id]: null } })),
   // INTEGRATION: POST /api/brands/:id/kit/register, and POST /api/registrations/:id/retry after a failure.
   setKitRegistered: (kitRegistered: boolean) => update(() => ({ kitRegistered })),
   setPostChannel: (postChannel: string) => update(() => ({ postChannel })),
@@ -117,8 +130,10 @@ const actions = {
 export type JourneyActions = typeof actions;
 
 /** J4 is finished when both questions are answered and the voice is set: a round 2 pick, or one sentence. */
-export const voiceDone = (s: JourneySelections) =>
-  Boolean(s.answers.edge?.trim() && s.answers.origin?.trim() && (s.voicePicks[2] || s.voiceSentence.trim()));
+export const voiceDone = (s: JourneySelections) => {
+  const voiceSet = s.voice.mode === 'sentence' ? Boolean(s.voice.sentence.trim()) : Boolean(s.voice.picks[2]);
+  return Boolean(s.answers.edge?.trim() && s.answers.origin?.trim() && voiceSet);
+};
 
 const afterKit = journeySteps.findIndex((x) => x.id === 'approveKit');
 /** Header chip: the step's own, except after J5 while kit v1 is known not to be registered. */
@@ -140,8 +155,20 @@ export function useJourneyFlow(step?: JourneyStepId) {
     /** Done steps link back to their screen. */
     stepHref: (i: number): string | undefined => (i < index ? to(journeySteps[i].id) : undefined),
     selections,
-    /** The gate decision to show: the person's own this visit, else the one that came with the data (the `gates` row). */
-    gateDecision: (id: string, fromData?: JourneyGateDecision) => (id in selections.gateDecisions ? selections.gateDecisions[id] ?? undefined : fromData),
+    /**
+     * The gate decision every screen shows: the person's approval while its fingerprint still matches the draft's
+     * inputs, else pending (stale); with no action this visit, the one that came with the data (the `gates` row).
+     */
+    gateDecision: (id: string, fingerprint: string, fromData?: GateDecision): GateDecision => {
+      if (!(id in selections.gateApprovals)) return fromData ?? { status: 'pending' };
+      const approval = selections.gateApprovals[id];
+      return approval && approval.fingerprint === fingerprint ? approval.decision : { status: 'pending' };
+    },
+    /** True when the person approved this gate and its inputs changed since. */
+    gateStale: (id: string, fingerprint: string) => {
+      const approval = selections.gateApprovals[id];
+      return Boolean(approval && approval.fingerprint !== fingerprint);
+    },
     actions,
   };
 }

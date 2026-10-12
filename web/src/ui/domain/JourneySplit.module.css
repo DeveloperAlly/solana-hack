@@ -1,9 +1,0 @@
-.split { display: grid; gap: var(--wl-space-5); align-items: start; grid-template-columns: minmax(0, 1fr); }
-.col { display: flex; flex-direction: column; gap: var(--wl-space-3); min-width: 0; }
-/* Custom properties cannot be used in media queries; 48rem is the breakpoint.md token (768 at the 16 root size). */
-@media (min-width: 48rem) {
-  .rrail { grid-template-columns: calc(var(--wl-space-12) * 6.5) minmax(0, 1fr); }
-  .r6-5 { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: var(--wl-space-7); }
-  .r7-5 { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
-  .r5-7 { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
-}

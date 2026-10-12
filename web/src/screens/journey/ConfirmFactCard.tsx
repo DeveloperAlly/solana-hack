@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '../../ui/primitives';
 import { JourneyFactCard } from '../../ui/domain/JourneyFactCard';
-import { JourneyInlineForm } from '../../ui/domain/JourneyInlineForm';
+import { InlineForm } from '../../ui/composites/InlineForm';
 import { required } from './validators';
 import type { FactDecision, FactRecord, JourneyFact } from './types';
 
@@ -24,7 +24,7 @@ export function ConfirmFactCard({ fact, record, onDecide, onUndo }: ConfirmFactC
   const [editing, setEditing] = useState(false);
   const shown = record?.decision === 'edited' ? { ...fact, statement: record.edit } : fact;
   const editor = editing ? (
-    <JourneyInlineForm label={`Edit: ${fact.section}`} submitLabel="Save" multiline defaultValue={shown.statement} validate={required('The statement cannot be empty.')} onCancel={() => setEditing(false)} onSubmit={(v) => { onDecide('edited', v); setEditing(false); }} />
+    <InlineForm fields={[{ name: 'statement', label: `Edit: ${fact.section}`, multiline: true, defaultValue: shown.statement, validate: required('The statement cannot be empty.') }]} submitLabel="Save" onCancel={() => setEditing(false)} onSubmit={({ statement }) => { onDecide('edited', statement); setEditing(false); }} />
   ) : undefined;
   const actions = decision ? (
     <Button variant="secondary" onClick={onUndo}>Undo</Button>

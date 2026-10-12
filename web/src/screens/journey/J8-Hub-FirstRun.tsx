@@ -22,19 +22,21 @@ import { SampleFlag } from '../../ui/composites/SampleFlag';
 import { AppShell } from '../../ui/shells/AppShell';
 import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { JourneyChecklist } from '../../ui/domain/JourneyChecklist';
-import { JourneySplit } from '../../ui/domain/JourneySplit';
-import { JourneyStatusList } from '../../ui/domain/JourneyStatusList';
-import { useJourneyHref } from './paths';
-import { hubView } from './derive';
+import { StatusList } from '../../ui/composites/StatusList';
+import { Columns } from '../../ui/layouts/Columns';
+import { useJourneyHref, useJourneyLink, useNavHref } from './paths';
+import { hubView, statusRows } from './derive';
 import { useJourneyFlow } from './useJourneyFlow';
 import type { HubFirstRunData } from './types';
 
 export function J8HubFirstRun({ data }: { data: HubFirstRunData }) {
   const to = useJourneyHref();
+  const link = useJourneyLink();
+  const navHref = useNavHref();
   const { selections } = useJourneyFlow();
   const view = hubView(data, selections);
   return (
-    <AppShell>
+    <AppShell navHref={navHref} activePath={navHref('/home')}>
       <Container width="app">
         <Stack gap={6}>
           <Stack direction="row" gap={4} align="end" justify="between" wrap>
@@ -44,23 +46,25 @@ export function J8HubFirstRun({ data }: { data: HubFirstRunData }) {
             </Stack>
             <Button href={to('draftReview')}>Draft post 2</Button>
           </Stack>
-          <JourneySplit
+          <Columns
             ratio="7-5"
-            first={<JourneyChecklist title="Get set up" items={view.checklist.map(({ target, ...item }) => ({ ...item, href: target && to(target) }))} />}
-            second={
-              <>
+            stackBelow="md"
+            end={
+              <Stack gap={3}>
                 <Card labelledBy="hub-next">
                   <Heading level={2} size="lg" id="hub-next">Next best post</Heading>
                   <Text variant="small">{data.nextPost}</Text>
                   <div><Button variant="secondary" href={to('draftReview')}>Draft it</Button></div>
                 </Card>
-                <JourneyStatusList title="Your public record" rows={view.publicRecord.map(({ target, ...row }) => ({ ...row, href: target && to(target) }))} />
+                <StatusList label="Your public record" title surface="card" rows={statusRows(view.publicRecord.map(({ target, ...row }) => ({ ...row, href: target && link(target) })))} />
                 <Card variant="subtle" labelledBy="hub-soon" header={<><Heading level={2} size="lg" id="hub-soon">Coming soon</Heading><ComingSoonFlag tag="COMING SOON" /></>}>
                   <Text variant="small" tone="secondary">{data.comingSoon}</Text>
                 </Card>
-              </>
+              </Stack>
             }
-          />
+          >
+            <JourneyChecklist title="Get set up" items={view.checklist.map(({ target, ...item }) => ({ ...item, href: target && link(target) }))} />
+          </Columns>
         </Stack>
       </Container>
     </AppShell>

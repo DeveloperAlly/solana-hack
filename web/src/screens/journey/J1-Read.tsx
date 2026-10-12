@@ -23,9 +23,9 @@ import { SampleFlag } from '../../ui/composites/SampleFlag';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import { JourneyAha } from '../../ui/domain/JourneyAha';
 import { JourneyFactCard } from '../../ui/domain/JourneyFactCard';
-import { JourneyProgress } from '../../ui/domain/JourneyProgress';
-import { JourneySplit } from '../../ui/domain/JourneySplit';
-import { JourneyStatusList } from '../../ui/domain/JourneyStatusList';
+import { ProgressBar } from '../../ui/composites/ProgressBar';
+import { StatusList } from '../../ui/composites/StatusList';
+import { Columns } from '../../ui/layouts/Columns';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { JourneyNextButton } from './JourneyNextButton';
 import { JourneyStepFrame } from './JourneyStepFrame';
@@ -63,21 +63,21 @@ export function J1Read({ data, state = 'success' }: ReadProps) {
       intro="We keep a fact only if its line is on the page. Start confirming whenever you like; we keep reading."
       footer={
         <>
-          <JourneyProgress grow label={<><strong>{c.found} of 6 kit sections found</strong> · {c.partly} partly · {c.needsYou} need you</>} value={c.percent} />
+          <ProgressBar grow showLabel label={`${c.found} of 6 kit sections found · ${c.partly} partly · ${c.needsYou} need you`} segments={[{ value: c.percent, label: 'Covered' }]} />
           <JourneyNextButton href={to('save')} ready={data.facts.length > 0} hint="Nothing to keep yet: facts appear as each page is read.">Keep these and continue</JourneyNextButton>
         </>
       }
     >
-      <JourneySplit
-        ratio="rail"
-        first={
-          <>
-            <JourneyStatusList title="Sources" rows={src.rows} />
+      <Columns
+        stackBelow="md"
+        start={
+          <Stack gap={3}>
+            <StatusList label="Sources" title surface="card" rows={src.rows} />
             {blocked && <ReadBlockedSource key={blocked.id} source={blocked} onSupply={(how) => src.supply(blocked.id, how)} onSkip={() => src.skip(blocked.id)} />}
             <ReadAddMore onAdd={src.add} />
-          </>
+          </Stack>
         }
-        second={
+      >
           <Stack as="section" gap={3} aria-live="polite" aria-label="Facts found">
             {data.facts.length > 0 && <JourneyAha n={1}>It already knows us, and shows exactly where it read it.</JourneyAha>}
             {data.facts.map((f) => <JourneyFactCard key={f.id} fact={f} />)}
@@ -88,8 +88,7 @@ export function J1Read({ data, state = 'success' }: ReadProps) {
               </Card>
             )}
           </Stack>
-        }
-      />
+      </Columns>
     </JourneyStepFrame>
   );
 }

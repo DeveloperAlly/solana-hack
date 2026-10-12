@@ -4,6 +4,7 @@
  * answers, alternatives and voice picks fill the J5 drafts, and J6's chosen channel and text carry to J7. Pure
  * functions of the selections in useJourneyFlow, so each rule is tested on its own (derive.test.ts).
  */
+import type { StatusListRow } from '../../ui/composites/StatusList';
 import type { JourneySelections } from './useJourneyFlow';
 import type { FirstPostData, GapsVoiceData, HubFirstRunData, JourneyChecklistEntry, JourneyClaim, JourneyClaimSegment, JourneyFact, JourneyGate, JourneyRecordRow, JourneyStatusRow } from './types';
 
@@ -49,9 +50,13 @@ function builtFrom(evidence: JourneyFact[], s: JourneySelections): string {
 
 /** The voice the person chose on J4: one sentence, or the round 1 pick narrowed by the round 2 pick. */
 function voiceDraft(gate: JourneyGate, s: JourneySelections, voice: GapsVoiceData['voice']): { draft: string; builtFrom: string } | null {
-  if (s.voiceSentence.trim()) return { draft: `[Voice drafted from your sentence: "${s.voiceSentence.trim()}"]`, builtFrom: 'your sentence, 3 pages' };
-  const first = voice.rounds[0].find((o) => o.value === s.voicePicks[1]);
-  const second = voice.rounds[1].find((o) => o.value === s.voicePicks[2]);
+  if (s.voice.mode === 'sentence') {
+    const sentence = s.voice.sentence.trim();
+    return sentence ? { draft: `[Voice drafted from your sentence: "${sentence}"]`, builtFrom: 'your sentence, 3 pages' } : null;
+  }
+  const { picks } = s.voice;
+  const first = voice.rounds[0].find((o) => o.value === picks[1]);
+  const second = voice.rounds[1].find((o) => o.value === picks[2]);
   if (!first || !second) return null;
   return { draft: `${first.tag ?? first.title}, narrowed in round 2 by paragraph ${second.title}: [rules drawn from your picks]`, builtFrom: gate.builtFrom };
 }
@@ -100,3 +105,10 @@ export function postChecks(checks: FirstPostData['checks'], claims: JourneyClaim
   const rows = gates.map((g) => ({ label: g.label, value: g.passed ? 'Passed' : 'Blocked', solid: g.passed }));
   return { rows: [...rows, checks.voiceFit], ready: gates.every((g) => g.passed) };
 }
+
+/** Journey status rows as C32 StatusList rows; the label is unique within each list, so it is the id. */
+export const statusRows = (rows: JourneyStatusRow[]): StatusListRow[] => rows.map((r) => ({ id: r.label, label: r.label, status: r.value, solid: r.solid, href: r.href }));
+
+/** What a gate approval is bound to: the draft and every input it was built from. Any change makes the approval stale. */
+export const gateFingerprint = (gate: JourneyGate): string =>
+  JSON.stringify([gate.draft, gate.builtFrom, gate.evidence.map((e) => [e.id, e.statement])]);

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { PublicShell } from '../../ui/shells/PublicShell';
 import { WizardLayout } from '../../ui/layouts/WizardLayout';
 import { Badge, Link } from '../../ui/primitives';
-import { useJourneyHref, type JourneyStepId } from './paths';
+import { useJourneyHref, useNavHref, type JourneyStepId } from './paths';
 import { useJourneyFlow } from './useJourneyFlow';
 
 export interface JourneyStepFrameProps {
@@ -21,9 +21,10 @@ export interface JourneyStepFrameProps {
  */
 export function JourneyStepFrame({ step, title, intro, footer, error, children }: JourneyStepFrameProps) {
   const to = useJourneyHref();
+  const navHref = useNavHref();
   const flow = useJourneyFlow(step);
   return (
-    <PublicShell>
+    <PublicShell navHref={navHref}>
       <WizardLayout
         steps={flow.steps}
         current={flow.index}

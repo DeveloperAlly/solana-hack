@@ -22,7 +22,7 @@ import { Card } from '../../ui/composites/Card';
 import { SampleFlag } from '../../ui/composites/SampleFlag';
 import { JourneyAha } from '../../ui/domain/JourneyAha';
 import { JourneyFactCard } from '../../ui/domain/JourneyFactCard';
-import { JourneyProgress } from '../../ui/domain/JourneyProgress';
+import { ProgressBar } from '../../ui/composites/ProgressBar';
 import { ConfirmFactCard } from './ConfirmFactCard';
 import { JourneyNextButton } from './JourneyNextButton';
 import { JourneyStepFrame } from './JourneyStepFrame';
@@ -51,7 +51,8 @@ export function J3Confirm({ data }: { data: ConfirmData }) {
       }
     >
       <Card as="div">
-        <JourneyProgress label={<><strong>Kit readiness {readiness}%</strong> <SampleFlag /></>} value={readiness} hint="Rises as you confirm. Kit v1 needs the 3 gates; nothing else blocks it." />
+        <SampleFlag />
+        <ProgressBar showLabel label={`Kit readiness ${readiness}%`} segments={[{ value: readiness, label: 'Ready' }]} caption="Rises as you confirm. Kit v1 needs the 3 gates; nothing else blocks it." />
       </Card>
       <JourneyAha n={2}>I'm confirming, not typing.</JourneyAha>
       <Grid min="lg" gap={4}>

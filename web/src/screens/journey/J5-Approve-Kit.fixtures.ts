@@ -45,6 +45,6 @@ export const approveKitFixture: ApproveKitData = {
 /** Error: all three gates were approved, then registration failed; the kit stays approved (Kit-RegisterFailed). */
 export const approveKitFixtureFailed: ApproveKitData = {
   ...approveKitFixture,
-  gates: approveKitFixture.gates.map((g) => ({ ...g, decision: { by: '[approver]', at: '[time]' } })),
+  gates: approveKitFixture.gates.map((g) => ({ ...g, decision: { status: 'approved', by: '[approver]', at: '[time]' } })),
   registration: { reason: "[Plain-language reason, e.g. \"the network didn't confirm in time\"]", hash: '[sha256 of kit v1]', lastTry: '[time]' },
 };

@@ -9,7 +9,7 @@ import { hubFirstRunFixture } from './J8-Hub-FirstRun.fixtures';
 
 const base: JourneySelections = {
   site: '', signIn: 'email', emailSentTo: '', facts: {}, alternatives: [], customAlternatives: [], answers: {},
-  voiceRound: 1, voicePicks: {}, voiceSentence: '', gateDrafts: {}, gateDecisions: {},
+  voice: { mode: 'picks', round: 1, picks: {} }, gateDrafts: {}, gateApprovals: {},
 };
 const sel = (patch: Partial<JourneySelections>): JourneySelections => ({ ...base, ...patch });
 const linkedin = firstPostFixture.channels[0];

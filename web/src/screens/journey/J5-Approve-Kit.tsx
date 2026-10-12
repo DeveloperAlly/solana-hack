@@ -13,19 +13,20 @@
  * | registration  | POST /api/brands/:id/kit/register failure (web/worker/api.ts, registerKit): reason, kit hash, last try | unset unless it failed |
  *
  * Drafts, evidence and "built from" follow the person's J3 decisions and J4 answers, alternatives and picks (derive.ts).
+ * Each approval is bound to a fingerprint of its draft and inputs; when they change it is pending again, and Register
+ * and Retry stay disabled until every gate is approved afresh.
  * Approve, Edit and Change persist through useJourneyFlow (INTEGRATION there: POST …/sections/:section/approve {note}).
  * States (note n-j5-approve-kit): success = the three gates; error = registration failed, the kit stays approved and the
  * first post waits (the Worker drafts only from a registered kit). Registering sets kitRegistered in useJourneyFlow.
  */
 import { useNavigate } from 'react-router';
 import { Grid } from '../../ui/primitives';
-import { JourneyFactCard } from '../../ui/domain/JourneyFactCard';
-import { JourneyGateCard } from '../../ui/domain/JourneyGateCard';
-import { JourneyStatusList } from '../../ui/domain/JourneyStatusList';
+import { StatusList } from '../../ui/composites/StatusList';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
+import { ApproveGate } from './ApproveGate';
 import { ApproveRegisterPanel } from './ApproveRegisterPanel';
 import { JourneyStepFrame } from './JourneyStepFrame';
-import { gateView } from './derive';
+import { gateFingerprint, gateView, statusRows } from './derive';
 import { useJourneyFlow } from './useJourneyFlow';
 import type { ApproveKitData } from './types';
 
@@ -40,7 +41,8 @@ export function J5ApproveKit({ data, state = 'success' }: ApproveKitProps) {
   const { selections, actions } = flow;
   // Each gate as the person left it on J3 and J4 (rejected facts dropped, edits and answers used), else the fixture.
   const gates = data.gates.map((g) => gateView(g, selections, data.voice));
-  const decisions = gates.map((g) => flow.gateDecision(g.id, g.decision));
+  // One decision per gate for every screen: an approval counts only while it matches the draft it approved.
+  const decisions = gates.map((g) => flow.gateDecision(g.id, gateFingerprint(g), g.decision));
   return (
     <JourneyStepFrame
       step="approveKit"
@@ -49,24 +51,21 @@ export function J5ApproveKit({ data, state = 'success' }: ApproveKitProps) {
     >
       <Grid min="sm" gap={4}>
         {gates.map((g, i) => (
-          <JourneyGateCard
+          <ApproveGate
             key={g.id}
-            gate={g.gate}
-            title={g.title}
-            draft={g.draft}
-            builtFrom={g.builtFrom}
-            evidence={g.evidence.map((f) => <JourneyFactCard key={f.id} fact={f} />)}
+            gate={g}
             decision={decisions[i]}
-            onApprove={(why) => actions.approveGate(g.id, { by: data.approver, at: new Date().toLocaleString(), why: why || undefined })}
+            stale={flow.gateStale(g.id, gateFingerprint(g))}
+            approver={data.approver}
+            onDecide={(d) => (d.status === 'approved' ? actions.approveGate(g.id, d, gateFingerprint(g)) : actions.reopenGate(g.id))}
             onEdit={(draft) => actions.editGate(g.id, draft)}
-            onReopen={() => actions.reopenGate(g.id)}
           />
         ))}
       </Grid>
-      <JourneyStatusList title="Also drafted for a quick look" rows={data.alsoDrafted} />
+      <StatusList label="Also drafted for a quick look" title surface="card" rows={statusRows(data.alsoDrafted)} />
       <ApproveRegisterPanel
         onChain={data.onChain}
-        approved={decisions.filter(Boolean).length}
+        approved={decisions.filter((d) => d.status === 'approved').length}
         total={gates.length}
         failure={state === 'error' ? data.registration : undefined}
         onRegister={() => { actions.setKitRegistered(true); navigate(flow.nextHref); }}

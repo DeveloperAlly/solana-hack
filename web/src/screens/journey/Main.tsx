@@ -16,12 +16,12 @@ import { useNavigate } from 'react-router';
 import { PublicShell } from '../../ui/shells/PublicShell';
 import { Badge, Button, Container, Grid, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
-import { JourneyInlineForm } from '../../ui/domain/JourneyInlineForm';
+import { InlineForm } from '../../ui/composites/InlineForm';
 import { JourneyQuote } from '../../ui/domain/JourneyQuote';
-import { JourneySplit } from '../../ui/domain/JourneySplit';
+import { Columns } from '../../ui/layouts/Columns';
 import { JourneyStepCards } from '../../ui/domain/JourneyStepCards';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { useJourneyHref } from './paths';
+import { useJourneyHref, useNavHref } from './paths';
 import { MainExamplePanel } from './MainExamplePanel';
 import { useJourneyFlow } from './useJourneyFlow';
 import { siteUrl } from './validators';
@@ -34,28 +34,38 @@ export interface MainProps {
 
 export function Main({ data, state = 'success' }: MainProps) {
   const to = useJourneyHref();
+  const navHref = useNavHref();
   const navigate = useNavigate();
   const { actions } = useJourneyFlow();
   return (
-    <PublicShell>
+    <PublicShell navHref={navHref}>
       <Container width="app">
         <Stack gap={10}>
-          <JourneySplit
+          <Columns
             ratio="6-5"
-            first={
+            gap={7}
+            stackBelow="md"
+            end={data.example && <MainExamplePanel example={data.example} />}
+          >
               <Stack gap={4}>
                 <Badge>{data.chip}</Badge>
                 <Heading level={1} size="4xl">{data.headline}</Heading>
                 <Text tone="secondary">{data.intro}</Text>
                 {/* INTEGRATION: none here; J1 starts the read with POST /api/brands then POST /api/brands/:id/sources {url}. */}
-                <JourneyInlineForm key={state} label="Your website" submitLabel="Read my site" defaultValue={data.siteDefault} placeholder={data.sitePlaceholder} type="url" autoComplete="url" validate={siteUrl} formId="main-site" showErrorsNow={state === 'error'} onSubmit={(site) => { actions.startJourney(site); navigate(to('read')); }} />
+                <InlineForm
+                  key={state}
+                  id="main-site"
+                  layout="row"
+                  fields={[{ name: 'site', label: 'Your website', type: 'url', autoComplete: 'url', defaultValue: data.siteDefault, placeholder: data.sitePlaceholder, validate: siteUrl }]}
+                  submitLabel="Read my site"
+                  validateOnMount={state === 'error'}
+                  onSubmit={({ site }) => { actions.startJourney(site); navigate(to('read')); }}
+                />
                 <Text variant="small" tone="secondary">
                   No sign-up to see what we find. No website? <Link href={to('basics')}>Start with a few questions</Link>. No wallet, ever.
                 </Text>
               </Stack>
-            }
-            second={data.example && <MainExamplePanel example={data.example} />}
-          />
+          </Columns>
           <Stack as="section" id="how" gap={5} aria-labelledby="main-how">
             <Heading level={2} id="main-how">What happens in the next few minutes</Heading>
             <JourneyStepCards label="Steps" items={data.howSteps} />

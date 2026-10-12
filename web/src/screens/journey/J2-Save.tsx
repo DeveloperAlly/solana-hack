@@ -19,7 +19,7 @@
 import { Alert, Stack, Text } from '../../ui/primitives';
 import { KeyValueList } from '../../ui/composites/KeyValueList';
 import { EvidenceChip } from '../../ui/domain/EvidenceChip';
-import { JourneySplit } from '../../ui/domain/JourneySplit';
+import { Columns } from '../../ui/layouts/Columns';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { JourneyStepFrame } from './JourneyStepFrame';
 import { SaveSignIn } from './SaveSignIn';
@@ -33,16 +33,19 @@ export interface SaveProps {
 export function J2Save({ data, state = 'success' }: SaveProps) {
   return (
     <JourneyStepFrame step="save" title="Keep what we found" intro={data.summary} error={data.linkError && <Alert tone="danger">{data.linkError}</Alert>}>
-      <JourneySplit
+      <Columns
         ratio="6-5"
-        first={<SaveSignIn sending={state === 'loading'} />}
-        second={
+        gap={7}
+        stackBelow="md"
+        end={
           <Stack gap={2}>
             <Text variant="small"><strong>You're saving</strong></Text>
             <KeyValueList items={data.saving.map((s) => ({ label: s.section, value: <EvidenceChip status={s.status} /> }))} />
           </Stack>
         }
-      />
+      >
+        <SaveSignIn sending={state === 'loading'} />
+      </Columns>
     </JourneyStepFrame>
   );
 }

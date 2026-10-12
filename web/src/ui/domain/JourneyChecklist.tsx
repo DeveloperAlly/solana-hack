@@ -2,7 +2,7 @@ import { useId } from 'react';
 import { Card } from '../composites/Card';
 import { Button } from '../primitives/Button';
 import { Heading } from '../primitives/Heading';
-import { JourneyProgress } from './JourneyProgress';
+import { ProgressBar } from '../composites/ProgressBar';
 import styles from './JourneyChecklist.module.css';
 
 export interface JourneyChecklistItem {
@@ -33,7 +33,7 @@ export function JourneyChecklist({ title, items }: JourneyChecklistProps) {
       <div className={styles.head}>
         <Heading level={2} size="lg" id={headingId}>{title}</Heading>
       </div>
-      <JourneyProgress label={`${done} of ${items.length} done`} value={percent} />
+      <ProgressBar label={`${done} of ${items.length} done`} showLabel segments={[{ value: percent, label: 'Done' }]} />
       <ul className={styles.list}>
         {items.map((it) => (
           <li key={it.id} className={[styles.row, it.done && styles.done].filter(Boolean).join(' ')}>

@@ -1,3 +1,0 @@
-.form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--wl-space-2-5); }
-.field { flex: 1 1 calc(var(--wl-space-12) * 6); min-width: 0; }
-.actions { display: flex; flex-wrap: wrap; gap: var(--wl-space-2); }

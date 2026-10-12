@@ -3,7 +3,7 @@ import { Button, Grid, Heading, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { KeyValueList } from '../../ui/composites/KeyValueList';
 import { StatePanel } from '../../ui/composites/StatePanel';
-import { JourneyCopyButton } from '../../ui/domain/JourneyCopyButton';
+import { CopyButton } from '../../ui/composites/CopyButton';
 import { useJourneyHref } from './paths';
 import type { ApproveKitData } from './types';
 
@@ -27,6 +27,7 @@ export function ApproveRegisterPanel({ onChain, approved, total, onRegister, onR
   const to = useJourneyHref();
   const [lastTry, setLastTry] = useState(failure?.lastTry ?? '');
   const ready = approved === total;
+  const gatesHint = `Approve all ${total} gates first: ${approved} of ${total} approved.`;
   return (
     <Stack gap={4}>
       {failure && (
@@ -36,14 +37,16 @@ export function ApproveRegisterPanel({ onChain, approved, total, onRegister, onR
           body={
             <>
               <Text>We couldn't write the registration to Solana. {failure.reason}. Your kit is saved and nothing was charged. Your first post is drafted from kit v1 once it is registered.</Text>
+              {!ready && <Text variant="small" role="status">{gatesHint}</Text>}
               <KeyValueList items={[{ label: 'Version', value: 'v1' }, { label: 'Kit hash', value: failure.hash }, { label: 'Registered on Solana', value: `Not yet · last try ${lastTry}` }]} />
             </>
           }
           actions={
             <>
               {/* INTEGRATION: POST /api/registrations/:id/retry (backend map row "Onboard-6-Published, Kit-RegisterFailed"). */}
-              <Button onClick={() => { onRetry(); setLastTry('just now'); }}>Retry registration</Button>
-              <JourneyCopyButton label="Copy error details" text={`Kit v1 registration failed: ${failure.reason}. Kit hash ${failure.hash}.`} />
+              {/* Retry goes through the same gate as Register: all three gates approved, none stale. */}
+              <Button disabled={!ready} onClick={() => { onRetry(); setLastTry('just now'); }}>Retry registration</Button>
+              <CopyButton label="Copy error details" value={`Kit v1 registration failed: ${failure.reason}. Kit hash ${failure.hash}.`} />
               {/* No way on to drafting: the Worker drafts only from a registered kit (web/worker/posts.ts, 409). */}
               <Button variant="secondary" href={to('brandBuild')}>Review the kit</Button>
             </>
@@ -60,7 +63,7 @@ export function ApproveRegisterPanel({ onChain, approved, total, onRegister, onR
           <Card variant="selected" as="div">
             {/* INTEGRATION: POST /api/brands/:id/kit/register (web/worker/api.ts, registerKit). */}
             <Button onClick={onRegister} disabled={!ready}>Approve and register kit v1</Button>
-            <Text variant="caption" tone="secondary" role="status">{ready ? 'All 3 gates approved.' : `Approve all ${total} gates first: ${approved} of ${total} approved.`}</Text>
+            <Text variant="caption" tone="secondary" role="status">{ready ? 'All 3 gates approved.' : gatesHint}</Text>
           </Card>
         )}
       </Grid>
