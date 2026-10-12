@@ -58,6 +58,12 @@ export const screens: ScreenEntry[] = [
 
 Artboard names must be unique. The gallery throws on a duplicate when it loads.
 
+## Links between screens
+- Link to another artboard with `ScreenLink` (`src/gallery/ScreenLink.tsx`): `<ScreenLink artboard="Ledger" state="empty">`.
+- Where a component needs an href string (for example a `Button`), use `useScreenHref()` or `screenPath(artboard, state, params)` (`src/gallery/screenPath.ts`).
+- These keep the gallery theme (`?theme=`) and set a state only when asked.
+- As a backstop, the gallery rewrites a theme-less `/screens/...` URL to the theme chosen earlier in the tab. `check:gallery` asserts that the theme survives navigation.
+
 ## States
 - Every screen renders its canvas states (empty, loading, error, success) through `state`.
 - The gallery's C28 DemoStateSwitcher puts the state in the URL: `/screens/<Artboard>?state=error`. Each state therefore has a link for demos and recordings.
