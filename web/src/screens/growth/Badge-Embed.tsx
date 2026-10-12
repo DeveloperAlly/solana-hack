@@ -1,5 +1,5 @@
 /*
- * Data contract: Badge-Embed (pending canvas board "Badge-Embed", page Growth; issue #82, sub-task "Check-it badge":
+ * Data contract: Badge-Embed (canvas board "Badge-Embed", v22; issue #82, sub-task "Check-it badge":
  * "a badge and embed screen to copy from"). Backend map §4, row "Verify-1, Verify-2, Verify-3" (registrations: only a
  * registered post can carry the badge). The badge image route is not built yet. Shape: BadgeEmbedData in ./types.ts.
  *

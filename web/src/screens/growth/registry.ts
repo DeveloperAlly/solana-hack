@@ -1,5 +1,6 @@
 import { createElement, type FunctionComponent } from 'react';
 import type { ScreenEntry } from '../registry-types';
+import { artboardPages } from '../../config/artboards';
 import { screenStates, type ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { Platforms } from './Platforms';
 import { PlatformDetail } from './Platform-Detail';
@@ -18,8 +19,8 @@ import { tipSheet, tipSheetNoWallet, tipsReceived, tipsReceivedEmpty } from './t
 import { inviteAccept, inviteAcceptEmpty, team, teamEmpty } from './team.fixtures';
 import type { ScreenProps } from './types';
 
-// Growth page (issue #82): distribution screens the pitch deck promises. No canvas boards exist yet, so the artboards
-// are the pending-canvas list in config/artboards.ts. Nothing is built behind them, so every screen is COMING SOON.
+// Growth screens (issue #82): distribution screens the pitch deck promises. Their boards are on canvas v22 (pages
+// Distribute, Verify and Grow; config/artboards.ts). Nothing is built behind them, so every screen is COMING SOON.
 // The ambassador "both" model and the canvas boards are separate sub-tasks of issue #82.
 
 /** Canvas has no empty view for these: a catalog, a detail page or an invite link always has content. */
@@ -34,7 +35,7 @@ function entry<D>(
 ): ScreenEntry {
   return {
     artboard,
-    page: 'growth',
+    page: artboardPages[artboard],
     title,
     tag: 'COMING SOON',
     states: empty === undefined ? noEmpty : screenStates,

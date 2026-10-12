@@ -1,5 +1,5 @@
 /*
- * Data contract: Platforms (pending canvas board "Platforms", page Growth; issue #82, sub-task "Platforms page").
+ * Data contract: Platforms (canvas board "Platforms", v22; issue #82, sub-task "Platforms page").
  * Replaces the X/LinkedIn-only list in Settings-Connections. Backend map: .agentic/what/context/backend_map.md §4,
  * row "Settings › Connections" (connections table; X and LinkedIn OAuth), and §9 (external API facts). Shapes:
  * PlatformsData in ./types.ts; Platform in config/platforms.ts (M2 channel registry).

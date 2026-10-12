@@ -1,5 +1,5 @@
 /*
- * Data contract: Invite-Team (pending canvas board "Invite-Team", page Growth; issue #82, sub-task "Invite a teammate
+ * Data contract: Invite-Team (canvas board "Invite-Team", v22; issue #82, sub-task "Invite a teammate
  * or partner": "an invite flow with seats and roles"; turns J8's "Invite a teammate" into a real flow). Backend map
  * §3 (memberships: seats and roles) and §4 Roadmap, "Partners" (invites become memberships; email needs SMTP).
  * Shape: TeamData in ./types.ts.

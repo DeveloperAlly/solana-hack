@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from 'react';
-import { demoBrands } from '../../../ui/domain/demoBrands';
 import { createBrandScopedStore } from '../../../lib/brandScopedStore';
 import { activeBrand, resetActiveBrand, useActiveBrandId } from '../../../flows/brand/activeBrand';
 import type { DraftRecord } from './draftStatus';
@@ -49,9 +48,3 @@ export function useHubSession(): [HubSession, (change: (s: HubSession) => HubSes
   return [state, update];
 }
 
-/** The active brand with its name, for every screen that names the brand. */
-export function useActiveBrand() {
-  const [id, select] = useActiveBrandId();
-  const brand = demoBrands.find((b) => b.id === id) ?? demoBrands[0];
-  return { id: brand.id, name: brand.name, select };
-}

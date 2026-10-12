@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useScreenHref } from '../../gallery/screenPath';
 import type { FrameNavItem } from '../../ui/layouts/AppFrame';
-import { ambRoutes, ambSteps, pageRoutes, verifyMatch, type AmbRouteKey, type AmbStep, type ScreenTarget } from './routes';
+import { ambRoutes, ambSteps, otherBoards, pageRoutes, type AmbRouteKey, type AmbStep, type ScreenTarget } from './routes';
 import { ambSession, useAmbSession } from './session';
 import type { Device } from './types';
 
@@ -36,7 +36,7 @@ export function useAmbassadorFlow(device: Device) {
       session,
       remember: ambSession.set,
       paths,
-      pages: { ...pageRoutes, verifyMatch: href(verifyMatch) },
+      pages: { ...pageRoutes, verifyMatch: href(otherBoards.verifyMatch), home: href(otherBoards.home), settings: href(otherBoards.settings) },
       next: (step: AmbStep) => at(step, 1),
       back: (step: AmbStep) => at(step, -1),
       go: (to: AmbRouteKey) => {

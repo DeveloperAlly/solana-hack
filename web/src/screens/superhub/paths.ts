@@ -5,7 +5,7 @@ import type { ArtboardName } from '../../config/artboards';
 /**
  * Every screen the Superhub screens link to, in one map: link key → canvas artboard (issue #52). Screens and fixtures
  * name a key, never a path; `useHubLinks` turns the keys into hrefs through the gallery's `useScreenHref`, which keeps
- * the gallery theme (web/src/screens/README.md). Artboards on other pages resolve once their page PRs merge.
+ * the gallery theme (web/src/screens/README.md).
  */
 export const artboards = {
   // This page (canvas "Superhub (v2)")
@@ -44,17 +44,6 @@ export const artboards = {
   campaignBudget: 'Campaign-v2-5-Budget',
   campaignLaunch: 'Campaign-v2-6-Launch',
 } as const satisfies Record<string, ArtboardName>;
-
-/**
- * The Draft-Review boards. They are not link keys: Draft-Review has no default draft, so the only way in is
- * useOpenDraft(draftId, board), which always names the draft (Codex review on PR #81).
- */
-export const draftBoards = {
-  review: 'Draft-Review',
-  beautified: 'Draft-Review-Beautified',
-  polishError: 'Draft-Review-PolishError',
-} as const satisfies Record<string, ArtboardName>;
-export type DraftBoard = keyof typeof draftBoards;
 
 /** A link key: an artboard above, or the calendar anchor on the content dashboard. */
 export type HubLink = keyof typeof artboards | 'contentCalendar';

@@ -2,7 +2,7 @@ import { Badge } from '../../../ui/primitives/Badge';
 import { Button, Text } from '../../../ui/primitives';
 import { EmptyState } from '../../../ui/composites/EmptyState';
 import { List, ListRow } from '../../../ui/composites/ListRow';
-import { useOpenDraft } from '../hooks/useOpenDraft';
+import { useOpenDraft } from '../../../flows/drafts/openDraft';
 import type { DraftSummary } from '../types';
 
 export interface DraftRowsProps {

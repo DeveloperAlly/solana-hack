@@ -4,6 +4,7 @@
 // another on Coming soon (Codex review on PR #79). Session only. INTEGRATION: the brands on GET /api/me.
 import { createStore } from '../../lib/createStore';
 import type { BrandSource } from '../../lib/brandScopedStore';
+import { demoBrands } from '../../ui/domain/demoBrands';
 
 /** The demo brand selected before anyone chooses one: aDNA, the case brand with full sample data (issue #45). */
 export const defaultBrandId = 'adna';
@@ -27,4 +28,11 @@ export const resetActiveBrand = store.reset;
 /** The active brand id and the setter, for brand switchers. */
 export function useActiveBrandId(): [string, (id: string) => void] {
   return [activeBrand.use(), selectBrand];
+}
+
+/** The active demo brand with its name (D48 demo brands), for frames and screens that name the brand. */
+export function useActiveBrand(): { id: string; name: string; select: (id: string) => void } {
+  const [id, select] = useActiveBrandId();
+  const brand = demoBrands.find((b) => b.id === id) ?? demoBrands[0];
+  return { id: brand.id, name: brand.name, select };
 }

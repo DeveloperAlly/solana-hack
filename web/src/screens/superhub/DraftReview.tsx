@@ -26,7 +26,7 @@ import { EmptyState } from '../../ui/composites/EmptyState';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { HubPage } from './parts/HubPage';
 import { DraftReviewBody } from './parts/DraftReviewBody';
-import { useSelectedDraftId } from './hooks/useDraftReview';
+import { useSelectedDraftId } from '../../flows/drafts/openDraft';
 import { useHubLinks } from './paths';
 import type { DraftReviewData } from './types';
 

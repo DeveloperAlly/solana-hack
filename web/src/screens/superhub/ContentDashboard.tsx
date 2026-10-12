@@ -29,7 +29,7 @@ import { PageHeader } from '../../ui/layouts/PageHeader';
 import { ContentTabPanel } from './parts/ContentTabPanel';
 import { CalendarRail } from './parts/CalendarRail';
 import { useContentDashboard } from './hooks/useContentDashboard';
-import { useOpenDraft } from './hooks/useOpenDraft';
+import { useOpenDraft } from '../../flows/drafts/openDraft';
 import type { ContentDashboardData } from './types';
 
 export function ContentDashboard({ data, state = 'success' }: { data: ContentDashboardData; state?: ScreenState }) {

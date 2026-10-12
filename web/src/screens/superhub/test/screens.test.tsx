@@ -14,7 +14,6 @@ const artboards = [
 describe('Superhub registry (issue #52)', () => {
   it('registers all 22 artboards of the page, once each', () => {
     expect(screens.map((s) => s.artboard).sort()).toEqual([...artboards].sort());
-    expect(screens.every((s) => s.page === 'hub')).toBe(true);
   });
 
   // One test per artboard and state: it opens at /screens/<artboard>, shows the hub nav and one h1, and axe finds 0 violations.

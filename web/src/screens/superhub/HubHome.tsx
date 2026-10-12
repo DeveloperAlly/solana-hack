@@ -27,7 +27,7 @@ import { PageHeader } from '../../ui/layouts/PageHeader';
 
 
 import { HomeAside } from './parts/HomeAside';
-import { useActiveBrand } from './hooks/useHubSession';
+import { useActiveBrand } from '../../flows/brand/activeBrand';
 import { TargetButton } from './parts/TargetButton';
 import { useHubLinks } from './paths';
 import type { HubHomeData } from './types';

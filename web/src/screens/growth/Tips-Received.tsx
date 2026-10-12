@@ -1,5 +1,5 @@
 /*
- * Data contract: Tips-Received (pending canvas board "Tips-Received", page Growth; issue #82, sub-task "Fan tips in
+ * Data contract: Tips-Received (canvas board "Tips-Received", v22; issue #82, sub-task "Fan tips in
  * USDC": "the creator's list of tips received"). Backend map: no tips row yet (the closest is §4 row "Amb-5a … M-5":
  * GET /api/me/earnings, payouts). USDC goes to the creator's own wallet (ADR-006). Shape: TipsReceivedData.
  *

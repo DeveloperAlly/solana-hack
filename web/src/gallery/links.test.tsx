@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { allScreens } from './registry';
-import { artboards, isArtboardName } from '../config/artboards';
+import { artboardPages, artboards, isArtboardName } from '../config/artboards';
 import { GalleryModeContext } from '../ui/hooks/galleryMode';
 
 // Link integrity (issue #46; Codex reviews on PR #79 and PR #80). Link targets are typed: screenPath, useScreenHref and
@@ -61,6 +61,11 @@ describe('links between screens', () => {
 
   it('every registered artboard is a canvas board', () => {
     expect([...registered].filter((a) => !isArtboardName(a))).toEqual([]);
+  });
+
+  it('every registry entry names the canvas page its board is on (config/artboards.ts, generated from the canvas)', () => {
+    const wrong = allScreens.filter((s) => s.page !== artboardPages[s.artboard]).map((s) => `${s.artboard}: ${s.page}, canvas ${artboardPages[s.artboard]}`);
+    expect(wrong).toEqual([]);
   });
 });
 

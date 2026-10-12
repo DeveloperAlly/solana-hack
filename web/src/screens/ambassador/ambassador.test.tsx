@@ -17,7 +17,7 @@ import { validateCode, validateLinkedInPostUrl, validatePageUrl, X_NOT_PAID } fr
 import { renderHook, act } from '@testing-library/react';
 import { useCampaignList } from './useCampaignList';
 import { campaignsData } from './fixtures';
-import { allScreens } from '../../gallery/registry';
+import { screens as ambassadorScreens } from './registry';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
 
@@ -335,7 +335,7 @@ describe('no dead or dishonest controls (review rules, issue #45)', () => {
   });
 
   it('no screen claims approval is on-chain (only registration and payouts are)', () => {
-    for (const s of allScreens.filter((x) => x.page === 'ambassador')) {
+    for (const s of ambassadorScreens) {
       for (const state of s.states) {
         const { container, unmount } = render(<MemoryRouter>{s.render(state)}</MemoryRouter>);
         for (const el of container.querySelectorAll('p, li, dt, dd, button, a, h1, h2, label')) {
@@ -413,7 +413,7 @@ describe('draft rules and the one publish gate (Codex review on PR #78)', () => 
 
 describe('payout copy matches the product (backend map row "Amb-5a, 5b, 5c, 5d, M-5"; ADR-006)', () => {
   it('no screen claims a JamJam account, a withdraw, or that the chain proves approval', () => {
-    for (const s of allScreens.filter((x) => x.page === 'ambassador')) {
+    for (const s of ambassadorScreens) {
       for (const state of s.states) {
         const { container, unmount } = render(<MemoryRouter>{s.render(state)}</MemoryRouter>);
         const text = container.textContent ?? '';
@@ -544,7 +544,7 @@ describe('Codex review round 2 on PR #78', () => {
       const post = screen.getByRole('button', { name: 'Post now' });
       expect(post).toBeDisabled();
       expect(post).toHaveAccessibleDescription(/not connected/);
-      expect(screen.getByRole('link', { name: 'Connect LinkedIn' })).toHaveAttribute('href', '/settings');
+      expect(screen.getByRole('link', { name: 'Connect LinkedIn' })).toHaveAttribute('href', '/screens/Settings-Connections');
     });
   }
 

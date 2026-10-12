@@ -13,7 +13,7 @@ import type { PostStatusData } from './types';
 // Canvas page "Ambassador" (issue #53). Every board is tagged "STRETCH (H8, ADR-008)" on the canvas
 // (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn); titles are the board titles without the tag. Five screen components
 // render all 14 boards: desktop and mobile, and each status outcome, are the same component with different data.
-const page = 'ambassador' as const;
+const page = 'grow' as const;
 const tag = 'STRETCH' as const;
 
 /** M-5 shows the paid post; its loading and error states reuse the verifying and failed outcomes. */

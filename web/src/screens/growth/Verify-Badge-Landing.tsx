@@ -1,5 +1,5 @@
 /*
- * Data contract: Verify-Badge-Landing (pending canvas board "Verify-Badge-Landing", page Growth; issue #82, sub-task
+ * Data contract: Verify-Badge-Landing (canvas board "Verify-Badge-Landing", v22; issue #82, sub-task
  * "Check-it badge": "the screen it lands on (Verify with 'Make yours on JamJam')"). Backend map §4, row "Verify-1,
  * Verify-2, Verify-3" (POST /api/verify; registrations). Shape: VerifyBadgeLandingData in ./types.ts.
  *

@@ -1,5 +1,5 @@
 /*
- * Data contract: Referral (pending canvas board "Referral", page Growth; issue #82, sub-task "Refer a friend").
+ * Data contract: Referral (canvas board "Referral", v22; issue #82, sub-task "Refer a friend").
  * Backend map: no row yet. Referrals are not in the backend map or web/worker (no referrals table or endpoint), so
  * every source below is "not built yet". Shape: ReferralData in ./types.ts.
  *

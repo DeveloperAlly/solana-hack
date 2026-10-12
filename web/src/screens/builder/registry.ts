@@ -68,6 +68,6 @@ export const screens: ScreenEntry[] = [
   { artboard: 'Onboard-6-Published', page, title: 'Kit v1 approved + registered (success)', tag: 'HACKATHON', states: ['success'], render: () => createElement(Onboard6Published, { data: publishedData }) },
   { artboard: 'Kit-RegisterFailed', page, title: 'Kit registration failed (error)', tag: 'HACKATHON', states: ['error'], render: () => createElement(Onboard6Published, { data: registerFailedData }) },
   { artboard: 'Kit-Export', page, title: 'Download kit as aDNA folder', tag: 'HACKATHON (THIN)', states: ['success', 'loading', 'error'], render: (state) => createElement(KitExport, { data: kitExportData, state }) },
-  { artboard: 'Dashboard', page, title: 'Grow > Ambassadors (was brand dashboard)', tag: 'STRETCH', states: ['success'], render: () => createElement(Dashboard, { data: dashboardData }) },
-  { artboard: 'Dashboard-Empty', page, title: 'Ambassadors: empty', tag: 'STRETCH', states: ['empty'], render: () => createElement(Dashboard, { data: dashboardEmptyData }) },
+  { artboard: 'Dashboard', page: 'grow', title: 'Grow > Ambassadors (was brand dashboard)', tag: 'STRETCH', states: ['success'], render: () => createElement(Dashboard, { data: dashboardData }) },
+  { artboard: 'Dashboard-Empty', page: 'grow', title: 'Ambassadors: empty', tag: 'STRETCH', states: ['empty'], render: () => createElement(Dashboard, { data: dashboardEmptyData }) },
 ];

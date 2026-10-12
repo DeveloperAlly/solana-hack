@@ -7,7 +7,7 @@ import { PageHeader } from '../../../ui/layouts/PageHeader';
 import { SampleFlag } from '../../../ui/composites/SampleFlag';
 import { useDraftReview } from '../hooks/useDraftReview';
 import { useHubLinks } from '../paths';
-import { useOpenDraft } from '../hooks/useOpenDraft';
+import { useOpenDraft } from '../../../flows/drafts/openDraft';
 import type { DraftContent, DraftReviewData } from '../types';
 import { ChecksAndPublish } from './ChecksAndPublish';
 import { DraftEditor } from './DraftEditor';

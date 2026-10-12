@@ -35,7 +35,8 @@ export interface PlatformDetailData {
   /** Platform shown when the URL names none (`?platform=`). */
   defaultId: string;
   /** Platforms with an inbox capability point here for messaging (canvas Inbox-Connect). */
-  messagingNote: string;
+  /** The inbox note and the label of its link to Inbox-Connect. */
+  messaging: { note: string; linkLabel: string };
 }
 
 /** Preview connection state per platform id (nothing really connects: no integration exists). */

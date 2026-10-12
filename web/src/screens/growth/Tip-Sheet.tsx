@@ -1,5 +1,5 @@
 /*
- * Data contract: Tip-Sheet (pending canvas board "Tip-Sheet", page Growth; issue #82, sub-task "Fan tips in USDC": "a
+ * Data contract: Tip-Sheet (canvas board "Tip-Sheet", v22; issue #82, sub-task "Fan tips in USDC": "a
  * tip sheet on a verified post (Verify-1-Match)"). Backend map: no tips row yet; the post comes from §4 row
  * "Verify-1, Verify-2, Verify-3" (registrations). Wallet rules: ADR-006. Shape: TipSheetData in ./types.ts.
  *

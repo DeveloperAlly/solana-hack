@@ -31,7 +31,7 @@ import { KitHeader } from './parts/KitHeader';
 import { KitSectionCard } from './parts/KitSectionCard';
 import { StateView } from '../../ui/composites/StateView';
 import { useKitSections } from './hooks/useKitSections';
-import { useActiveBrand } from './hooks/useHubSession';
+import { useActiveBrand } from '../../flows/brand/activeBrand';
 import { useHubLinks } from './paths';
 import type { BrandBuildData } from './types';
 

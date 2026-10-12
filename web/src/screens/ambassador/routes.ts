@@ -68,14 +68,16 @@ export const ambRoutes: Record<Device, Record<AmbStep | 'paid' | 'failed', Scree
   },
 };
 
-/** Another page's screen the canvas links to: Amb-5b "See public check" opens Verify-1-Match (issue #49 builds it). */
-export const verifyMatch = screen('Verify-1-Match');
+/** Other pages' screens the canvas links to: Amb-5b "See public check" opens Verify-1-Match (issue #49); the logo
+ * opens Main (Journey, issue #48); "Change" the connected LinkedIn account opens Settings-Connections (Coming soon,
+ * issue #51; backend map row "Settings › Connections"). */
+export const otherBoards = {
+  verifyMatch: screen('Verify-1-Match'),
+  home: screen('Main'),
+  settings: screen('Settings-Connections'),
+} as const;
 
-/** App routes outside the gallery that the canvas links to. */
+/** App routes outside the gallery that the canvas links to (no gallery board does this job). */
 export const pageRoutes = {
-  /** Canvas logo link "Main" (the landing page). */
-  home: '/',
   signIn: '/sign-in',
-  /** "Change" the connected LinkedIn account: Settings › Connections (backend map row "Settings › Connections"). */
-  settings: '/settings',
 } as const;

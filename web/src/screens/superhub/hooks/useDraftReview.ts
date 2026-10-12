@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { useLocation } from 'react-router';
 import { useHubSession } from './useHubSession';
 import type { DraftContent, DraftReviewData, PolishAction } from '../types';
 import { draftLength, evaluateDraftChecks } from './draftChecks';
@@ -15,14 +14,6 @@ export type { Decision } from './draftStatus';
  * publish route (no default: the person picks it), and the decision: approve, then register; or reject, or ask for a
  * rewrite. `busy` (the draft is still being written) disables approval.
  */
-/**
- * Which draft to show: the id an in-app link passed (useOpenDraft), else the id the gallery board opens. There is no
- * default draft: without an id the screen says the draft was not found.
- */
-export function useSelectedDraftId(boardDraftId?: string): string | undefined {
-  return (useLocation().state as { draftId?: string } | null)?.draftId ?? boardDraftId;
-}
-
 export function useDraftReview(data: DraftReviewData, draftId: string, draft: DraftContent, busy = false) {
   const [session, update] = useHubSession();
   // A decision already taken on this draft (hub session) is where a reopened draft starts.

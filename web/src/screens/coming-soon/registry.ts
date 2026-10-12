@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import type { ScreenEntry } from '../registry-types';
-import type { ArtboardName } from '../../config/artboards';
+import { artboardPages, type ArtboardName } from '../../config/artboards';
 import { SettingsAI } from './Settings-AI';
 import { SettingsGetKey } from './Settings-GetKey';
 import { SettingsConnections } from './Settings-Connections';
@@ -42,7 +42,7 @@ const pick = <T,>(base: T, byState: Partial<Record<ScreenState, T>> = {}) => (st
 
 /** One entry per artboard. The gallery re-mounts the screen when the demo state changes (GalleryScreen, PR #83). */
 function entry<T>(artboard: ArtboardName, title: string, states: readonly ScreenState[], Screen: (p: { data: T; state?: ScreenState }) => ReturnType<typeof createElement>, data: (s: ScreenState) => T): ScreenEntry {
-  return { artboard, page: 'soon', title, tag: 'COMING SOON', states, render: (state) => createElement(Screen, { data: data(state), state }) };
+  return { artboard, page: artboardPages[artboard], title, tag: 'COMING SOON', states, render: (state) => createElement(Screen, { data: data(state), state }) };
 }
 
 // Canvas page "Coming soon (drawn, not built)", issue #51. Titles are the canvas board titles without the tag prefix.

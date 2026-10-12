@@ -29,7 +29,7 @@ import { StateView } from '../../ui/composites/StateView';
 import { TemplateGallery } from './parts/TemplateGallery';
 import { PresetMatrix } from './parts/PresetMatrix';
 import { useHubLinks } from './paths';
-import { useActiveBrand } from './hooks/useHubSession';
+import { useActiveBrand } from '../../flows/brand/activeBrand';
 import type { VoiceTemplatesData } from './types';
 
 export function VoiceTemplates({ data, state = 'success' }: { data: VoiceTemplatesData; state?: ScreenState }) {

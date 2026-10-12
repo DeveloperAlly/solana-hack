@@ -6,7 +6,7 @@ import { demoBrands } from '../../../ui/domain/demoBrands';
 import { Container, Stack } from '../../../ui/primitives';
 import { useHubLinks, type HubLink } from '../paths';
 import { hubSubnav, hubTopNav, sectionLink, type HubSection } from './hubNav';
-import { useActiveBrand } from '../hooks/useHubSession';
+import { useActiveBrand } from '../../../flows/brand/activeBrand';
 
 export interface HubPageProps {
   section: HubSection;

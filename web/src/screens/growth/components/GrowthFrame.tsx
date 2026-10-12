@@ -6,6 +6,7 @@ import { PageHeader } from '../../../ui/layouts/PageHeader';
 import { ComingSoonFlag } from '../../../ui/domain/ComingSoonFlag';
 import { Container, Stack } from '../../../ui/primitives';
 import { growthArtboards, useGrowthLinks } from '../paths';
+import { useActiveBrand } from '../../../flows/brand/activeBrand';
 import { GrowthNav, type GrowthSection } from './GrowthNav';
 
 /** Hub nav paths that have a gallery screen; the rest keep their live route. */
@@ -26,9 +27,10 @@ export interface GrowthFrameProps {
 /** The signed-in Growth page frame: hub shell on Grow, the Growth tabs, and a page header with the canvas tag. */
 export function GrowthFrame({ section, title, tag, intro, meta, back, actions, children }: GrowthFrameProps) {
   const links = useGrowthLinks();
+  const brand = useActiveBrand();
   const navHref = (path: string) => (galleryBoards[path] ? links.to(galleryBoards[path]) : path);
   return (
-    <AppShell brandName="JamJam" navHref={navHref} activePath="/grow" subnav={<GrowthNav current={section} />}>
+    <AppShell brandName={brand.name} navHref={navHref} activePath="/grow" subnav={<GrowthNav current={section} />}>
       <Container width="app">
         <Stack gap={6}>
           <PageHeader title={title} badges={<ComingSoonFlag tag={tag} />} intro={intro} meta={meta} back={back} actions={actions} />

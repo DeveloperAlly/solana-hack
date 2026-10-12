@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Button } from '../../../ui/primitives';
 import { useHubLinks } from '../paths';
-import { useOpenDraft } from '../hooks/useOpenDraft';
+import { useOpenDraft } from '../../../flows/drafts/openDraft';
 import type { HubTarget } from '../types';
 
 export interface TargetButtonProps {
