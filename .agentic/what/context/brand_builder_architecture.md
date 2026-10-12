@@ -6,7 +6,7 @@ updated: 2026-10-13
 last_edited_by: agent
 tags: [architecture, brand-builder, input-spec, data-model]
 ---
-> **Status: accepted.** This is the Brand Builder architecture and input spec. Ratified by Ally Haire in chat, 2026-10-06. It feeds the PRD rewrite (issue #2), and the build follows the phased plan in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4). §2a (six stages on one intelligence system, 2026-10-13) is proposed and awaits the owner's ratification of [ADR-012](../decisions/adr_012_six_stages_one_intelligence_system.md).
+> **Status: accepted.** This is the Brand Builder architecture and input spec. Ratified by Ally Haire in chat, 2026-10-06. It feeds the PRD rewrite (issue #2), and the build follows the phased plan in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4). §2a (six stages on one intelligence system, 2026-10-13) is proposed and awaits the owner's ratification of [ADR-013](../decisions/adr_013_six_stages_one_intelligence_system.md).
 
 # Brand Builder: architecture and input spec
 
@@ -57,13 +57,13 @@ flowchart TD
 
 ## 2a. System architecture: six stages on one intelligence system [proposed 2026-10-13]
 
-**Owner's definition (2026-10-13, working session):** the complete system is six stages: (1) build your brand and voice, using the intelligence system; (2) create your content, with an intelligence system made for your brand and voice; (3) distribute everywhere, to all the platforms; (4) verify anywhere, through the ledger; (5) grow your reach (ambassadors, influencers, campaigns), also on the intelligence system; (6) learn from what works (analytics and self-learning), also an intelligence system. Her rulings: "the spec should account for this; doesn't mean it gets built now; features get built by demand or market need", and the architecture must be "fully composable, scalable and maintainable". The README already opens with the six steps ([README, The system](../../../README.md#the-system)). The decision to organise the spec this way is [ADR-012](../decisions/adr_012_six_stages_one_intelligence_system.md) (proposed).
+**Owner's definition (2026-10-13, working session):** the complete system is six stages: (1) build your brand and voice, using the intelligence system; (2) create your content, with an intelligence system made for your brand and voice; (3) distribute everywhere, to all the platforms; (4) verify anywhere, through the ledger; (5) grow your reach (ambassadors, influencers, campaigns), also on the intelligence system; (6) learn from what works (analytics and self-learning), also an intelligence system. Her rulings: "the spec should account for this; doesn't mean it gets built now; features get built by demand or market need", and the architecture must be "fully composable, scalable and maintainable". The README already opens with the six steps ([README, The system](../../../README.md#the-system)). The decision to organise the spec this way is [ADR-013](../decisions/adr_013_six_stages_one_intelligence_system.md) (proposed).
 
 **What this section fixes.** Before it, the parts of the intelligence system were specified as separate features in separate places: the evidence store (§3, backlog B3), the voice ladder (§6.2), learned rules (§6.1, T1b), the validation loop (§2 stage 9, §12.3 rule 6, B16), analytics (backlog N1 to N4) and the evaluators (§6.1, §13). Each stage reached into its own part directly; in the code, drafting reads kit sections itself and the claims check reads all evidence in batches (`voiceContext`, `allEvidence` and `policyCheck` in [`posts.ts`](../../../web/worker/posts.ts)). Distribution stopped at five platforms (§6.1 Publishing row; [backend map §10.5](./backend_map.md#105-publishing-order-p2-p3-p3a)). This section makes the intelligence system one named engine that every stage reads from and writes to, and makes distribution an adapter registry that accounts for every platform. It renames nothing that already exists: every part below keeps its backlog ID.
 
 ```mermaid
 flowchart LR
-  B[1 Build<br/>brand and voice] --> C[2 Create<br/>content]
+  B[1 Brand<br/>build your brand and voice] --> C[2 Create<br/>content]
   C --> D[3 Distribute<br/>everywhere]
   D --> V[4 Verify<br/>anywhere]
   D --> G[5 Grow<br/>reach]
@@ -91,7 +91,7 @@ Backlog IDs are the [backlog](../../how/backlog/backlog.md) rows; a range such a
 | 3 | **Distribute everywhere** | P1 to P19, S4 | Built: P1 (copy, publish yourself, paste the link back). The rest is spec; P7 to P19 are new in this section |
 | 4 | **Verify anywhere** | L1 to L12 | Built: L2, L3. Partial: L1, L4. The rest is spec |
 | 5 | **Grow your reach** | R1 to R11, I1 | All spec; R11 is new in this section |
-| 6 | **Learn from what works** | N1 to N5 (B16 is Build's consumer of the loop) | All spec; N5 is new in this section |
+| 6 | **Learn from what works** | N1 to N5 (B16 is Brand's consumer of the loop) | All spec; N5 is new in this section |
 | All | Shared engine and settings | X1 to X18, S1 to S3, S5, S6 | Built: X7, X9, X13, S1. Partial: X1, X6, X8. The rest is spec; X18 is new in this section |
 
 Every stage is accounted for in the spec. What gets built, and when, is decided by demand or market need (owner, 2026-10-13); the phase each row sits in, or the "By demand" list, is in [backlog §15](../../how/backlog/backlog.md#15-build-order).
@@ -118,7 +118,7 @@ One engine per brand. It holds everything JamJam knows about the brand and every
 
 | Stage | Reads from the engine | Writes to the engine |
 |---|---|---|
-| 1 Build | Usable evidence and owner answers; templates; prior kit versions; approved kit-update proposals (B16) | Sources; facts with quotes, trust and review status; owner answers; section drafts with fact ids; gate decisions; kit versions; voice spec and samples |
+| 1 Brand | Usable evidence and owner answers; templates; prior kit versions; approved kit-update proposals (B16) | Sources; facts with quotes, trust and review status; owner answers; section drafts with fact ids; gate decisions; kit versions; voice spec and samples |
 | 2 Create | The registered kit version; voice spec; retrieved exemplars; learned rules; usable facts and claims; channel specs (K3) | Every candidate with its scores; drafts; edits as original and final; reject reasons; evaluator verdicts; approvals |
 | 3 Distribute | The approved post and its approved hash; each platform adapter's declared capabilities; approved timing and format proposals | Publish records: platform, post id, URL, published hash, disclosure flags set, failures (P5a) |
 | 4 Verify | Registrations and approved hashes | Registrations (L1, L2); retractions (L8); impersonation reports (L3a) |
@@ -139,7 +139,7 @@ Outcomes flow back into every stage as **proposals**. A proposal is a record: br
 
 | Signal (written by) | Feeds | Proposal kinds | What applying it does |
 |---|---|---|---|
-| Customer interviews, post performance, new evidence (Learn, Build) | **Build** | Kit update suggestions: a section to redraft, a messaging pillar to demote, a new evidenced fact (B16) | Redraft goes back through the gates and creates a new kit version, registered as usual (§12.3 rules 2 and 6) |
+| Customer interviews, post performance, new evidence (Learn, Brand) | **Brand** | Kit update suggestions: a section to redraft, a messaging pillar to demote, a new evidenced fact (B16) | Redraft goes back through the gates and creates a new kit version, registered as usual (§12.3 rules 2 and 6) |
 | Edits, approvals without edit, reject reasons (Create) | **Create** | Learned rules from edits (T1b); exemplar ranking that favours approved posts which performed; later a brand-style reranker (§6.2 rung 2) | The rule or ranking is stored with a version; the next draft retrieves it; the brand can delete it |
 | Metric snapshots per platform and format (Learn, via adapters) | **Distribute** | Posting windows per platform (best times are local-time windows to test, [research 03](./research/03_platform_performance.md)); format per platform, for example a carousel instead of text on LinkedIn ([research 11](./research/11_media_formats.md) §1a) | The schedule default or format suggestion changes for that brand and platform |
 | Campaign and submission results (Grow) | **Grow** | Self-learning campaigns (R11): audience, format and budget split adjustments within the capped budget | The campaign plan changes; payouts still need the owner's own signature (R3c, [ADR-006](../decisions/adr_006_wallet_identity_split.md)); no X activity is ever rewarded (backlog §13) |
@@ -220,12 +220,12 @@ A platform not in this table (for example Pinterest or WhatsApp channels, both U
 |---|---|---|
 | [`llm.ts`](../../../web/worker/llm.ts) | Gateway (`chat`), JSON parsing, the slop rule text | Provider client (§10.3); slop rules move to the slop scorer |
 | [`ingest.ts`](../../../web/worker/ingest.ts), [`sources/registry.ts`](../../../web/worker/sources/registry.ts), [`quote.ts`](../../../web/worker/quote.ts) | Page reading, source kinds and trust, quote check | Source adapters (X6); normaliser; evidence extraction; brand memory writes |
-| [`kit.ts`](../../../web/worker/kit.ts) | Sections, gates, steps, canonical JSON | Build stage; kit versions in brand memory |
-| [`api.ts`](../../../web/worker/api.ts) | Routes plus section drafting, ingest, kit registration, answers, evidence review | Worker wiring only; drafting to Build, registration to Verify, reads and writes through brand memory |
+| [`kit.ts`](../../../web/worker/kit.ts) | Sections, gates, steps, canonical JSON | Brand stage; kit versions in brand memory |
+| [`api.ts`](../../../web/worker/api.ts) | Routes plus section drafting, ingest, kit registration, answers, evidence review | Worker wiring only; drafting to Brand, registration to Verify, reads and writes through brand memory |
 | [`posts.ts`](../../../web/worker/posts.ts) | Drafting, slop check, polish, claims and content policy, approval, registration, Verify and Ledger | Create (drafting, polish); evaluator registry (slop, policy); Verify (register, verify, ledger) |
 | [`registry.ts`](../../../web/worker/registry.ts) | SAS attestation | Registrar client (§10.3) |
 
-Extraction happens when a file is next changed for a feature, one module per PR, behaviour unchanged and covered by a contract test; there is no separate rewrite (proposed in ADR-012).
+Extraction happens when a file is next changed for a feature, one module per PR, behaviour unchanged and covered by a contract test; there is no separate rewrite (proposed in ADR-013).
 
 **Extension points.** Each is a registry: adding an entry is one file plus a test plus a backlog row, and no stage code changes.
 
@@ -245,7 +245,7 @@ Extraction happens when a file is next changed for a feature, one module per PR,
 
 **Decided now and deferred.**
 
-| Decided by this section (once ADR-012 is ratified) | Deferred, built by demand |
+| Decided by this section (once ADR-013 is ratified) | Deferred, built by demand |
 |---|---|
 | Six stages are the top-level structure of the spec and the backlog | Which stages and platforms are built next, and when |
 | One brand intelligence system (X18) with the five invariants in §2a.2 | Storage layout inside brand memory beyond today's tables; partitioning and retention |

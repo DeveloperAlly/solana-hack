@@ -6,7 +6,7 @@ updated: 2026-10-13
 last_edited_by: agent
 tags: [backlog, product-map, component-inventory]
 ---
-> **Status: active. This file is the one list of every JamJam component.** It replaces the 21-row product map that stood here (every one of those rows is kept below, with its old tag). It gathers, in one place, components that were decided in separate docs and issues: [compendium §5](../../what/context/compendium_2026_10_06.md#5-product-map-decided-structure-tags-drive-the-build), [ADR-003](../../what/decisions/adr_003_superhub_business_model.md), the [Brand Builder architecture](../../what/context/brand_builder_architecture.md), the [backend map](../../what/context/backend_map.md) and [`spec/api/`](../../../spec/api/README.md), PRD [#2](https://github.com/DeveloperAlly/solana-hack/issues/2), master list [#38](https://github.com/DeveloperAlly/solana-hack/issues/38) and its slices (#31 to #39), [research 10](../../what/context/research/10_competitor_onboarding_pricing.md) N1 to N14, the code on main (9da167b), and the owner's prior content-platform design ("prior platform design" below: private notes, not linked under the public-repo rule in AGENTS.md). Rows tagged **accepted 2026-10-12** were new in this pass and were accepted by the owner that day ([ADR-010](../../what/decisions/adr_010_component_list_and_plan_tiers.md)). Rows tagged **proposed 2026-10-13** come from [architecture §2a](../../what/context/brand_builder_architecture.md#2a-system-architecture-six-stages-on-one-intelligence-system-proposed-2026-10-13) and wait for the owner's ratification of [ADR-012](../../what/decisions/adr_012_six_stages_one_intelligence_system.md); the sections now follow the owner's six stages (2026-10-13). Nothing here changes a decision; where two sources disagree, both are named.
+> **Status: active. This file is the one list of every JamJam component.** It replaces the 21-row product map that stood here (every one of those rows is kept below, with its old tag). It gathers, in one place, components that were decided in separate docs and issues: [compendium §5](../../what/context/compendium_2026_10_06.md#5-product-map-decided-structure-tags-drive-the-build), [ADR-003](../../what/decisions/adr_003_superhub_business_model.md), the [Brand Builder architecture](../../what/context/brand_builder_architecture.md), the [backend map](../../what/context/backend_map.md) and [`spec/api/`](../../../spec/api/README.md), PRD [#2](https://github.com/DeveloperAlly/solana-hack/issues/2), master list [#38](https://github.com/DeveloperAlly/solana-hack/issues/38) and its slices (#31 to #39), [research 10](../../what/context/research/10_competitor_onboarding_pricing.md) N1 to N14, the code on main (9da167b), and the owner's prior content-platform design ("prior platform design" below: private notes, not linked under the public-repo rule in AGENTS.md). Rows tagged **accepted 2026-10-12** were new in this pass and were accepted by the owner that day ([ADR-010](../../what/decisions/adr_010_component_list_and_plan_tiers.md)). Rows tagged **proposed 2026-10-13** come from [architecture §2a](../../what/context/brand_builder_architecture.md#2a-system-architecture-six-stages-on-one-intelligence-system-proposed-2026-10-13) and wait for the owner's ratification of [ADR-013](../../what/decisions/adr_013_six_stages_one_intelligence_system.md); the sections now follow the owner's six stages (2026-10-13). Nothing here changes a decision; where two sources disagree, both are named.
 
 # Backlog: every component
 
@@ -19,7 +19,7 @@ tags: [backlog, product-map, component-inventory]
 - **spec:** designed in a doc or stub, no code.
 - **accepted 2026-10-12** (in the Tag column): new in this pass and accepted by the owner on 2026-10-12.
 
-**Tag** (the build tag from compendium §5): hackathon, hackathon (thin), coming soon, experimental, roadmap, and, from 2026-10-13, **by demand**: accounted for in the spec and built when demand or market need shows (owner, 2026-10-13; [ADR-012](../../what/decisions/adr_012_six_stages_one_intelligence_system.md), proposed).
+**Tag** (the build tag from compendium §5): hackathon, hackathon (thin), coming soon, experimental, roadmap, and, from 2026-10-13, **by demand**: accounted for in the spec and built when demand or market need shows (owner, 2026-10-13; [ADR-013](../../what/decisions/adr_013_six_stages_one_intelligence_system.md), proposed).
 
 **Stages** (owner, 2026-10-13; [architecture §2a](../../what/context/brand_builder_architecture.md#2a-system-architecture-six-stages-on-one-intelligence-system-proposed-2026-10-13)). The sections follow the six stages, and every stage reads from and writes to one brand intelligence system (X18):
 
@@ -55,7 +55,7 @@ A user who hits friction in onboarding leaves; a user whose first posts are not 
 | U10 | Wallet or seed phrase needed to use any core feature | never | ADR-006 |
 | U11 | First-run usability: 5 people try onboarding unaided | at least 4 of 5 finish | architecture §6.1 |
 
-## 2. Build: onboarding and account
+## 2. Brand: onboarding and account
 
 | ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
@@ -70,7 +70,7 @@ A user who hits friction in onboarding leaves; a user whose first posts are not 
 | A6 | Team seats and roles (owner, approver, editor, partner, ambassador) | Others can help without owning the brand | spec | roadmap | Team | `memberships` table in `spec/api/schema.sql` | Role checks on every route | ADR-003, `requireRole` stub |
 | A7 | Shareable no-login interview links | A co-founder or customer adds stories and evidence | spec | accepted 2026-10-12 | Solo | | | research 10 N1 |
 
-## 3. Build: build your brand
+## 3. Brand: build your brand
 
 | ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
@@ -95,7 +95,7 @@ A user who hits friction in onboarding leaves; a user whose first posts are not 
 | B16 | Validation loop (interviews, post performance feed the kit) | The kit gets better from results | spec | coming soon | Solo | Analytics (§10); learn loop (N5) supplies the proposals | Every kit update reaches the kit only through the gates as a new version | architecture §2 step 9, §2a.3; prior platform design |
 | B17 | aDNA export of the kit | Kit usable by any agent or tool | partial: one Markdown file download built (`hub/Brand.tsx`); zip per section not built | hackathon (thin) | Free | | | architecture §8, G-ZIP |
 
-## 4. Build: kit content (the 17 sections)
+## 4. Brand: kit content (the 17 sections)
 
 Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Specified in [architecture §4](../../what/context/brand_builder_architecture.md#4-input-spec-per-brand-kit-section): identity, purpose, beliefs, values (card sort), positioning, value props, audience, messaging, voice attributes, tone presets, vocabulary, claims, **visual kit (13)**, **audio kit (14)**, behaviour scenarios, examples (on and off brand), governance. Done when 17 of 17 are drafted or shown as deferred with a reason.
 
@@ -109,7 +109,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 | K7 | Pillars: every post tagged to one pillar, ideas bound to pillars, cadence ramp per channel | A balanced mix, not random posts | spec | accepted 2026-10-12 | Solo | | | prior platform design|
 | K3 | Channel specs with slot templates and reject rules | LinkedIn and X posts are not the same text | partial: X weighted 280-character limit enforced (`posts.ts` `xWeightedLength`); other specs not built | accepted 2026-10-12 | Solo | Research 03; prior platform design| One spec per channel; a draft breaking a reject rule is refused | prior platform design|
 
-## 5. Build and Create: voices, claims and gates
+## 5. Brand and Create: voices, claims and gates
 
 | ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
@@ -231,7 +231,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 | N3 | Outcome log and attribution: front-door UTM link per channel, "how did you find us", 20-second manual log, UNATTRIBUTABLE as a normal value | Measures leads and deals, not likes | spec | accepted 2026-10-12 | Solo | | A test click and a test inbound both land | prior platform design|
 | N3a | Inbound qualified against the ICP: response time, outcome through to close; no third-party personal data stored | Knows which inbound is worth it and whether it closed | spec | accepted 2026-10-12 | Solo | | | prior platform design |
 | N4 | "What is where" view of the brand's own material (sources, verified vs unverified, what is missing) | One screen instead of a list | spec | accepted 2026-10-12 | Solo | Coverage map (B4) data | | prior platform design|
-| N5 | Learn loop into every stage: outcomes (analytics, approvals, edits, campaign results) become proposals for Build (kit updates), Create (learned rules, retrieval ranking), Distribute (timing, format) and Grow (campaigns); each is owner-approved, versioned and reversible | The product improves from what works, and the owner decides every change | spec | roadmap (proposed 2026-10-13) | Solo | Eval harness (X12); B16 and T1b are its first consumers | A proposal cites its outcome ids, is judged by a check other than the model that wrote it, and changes nothing until approved | [architecture §2a.3](../../what/context/brand_builder_architecture.md#2a3-the-learn-loop-backlog-n5) |
+| N5 | Learn loop into every stage: outcomes (analytics, approvals, edits, campaign results) become proposals for Brand (kit updates), Create (learned rules, retrieval ranking), Distribute (timing, format) and Grow (campaigns); each is owner-approved, versioned and reversible | The product improves from what works, and the owner decides every change | spec | roadmap (proposed 2026-10-13) | Solo | Eval harness (X12); B16 and T1b are its first consumers | A proposal cites its outcome ids, is judged by a check other than the model that wrote it, and changes nothing until approved | [architecture §2a.3](../../what/context/brand_builder_architecture.md#2a3-the-learn-loop-backlog-n5) |
 
 ## 11. Settings and billing (all stages)
 
@@ -267,7 +267,7 @@ Every module has one interface, its own tests, and no JamJam-specific names insi
 | X15 | Security | Database grants tightened behind the Worker, deny tests in CI, rate limits per brand | spec (accepted 2026-10-12) | | backend map §10 |
 | X16 | Retrieval | Embeddings for approved posts and site excerpts; retrieval under 200 ms | spec (accepted 2026-10-12) | pgvector | architecture §6.2 |
 | X17 | Payout builder and Verify matcher | Server-built USDC transfer confirmed against the record; edited-copy matching with a diff | spec (accepted 2026-10-12) | `@solana-program/token`; pg_trgm | architecture §7.1; backend map §10.3 |
-| X18 | Brand intelligence system | The one engine every stage reads from and writes to: brand memory (evidence, kit versions, voice, claims, learned rules, decision history, outcomes), retrieval, model gateway, evaluators and gates, learn loop; one read and write contract; per-brand isolation | spec (proposed 2026-10-13); its parts are partly built (X1, X7, B3, B10, G1) | Its parts: X1 to X3, X5, X7, X12, X14, X16; the evidence allow-list (ADR-011) | [architecture §2a.2](../../what/context/brand_builder_architecture.md#2a2-the-brand-intelligence-system-backlog-x18), [§2a.5](../../what/context/brand_builder_architecture.md#2a5-composable-scalable-maintainable) |
+| X18 | Brand intelligence system ("the Brain" in the UI, ADR-012) | The one engine every stage reads from and writes to: brand memory (evidence, kit versions, voice, claims, learned rules, decision history, outcomes), retrieval, model gateway, evaluators and gates, learn loop; one read and write contract; per-brand isolation | spec (proposed 2026-10-13); its parts are partly built (X1, X7, B3, B10, G1) | Its parts: X1 to X3, X5, X7, X12, X14, X16; the evidence allow-list (ADR-011) | [architecture §2a.2](../../what/context/brand_builder_architecture.md#2a2-the-brand-intelligence-system-backlog-x18), [§2a.5](../../what/context/brand_builder_architecture.md#2a5-composable-scalable-maintainable) |
 
 ## 13. Product rules that apply to every component
 
@@ -369,7 +369,7 @@ Components: S6, A6, K2, M4 to M8, L12; V5 and the shared writer model when the h
 
 ### By demand
 
-Accounted for in the spec and built when demand or market need shows (owner, 2026-10-13; [ADR-012](../../what/decisions/adr_012_six_stages_one_intelligence_system.md), proposed). Each platform row starts by checking its UNVERIFIED access facts ([architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19)).
+Accounted for in the spec and built when demand or market need shows (owner, 2026-10-13; [ADR-013](../../what/decisions/adr_013_six_stages_one_intelligence_system.md), proposed). Each platform row starts by checking its UNVERIFIED access facts ([architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19)).
 
 Components: P8 to P19, R11.
 
