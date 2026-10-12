@@ -35,7 +35,7 @@ export function VerifyLookupScreen({ data, state = 'success' }: ScreenProps<Veri
   const flow = useVerifyLookup(data, state);
   const panels = lookupTabs.map((t) => ({
     ...t,
-    panel: <VerifyLookupPanel key={t.id} kind={t.id} query={flow.query[t.id]} check={flow.checks[t.id]} onCheck={flow.check} errorNote={data.errorNote} />,
+    panel: <VerifyLookupPanel key={t.id} kind={t.id} query={flow.query[t.id]} draft={flow.draft[t.id]} onDraft={flow.setDraft} check={flow.checks[t.id]} onCheck={flow.check} errorNote={data.errorNote} />,
   }));
   return (
     <VerifyPageFrame>

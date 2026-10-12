@@ -71,9 +71,12 @@ export function Menu({ trigger, triggerLabel, items, onSelect, defaultOpen = fal
   }
   function onItemKey(e: KeyboardEvent, i: number) {
     if (roving.onItemKeyDown(e, i)) return;
-    if (e.key === 'Escape' || e.key === 'Tab') {
+    if (e.key === 'Escape') {
       e.preventDefault();
       close();
+    } else if (e.key === 'Tab') {
+      // Let the browser move focus on in the direction pressed; only Escape and selection return focus to the trigger.
+      hide();
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       choose(i);

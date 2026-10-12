@@ -16,6 +16,9 @@ export interface VerifyLookupFlow {
   tab: LookupTab;
   setTab: (tab: LookupTab) => void;
   query: Record<LookupKind, string>;
+  /** Per-tab text as typed, kept when a tab unmounts before Check. */
+  draft: Record<LookupKind, string>;
+  setDraft: (kind: LookupKind, text: string) => void;
   /** Per-tab check state: switching tabs keeps each tab's text and result. */
   checks: Record<LookupKind, LookupCheck>;
   check: (kind: LookupKind, text: string) => void;
@@ -39,6 +42,7 @@ export function useVerifyLookup(data: VerifyLookupData, state: ScreenState): Ver
   const [tab, setTab] = useState<LookupTab>(data.initialTab);
   const startQuery = (k: LookupKind) => (state === 'empty' ? '' : data.queries[k]);
   const [query, setQuery] = useState(() => Object.fromEntries(kinds.map((k) => [k, startQuery(k)])) as Record<LookupKind, string>);
+  const [draft, setDraftState] = useState<Record<LookupKind, string>>(() => ({ ...query }));
   const [checks, setChecks] = useState(
     () =>
       Object.fromEntries(
@@ -59,5 +63,9 @@ export function useVerifyLookup(data: VerifyLookupData, state: ScreenState): Ver
     }));
   }
 
-  return { tab, setTab, query, checks, check };
+  function setDraft(kind: LookupKind, text: string) {
+    setDraftState((d) => ({ ...d, [kind]: text }));
+  }
+
+  return { tab, setTab, query, draft, setDraft, checks, check };
 }
