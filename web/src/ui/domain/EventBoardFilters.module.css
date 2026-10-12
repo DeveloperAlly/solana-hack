@@ -1,0 +1,19 @@
+/* D104 EventBoardFilters: search grows, the selects keep their width, the count trails. Tokens only. */
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--wl-space-3) var(--wl-space-4);
+}
+
+.search {
+  flex: 1 1 calc(var(--wl-space-12) * 5);
+  min-width: 0;
+}
+
+.count {
+  margin: 0;
+  padding-bottom: var(--wl-space-2);
+  font-size: var(--wl-font-size-sm);
+  color: var(--wl-text-secondary);
+}

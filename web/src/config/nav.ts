@@ -61,18 +61,18 @@ export const stages: readonly Stage[] = [
     ],
   },
   {
-    id: 'distribute', label: 'Distribute', kind: 'loop', step: 3, summary: 'Write once, it goes everywhere', artboard: 'Platforms',
+    id: 'distribute', label: 'Distribute', kind: 'loop', step: 3, summary: 'Write once, it goes everywhere', artboard: 'Platforms', live: '/distribute',
     tabs: [
-      { id: 'platforms', label: 'Platforms', artboard: 'Platforms', also: ['Platform-Detail'] },
+      { id: 'platforms', label: 'Platforms', artboard: 'Platforms', live: '/distribute', also: ['Platform-Detail'] },
       { id: 'adapt', label: 'Adapt and schedule', artboard: 'Distribute-Adapt' },
       { id: 'calendar', label: 'Calendar', artboard: 'Publish-Calendar' },
       { id: 'connections', label: 'Connections', artboard: 'Settings-Connections' },
     ],
   },
   {
-    id: 'verify', label: 'Verify', kind: 'loop', step: 4, summary: "Anyone can check it's really you", artboard: 'Verify-Home',
+    id: 'verify', label: 'Verify', kind: 'loop', step: 4, summary: "Anyone can check it's really you", artboard: 'Verify-Home', live: '/verify-home',
     tabs: [
-      { id: 'proof', label: 'Your proof', artboard: 'Verify-Home' },
+      { id: 'proof', label: 'Your proof', artboard: 'Verify-Home', live: '/verify-home' },
       { id: 'badge', label: 'Badge', artboard: 'Badge-Embed' },
       { id: 'tips', label: 'Tips', artboard: 'Tips-Received' },
       { id: 'ledger', label: 'Public ledger', artboard: 'Ledger', live: '/ledger' },
@@ -94,9 +94,9 @@ export const stages: readonly Stage[] = [
     ],
   },
   {
-    id: 'learn', label: 'Learn', kind: 'loop', step: 6, summary: 'Learn from what works', artboard: 'Analytics', live: '/analytics',
+    id: 'learn', label: 'Learn', kind: 'loop', step: 6, summary: 'Learn from what works', artboard: 'Analytics', live: '/learn',
     tabs: [
-      { id: 'results', label: 'Results', artboard: 'Analytics', live: '/analytics', also: ['Analytics-Empty'] },
+      { id: 'results', label: 'Results', artboard: 'Analytics', live: '/learn', also: ['Analytics-Empty'] },
       { id: 'rules', label: 'Suggested rules', artboard: 'Learn-Rules' },
       { id: 'outcomes', label: 'Outcomes', artboard: 'Outcome-Log' },
     ],
@@ -151,7 +151,7 @@ export interface MobileTab extends NavTarget {
 export const mobileTabs: readonly MobileTab[] = [
   { id: 'today', label: 'Today', artboard: 'M-Today', live: '/home', stages: ['today'] },
   { id: 'create', label: 'Create', artboard: 'Content-Dashboard', live: '/create', stages: ['create'] },
-  { id: 'verify', label: 'Verify', artboard: 'Verify-Home', stages: ['verify'] },
+  { id: 'verify', label: 'Verify', artboard: 'Verify-Home', live: '/verify-home', stages: ['verify'] },
   { id: 'grow', label: 'Grow', artboard: 'Grow-Home', live: '/grow', stages: ['grow'] },
   { id: 'more', label: 'More', artboard: 'Brand-Build', live: '/brand', stages: ['brand', 'distribute', 'learn', 'inbox', 'settings'] },
 ];

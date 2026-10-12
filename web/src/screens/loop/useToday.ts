@@ -53,7 +53,7 @@ function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | '
       valid: { outcome: primaryActions.draft?.done },
       stale: { status: 'Your approval went stale: the Brain changed since. Approve it again.' },
     };
-    const a = loop.approvalOf(item.id, item.text);
+    const a = loop.approvalOf(item.id, { text: item.text, checks: item.checks });
     return a ? view[a] : {};
   }
   const done = loop.outcome(item.id);
@@ -75,7 +75,7 @@ export function useToday(data: TodayData) {
   };
   const ctx = { brainVersion: loop.brain.version, proposal: loop.proposal, quest };
   const acts: Partial<Record<QueueKind, (item: QueueItem) => void>> = {
-    draft: (i) => loop.approveItem(i.id, i.text),
+    draft: (i) => { if (i.kind === 'draft' && !gateFor(i, ctx).blocking) loop.approveItem(i.id, { text: i.text, checks: i.checks }); },
     reply: (i) => loop.finish(i.id, primaryActions.reply?.done ?? ''),
     // Every payout goes through domain/quest.ts: a quest submission through approveSubmission (it re-runs the quest
     // gate), a seat post through its gate and the shared payout outcome. Today builds no payout path of its own.
@@ -93,7 +93,7 @@ export function useToday(data: TodayData) {
   const rows: QueueRow[] = data.queue.map((item) => {
     const act = acts[item.kind];
     const meta = item.kind === 'learnedRule' ? `${item.meta} · becomes Brain v${nextBrainVersion(loop.brain.version)} if you approve` : item.meta;
-    return { item: { ...item, meta }, gate: gateFor(item, ctx), ...standing(item, loop), act: act && (() => act(item)) };
+    return { item: { ...item, meta }, gate: gateFor(item, ctx), ...standing(item, loop), act: act && (() => { if (!gateFor(item, ctx).blocking) act(item); }) };
   });
   const { needsYou, oneTap, done } = selectQueue(rows);
   const shown = needsYou.filter((r) => filter === 'all' || r.item.kind === filter);

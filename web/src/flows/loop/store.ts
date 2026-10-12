@@ -4,7 +4,9 @@
 // browser session only; nothing is persisted and nothing calls the network.
 // INTEGRATION: the Brain and proposals come from X18 brand memory and the N5 learn loop (ADR-013, PR #88); approvals
 // and sends go to the Worker (POST /api/posts/:id/approve today, web/worker/posts.ts; the rest is not built yet).
-import { createStore } from '../../lib/createStore';
+import { createBrandScopedStore } from '../../lib/brandScopedStore';
+import { activeBrand } from '../../flows/brand/activeBrand';
+import type { Store } from '../../lib/createStore';
 import type { Approval } from '../../domain/approval';
 import type { BrainChange, RuleStatus } from '../../domain/brain';
 import type { ProposalStatus } from '../../domain/proposal';
@@ -36,7 +38,7 @@ export interface LoopState {
 
 const initial: LoopState = { rules: {}, history: [], proposals: {}, approvals: {}, outcomes: {} };
 
-export const loopStore = createStore<LoopState>(initial);
+export const loopStore = createBrandScopedStore<LoopState>(activeBrand, initial) as Store<LoopState>;
 
 /** Today's date as the canvas writes it ("13 Oct"), for decisions made in the session. */
 export const today = () => new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });

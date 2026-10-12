@@ -1,0 +1,31 @@
+/* D92 DistributeVersionCard: header row, the version text, status chips, schedule controls, actions. Tokens only. */
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wl-space-2);
+}
+
+.text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.status,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wl-space-2);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wl-space-3);
+}
+
+.actions {
+  margin-top: auto;
+}

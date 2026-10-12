@@ -25,7 +25,7 @@ describe('L2 StageNav', () => {
   it('links live routes outside the gallery and typed screen paths (theme kept) inside it', () => {
     renderWithRouter(<StageNav />);
     expect(screen.getByRole('link', { name: 'Today' })).toHaveAttribute('href', '/home');
-    expect(screen.getByRole('link', { name: 'Distribute' })).toHaveAttribute('href', '/screens/Platforms');
+    expect(screen.getByRole('link', { name: 'Distribute' })).toHaveAttribute('href', '/distribute');
     renderWithRouter(<GalleryModeContext.Provider value={true}><StageNav label="In gallery" /></GalleryModeContext.Provider>, '/screens/Today?theme=wireframe-dark&state=empty');
     const nav = screen.getByRole('navigation', { name: 'In gallery' });
     expect(within(nav).getByRole('link', { name: 'Today' })).toHaveAttribute('href', '/screens/Today?theme=wireframe-dark');

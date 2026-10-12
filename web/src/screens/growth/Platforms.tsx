@@ -18,7 +18,7 @@
 import { Alert, Button } from '../../ui/primitives';
 import { StateView } from '../../ui/composites/StateView';
 import { EmptyState } from '../../ui/composites/EmptyState';
-import { GrowthFrame } from './components/GrowthFrame';
+import { LoopFrame } from './components/LoopFrame';
 import { GrowthPlatformControls } from './components/GrowthPlatformControls';
 import { GrowthPlatformGroup } from './components/GrowthPlatformGroup';
 import { usePlatformCatalog } from './usePlatformCatalog';
@@ -38,7 +38,7 @@ export function Platforms({ data, state = 'success' }: ScreenProps<PlatformsData
   const copy = flow.filter === 'live' ? noMatchCopy.live : noMatchCopy.search;
   const noMatch = <EmptyState title={copy.title} body={copy.body} actions={<Button variant="secondary" onClick={clear}>Show all platforms</Button>} />;
   return (
-    <GrowthFrame
+    <LoopFrame
       artboard="Platforms"
       title="Platforms"
       tag="COMING SOON"
@@ -55,6 +55,6 @@ export function Platforms({ data, state = 'success' }: ScreenProps<PlatformsData
       >
         {flow.groups.map((g) => <GrowthPlatformGroup key={g.kind} label={g.label} platforms={g.platforms} connections={flow.connections} />)}
       </StateView>
-    </GrowthFrame>
+    </LoopFrame>
   );
 }

@@ -1,0 +1,62 @@
+/* D101 EventRatingQuotes: ruled quote rows; a reply is indented under its rating. Tokens only. */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wl-space-1);
+  padding: var(--wl-space-3) 0;
+  border-bottom: var(--wl-border-width-default) solid var(--wl-border-rule);
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.quote {
+  margin: 0;
+  font-size: var(--wl-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.reply {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wl-space-half);
+  margin-top: var(--wl-space-2);
+  padding-left: var(--wl-space-4);
+  border-left: var(--wl-border-width-strong) solid var(--wl-border-default);
+}
+
+.tombstone {
+  margin: 0;
+  padding: var(--wl-space-2) var(--wl-space-3);
+  border: var(--wl-border-width-default) dashed var(--wl-border-input);
+  border-radius: var(--wl-radius-control);
+  background: var(--wl-bg-subtle);
+  font-size: var(--wl-font-size-sm);
+  color: var(--wl-text-secondary);
+}
+
+.earlier {
+  font-size: var(--wl-font-size-sm);
+}
+
+.earlier summary {
+  cursor: pointer;
+  min-height: var(--wl-control-target-min);
+  display: flex;
+  align-items: center;
+}
+
+.versions {
+  margin: var(--wl-space-1) 0 0;
+  padding-left: var(--wl-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--wl-space-1);
+}

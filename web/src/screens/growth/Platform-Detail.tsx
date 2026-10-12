@@ -18,7 +18,7 @@
 import { Select, Stack } from '../../ui/primitives';
 import { Columns } from '../../ui/layouts/Columns';
 import { StateView } from '../../ui/composites/StateView';
-import { GrowthFrame } from './components/GrowthFrame';
+import { LoopFrame } from './components/LoopFrame';
 import { GrowthCapabilityList } from './components/GrowthCapabilityList';
 import { GrowthConnectPanel } from './components/GrowthConnectPanel';
 import { GrowthRuleList } from './components/GrowthRuleList';
@@ -31,8 +31,8 @@ export function PlatformDetail({ data, state = 'success' }: ScreenProps<Platform
   const links = useGrowthLinks();
   const { platform } = flow;
   return (
-    <GrowthFrame
-      artboard="Platform-Detail"
+    <LoopFrame
+      artboard="Platform-Detail" under="Platforms"
       title={platform.name}
       tag="COMING SOON"
       back={{ href: links.to(growthArtboards.platforms), label: 'All platforms' }}
@@ -54,6 +54,6 @@ export function PlatformDetail({ data, state = 'success' }: ScreenProps<Platform
           </Stack>
         </Columns>
       </StateView>
-    </GrowthFrame>
+    </LoopFrame>
   );
 }

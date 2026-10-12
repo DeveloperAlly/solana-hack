@@ -16,7 +16,7 @@
 import { Grid, Stack } from '../../ui/primitives';
 import { StatTile } from '../../ui/composites/StatTile';
 import { StateView } from '../../ui/composites/StateView';
-import { GrowthFrame } from './components/GrowthFrame';
+import { LoopFrame } from './components/LoopFrame';
 import { GrowthTipsTable } from './components/GrowthTipsTable';
 import { formatRate, formatUsdc } from './format';
 import { useTipsReceived } from './useTipsReceived';
@@ -25,7 +25,7 @@ import type { ScreenProps, TipsReceivedData } from './types';
 export function TipsReceived({ data, state = 'success' }: ScreenProps<TipsReceivedData>) {
   const flow = useTipsReceived(data);
   return (
-    <GrowthFrame
+    <LoopFrame
       artboard="Tips-Received"
       title="Tips received"
       tag="COMING SOON"
@@ -46,6 +46,6 @@ export function TipsReceived({ data, state = 'success' }: ScreenProps<TipsReceiv
           <GrowthTipsTable rows={flow.rows} posts={flow.posts} />
         </Stack>
       </StateView>
-    </GrowthFrame>
+    </LoopFrame>
   );
 }
