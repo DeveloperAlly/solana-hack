@@ -16,7 +16,7 @@ vi.mock('../../worker/registry', () => ({
 }));
 const { registerKit, reviewEvidence, ingest, draftSection } = await import('../../worker/api');
 const { approvePost, allEvidence } = await import('../../worker/posts');
-const { factTrust, usableFact, snapshotFact, SOURCE_TYPES } = await import('../../worker/sources/registry');
+const { factTrust, usableFact, snapshotFact, SOURCE_TYPES, urlKind } = await import('../../worker/sources/registry');
 
 const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k', REGISTRAR_KEY: '[1]', RPC_URL: 'https://rpc.test', OPENROUTER_API_KEY: 'k' } as Env;
 const brand = { id: 'b', owner_id: 'u', name: 'JamJam', type: 'company', description: null, website: null, goal: null, channel: null };
@@ -163,6 +163,20 @@ describe('drafting and registration use the allow-list', () => {
     expect(reg.register).not.toHaveBeenCalled();
     expect(tables.kits).toHaveLength(0);
   });
+  it('refuses to sign when a fact decision changes while registering (PR #63 review)', async () => {
+    tables = readyBrand();
+    // The owner approves the third-party fact between the first state read and the re-read.
+    let evidenceReads = 0;
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('/evidence') && (init?.method ?? 'GET') === 'GET' && ++evidenceReads === 2) {
+        tables.evidence.find((e) => e.id === 'e-third')!.review_status = 'approved';
+      }
+      return realFetch(url, init);
+    }));
+    await expect(registerKit(env, user, brand)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('facts changed') });
+    expect(reg.register).not.toHaveBeenCalled();
+  });
   it('a section citing a rejected fact cannot register, and rejecting reports the sections that cite it', async () => {
     tables = readyBrand();
     const r = await reviewEvidence(env, brand, 'e-owned', 'rejected');
@@ -182,9 +196,29 @@ describe('drafting and registration use the allow-list', () => {
     tables = { sources: [], evidence: [] };
     page = '<html><title>JamJam</title><body><p>JamJam was founded in 2024 to help brands prove what they say.</p></body></html>';
     llm = () => ({ facts: [{ section: 'purpose', claim: 'Founded 2024', quote: 'JamJam was founded in 2024' }] });
-    await ingest(env, brand, 'https://example.com');
+    await ingest(env, { ...brand, website: 'example.com' }, 'https://www.example.com/about');
     expect(tables.evidence[0]).toMatchObject({ origin: 'source', trust: 'owned', review_status: 'approved' });
     expect(tables.sources[0]).toMatchObject({ kind: 'site' });
+  });
+  it('a page off the brand website is third-party and waits for the owner (PR #63 review)', async () => {
+    tables = { sources: [], evidence: [] };
+    page = '<html><title>News</title><body><p>JamJam was founded in 2024 to help brands prove what they say.</p></body></html>';
+    llm = () => ({ facts: [{ section: 'purpose', claim: 'Founded 2024', quote: 'JamJam was founded in 2024' }] });
+    const r = await ingest(env, { ...brand, website: 'jamjam.tech' }, 'https://news.example.org/jamjam');
+    expect(tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
+    expect(tables.sources[0]).toMatchObject({ kind: 'page' });
+    expect(r).toMatchObject({ kind: 'page', needsReview: 1 });
+    // With no website set, nothing counts as owned.
+    tables = { sources: [], evidence: [] };
+    await ingest(env, brand, 'https://jamjam.tech');
+    expect(tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
+  });
+  it('urlKind matches the website and its subdomains only', () => {
+    expect(urlKind('https://blog.jamjam.tech/post', 'https://www.jamjam.tech')).toBe('site');
+    expect(urlKind('https://jamjam.tech', 'jamjam.tech')).toBe('site');
+    expect(urlKind('https://notjamjam.tech', 'jamjam.tech')).toBe('page');
+    expect(urlKind('https://jamjam.tech.evil.com', 'jamjam.tech')).toBe('page');
+    expect(urlKind('https://jamjam.tech', null)).toBe('page');
   });
   it('the live-evidence reader applies the allow-list', async () => {
     tables = readyBrand();

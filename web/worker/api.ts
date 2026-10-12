@@ -6,7 +6,7 @@ import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type Secti
 import { MAX_QUOTE, normalisePage, quoteOnPage } from './quote';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
-import { factTrust, usableFact } from './sources/registry';
+import { factTrust, urlKind, usableFact } from './sources/registry';
 import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
@@ -80,7 +80,9 @@ export async function draftSection(env: Env, brand: Brand, section: SectionId) {
 }
 
 export async function ingest(env: Env, brand: Brand, rawUrl: string) {
-  const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url: rawUrl.slice(0, 500), status: 'pending', kind: 'site' });
+  // Owned only when the page is on the brand's own website; any other page is third-party (registry urlKind).
+  const kind = urlKind(rawUrl, brand.website);
+  const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url: rawUrl.slice(0, 500), status: 'pending', kind });
   try {
     const page = await readPage(rawUrl);
     const text = page.text.slice(0, 14000);
@@ -95,12 +97,12 @@ export async function ingest(env: Env, brand: Brand, rawUrl: string) {
       .map((f) => ({ ...f, quote: typeof f.quote === 'string' ? f.quote.trim() : '' }))
       .filter((f) => f.claim && f.quote && f.quote.length <= MAX_QUOTE && isSection(f.section ?? '') && quoteOnPage(hay, f.quote))
       // Trust and the starting review decision come from the source type registry (sources/registry.ts), not from here.
-      .map((f) => ({ brand_id: brand.id, source_id: src.id, section: f.section, claim: str(f.claim, 500), quote: f.quote, origin: 'source', ...factTrust('site') }));
+      .map((f) => ({ brand_id: brand.id, source_id: src.id, section: f.section, claim: str(f.claim, 500), quote: f.quote, origin: 'source', ...factTrust(kind) }));
     if (rows.length) await db.insert(env, 'evidence', rows);
     // source_text (spec/db/008) keeps the full text the quotes were checked against, so any stored quote can be
     // re-checked later; text_excerpt stays for existing readers.
     await db.update(env, 'sources', db.eq('id', src.id), { status: 'read', title: page.title, text_excerpt: text.slice(0, 2000), source_text: page.text, fetched_at: new Date().toISOString(), url: page.url.slice(0, 500) });
-    return { sourceId: src.id, facts: rows.length, dropped: facts.length - rows.length };
+    return { sourceId: src.id, facts: rows.length, dropped: facts.length - rows.length, kind, needsReview: kind === 'page' ? rows.length : 0 };
   } catch (e) {
     const msg = e instanceof HttpError ? e.message : 'reading the page failed';
     await db.update(env, 'sources', db.eq('id', src.id), { status: 'failed', error: msg });
@@ -198,6 +200,10 @@ export async function registerKit(env: Env, user: User, brand: Brand, now = Date
     x.sections.find((s) => s.section === 'voice')?.body ?? null,
   ]);
   if (voiceKey(again) !== voiceKey(st)) throw new HttpError(409, 'your voice changed while registering; check Gate 3 and try again');
+  // Same for evidence decisions: a fact approved, rejected or removed while this ran would make the snapshot disagree
+  // with what the owner decided, so refuse rather than sign it (PR #63 review).
+  const evidenceKey = (x: typeof st) => JSON.stringify(x.evidence.map((e) => [e.id, e.trust ?? null, e.review_status ?? null]).sort());
+  if (evidenceKey(again) !== evidenceKey(st)) throw new HttpError(409, 'your facts changed while registering; check them and try again');
   const hash = 'sha256:' + (await sha256Hex(canonical(payload)));
   const [kit] = await db.insert<Kit>(env, 'kits', { brand_id: brand.id, version, hash, payload, approved_by: user.id, status: 'pending' });
   try {

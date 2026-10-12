@@ -20,6 +20,9 @@ export interface SourceType {
 export const SOURCE_TYPES = {
   // The brand's own website: the link the owner adds on the Your links step (ingest in api.ts).
   site: { kind: 'site', trust: 'owned', label: 'Your website or a page you control' },
+  // Any other page someone links to: a news article, a profile, a directory listing. The owner does not control it,
+  // so its facts wait for the owner's approval (PR #63 review). See urlKind.
+  page: { kind: 'page', trust: 'third_party', label: 'A page about the brand that you do not control' },
   // Planned (#33, #35): no code writes these yet. Declared now so their facts arrive as third-party, never owned.
   search_result: { kind: 'search_result', trust: 'third_party', label: 'A web search result about the brand' },
   competitor_page: { kind: 'competitor_page', trust: 'third_party', label: 'A competitor page' },
@@ -62,4 +65,26 @@ export function snapshotFact<T extends { origin?: string; trust?: string | null;
   if (e.trust) return { ...e, trust: e.trust, review_status: e.review_status ?? null };
   const trust = e.origin === 'source' ? 'owned' : e.origin === 'owner_answer' ? 'owner_answer' : null;
   return { ...e, trust, review_status: trust ? 'approved' : null };
+}
+
+/** Hostname without a leading "www.", lower case; null when the value is not a usable URL. */
+function host(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value.includes('://') ? value : `https://${value}`).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Which source kind a linked page is. Only a page on the brand's own website (the Basics website, or one of its
+ * subdomains) is `site`, whose quote-checked facts are owned and approved; any other page is `page`, third-party and
+ * proposed until the owner approves each fact. With no website set, nothing counts as owned. Found in review of
+ * PR #63: https://github.com/DeveloperAlly/solana-hack/pull/63
+ */
+export function urlKind(url: string, website: string | null | undefined): 'site' | 'page' {
+  const own = host(website);
+  const h = host(url);
+  return own && h && (h === own || h.endsWith(`.${own}`)) ? 'site' : 'page';
 }
