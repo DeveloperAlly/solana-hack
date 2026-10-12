@@ -12,9 +12,9 @@ tags: [demo, script, colosseum]
 
 **What the demo proves:** a brand kit built from the brand's own site, where a fact is kept only with its quote; a post in that voice, with a false claim blocked by the claims gate; and public proof on Solana devnet that anyone can check.
 
-**Demo brand:** JamJam builds its own brand (compendium §4, decided). One take, one critical path; every wait is cut.
+**Demo brand:** JamJam builds its own brand (compendium §4, decided). One critical path; every wait is cut, and the voice-over says so.
 
-**Voice-over:** 273 words over 3:00, about 110 words a minute, leaving room for the screen.
+**Voice-over:** 280 words over 3:00, about 110 words a minute, leaving room for the screen.
 
 ## 1. Critical path
 
@@ -45,7 +45,7 @@ Route `/ (landing)` · status BUILT · placeholder: wireframe Landing-v2
 - Small print: "No wallet needed"
 - Sample "Your brand kit" box: Purpose, Positioning, Voice
 
-**Say:** This is JamJam, live at jamjam.tech. In three minutes I'll build JamJam's own brand, write a post in its voice, and prove that post on Solana.
+**Say:** This is JamJam, live at jamjam.tech. I'll build JamJam's own brand, write a post in its voice, and prove that post on Solana. Waits are cut.
 
 **Recording:** Start the recording on the landing page, signed out. Cursor on Build my brand.
 
@@ -61,7 +61,7 @@ Route `/sign-in` · status BUILT · LINK · placeholder: wireframe Onboard-1-Sig
 
 **Say:** I sign in with email. No password, no wallet.
 
-**Recording:** Use the emailed link (proven live). Sign-in by code is not exercised live yet, so do not show the code field. Cut the inbox.
+**Recording:** Use the emailed link (proven live). Sign-in by code is not exercised live yet, so do not show the code field. Cut the inbox; allow 8 seconds.
 
 ### Beat 03 · 0:18–0:38 · A fact stays only if it can be quoted
 
@@ -71,11 +71,11 @@ Route `/build/basics, then /build/sources` · status NEEDS BUILD · placeholder:
 - Basics: Brand name "JamJam", Website "jamjam.tech", "Save and continue"
 - Your links: "Read this page" then "Reading the page…" (cut the wait)
 - Alert: "Read it. {n} facts saved with quotes from the page."
-- MUST: each fact shows its quote and page link (not shown today)
+- MUST: each fact shows its quote (today only the claim and page link show)
 
 **Say:** I name the brand and give it our site. JamJam reads the page and keeps a fact only if it can quote the line it came from.
 
-**Recording:** P0 build: show the stored quote and source link under each fact (data exists; the UI shows only the claim). Website in Basics must be jamjam.tech or the facts are treated as third-party.
+**Recording:** P0 build: show the stored quote under each fact (data exists; the UI shows the claim and page link only). Website in Basics must be jamjam.tech or the facts are treated as third-party. FALLBACK if quotes don't ship: hold on the alert 'Read it. {n} facts saved with quotes from the page.' and say: JamJam reads the page and saves only facts it can quote from it.
 
 ### Beat 04 · 0:38–0:55 · Short questions, a chosen voice, a strict gate
 
@@ -99,10 +99,10 @@ Route `/build/purpose (Gate 1)` · status BUILT · NEEDS AI KEY · placeholder: 
 - H1: "Gate 1: purpose"
 - "Draft it for me" then "Drafting… this takes up to a minute" (cut)
 - "Where this came from": "Your answer: …" and "Source: … (page link)"
-- "Approve purpose" then "Approved · Recorded {date, time}"
+- "Approve purpose" then alert "Approved": "Recorded {date, time}."
 - Cut: Gates 2 and 3 already approved
 
-**Say:** The AI drafts our purpose, and shows where each line came from: my answers and quotes from the site. This is a decision gate. I approve it, and the approval is recorded. Positioning and voice work the same way.
+**Say:** The AI drafts our purpose, and shows where each line came from: my answers, and facts from the site linked to their page. This is a decision gate. I approve it, and the approval is recorded. Positioning and voice work the same way.
 
 **Recording:** Needs OPENROUTER_API_KEY live (aiConfigured unconfirmed in STATE.md). Free model can return 'busy': retry, keep the best take.
 
@@ -113,12 +113,12 @@ Route `/build/kit` · status BUILT · placeholder: wireframe J5-Approve-Kit
 **Must come up:**
 - H1: "JamJam kit", "Gates approved: 3 of 3"
 - "Register kit v1" then "Registering on Solana…" (cut, up to 45 s)
-- Alert: "Kit v1: registered" with sha256:…
+- Alert title "Kit v1: registered", body sha256:…
 - "View the transaction on Solana Explorer" opens the devnet transaction
 
 **Say:** Three gates approved. I register kit v1. JamJam's Registrar signs it on Solana devnet. The fingerprint goes on-chain; the words stay private. Here is the transaction.
 
-**Recording:** Open Explorer in the same tab (no new windows in the recording). Check the Explorer link uses cluster=devnet.
+**Recording:** Explorer opens in a new tab (the app's external links always do). Cut to it, then cut back. Check the URL has cluster=devnet.
 
 ### Beat 07 · 1:40–2:20 · A post in our voice, and a claim it blocks
 
@@ -126,12 +126,12 @@ Route `/create` · status BUILT · TEST THE BLOCK · placeholder: wireframe Draf
 
 **Must come up:**
 - "What is the post about?": JamJam launch · Channel: LinkedIn · "Draft a post"
-- "LinkedIn · drafted", "Slop check: passed", "Voice fit: {0-100}"
-- "Beautify" then "Last change: Beautify. Undo restores the previous text."
-- Add "Used by 10,000 brands." then "Approve": "Blocked by your claims gate"
-- Remove it, "Approve", "Copy text", "Register post", then "Registered"
+- "LinkedIn · drafted", "Slop check: passed" (keep the camera off the self-graded voice score)
+- "Beautify" then "Last change: beautify. Undo restores the previous text."
+- Add "Used by 10,000 brands.", "Save edits", "Approve": "Blocked by your claims gate"
+- Remove it, "Save edits", "Approve", "Copy text", "Register post", then "Registered"
 
-**Say:** Now a post. I ask for a LinkedIn launch post. It drafts in the approved voice and passes the slop check before I see it. Beautify formats it for LinkedIn. Now I add a claim we can't back: used by ten thousand brands. Approve. Blocked by my claims gate. I take it out, approve, and register the post.
+**Say:** Now a post. I ask for a LinkedIn launch post. It drafts in the approved voice and passes the slop check before I see it. Beautify formats it for LinkedIn. Now I add a claim we can't back: used by ten thousand brands. I save and approve. Blocked by my claims gate. I take it out, save, approve, and register it.
 
 **Recording:** Rehearse the block off camera first: the claims gate is an LLM call, so confirm it blocks that sentence under Strict. Keep the approved text unchanged for Verify.
 
@@ -168,7 +168,7 @@ Route `/grow (coming soon), then /` · status BUILT · placeholder: wireframe Gr
 
 **Must come up:**
 - Grow: "Coming soon", "Run campaigns with ambassadors who write in your voice…"
-- End card: JamJam, "Every post provably yours." jamjam.tech
+- Edited end card (not app copy): JamJam, "Every post provably yours." jamjam.tech
 
 **Say:** Distribution, ambassadors and analytics are next. JamJam: your brand team, in one app. Every post provably yours.
 
@@ -178,8 +178,9 @@ Route `/grow (coming soon), then /` · status BUILT · placeholder: wireframe Gr
 
 | Priority | Need | Why, and the check |
 |---|---|---|
+| P0 | Migration 009 applied | Build is broken live until `spec/db/009_evidence_trust.sql` is applied: ingest writes `sources.kind`, which 009 creates ([CPO audit](https://github.com/DeveloperAlly/solana-hack/pull/94), 2026-10-13). Apply it, then run the full path once. |
 | P0 | AI model live | Every draft step returns 503 without `OPENROUTER_API_KEY` (`web/worker/llm.ts`); `aiConfigured` is not confirmed in STATE.md. Check `/api/health`. |
-| P0 | Show the quote under each fact | Your links and "Where this came from" show only the claim text, so the core promise (a fact stays only with its quote) is not visible. The quote and page link are stored; render them. |
+| P0 | Show the quote under each fact | Your links shows only the claim, and "Where this came from" shows the claim and its page link, so the core promise (a fact stays only with its quote) is not visible. The quote is stored; render it. Fallback VO if it does not ship: "JamJam reads the page and saves only facts it can quote from it." |
 | P0 | Claims block rehearsed | Under Strict, adding "Used by 10,000 brands." must return "Blocked by your claims gate". The gate is an LLM call (`posts.ts` policyCheck); test it live first. |
 | P0 | Facts count as owned | Website in Basics must match the ingested domain. Facts from other domains stay `proposed`, and no screen on main approves them (`PATCH /evidence/:id` exists, unused). |
 | P1 | Drafter gets kept facts | The post prompt gets voice, messaging, positioning and purpose, not the evidence list (`posts.ts`), so a draft can carry a claim the gate then blocks. |
@@ -187,14 +188,15 @@ Route `/grow (coming soon), then /` · status BUILT · placeholder: wireframe Gr
 
 ## 4. Recording runbook
 
-- **Before:** run the whole path once off camera on jamjam.tech. Pre-answer the question steps; approve Gates 2 and 3 in that run. Sign in by the emailed link (sign-in by code is not exercised live).
-- **During:** cut every wait: the page read (12 s timeout, `ingest.ts`), drafting (up to about a minute), registration (confirmation poll up to 45 s, `registry.ts`). Keep the approved post text exactly as registered, because Verify hashes the text.
+- **Gate:** no take until the whole path has run once live and its kit and post transactions are posted on [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) (STATE.md Next, item 3).
+- **Before:** pre-answer the question steps; approve Gates 2 and 3 in that run. Sign in by the emailed link (sign-in by code is not exercised live).
+- **During:** cut every wait: the page read (12 s timeout, `ingest.ts`), drafting (up to about a minute), registration (confirmation poll up to 45 s, `registry.ts`). Keep the approved post text exactly as registered, because Verify hashes the text. Edited text hides Approve until "Save edits" is pressed. Explorer links open a new tab; cut to it and back.
 - **Fallback:** the free model can answer "busy": wait and retry. If a registration outcome is unknown, use "Check registration". Keep a second full take.
 - **After:** 3:00 or less, captions on, 1080p.
 
 ## 5. Every spoken word
 
-**0:00** This is JamJam, live at jamjam.tech. In three minutes I'll build JamJam's own brand, write a post in its voice, and prove that post on Solana.
+**0:00** This is JamJam, live at jamjam.tech. I'll build JamJam's own brand, write a post in its voice, and prove that post on Solana. Waits are cut.
 
 **0:12** I sign in with email. No password, no wallet.
 
@@ -202,11 +204,11 @@ Route `/grow (coming soon), then /` · status BUILT · placeholder: wireframe Gr
 
 **0:38** It asks short questions and shows what it already found. For voice I pick Candid founder, and I set the claims gate to strict: every claim needs evidence.
 
-**0:55** The AI drafts our purpose, and shows where each line came from: my answers and quotes from the site. This is a decision gate. I approve it, and the approval is recorded. Positioning and voice work the same way.
+**0:55** The AI drafts our purpose, and shows where each line came from: my answers, and facts from the site linked to their page. This is a decision gate. I approve it, and the approval is recorded. Positioning and voice work the same way.
 
 **1:20** Three gates approved. I register kit v1. JamJam's Registrar signs it on Solana devnet. The fingerprint goes on-chain; the words stay private. Here is the transaction.
 
-**1:40** Now a post. I ask for a LinkedIn launch post. It drafts in the approved voice and passes the slop check before I see it. Beautify formats it for LinkedIn. Now I add a claim we can't back: used by ten thousand brands. Approve. Blocked by my claims gate. I take it out, approve, and register the post.
+**1:40** Now a post. I ask for a LinkedIn launch post. It drafts in the approved voice and passes the slop check before I see it. Beautify formats it for LinkedIn. Now I add a claim we can't back: used by ten thousand brands. I save and approve. Blocked by my claims gate. I take it out, save, approve, and register it.
 
 **2:20** Anyone can check it. I paste the post into the public Verify page. Registered by JamJam, checked on Solana just now. Change one word, and it's not an official post.
 

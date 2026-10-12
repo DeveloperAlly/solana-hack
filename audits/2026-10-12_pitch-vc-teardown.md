@@ -23,7 +23,7 @@ The owner asked for a VC reading of the pitch: "why do I need a blockchain at al
   - Any wallet, exchange or app can read it without asking JamJam.
   - No one can quietly rewrite it, including JamJam, because the record and its history are public.
   - Outside readers arrive through distribution. Published posts carry a "check it" link to Verify where the channel allows links (backlog phase 3; X post bodies stay link-free). Anyone can also paste a post into the public Verify page (whether it is live is in [STATE.md](../STATE.md)). The record format is open, so a wallet or exchange can query it directly.
-- **Money.** Brands pay partners and ambassadors in USDC, anywhere, from their own wallet, inside a set budget ([ADR-006](../.agentic/what/decisions/adr_006_wallet_identity_split.md); backlog phase 4). The gain over card and bank payouts that JamJam's design relies on is public settlement: each payment is a transfer anyone can check against the approved piece it paid for.
+- **Money.** Brands pay partners and ambassadors on-chain in USDC, between supported Solana wallets, from their own wallet, inside a set budget ([ADR-006](../.agentic/what/decisions/adr_006_wallet_identity_split.md); backlog phase 4). The gain over card and bank payouts that JamJam's design relies on is public settlement: each payment is a transfer anyone can check against the approved piece it paid for.
 
 Brands sign in with email, so the proof job needs no wallet: JamJam's Registrar signs every record. The money job does: the brand connects its own wallet and signs each USDC payout, and the ambassador receives to theirs ([ADR-006](../.agentic/what/decisions/adr_006_wallet_identity_split.md)).
 
