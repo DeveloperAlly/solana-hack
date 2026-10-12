@@ -24,8 +24,12 @@ export const DOC_MAX_BYTES = 15 * 1024 * 1024;
 export const MIN_LETTERS_PER_PAGE = 40;
 export const MIN_LETTERS = 200;
 
-/** A line that is only a page number, with an optional total: "3", "- 3 -", "3/10", "Page 3", "Page 3 of 10". */
-const PAGE_LABEL = /^[\s\p{P}]*(?:page|pg\.?|p\.)?\s*(\d{1,4})(?:\s*(?:of|\/|\|)\s*(\d{1,4}))?[\s\p{P}]*$/iu;
+/**
+ * A line that is only a page number, with an optional total: "3", "- 3 -", "(3)", "[3]", "3/10", "Page 3", "Page 3 of
+ * 10". Only the decorations page numbering uses are allowed around it (spaces, dashes, brackets, a middle dot, a
+ * closing full stop), so "1%" or "$2" is a value, never a page number (PR #71 review).
+ */
+const PAGE_LABEL = /^[\s\-\u2013\u2014(\[\u00b7]*(?:page|pg\.?|p\.)?\s*(\d{1,4})(?:\s*(?:of|\/|\|)\s*(\d{1,4}))?[\s\-\u2013\u2014)\]\u00b7.]*$/iu;
 
 /**
  * Letters and digits in the document's text, page numbers aside. A line counts as a page number only when it names
@@ -96,11 +100,13 @@ export async function readDocument(env: SourceEnv, input: DocumentInput): Promis
       ? fail('unsupported_type', 'Slides cannot be read yet; export the deck as a PDF and upload that.')
       : fail('unsupported_type', 'We read PDF, Word (DOCX) and Excel (XLSX) files; export the file as one of those, or paste its text.');
   }
-  // A copy on a plain ArrayBuffer, the type Blob accepts (a view could sit on a SharedArrayBuffer).
-  const bytes = new Uint8Array(input.bytes instanceof Uint8Array ? input.bytes : new Uint8Array(input.bytes));
+  // Size first, on the input as given, so an oversized upload is refused before any copy is made (PR #71 review).
   const max = input.maxBytes ?? DOC_MAX_BYTES;
-  if (bytes.byteLength > max) return fail('too_large', `That file is over ${Math.round(max / 1024 / 1024)} MB; upload a smaller copy, or paste the key points.`);
-  if (bytes.byteLength === 0) return fail('empty', 'That file is empty; upload it again.');
+  const size = input.bytes.byteLength;
+  if (size > max) return fail('too_large', `That file is over ${Math.round(max / 1024 / 1024)} MB; upload a smaller copy, or paste the key points.`);
+  if (size === 0) return fail('empty', 'That file is empty; upload it again.');
+  // Then a copy on a plain ArrayBuffer, the type Blob accepts (a view could sit on a SharedArrayBuffer).
+  const bytes = new Uint8Array(input.bytes instanceof Uint8Array ? input.bytes : new Uint8Array(input.bytes));
   if (!env.AI?.toMarkdown) return fail('not_configured', 'Document reading is not set up yet; paste the key points instead.');
   let out: ConversionResult | undefined;
   try {

@@ -48,6 +48,29 @@ describe('document adapter', () => {
     const r = await readDocument({ AI: ai({ name: 's.pdf', format: 'markdown', data }) }, { name: 's.pdf', bytes });
     expect(r).toMatchObject({ ok: false, code: 'needs_ocr' });
   });
+  it('keeps values such as 1% even on the page with the same number (PR #71 review)', async () => {
+    const data = '# v.pdf\n## Metadata\n- Producer=Keynote\n\n## Contents\n### Page 1\n1%\n### Page 2\n2%\n';
+    const r = await readDocument({ AI: ai({ name: 'v.pdf', format: 'markdown', data }) }, { name: 'v.pdf', bytes });
+    expect(r).toMatchObject({ ok: true, meta: { pages: 2 } });
+    // Real page numbering with its usual decorations is still recognised.
+    const scan = '# s3.pdf\n## Metadata\n- Producer=Scanner\n\n## Contents\n### Page 1\n- 1 -\n### Page 2\n(2)\n### Page 3\nPage 3 of 3.\n';
+    expect(await readDocument({ AI: ai({ name: 's3.pdf', format: 'markdown', data: scan }) }, { name: 's3.pdf', bytes })).toMatchObject({ ok: false, code: 'needs_ocr' });
+    expect(r.ok && r.text).toContain('1%');
+  });
+  it('refuses an oversized upload before copying it (PR #71 review)', async () => {
+    const big = new Uint8Array(32);
+    const env: SourceEnv = { AI: ai({ name: 'x', format: 'markdown', data: prose }) };
+    // Count every Uint8Array the adapter constructs: none may be made for a file it refuses for size.
+    const OrigU8 = globalThis.Uint8Array;
+    let copies = 0;
+    globalThis.Uint8Array = new Proxy(OrigU8, { construct(t, a) { copies++; return Reflect.construct(t, a); } }) as typeof Uint8Array;
+    try {
+      expect(await readDocument(env, { name: 'big.pdf', bytes: big, maxBytes: 16 })).toMatchObject({ ok: false, code: 'too_large' });
+    } finally {
+      globalThis.Uint8Array = OrigU8;
+    }
+    expect(copies).toBe(0);
+  });
   it('keeps figures such as 2026 or 42% that are not the page they sit on (PR #71 review)', async () => {
     const data = '# k.pdf\n## Metadata\n- Producer=Keynote\n\n## Contents\n### Page 1\n2026\n### Page 2\n42%\n### Page 3\n3\n';
     const r = await readDocument({ AI: ai({ name: 'k.pdf', format: 'markdown', data }) }, { name: 'k.pdf', bytes });
