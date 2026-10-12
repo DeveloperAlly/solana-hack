@@ -11,6 +11,8 @@
 // - Connect methods named only where a repo doc names them (X and LinkedIn OAuth: backend map §9; the Discord bot and
 //   the Telegram brand bot: canvas Inbox-Connect; a feed URL for blogs: the site ingest); the rest stay bracketed.
 
+import { platformLimit } from '../lib/xLength';
+
 export const platformKinds = [
   { id: 'social', label: 'Social' },
   { id: 'long-form', label: 'Long-form' },
@@ -91,7 +93,8 @@ export const platforms: Platform[] = [
       { text: 'A paid post can carry X’s paid-partnership label (the paid_partnership field).', source: backendMapApis },
     ],
     today: { text: 'Create drafts X posts and holds them to X’s 280-character limit.', source: createDrafts },
-    charLimit: { value: 280, source: createDrafts },
+    // The Worker's own limit (lib/xLength mirrors web/worker/posts.ts platformLimit, with a parity test).
+    charLimit: { value: platformLimit('x') as number, source: createDrafts },
   },
   {
     id: 'linkedin',

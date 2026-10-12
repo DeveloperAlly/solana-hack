@@ -10,7 +10,7 @@ import { useHubLinks } from '../paths';
 import { useOpenDraft } from '../../../flows/drafts/openDraft';
 import type { DraftContent, DraftReviewData } from '../types';
 import { ChecksAndPublish } from './ChecksAndPublish';
-import { DraftEditor } from './DraftEditor';
+import { DraftPostCard } from './DraftPostCard';
 import { SlopAndHistory } from './SlopAndHistory';
 
 export interface DraftReviewBodyProps {
@@ -37,7 +37,7 @@ export function DraftReviewBody({ data, draftId, draft, state, drawnDraft }: Dra
         <StateView
           state={state}
           views={{
-            success: <DraftEditor review={review} data={data} />,
+            success: <DraftPostCard review={review} data={data} />,
             loading: <StatePanel kind="loading" title="Writing…" body="The writer is drafting from your brief; the slop check runs before you see it." />,
           }}
         />

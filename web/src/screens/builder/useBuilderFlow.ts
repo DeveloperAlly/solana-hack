@@ -5,7 +5,7 @@
 // State is held in memory for the session, so it survives moving between /screens routes; nothing is sent anywhere.
 // INTEGRATION: gates persist through POST /api/brands/:id/gates/:gate/approve (backend map §4, "Gate 1, Gate 2, Gate 3").
 import { createStore } from '../../lib/createStore';
-import { activeBrand, selectBrand, useActiveBrandId } from '../../flows/brand/activeBrand';
+import { activeBrand, selectBrand } from '../../flows/brand/activeBrand';
 import type { StepperStep } from '../../ui/composites/Stepper';
 import { useBoardHref, type BoardKey } from './paths';
 import type { BuilderBrand, DialValues, GateDecision, GateId, VoicePick } from './types';
@@ -199,14 +199,6 @@ export function useBuilderFlow(key: FlowKey) {
 }
 
 export type BuilderFlow = ReturnType<typeof useBuilderFlow>;
-
-/**
- * The hub brand switcher's selection (Kit-Export, Dashboard): [active brand id, choose]. The brand is the app-wide one
- * (flows/brand/activeBrand), so every page's switcher agrees.
- */
-export function useHubBrand(): [string, (id: string) => void] {
-  return useActiveBrandId();
-}
 
 /** The kit version Kit-Export should open on, if one was chosen upstream. */
 export function useExportVersion(): string | undefined {

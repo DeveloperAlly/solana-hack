@@ -3,10 +3,8 @@ import type { RouteTag } from '../../config/routes';
 import { Container, Stack } from '../../ui/primitives';
 import { AppShell } from '../../ui/shells/AppShell';
 import { PageHeader } from '../../ui/layouts/PageHeader';
-import { BrandSwitcher } from '../../ui/domain/BrandSwitcher';
 import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
-import { demoBrands } from '../../ui/domain/demoBrands';
-import { useActiveBrandId } from '../../flows/brand/activeBrand';
+import { ActiveBrandSwitcher } from '../../flows/brand/ActiveBrandSwitcher';
 import { useSoonSession } from './useSoonSession';
 
 export interface SoonHeader {
@@ -32,11 +30,10 @@ export interface SoonPageProps {
  */
 export function SoonPage({ header, nav, children }: SoonPageProps) {
   const [session] = useSoonSession();
-  const [brandId, selectBrand] = useActiveBrandId();
-  const brands = [...demoBrands, ...(session.addedBrands ?? []).map((b) => ({ id: b.id, name: b.name }))];
+  const added = (session.addedBrands ?? []).map((b) => ({ id: b.id, name: b.name }));
   const { title, intro, definedIn, actions, tag = 'COMING SOON' } = header;
   return (
-    <AppShell brandSlot={<BrandSwitcher brands={brands} currentId={brandId} onSelect={selectBrand} />}>
+    <AppShell brandSlot={<ActiveBrandSwitcher added={added} />}>
       <Container width="app">
         <Stack gap={6}>
           <PageHeader title={title} intro={intro} actions={actions} badges={<ComingSoonFlag tag={tag} />} meta={definedIn && `Drawn, not built. Defined in: ${definedIn}`} />

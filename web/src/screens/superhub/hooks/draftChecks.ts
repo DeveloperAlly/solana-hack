@@ -1,4 +1,5 @@
-import { platformLimit, xWeightedLength } from '../../../lib/xLength';
+import { xWeightedLength } from '../../../lib/xLength';
+import { charLimitFor } from '../../../config/platforms';
 import type { DraftContent, DraftReviewData } from '../types';
 
 /** One row of the Checks panel. `blocking` is the only thing the Approve button reads. */
@@ -41,16 +42,17 @@ export function evaluateDraftChecks(text: string, data: DraftReviewData, draft: 
   ];
 }
 
-/** How long the post is for its channel: X counts weighted characters (lib/xLength, as the Worker does). */
-export function draftLength(text: string, channel: string): { size: number; limit: number | null } {
-  const limit = platformLimit(channel);
-  return { size: limit ? xWeightedLength(text) : [...text].length, limit };
+/** A draft's size and its channel's limit (config/platforms.ts, the one platform source); X counts as X weights it. */
+export function draftLength(text: string, channel: string): { size: number; limit: number | null; weighted: boolean } {
+  const id = channel.trim().toLowerCase();
+  const weighted = id === 'x';
+  return { size: weighted ? xWeightedLength(text) : [...text].length, limit: charLimitFor(id), weighted };
 }
 
 /** The channel's hard limit, where it has one; an empty post blocks too. */
 function lengthCheck(text: string, channel: string): DraftCheckResult {
-  const { size, limit } = draftLength(text, channel);
+  const { size, limit, weighted } = draftLength(text, channel);
   if (!text.trim()) return { label: 'Length', value: 'Empty', blocking: true, reason: 'the post is empty' };
-  if (limit && size > limit) return { label: 'Length', value: `${size} / ${limit} · over the limit`, blocking: true, reason: `it is over the ${limit}-character limit as X counts it` };
+  if (limit && size > limit) return { label: 'Length', value: `${size} / ${limit} · over the limit`, blocking: true, reason: `it is over the ${limit}-character limit${weighted ? ' as X counts it' : ''}` };
   return { label: 'Length', value: limit ? `${size} / ${limit}` : `${size} characters`, blocking: false };
 }

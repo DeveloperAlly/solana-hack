@@ -1,6 +1,6 @@
 import { Button, Stack, Text } from '../../../ui/primitives';
 import { Card } from '../../../ui/composites/Card';
-import { AmbDraftEditor } from '../../../ui/domain/AmbDraftEditor';
+import { DraftEditor } from '../../../ui/domain/DraftEditor';
 import { useDisclosure } from '../../../ui/hooks/useDisclosure';
 import type { DraftState } from '../useDraft';
 
@@ -22,7 +22,7 @@ export function DraftPanel({ draft, charLimit, generating }: DraftPanelProps) {
   );
   return (
     <Stack gap={3}>
-      <AmbDraftEditor label="Draft" value={draft.text} onChange={draft.setText} highlights={draft.highlights} charLimit={charLimit ?? undefined} generating={generating} toolbar={toolbar} />
+      <DraftEditor label="Draft" value={draft.text} onChange={draft.setText} highlights={draft.highlights} charLimit={charLimit ?? undefined} generating={generating} toolbar={toolbar} />
       {history.open && (
         <Card variant="subtle" as="div">
           <Text variant="label">Earlier versions</Text>

@@ -15,19 +15,19 @@ import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { BuilderKitExport, type KitExportStatus } from '../../ui/domain/BuilderKitExport';
 import { BuilderHubPage } from './BuilderHubPage';
 import { brandSubnav } from './paths';
-import { useExportVersion, useHubBrand } from './useBuilderFlow';
+import { useExportVersion } from './useBuilderFlow';
+import { activeBrand } from '../../flows/brand/activeBrand';
 import type { KitExportData } from './types';
 
 const statusFor: Partial<Record<ScreenState, KitExportStatus>> = { loading: 'preparing', error: 'failed' };
 
 export function KitExport({ data, state = 'success' }: { data: KitExportData; state?: ScreenState }) {
-  const [brandId, selectBrand] = useHubBrand();
+  // The app-wide active brand (flows/brand); the frame's switcher changes it.
+  const brandId = activeBrand.use();
   const versionId = useExportVersion();
   const kit = data.byBrand[brandId] ?? data.byBrand[data.defaultBrandId];
   return (
     <BuilderHubPage
-      brandId={brandId}
-      onSelectBrand={selectBrand}
       subnav={{ label: 'Brand', items: brandSubnav, current: 'kit' }}
       title="Download your kit"
       tag="HACKATHON (THIN)"

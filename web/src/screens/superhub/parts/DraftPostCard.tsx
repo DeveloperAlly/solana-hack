@@ -1,23 +1,25 @@
 import { Badge } from '../../../ui/primitives/Badge';
-import { Field, Heading, Stack, Text } from '../../../ui/primitives';
+import { Heading, Stack, Text } from '../../../ui/primitives';
+import { DraftEditor } from '../../../ui/domain/DraftEditor';
+import { xWeightedLength } from '../../../lib/xLength';
 import { Card } from '../../../ui/composites/Card';
 import { DiffView } from '../../../ui/composites/DiffView';
 import { PolishBar } from '../../../ui/domain/PolishBar';
 import { polishLabels, type DraftReviewState } from '../hooks/useDraftReview';
 import type { DraftReviewData } from '../types';
 
-export interface DraftEditorProps {
+export interface DraftPostCardProps {
   review: DraftReviewState;
   data: DraftReviewData;
 }
 
 /**
- * D5 DraftEditor: the editable post with its character count, or, right after Beautify, before and after side by side
- * with Undo Beautify one click away in the D6 PolishBar (n-drb); the polish bar sits under either.
+ * The Draft-Review post card: the shared D5 DraftEditor (slop phrases highlighted, the count as the channel counts it),
+ * or, right after Beautify, before and after side by side with Undo Beautify one click away in the D6 PolishBar
+ * (n-drb); the polish bar sits under either.
  */
-const lengthHint = ({ size, limit }: { size: number; limit: number | null }) => (limit ? `${size} / ${limit} characters (as X counts them)` : `${size} characters`);
-
-export function DraftEditor({ review, data }: DraftEditorProps) {
+export function DraftPostCard({ review, data }: DraftPostCardProps) {
+  const { size, limit, weighted } = review.length;
   const b = review.beautified;
   const polished = review.versions.filter((v) => v.action && v.action !== 'slop');
   const lastPolish = polished.at(-1);
@@ -30,15 +32,17 @@ export function DraftEditor({ review, data }: DraftEditorProps) {
           <Stack as="ul" gap={1}>{data.beautifyNotes.map((n) => <Text as="li" key={n} variant="small">{n}</Text>)}</Stack>
         </Stack>
       ) : (
-        <Field
+        <DraftEditor
           label="Post (editable)"
-          multiline
-          rows={6}
           value={review.text}
-          hint={review.locked ? 'Registered on Solana: a registered post cannot change. Draft a new one.' : lengthHint(review.length)}
-          error={review.overLimit && review.length.limit ? `Over the limit by ${review.length.size - review.length.limit} characters as X counts them. Shorten it or use Shorten.` : null}
+          onChange={review.setText}
+          highlights={data.slopPhrases}
+          charLimit={limit ?? undefined}
+          measure={weighted ? xWeightedLength : undefined}
+          countNote={weighted ? 'as X counts them' : undefined}
           readOnly={review.locked}
-          onChange={(e) => review.setText(e.target.value)}
+          hint={review.locked ? 'Registered on Solana: a registered post cannot change. Draft a new one.' : undefined}
+          error={review.overLimit && limit ? `Over the limit by ${size - limit} characters${weighted ? ' as X counts them' : ''}. Shorten it or use Shorten.` : null}
         />
       )}
       <PolishBar

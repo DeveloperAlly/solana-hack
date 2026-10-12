@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react';
 import { AppShell } from '../../../ui/shells/AppShell';
 import { TabNav } from '../../../ui/composites/TabNav';
-import { BrandSwitcher } from '../../../ui/domain/BrandSwitcher';
-import { demoBrands } from '../../../ui/domain/demoBrands';
 import { Container, Stack } from '../../../ui/primitives';
 import { useHubLinks, type HubLink } from '../paths';
 import { hubSubnav, hubTopNav, sectionLink, type HubSection } from './hubNav';
 import { useActiveBrand } from '../../../flows/brand/activeBrand';
+import { ActiveBrandSwitcher } from '../../../flows/brand/ActiveBrandSwitcher';
 
 export interface HubPageProps {
   section: HubSection;
@@ -33,7 +32,7 @@ export function HubPage({ section, sub, width = 'app', children }: HubPageProps)
       navHref={navHref}
       activePath={sectionLink[section]}
       brandName={brand.name}
-      brandSlot={<BrandSwitcher brands={demoBrands} currentId={brand.id} onSelect={brand.select} />}
+      brandSlot={<ActiveBrandSwitcher />}
       subnav={subnav && <TabNav label={subnav.label} items={subnav.items.map((i) => ({ ...i, href: links[i.link] }))} value={sub ?? ''} />}
     >
       <Container width={width}>

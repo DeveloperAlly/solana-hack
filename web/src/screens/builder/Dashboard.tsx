@@ -29,16 +29,15 @@ import { DashboardCampaigns } from './DashboardCampaigns';
 import { DashboardPayouts } from './DashboardPayouts';
 import { growSubnav, useBoardHref } from './paths';
 import type { DashboardScreenData } from './types';
-import { useHubBrand } from './useBuilderFlow';
+import { activeBrand } from '../../flows/brand/activeBrand';
 
 export function Dashboard({ data: screen }: { data: DashboardScreenData }) {
   const to = useBoardHref();
-  const [brandId, selectBrand] = useHubBrand();
+  // The app-wide active brand (flows/brand); the frame's switcher changes it.
+  const brandId = activeBrand.use();
   const data = screen.byBrand[brandId] ?? screen.byBrand[screen.defaultBrandId];
   return (
     <BuilderHubPage
-      brandId={brandId}
-      onSelectBrand={selectBrand}
       subnav={{ label: 'Grow', items: growSubnav, current: 'ambassadors' }}
       title={data.title}
       tag="STRETCH"

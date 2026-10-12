@@ -3,15 +3,11 @@ import type { RouteTag } from '../../config/routes';
 import { Container, Heading, Stack, Text } from '../../ui/primitives';
 import { TabNav } from '../../ui/composites/TabNav';
 import { AppShell } from '../../ui/shells/AppShell';
-import { BrandSwitcher } from '../../ui/domain/BrandSwitcher';
+import { ActiveBrandSwitcher } from '../../flows/brand/ActiveBrandSwitcher';
 import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
-import { demoBrands } from '../../ui/domain/demoBrands';
 import { useBoardHref, type SubnavItem } from './paths';
 
 export interface BuilderHubPageProps {
-  /** The active brand (demo brands, D48), and how to change it; the screen picks its data by this id. */
-  brandId: string;
-  onSelectBrand: (id: string) => void;
   /** The section's sub-nav; `current` is the id of this screen's tab (required, so no page forgets it). */
   subnav: { label: string; items: SubnavItem[]; current: string };
   title: string;
@@ -27,11 +23,11 @@ export interface BuilderHubPageProps {
  * A hub screen of this page (canvas Kit-Export, Dashboard): AppShell with the brand switcher, the section's sub-nav, a
  * title row with its tag chip and action, then the content.
  */
-export function BuilderHubPage({ brandId, onSelectBrand, subnav, title, tag, intro, action, children }: BuilderHubPageProps) {
+export function BuilderHubPage({ subnav, title, tag, intro, action, children }: BuilderHubPageProps) {
   const to = useBoardHref();
   // INTEGRATION: switching brand loads that brand's data (the account's brands; backend map §4).
   return (
-    <AppShell brandSlot={<BrandSwitcher brands={demoBrands} currentId={brandId} onSelect={onSelectBrand} />}>
+    <AppShell brandSlot={<ActiveBrandSwitcher />}>
       <Container width="app">
         <Stack gap={6}>
           <TabNav label={subnav.label} items={subnav.items.map((i) => ({ id: i.id, label: i.label, href: to(i.board) }))} value={subnav.current} />

@@ -3,6 +3,8 @@
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-2); }
 .count { margin-left: auto; font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
 .over { color: var(--wl-status-danger-fg); font-weight: var(--wl-font-weight-semibold); }
+.hint { margin: 0; font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
+.error { margin: 0; font-size: var(--wl-font-size-sm); color: var(--wl-status-danger-fg); }
 .frame { position: relative; }
 .mirror, .input {
   box-sizing: border-box;

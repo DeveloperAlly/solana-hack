@@ -9,7 +9,7 @@ import { Button } from '../primitives';
 import { AmbAccountChip } from './AmbAccountChip';
 import { AmbCampaignCard } from './AmbCampaignCard';
 import { AmbChecksList } from './AmbChecksList';
-import { AmbDraftEditor, highlightRuns } from './AmbDraftEditor';
+import { DraftEditor, highlightRuns } from './DraftEditor';
 import { AmbOnBrandMeter } from './AmbOnBrandMeter';
 import { AmbPublishRouteCard } from './AmbPublishRouteCard';
 import { sampleCampaign, sampleChecks, sampleClosedCampaign, sampleDraft } from './ambSamples';
@@ -47,10 +47,10 @@ describe('D3 AmbChecksList', () => {
 
 function EditorHarness({ limit }: { limit?: number }) {
   const [text, setText] = useState(sampleDraft);
-  return <AmbDraftEditor label="Draft" value={text} onChange={setText} highlights={['memory dump']} charLimit={limit} toolbar={<Button variant="secondary">Undo</Button>} />;
+  return <DraftEditor label="Draft" value={text} onChange={setText} highlights={['memory dump']} charLimit={limit} toolbar={<Button variant="secondary">Undo</Button>} />;
 }
 
-describe('D5 AmbDraftEditor', () => {
+describe('D5 DraftEditor', () => {
   it('edits a real textarea and highlights flagged phrases', async () => {
     const { container } = renderWithRouter(<EditorHarness limit={3000} />);
     const box = screen.getByRole('textbox', { name: 'Draft' });
@@ -64,7 +64,7 @@ describe('D5 AmbDraftEditor', () => {
     const { unmount } = renderWithRouter(<EditorHarness limit={10} />);
     expect(screen.getByRole('textbox', { name: 'Draft' })).toHaveAttribute('aria-invalid', 'true');
     unmount();
-    renderWithRouter(<AmbDraftEditor label="Draft" value="" onChange={() => undefined} generating />);
+    renderWithRouter(<DraftEditor label="Draft" value="" onChange={() => undefined} generating />);
     expect(screen.getByRole('status', { name: 'Generating your draft' })).toBeInTheDocument();
   });
   it('splits text into flagged runs case-insensitively', () => {
