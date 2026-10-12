@@ -41,8 +41,8 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await gotoWithRetry(page, base + '/');
-  await page.getByRole('link', { name: 'Build my brand' }).first().waitFor({ timeout: 10000 });
-  log(`PASS: ${base}/ loads and shows "Build my brand"`);
+  await page.getByRole('button', { name: 'Read my site' }).first().waitFor({ timeout: 10000 });
+  log(`PASS: ${base}/ loads and shows "Read my site"`);
   await page.screenshot({ path: join(out, 'deployed-landing.png'), fullPage: true });
   const axeLanding = await axe(page, '/');
 

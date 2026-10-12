@@ -41,7 +41,7 @@ const sleep = (ms: number, signal: AbortSignal) => new Promise<void>((resolve) =
 interface LiveContextValue { state: JourneyBrandState | null; loading: boolean; error?: string; reload: () => Promise<void>; prepare: (target: JourneyTarget) => Promise<void>; voice: GapsVoiceData['voice']; post: Post | null; claimMap: ClaimMap | null }
 const LiveContext = createContext<LiveContextValue | null>(null);
 
-export const liveJourneyHref = (target: JourneyTarget) => ({ ledger: '/ledger', basics: '/build/basics', brandBuild: '/brand/build', contentDashboard: '/create', settingsAi: '/settings/ai', partners: '/partners', hub: '/home', main: '/' } as Partial<Record<JourneyTarget, string>>)[target] ?? `/journey/${target}`;
+export const liveJourneyHref = (target: JourneyTarget) => ({ ledger: '/ledger', basics: '/build/basics', brandBuild: '/brand', contentDashboard: '/create', settingsAi: '/preview/Settings-AI', partners: '/preview/Partners', hub: '/home', main: '/' } as Partial<Record<JourneyTarget, string>>)[target] ?? `/journey/${target}`;
 
 /** One provider across live Journey routes; existing gallery screens never instantiate it. */
 export function LiveJourneyProvider({ children }: { children: ReactNode }) {

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { hubNav, routeTagLabels, type NavItem } from '../../config/routes';
-import { mobileTabFor, mobileTabs, stageById, type StageId } from '../../config/nav';
+import { mobileTabFor, mobileTabs, stageById, stages, type StageId } from '../../config/nav';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../primitives/Button';
 import { AppFrame } from '../layouts/AppFrame';
@@ -64,8 +64,9 @@ export interface AppShellProps {
 export function AppShell(props: AppShellProps) {
   const { pathname } = useLocation();
   const gallery = useGalleryMode();
-  const liveStages: Record<string, StageId> = { '/home': 'today', '/brand': 'brand', '/build': 'brand', '/create': 'create', '/distribute': 'distribute', '/verify-home': 'verify', '/grow': 'grow', '/learn': 'learn', '/analytics': 'learn', '/inbox': 'inbox', '/settings': 'settings' };
-  const inferred = !gallery && !props.preview && !props.nav && !props.navHref ? liveStages[`/${pathname.split('/')[1]}`] : undefined;
+  const rootPath = `/${pathname.split('/')[1]}`;
+  const canonicalPath = rootPath === '/build' ? '/brand' : rootPath === '/analytics' ? '/learn' : rootPath;
+  const inferred = !gallery && !props.preview && !props.nav && !props.navHref ? stages.find(stage => stage.live === canonicalPath)?.id : undefined;
   const stage = props.stage ?? inferred;
   return stage ? <LoopShell {...props} tab={props.tab ?? (inferred ? stageById(inferred).tabs[0]?.id : undefined)} brandSlot={props.brandSlot ?? (inferred ? <LiveBrandSwitcher /> : undefined)} stage={stage} /> : <HubShell {...props} />;
 }

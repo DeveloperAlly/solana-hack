@@ -12,11 +12,10 @@ const signOut = vi.fn(async () => ({ error: null }));
 vi.mock('../../lib/supabase', () => ({ supabase: { auth: { signOut: () => signOut() } } }));
 
 describe('L1 AppShell', () => {
-  it('shows the hub nav with tags, the brand name and a main landmark', () => {
+  it('shows the canonical main nav on a live hub route with a main landmark', () => {
     renderWithRouter(<AppShell brandName="Acme"><p>content</p></AppShell>, '/home');
-    const nav = screen.getByRole('navigation', { name: 'Hub' });
-    expect(within(nav).getAllByRole('link')).toHaveLength(hubNav.length);
-    expect(screen.getByText('Acme')).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    expect(within(nav).getByRole('link', { name: 'Today' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('main')).toHaveTextContent('content');
     expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute('href', '#main');
   });

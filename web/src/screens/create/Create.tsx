@@ -64,7 +64,7 @@ export function Create() {
     api<{ runs?: { id: string }[] }>(`/brands/${id}/runs?kind=draft_post`, { signal: c.signal })
       .then(async (going) => {
         if (c.signal.aborted) return;
-        await load(id, shown, c.signal);
+        await load(id, 20, c.signal);
         for (const r of going.runs ?? []) void follow(r.id, id, c.signal);
       })
       .catch((e) => { if (!c.signal.aborted) setError(msg(e)); });

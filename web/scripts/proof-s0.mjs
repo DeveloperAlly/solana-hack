@@ -1,6 +1,6 @@
 // S0 proof: changing one token value changes the page.
 // Builds, serves with vite preview, screenshots /, edits one semantic token in the wireframe theme,
-// rebuilds, reloads, asserts the "Build my brand" button background changed, reverts, screenshots /system, runs axe on / and /system.
+// rebuilds, reloads, asserts the "Read my site" button background changed, reverts, screenshots /system, runs axe on / and /system.
 // Browser: set CHROMIUM_PATH to a Chromium binary, or leave it unset and Playwright uses the browser it manages
 // (install it once with `npx playwright install chromium`).
 import { spawn, spawnSync } from 'node:child_process';
@@ -50,7 +50,7 @@ async function waitFor(url, ms = 20000) {
 }
 
 async function buttonBg(page) {
-  const link = page.getByRole('link', { name: 'Build my brand' });
+  const link = page.getByRole('button', { name: 'Read my site' }).first();
   await link.waitFor();
   return link.evaluate((el) => getComputedStyle(el).backgroundColor);
 }
@@ -91,7 +91,7 @@ try {
   await page.goto(base + '/');
   const before = await buttonBg(page);
   await page.screenshot({ path: shot('landing-before'), fullPage: true });
-  log(`before: computed background-color of "Build my brand" = ${before}; screenshot ${rel(shot('landing-before'))}`);
+  log(`before: computed background-color of "Read my site" = ${before}; screenshot ${rel(shot('landing-before'))}`);
   const axeLanding = await axeCount(page, '/');
 
   const theme = JSON.parse(original);
@@ -103,7 +103,7 @@ try {
   await page.reload();
   const after = await buttonBg(page);
   await page.screenshot({ path: shot('landing-after'), fullPage: true });
-  log(`after: computed background-color of "Build my brand" = ${after}; screenshot ${rel(shot('landing-after'))}`);
+  log(`after: computed background-color of "Read my site" = ${after}; screenshot ${rel(shot('landing-after'))}`);
 
   const expected = 'rgb(0, 102, 51)';
   if (before === after) throw new Error(`ASSERT FAILED: background did not change (${before})`);

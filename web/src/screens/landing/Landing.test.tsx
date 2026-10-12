@@ -12,8 +12,9 @@ describe('Landing in PublicShell', () => {
     expect(within(nav).getByRole('link', { name: 'How it works' })).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Check a post' })).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Build your voice. Launch your brand.');
-    expect(screen.getByRole('link', { name: 'Build my brand' })).toHaveAttribute('href', '/sign-in');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Your brand, built from what you've already said.');
+    expect(screen.getAllByRole('button', { name: 'Read my site' })).toHaveLength(2);
+    expect(screen.getByRole('textbox', { name: 'Your website' })).toBeInTheDocument();
   });
 
   it('has no axe violations', async () => {

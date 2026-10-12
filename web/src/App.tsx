@@ -1,8 +1,9 @@
+import { LiveJourneyProvider, LiveJourneyScreen } from './flows/journey-live/LiveJourney';
+import { journeySteps } from './screens/journey/paths';
 import { Preview } from './screens/preview/Preview';
 import type { ArtboardName } from './config/artboards';
-import { Route, Routes } from 'react-router';
+import { Outlet, Route, Routes } from 'react-router';
 import { routes } from './config/routes';
-import { Landing } from './screens/landing/Landing';
 import { Placeholder } from './screens/placeholder/Placeholder';
 import { Workbench } from './system/Workbench';
 import { SignIn } from './screens/signin/SignIn';
@@ -23,13 +24,16 @@ const previewBoards: Record<string, ArtboardName> = { '/distribute': 'Platforms'
 export function App() {
   return (
     <Routes>
-      {routes.map((r) => (
+      <Route element={<LiveJourneyProvider><Outlet /></LiveJourneyProvider>}>
+        <Route path="/" element={<LiveJourneyScreen target="main" />} />
+        {journeySteps.map(step => <Route key={step.id} path={`/journey/${step.id}`} element={<LiveJourneyScreen target={step.id} />} />)}
+      </Route>
+      {routes.filter(r => r.screen !== 'landing').map((r) => (
         <Route
           key={r.path}
           path={r.path}
           element={
-            r.screen === 'landing' ? <Landing />
-            : r.screen === 'workbench' ? <Workbench />
+            r.screen === 'workbench' ? <Workbench />
             : r.screen === 'signin' ? <SignIn />
             : r.screen === 'build' ? <RequireAuth><Build /></RequireAuth>
             : r.screen === 'create' ? <RequireAuth><Create /></RequireAuth>
