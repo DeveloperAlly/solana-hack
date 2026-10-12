@@ -21,7 +21,7 @@ export async function assertCanCreateBrand(env: Env, user: User) {
   if (rows.length >= ANON_MAX_BRANDS) throw new HttpError(409, 'save your brand with your email to start another one');
 }
 
-export async function assertCanAddSource(env: Env, user: User, brandId: string) {
+export async function assertCanAddSource(env: Env, user: Pick<User, 'isAnonymous'>, brandId: string) {
   if (!user.isAnonymous) return;
   const rows = await db.select<{ id: string }>(env, 'sources', `${db.eq('brand_id', brandId)}&select=id&limit=${ANON_MAX_SOURCES + 1}`);
   if (rows.length >= ANON_MAX_SOURCES) throw new HttpError(409, `save your brand with your email to read more than ${ANON_MAX_SOURCES} sources`);

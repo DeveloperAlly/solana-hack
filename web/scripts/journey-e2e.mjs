@@ -49,6 +49,17 @@ async function must(label, p, want = [200, 201]) {
   return r.body;
 }
 
+async function completedRun(token, runId, label) {
+  for (let i = 0; i < 60; i++) {
+    const result = await must('run status', api(token, 'GET', `/runs/${runId}`));
+    if (result.run?.status === 'done') return result.run.output;
+    if (['failed', 'superseded'].includes(result.run?.status)) fail(`the ${label} run ${result.run.status} (details in Worker logs; this output is public)`);
+    if (result.run?.status === 'paused') fail(`the ${label} run paused; retry after its recorded resume time`);
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  fail(`the ${label} did not finish within 3 minutes`);
+}
+
 // The site is operator input: only its hostname is logged (no path, query or token), since the proof is public.
 out(`base ${BASE}, site host ${new URL(SITE).hostname}`);
 const health = await must('health', req(`${BASE}/api/health`));
@@ -62,17 +73,11 @@ out(`J0 anonymous session ${anon.user.id}`);
 const host = new URL(SITE).hostname.replace(/^www\./, '');
 const { brand } = await must('create brand', api(anonToken, 'POST', '/brands', { name: host.split('.')[0], website: SITE }));
 out(`J0 brand ${brand.id} (${brand.name})`);
-let read = await must('read site', api(anonToken, 'POST', `/brands/${brand.id}/sources`, { url: SITE }), [200, 201, 409]);
-// With the workflow engine, a read that is still running answers 409 {runId}: poll the run (spec/api/README.md, J1).
+let read = await must('read site', api(anonToken, 'POST', `/brands/${brand.id}/sources`, { url: SITE }), [200, 201, 202, 409]);
+// Accepted workflow reads return 202; legacy 409 responses also name a run (issue #114).
 if (read.runId && read.facts === undefined) {
   out(`J1 still reading (run ${read.runId}); polling`);
-  for (let i = 0; i < 60; i++) {
-    await new Promise((r) => setTimeout(r, 3000));
-    const r = await must('run status', api(anonToken, 'GET', `/runs/${read.runId}`));
-    if (r.run?.status === 'done') { read = r.run.output; break; }
-    if (r.run?.status === 'failed') fail('the read failed (run status failed; details in the Worker logs, not here, because this output is public)');
-  }
-  if (read.facts === undefined) fail('the read did not finish within 3 minutes');
+  read = await completedRun(anonToken, read.runId, 'read');
 }
 out(`J1 read: ${read.facts} facts kept, ${read.dropped} dropped (quote not on page), kind ${read.kind}${read.pages ? `, ${read.pages} pages` : ''}`);
 let state = await must('brand state', api(anonToken, 'GET', `/brands/${brand.id}`));
@@ -124,7 +129,14 @@ out(`J5 kit v${kit.kit.version} registered: ${kit.explorer}`);
 out(`J5 attestation: ${kit.attestationExplorer}`);
 
 // J6: the first post, with no brief, approved and registered.
-const { post } = await must('draft first post', api(token, 'POST', `/brands/${brand.id}/posts`, {}));
+let first = await must('draft first post', api(token, 'POST', `/brands/${brand.id}/posts`, {}), [200, 201, 202]);
+if (!first.post && first.runId) {
+  const output = await completedRun(token, first.runId, 'draft');
+  const list = await must('post list', api(token, 'GET', `/brands/${brand.id}/posts`));
+  first = { post: list.posts.find((post) => post.id === output.postId) };
+  if (!first.post) fail('the finished draft was not in the post list');
+}
+const { post } = first;
 out(`J6 first post drafted (kit v${post.kit_version}, ${post.body.length} characters)`);
 const cm = await must('claims on the draft', api(token, 'POST', `/brands/${brand.id}/posts/${post.id}/claims`, { rev: post.rev }));
 // Counts only, no claim text (the proof is public): how many claims, and how many rest on a fact with its quote.

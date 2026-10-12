@@ -1,6 +1,6 @@
 import { requirePermanent, requireUser, type User } from './auth';
 import { claimMap } from './claims';
-import { assertCanAddSource, assertCanCreateBrand, claimAnonymous, coverage, editFact, FIRST_POST_BRIEF, voiceSamples } from './journey';
+import { assertCanCreateBrand, claimAnonymous, coverage, editFact, FIRST_POST_BRIEF, voiceSamples } from './journey';
 import { db } from './db';
 import { HttpError, json, safeError, sha256Hex, type Env } from './env';
 import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type SectionId } from './kit';
@@ -43,9 +43,9 @@ async function ownBrand(env: Env, user: User, id: string): Promise<Brand> {
   return b;
 }
 
-async function brandState(env: Env, brand: Brand) {
+async function brandState(env: Env, brand: Brand, withJourney = false) {
   const f = db.eq('brand_id', brand.id);
-  const [answers, sources, evidence, sections, gates, kits, conflicts, runs] = await Promise.all([
+  const [answers, sources, evidence, sections, gates, kits] = await Promise.all([
     db.select<Answer>(env, 'answers', f),
     // The brand's own sources and pages about it. Competitor candidates (#35) are not sources the kit is built from,
     // so they are listed apart (GET /api/brands/:id/competitors) and never enter the kit's source list. kind says what
@@ -56,12 +56,17 @@ async function brandState(env: Env, brand: Brand) {
     db.select<Section>(env, 'kit_sections', f),
     db.select<Gate>(env, 'gates', f),
     db.select<Kit>(env, 'kits', `${f}&select=id,version,hash,status,signature,attestation,created_at,error,payload&order=version.desc`),
+  ]);
+  const base = { brand, answers, sources, evidence, sections, gates, kits, coverage: coverage(evidence) };
+  if (!withJourney) return base;
+  const [conflicts, runs, competitors] = await Promise.all([
     db.selectAll<JourneyState['conflicts'][number]>(env, 'fact_conflicts', `${f}&status=eq.open&order=created_at.asc,id.asc`),
     db.select<JourneyState['runs'][number]>(env, 'runs', `${f}&select=status,progress,input&order=created_at.desc&limit=100`),
+    listCompetitors(env, brand),
   ]);
   const state: JourneyState = { brand, answers, sources, evidence, conflicts, runs };
-  return { brand, answers, sources, evidence, sections, gates, kits, coverage: coverage(evidence),
-    journey: { read: readData(state), confirm: confirmData(state), gapsVoice: gapsData(state, new Date().toISOString().slice(0, 10)) } }; 
+  return { ...base,
+    journey: { read: readData(state), confirm: confirmData(state), gapsVoice: gapsData(state, new Date().toISOString().slice(0, 10), competitors.candidates) } };
 }
 
 function answerText(answers: Answer[], steps: readonly string[]) {
@@ -400,7 +405,7 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
 
   if (p.length === 3 && m === 'GET') {
     // activeRun: the newest running or paused run, so a reload shows its progress (issue #32).
-    const [state, run] = await Promise.all([brandState(env, brand), activeRun(env, brand.id)]);
+    const [state, run] = await Promise.all([brandState(env, brand, true), activeRun(env, brand.id)]);
     return json({ ...state, activeRun: run });
   }
   // POST /api/brands/:id/runs {kind, ...input} -> 202 {run}
@@ -474,7 +479,6 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
     if (user.isAnonymous) {
       // Reading before sign-in (D1): per-IP limit and a source cap, so an anonymous visitor's use stays bounded.
       await publicLimit(req, env, 'read');
-      await assertCanAddSource(env, user, brand.id);
     }
     const r = await ingestSource(env, ctx, caller(req, user), brand, { url: b.url });
     return json(r.body, r.status);

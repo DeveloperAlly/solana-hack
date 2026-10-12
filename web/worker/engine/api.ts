@@ -69,7 +69,7 @@ export async function admit(env: Env, a: { brand: BrandRef; kind: string; actor:
   const row = await db.rpc<RunRow & { reserved_until: string }>(env, 'admit_run', {
     p_brand: a.brand.id, p_kind: a.kind, p_version: spec.version, p_executor: config.executor, p_progress: progressAt(spec, 0),
     p_created_by: a.actor.id, p_planned: limits.planned, p_budget: limits.budget, p_run_rate: limits.runRate,
-    p_spend_cap: limits.spendCap, p_client_key: await clientKey(env, caller), p_client_cap: limits.clientCap, p_ttl_s: RESERVATION_TTL_S,
+    p_spend_cap: limits.spendCap, p_client_key: await clientKey(env, caller), p_client_cap: limits.clientCap, p_ttl_s: RESERVATION_TTL_S, p_source_cap: limits.sourceCap,
   });
   return { runId: row.id, brandId: row.brand_id, kind: row.kind, workflowVersion: row.workflow_version, executor: row.executor, expiresAt: row.reserved_until };
 }

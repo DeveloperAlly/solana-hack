@@ -406,8 +406,9 @@ do $$ begin
 end $$;
 create index if not exists runs_client_recent on public.runs(client_key, created_at) where client_key is not null;
 drop function if exists public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric);
+drop function if exists public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric, text, int, int);
 create or replace function public.admit_run(p_brand uuid, p_kind text, p_version int, p_executor text, p_progress jsonb, p_created_by uuid,
-  p_planned int, p_budget int, p_run_rate int, p_spend_cap numeric, p_client_key text, p_client_cap int, p_ttl_s int)
+  p_planned int, p_budget int, p_run_rate int, p_spend_cap numeric, p_client_key text, p_client_cap int, p_ttl_s int, p_source_cap int default null)
 returns jsonb language plpgsql security invoker set search_path = public as $fn$
 declare
   v_today timestamptz := date_trunc('day', now(), 'UTC'); v_recent int; v_used int := 0; v_reserved int := 0; v_spent numeric := 0;
@@ -426,6 +427,14 @@ begin
   select count(*) into v_recent from public.runs where brand_id = p_brand and created_at >= now() - interval '1 hour';
   if v_recent >= p_run_rate then
     raise sqlstate 'PT429' using message = format('this brand has started %s runs in the last hour; wait a little and try again', p_run_rate);
+  end if;
+  -- Reserve source capacity under the same brand lock as admission. A source being prepared still owns its
+  -- reserved slot until the run starts, so simultaneous anonymous starts cannot both take the last slot (#114).
+  if p_source_cap is not null and
+    (select count(*) from public.sources where brand_id = p_brand) +
+    (select count(*) from public.runs where brand_id = p_brand and status = 'reserved' and reserved_until > now()
+      and kind in ('extract_facts','ingest_url')) >= p_source_cap then
+    raise sqlstate 'PT429' using message = 'save your brand to read more sources';
   end if;
   if p_planned > 0 then
     select coalesce(sum(s.cost_usd), 0) into v_spent from public.run_steps s join public.runs r on r.id = s.run_id
@@ -448,8 +457,8 @@ begin
   returning * into v_run;
   return to_jsonb(v_run);
 end $fn$;
-revoke all on function public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric, text, int, int) from public, anon, authenticated;
-grant execute on function public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric, text, int, int) to service_role;
+revoke all on function public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric, text, int, int, int) from public, anon, authenticated;
+grant execute on function public.admit_run(uuid, text, int, text, jsonb, uuid, int, int, int, numeric, text, int, int, int) to service_role;
 
 -- The per-call meter (Codex review on PR #91: retries are not in a reservation, so admission alone cannot hold the
 -- budget). Before every attempt at a metered step the runner consumes its calls here, under the same brand lock as
