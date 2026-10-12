@@ -2,12 +2,14 @@
 type: prompts
 status: superseded
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [design, prompts, wireframes, deck, archive]
 superseded_by: pending (rewrite from compendium_2026_10_06 and the brand builder architecture)
 ---
 > **Status: superseded.** Superseded; to be rewritten from the compendium and the brand builder architecture
+
+> **Note (2026-10-12):** the product is now called JamJam. This historical record keeps its original name, Waterlily.
 
 # Waterlily for Brands: Claude Design prompts
 

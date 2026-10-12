@@ -8,7 +8,7 @@ describe('Landing in PublicShell', () => {
   it('shows the nav, heading and primary action', () => {
     renderWithRouter(<App />, '/');
     const nav = screen.getByRole('navigation', { name: 'Main' });
-    expect(nav).toHaveTextContent('Waterlily');
+    expect(nav).toHaveTextContent('JamJam');
     expect(within(nav).getByRole('link', { name: 'How it works' })).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Check a post' })).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Sign in' })).toBeInTheDocument();

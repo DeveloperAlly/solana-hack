@@ -2,7 +2,7 @@
 type: audit
 status: active
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [wireframes, audit, ui]
 ---
@@ -69,7 +69,7 @@ tags: [wireframes, audit, ui]
 | Licensing screens (7 licensee screens, Onboard-5, campaign builder v1) | Keep them on the Parked page for reference, untouched |
 | Sample brand on hub screens: aDNA is shown on X, but research 09 found no social presence | Keep aDNA as the sample brand for now, including X (it shows aDNA going onto social) |
 | "Ally Haire" is listed as a demo brand on the landing page and the ledger | The compendium decided the founder's personal brand is a user, not a demo case. Remove it from the demo brand lists |
-| Waterlily doesn't appear as a brand anywhere | Add it to the brand switcher and the case-study screens (headline demo) |
+| JamJam doesn't appear as a brand anywhere | Add it to the brand switcher and the case-study screens (headline demo) |
 | Sample figures (ledger, home) are not labelled on screen | Label them as sample data |
 | The tag legend refers to a "22 h hackathon build" and its tags differ from the backlog | Align it with the [backlog](../../how/backlog/backlog.md) tags |
 
@@ -108,27 +108,27 @@ Source: canvas version 1791275000-2db3, 70 artboards, read-only. Checked against
 | BB-1 → Onboard-3-Sources → Onboard-3b → BB-2 | OK, **but the coverage map is skipped here** (see b) |
 | BB-2 → BB-3 → Gate 1 → BB-4 → Gate 2 → BB-5 → BB-6 → Gate 3 | OK |
 | Gate 3 → Coverage-Map → Onboard-6 (kit v1 registered) | Links work; the order is wrong (see b) |
-| Coverage "Review sections first" | Goes to Brand-Build, which shows **aDNA's** kit, not Waterlily's |
+| Coverage "Review sections first" | Goes to Brand-Build, which shows **aDNA's** kit, not JamJam's |
 | Onboard-6 "View on explorer" | Goes to Verify-1, which shows an ambassador post, not a kit registration |
 | Onboard-6 "Write your first post" → **new draft** | **Missing.** It goes straight to Draft-Review, an existing aDNA draft. There is no brief or new-draft screen. "+ New draft" on Content-Dashboard and "New draft" on the empty state are buttons with no target |
 | Draft-Review → **polish** | **Missing.** No Review, Shorten, Clarify or Beautify (still open from the first audit) |
 | Draft-Review → **approve** | "Approve and schedule" goes back to Content-Dashboard. There is no publish step (connected X or LinkedIn, or copy and paste the URL back) and no "content registered" confirmation |
-| approve → **verify** | **Missing.** No hop reaches Verify for a brand's own post. Verify-1 copy covers only "a piece … paid through Waterlily" |
+| approve → **verify** | **Missing.** No hop reaches Verify for a brand's own post. Verify-1 copy covers only "a piece … paid through JamJam" |
 | Brand-Build / Kit-Export "Claims" tab | **Broken:** points to `Claims.dc.html`, which does not exist |
 | Dead anchors | `#calendar` (Content), `#s/#p/#r` tabs, `#snoozed/#done`, `#more` (Ledger), `#r` receipts. Acceptable for low-fi, but Calendar has no screen |
-| "Save and finish later" on every intake step | Goes to Hub-Home, which is the aDNA hub. There is no Waterlily hub |
+| "Save and finish later" on every intake step | Goes to Hub-Home, which is the aDNA hub. There is no JamJam hub |
 
 ### Findings (new or still open, not fully covered by the first audit)
 | # | Screen(s) | Issue | Sev | Fix |
 |---|---|---|---|---|
-| 1 | Onboard-3b, Coverage-Map, BB-Gate3 | **Coverage map is in the wrong place.** It comes after Gate 3. Architecture §2 (stage 4) and §12.1 (step 4) both put it after "Reading sources" and before the interview, because it decides which questions are asked. Canvas open question 1 says "the walkthrough puts it after intake", but §12.1 doesn't say that: both documents agree | High | Point Onboard-3b "Continue" and Ingest-Error "Continue without it" at Coverage-Map. Change its CTA to "Start the questions (N left)" → BB-2. After Gate 3, add a "Kit v1 summary / approve" screen, or reuse Brand-Build for Waterlily. Close open question 1 |
+| 1 | Onboard-3b, Coverage-Map, BB-Gate3 | **Coverage map is in the wrong place.** It comes after Gate 3. Architecture §2 (stage 4) and §12.1 (step 4) both put it after "Reading sources" and before the interview, because it decides which questions are asked. Canvas open question 1 says "the walkthrough puts it after intake", but §12.1 doesn't say that: both documents agree | High | Point Onboard-3b "Continue" and Ingest-Error "Continue without it" at Coverage-Map. Change its CTA to "Start the questions (N left)" → BB-2. After Gate 3, add a "Kit v1 summary / approve" screen, or reuse Brand-Build for JamJam. Close open question 1 |
 | 2 | Onboard-3b | "You can carry on with the next question while this runs" contradicts coverage-before-interview: the gaps aren't known yet | Med | Either wait for reading to finish (with "email me when done", as §12.1 step 3 says), or state that the origin questions are always asked and the coverage map updates live |
-| 3 | Onboard-2 vs Onboard-6, Kit-RegisterFailed | Onboard-2 says that while a brand is unverified, "registering anything onchain … stay[s] off". Onboard-6 then shows the **Unverified** Waterlily kit "Registered on Solana". Architecture §12.1 allows unverified brands (flagged) and registers kit v1 at step 7 | High | Change the Onboard-2 copy: unverified brands can register a kit and posts, flagged "unverified domain"; only ambassador payouts (and the identity memo) need verification. Add the flag to the registration result and to Verify |
+| 3 | Onboard-2 vs Onboard-6, Kit-RegisterFailed | Onboard-2 says that while a brand is unverified, "registering anything onchain … stay[s] off". Onboard-6 then shows the **Unverified** JamJam kit "Registered on Solana". Architecture §12.1 allows unverified brands (flagged) and registers kit v1 at step 7 | High | Change the Onboard-2 copy: unverified brands can register a kit and posts, flagged "unverified domain"; only ambassador payouts (and the identity memo) need verification. Add the flag to the registration result and to Verify |
 | 4 | Onboard-6 → Draft-Review → … | The demo chain has no new-draft or brief screen, no polish step, no brand publish step, no "content hash registered" success and no Verify result for a brand's own post | High | Add Create-NewDraft (brief, channel, voice) and Draft-Polish (or add polish to Draft-Review). Add Publish (connected X or LinkedIn, or paste URL back) and a Registered success screen that links to a Verify-1 variant for a brand post |
 | 5 | Brand-Build, Kit-Export | Claims tab links to the missing `Claims.dc.html`. The claims screen was in the first audit's Missing list, and the link is now broken in a hackathon flow | Med | Draw Claims: a table of claim, evidence links, owner, expiry, status and register; add empty and error states |
 | 6 | Amb-1/2/3/4/5c, M-1/2/4, Campaign-v2-1, Campaign-v2-2, Ledger, Dashboard | **USDC is paid per X post** (X post 5 USDC; "Post to X"; content plan "X posts (5 USDC)"; a Ledger payout row for an X post). The compendium §5 says "No rewards for X activity" (X's January 2026 ban, ADR-002), and the hackathon ambassador row says "off-X work" | High | Remove X from the payout formats and from "Who posts: Ambassadors" for X. Keep the paid formats to the LinkedIn post (check its rules first), the blog or tutorial, and docs. Replace the X example on Amb-5c with the blog or tutorial mismatch case |
 | 7 | Influencer-Setup, Influencer-Queue, Voice-Templates, Voice-Editor | **Not SFW** (compendium §3.6). Captions such as "rewriting one kiss scene" and "favourite slow burn"; an "[adult-friendly platform]" channel; "[adult platform] 5" cap; a Suggestiveness dial. "Flirty exists as a template only" | High | Use SFW sample copy on the persona screens. Remove the adult-platform rows and the Suggestiveness dial. Show Flirty only as a gated template card |
-| 8 | Influencer-Setup/Queue (nav "Ally Haire ▾") | The persona "represents Ally Haire" and the brand switcher shows Ally Haire. This conflicts with the decision to remove the founder from the demo brand lists (canvas open question 4) | Med | Decide: tie the persona to aDNA or Waterlily for the demo, or keep a separate "personal" workspace that is never shown in brand lists |
+| 8 | Influencer-Setup/Queue (nav "Ally Haire ▾") | The persona "represents Ally Haire" and the brand switcher shows Ally Haire. This conflicts with the decision to remove the founder from the demo brand lists (canvas open question 4) | Med | Decide: tie the persona to aDNA or JamJam for the demo, or keep a separate "personal" workspace that is never shown in brand lists |
 | 9 | Inbox ×3, Engage-Queue, Leads, Influencer ×2, all HACK boards | **Old and new tags are mixed.** 35 boards use HACK, STRETCH or EXP, which aren't in the canvas legend. SUPERSEDED is still used. The tags also disagree with the backlog: Inbox is STRETCH but should be COMING SOON; Engage-Queue is STRETCH but the backlog has the reply queue as HACKATHON | Med | Retag: HACK → HACKATHON; Inbox ×3 → COMING SOON; Engage-Queue → HACKATHON; Leads and Influencer → EXPERIMENTAL; ambassador screens → HACKATHON (one payout). Delete or park Onboard-4 and drop SUPERSEDED from the legend |
 | 10 | Inbox ×3 | COMING SOON screens carry no in-product "coming soon" label, which the legend requires | Low | Add a "Coming soon" chip to the Inbox nav item and page headers |
 | 11 | Voice-Editor title, Voice-Templates vs BB-6, Gate 3 | The canvas now **contradicts itself**: Gate 3 uses 8 dimensions plus a claims gate (the research 06 model); Voices still has 10 dials and 7 templates. Gate 3's "change them later in Voices" lands on the old model | Med | Rework Voices to 12 templates on 9 dimensions, as the first audit decided. Rename the board to drop "(10 dials)" |
@@ -140,7 +140,7 @@ Source: canvas version 1791275000-2db3, 70 artboards, read-only. Checked against
 | 17 | Brand-Build | aDNA evidence cites "[aDNA X account: pinned post / recent posts]". Research 09 says aDNA has no social presence, and social ingest is coming soon | Med | Cite docs, site or changelog instead, or mark the source "coming soon" |
 | 18 | BB-1/2/3 steppers, Onboard-3, Onboard-1/2, Coverage, Onboard-6 | Three different steppers: (Sign in, Domain, Intake 1–6, Coverage, Kit v1); (1 Basics … 6 Voice); (1 Basics, Sources, 2 Origin, …). The domain check sits before Basics, while §12.1 puts it inside step 2 Sources | Low | Use one stepper: Sign in › Basics › Sources › Coverage › Questions (Gates 1–3) › Kit v1 |
 | 19 | Campaign-v2-1, Campaign-v2-2 | Steps 2 (Audience), 4 (Content plan), 5 (People and budget) and 6 (Review) aren't drawn. "Next: audience" jumps to step 3, and "Next: content plan" exits to Content-Dashboard. There's no launch state and no budget-over-balance error | Med | Draw steps 4–6 at minimum, with the cap-over-balance error and a launch success |
-| 20 | Hub-Home, all hub nav | There's no Waterlily workspace, though Waterlily is the headline demo (first audit decided to add it to the switcher). The brand switcher is a static chip with no menu | Med | Add a Waterlily hub variant, or make the switcher show aDNA, Waterlily, film.fun and GamersLab |
+| 20 | Hub-Home, all hub nav | There's no JamJam workspace, though JamJam is the headline demo (first audit decided to add it to the switcher). The brand switcher is a static chip with no menu | Med | Add a JamJam hub variant, or make the switcher show aDNA, JamJam, film.fun and GamersLab |
 | 21 | Verify-1/2/3 | Only post verification exists. There's no result for kit-hash, account ("is this account official?") or claim lookups (§7). "Report possible impersonation" has no target | Med | Add Verify result variants for a kit version, an official account and a claim, plus a report sheet |
 | 22 | Content-Dashboard | Platform filters include Instagram, TikTok, Threads and Farcaster. The hackathon publish path is X, LinkedIn, or copy-paste | Low | Grey out the non-hackathon platforms with "coming soon" |
 | 23 | Hub-Home | "Brand pack 80% complete" uses old naming; the kit is 17 sections with E/I/M | Low | Change it to "Kit v1 · 8 of 17 sections evidenced" |
@@ -148,7 +148,7 @@ Source: canvas version 1791275000-2db3, 70 artboards, read-only. Checked against
 
 ### (e) Missing screens (product map §5, §12.1)
 - **Claims with evidence** (Hackathon, thin). Two links to it are already broken.
-- **Quests** (Coming soon). Compendium §4's demo story includes "run one paid quest (a tutorial about Waterlily)", but no Waterlily quest or campaign exists. Every ambassador screen uses aDNA.
+- **Quests** (Coming soon). Compendium §4's demo story includes "run one paid quest (a tutorial about JamJam)", but no JamJam quest or campaign exists. Every ambassador screen uses aDNA.
 - **Ambassador program, open to all creators** (Roadmap): bounties, brand-picked rewards, a performance pool with fraud checks, creator disclosure, no X rewards, no leaderboard. No screen yet.
 - **Settings:**
   - publishing connections (X, LinkedIn, clipboard fallback)
@@ -163,7 +163,7 @@ Source: canvas version 1791275000-2db3, 70 artboards, read-only. Checked against
 - **Brand:**
   - Quick review (step 6)
   - founder profile and perception audit (step 2a, proposed)
-  - a final kit v1 summary for Waterlily
+  - a final kit v1 summary for JamJam
 - **Ambassador:** "My posts", "Earnings" and Withdraw. All of them are nav targets with no screen.
 
 ### (f) Missing states per hub screen
@@ -225,10 +225,10 @@ Research found that Phantom Connect is not accepting new app sign-ups and lists 
 | Onboard-6, Kit-RegisterFailed | Registration signer and fee payer unclear ("nothing was charged") |
 | Draft-Review | Approval records the fingerprint onchain, so it needs a signer |
 | Amb-2, M-2 (and note n-a2) | "Sign in with email to join" |
-| Amb-1/3/4/5a-d, M-1/5 | USDC balance "in your Waterlily account", plus Withdraw |
+| Amb-1/3/4/5a-d, M-1/5 | USDC balance "in your JamJam account", plus Withdraw |
 | Dashboard | "Approve and pay" sends USDC from the brand's wallet |
 | Campaign-v2-2 | "Spending cap approved once" needs a wallet approval or escrow |
-| Lic-5, Lic-5b, Campaign-Builder (parked) | Waterlily balance and add funds |
+| Lic-5, Lic-5b, Campaign-Builder (parked) | JamJam balance and add funds |
 
 **Fix (decide in P0):**
 - **Registrations:** a server-side Registrar keypair signs memos and pays fees. This matches §2's "deterministic code"; the brand never signs.

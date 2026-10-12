@@ -4,6 +4,8 @@
 //       https://developers.cloudflare.com/workers/configuration/routing/custom-domains/
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
+  // The Worker name keeps the product's former name (Waterlily) on purpose: renaming it deploys a new Worker and
+  // moves the jamjam.tech custom domain. Renaming it is an owner follow-up.
   "name": "waterlily",
   "main": "./worker/index.ts",
   "compatibility_date": "2026-10-06",

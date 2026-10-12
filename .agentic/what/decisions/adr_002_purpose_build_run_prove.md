@@ -2,12 +2,14 @@
 type: adr
 status: accepted
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [adr, purpose, product-direction]
 supersedes: adr_001_brand_voice_licensing
 ---
-> **Status: accepted.** Waterlily: build your brand, run it, prove it.
+> **Status: accepted.** JamJam: build your brand, run it, prove it.
+>
+> Product renamed from Waterlily to JamJam (owner, 2026-10-12).
 
 # ADR-002: Purpose: build your brand, run it, prove it
 
@@ -15,7 +17,7 @@ supersedes: adr_001_brand_voice_licensing
 The licensing-centred direction (ADR-001, PRD v2.1 in [issue #2](https://github.com/DeveloperAlly/solana-hack/issues/2)) was re-examined against new research ([research index](../context/research/README.md)) and the [SWOT](../context/swot.md). The full decision memo is below.
 
 ## Decision
-Option A, with B as one module: **Waterlily: build your brand, run it, prove it.** A brand OS with a proof layer on Solana, with official AI personas as a module (see "Recommendation" in the memo below). The business model and product map that follow are in [ADR-003](./adr_003_superhub_business_model.md).
+Option A, with B as one module: **JamJam: build your brand, run it, prove it.** A brand OS with a proof layer on Solana, with official AI personas as a module (see "Recommendation" in the memo below). The business model and product map that follow are in [ADR-003](./adr_003_superhub_business_model.md).
 
 ## Consequences
 - "Pay to write in a brand's voice" is dropped.
@@ -29,7 +31,7 @@ Ratified by Ally Haire in chat, 2026-10-06
 
 ## Decision memo (full text)
 
-### Waterlily: purpose decision memo
+### JamJam: purpose decision memo
 
 **Date:** 2026-10-06 · **Inputs:** [research](../context/research/README.md), the [SWOT](../context/swot.md), issue #2 (PRD v2.1), founder feedback
 **Deadline:** Oct 12, 11:59pm PT, which is Tue Oct 13, 5:59pm Melbourne (about 6.5 days)
@@ -64,7 +66,7 @@ Ratified by Ally Haire in chat, 2026-10-06
 
 ### Recommendation: A, with B as one module
 
-**Waterlily: build your brand, run it, prove it.**
+**JamJam: build your brand, run it, prove it.**
 1. **Build.** A guided, interview-led brand builder that works with zero content, following the 9-step workflow. It produces a full **Brand Kit** (the 17-section model): what we stand for, plus how we say it, with tone presets per channel. Founder and company get linked profiles.
 2. **Run.** A content studio that writes in the kit's voice and scores each draft against the platform checklist. A post dashboard holds drafts, a calendar and an approval queue. **Coming soon in the UI:** reply drafts, listening and lead finding, analytics.
 3. **Prove (Solana).** An **official registry** with a verify page and badge, built on onchain records:

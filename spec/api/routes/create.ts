@@ -1,5 +1,5 @@
 /**
- * Waterlily: Create API (BOILERPLATE, proposed 2026-10-06). Not runnable.
+ * JamJam: Create API (BOILERPLATE, proposed 2026-10-06). Not runnable.
  * Screens: Voice-Templates, Voice-Editor, Content-Dashboard (+Empty), Draft-Review,
  * Create-NewDraft and Publish (both MISSING, UI review #4), Campaign-v2-1 / v2-2 (steps 4–6 missing, #19), Hub-Home.
  * Format per block: METHOD PATH · Screens · Auth · In → Out · Reads/Writes · External · Jobs · Errors.

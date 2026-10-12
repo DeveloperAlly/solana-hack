@@ -23,7 +23,7 @@ export function PublicShell({ children }: PublicShellProps) {
       <header className={styles.header}>
         <nav className={styles.nav} aria-label="Main">
           <RouterLink to="/" className={styles.logo}>
-            Waterlily
+            JamJam
           </RouterLink>
           <ul className={styles.links}>
             {links.map((item) => (

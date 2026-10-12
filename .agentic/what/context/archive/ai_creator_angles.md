@@ -2,12 +2,14 @@
 type: options
 status: superseded
 created: 2026-10-04
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [options, ai-creator, archive]
 superseded_by: adr_003_superhub_business_model
 ---
 > **Status: superseded.** Replaced by [ADR-003](../../decisions/adr_003_superhub_business_model.md) (AI persona as the experimental "Create an influencer" module). Kept as history.
+
+> **Note (2026-10-12):** the product is now called JamJam. This historical record keeps its original name, Waterlily.
 
 # AI creator: new angles
 

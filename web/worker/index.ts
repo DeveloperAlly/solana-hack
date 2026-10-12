@@ -1,4 +1,4 @@
-// Waterlily Worker: serves the SPA from static assets and answers /api/* (wrangler.jsonc run_worker_first).
+// JamJam Worker: serves the SPA from static assets and answers /api/* (wrangler.jsonc run_worker_first).
 import { registrarFromSecret, registerKitAttestation } from './registry';
 import { handleApi } from './api';
 import { HttpError, json as jsonOut, rpcHostLabel, safeError, type Env as AppEnv } from './env';
@@ -49,6 +49,8 @@ export default {
       try {
         const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
         const out = await registerKitAttestation(env.RPC_URL, registrar, {
+          // brand_id keeps the product's former name (Waterlily) on purpose: it is written on chain, so self-test
+          // records stay comparable with the ones already registered.
           brand_id: 'waterlily', hash, kit_version: '0', approver: 's0-selftest', domain_verified: 'false',
         });
         return json({ ok: true, at, ...out });

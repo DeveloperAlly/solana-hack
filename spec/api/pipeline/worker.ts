@@ -1,5 +1,5 @@
 /**
- * Waterlily: pipeline Worker (BOILERPLATE, proposed 2026-10-06). Not runnable.
+ * JamJam: pipeline Worker (BOILERPLATE, proposed 2026-10-06). Not runnable.
  * A SEPARATE plain Cloudflare Worker (not the vinext app). It hosts queue consumers, cron and Workflows.
  * Reason: vinext documents bindings for route handlers, but not exporting queue()/scheduled()/WorkflowEntrypoint.
  *

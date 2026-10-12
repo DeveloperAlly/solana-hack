@@ -1,7 +1,7 @@
 ---
 type: state
 status: active
-updated: 2026-10-08
+updated: 2026-10-12
 last_edited_by: agent
 ---
 # STATE
@@ -16,15 +16,16 @@ last_edited_by: agent
 - **Database:** seven migrations are applied to Supabase, confirmed with `list_migrations` on 2026-10-08: `spine_001`, `posts_002`, `posts_registering_003`, `posts_rev_004`, `posts_registration_times_005`, `posts_last_valid_block_height_006` and `kits_registered_at_007`. Their files are `spec/db/001`–`007` on main. 004 adds `posts.rev` for compare-and-swap on every post change. 005 adds `registering_at` and `registered_at`. 006 adds `last_valid_block_height`, so an unconfirmed registration is reopened only once it can no longer land. 007 adds `kits.registered_at` for ledger order. RLS is on with no policies, so only the Worker reads and writes.
 - **Not yet proven live:** the deployed registry selftest still returns 502. #14's diagnostics are deployed and found the cause (see Blockers).
 - **No live use yet:** on 2026-10-08 the live database had 0 users, brands, kits and posts. Nobody has signed in on jamjam.tech, so the spine on main is unproven end to end. CI only type-checks and builds the build, gate and kit paths; there are no tests for them yet. The automated tests cover the UI (component, screen and theme tests under `web/src`) and the Worker's post, polish, approval and verify logic ([`worker-posts.test.ts`](./web/src/test/worker-posts.test.ts), [`worker-registration.test.ts`](./web/src/test/worker-registration.test.ts), [`worker-env.test.ts`](./web/src/test/worker-env.test.ts)).
-**Deadline:** Colosseum Crypto World's Fair, Oct 12 2026, 11:59pm PT (Oct 13, 5:59pm Melbourne). Waterlily's own kit v1 is due by Oct 9.
+**Deadline:** Colosseum Crypto World's Fair, Oct 12 2026, 11:59pm PT (Oct 13, 5:59pm Melbourne). JamJam's own kit v1 is due by Oct 9.
 
 ## Recent decisions
-- ADR-002: Waterlily: build your brand, run it, prove it.
+- Product renamed from Waterlily to JamJam (owner, 2026-10-12). On-chain and infrastructure names keep the old name on purpose: the SAS credential `WATERLILY`, the `WL-*` schemas, and the Cloudflare Worker name `waterlily` (renaming it is an owner follow-up).
+- ADR-002: JamJam: build your brand, run it, prove it.
 - ADR-003: Brand superhub; the brand pays a subscription; partners and ambassadors are seats; USDC ambassador payouts; provenance is a feature; human review on everything; no-AI-slop pass.
 - ADR-004: Docs use aDNA (this structure).
 - Brand Builder architecture accepted (owner, 2026-10-06); build plan in issue #4. Wireframes come first, then priorities.
 - Landing: one value prop, "build your brand, then start creating"; flow land, build brand, branding (owner, 2026-10-06; requirement R5 in the [UI build mission](./.agentic/how/missions/mission_ui_build.md#2-frozen-requirements-owners-words)).
-- **Purpose of the build (owner, 2026-10-06):** Waterlily is for the founder's own use. Winning the hackathon is a bonus. The full phased plan stays (no single-loop cut), the ICP stays broad, there's no outside-traction workstream, and the demo runs on devnet. The [VC and judge review](https://claude.ai/artifact/XwyymJ6rGuofXCCvAcctDK) informs the deck, not the scope.
+- **Purpose of the build (owner, 2026-10-06):** JamJam is for the founder's own use. Winning the hackathon is a bonus. The full phased plan stays (no single-loop cut), the ICP stays broad, there's no outside-traction workstream, and the demo runs on devnet. The [VC and judge review](https://claude.ai/artifact/XwyymJ6rGuofXCCvAcctDK) informs the deck, not the scope.
 - Registry: Solana Attestation Service, with memo as the fallback (owner, 2026-10-06). **Settled 2026-10-08:** the devnet spike created and read back a Registrar-signed SAS attestation and minted a test token ([`spike/`](./spike/), backend map G-SAS). Gap G-RPC (the public devnet RPC blocks Workers and rate-limits): the owner reports adding the Helius provider RPC (2026-10-08); open: the 2026-10-08 self-test shows the secret is the Helius mainnet endpoint, so it must be changed to devnet (see Blockers).
 - Exa is the default search provider, behind an adapter (owner, 2026-10-06). The backend map and `spec/api/` stubs are drafted (proposed).
 - UI framework: Vite + React SPA on Cloudflare (owner, 2026-10-06; [ADR-005](./.agentic/what/decisions/adr_005_ui_component_system.md)).
@@ -32,7 +33,7 @@ last_edited_by: agent
 - ADR-006: email sign-in (Supabase OTP); a server Registrar keypair signs registrations; a wallet only for USDC payouts (owner, 2026-10-06; G-WALLET decided).
 - Wireframes: voices follow research 06 (12 templates, 9 dimensions, claims gate); licensing screens stay parked; aDNA stays the sample brand.
 - [ADR-007](./.agentic/what/decisions/adr_007_pitch_positioning.md): the pitch makes end to end (build, run, prove, pay) the differentiator and leads the sale with crypto and developer brands; build scope unchanged. Deck v2 text and notes are in [pitch_deck_2026_10_06.md](./.agentic/what/context/pitch_deck_2026_10_06.md) (draft; placeholders to fill), with the [review](./.agentic/what/context/vc_judge_review_2026_10_06.md) behind it.
-- Demo: Waterlily builds its own brand from scratch, live (headline). aDNA is the second case (strong written brand, no social). film.fun and GamersLab are semi-established case studies. Polish actions include Beautify.
+- Demo: JamJam builds its own brand from scratch, live (headline). aDNA is the second case (strong written brand, no social). film.fun and GamersLab are semi-established case studies. Polish actions include Beautify.
 
 - [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed, awaiting the owner's ratification): the submission critical path. The spine, a thin Create, and Verify and Ledger come first, then the submission assets. Payouts, X and LinkedIn OAuth, quests, claims, the full settings and the remaining canvas batches are cut. The hub screens that label them "coming soon" are on main (#15).
 - Helius devnet RPC (G-RPC) and a funded OpenRouter key: the owner reports adding both to the deploy secrets (2026-10-08, in a working session, so there is no public record to link). The deploy workflow cannot prove it (the RPC falls back to the public endpoint and a missing OpenRouter key is skipped), The live `/api/health` now reports `rpcConfigured: true`, but the self-test shows that RPC is Helius mainnet, not devnet (see Blockers); `aiConfigured` is not yet confirmed. The Registrar is `E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG`.
@@ -52,7 +53,7 @@ last_edited_by: agent
   1. Done 2026-10-08: the PR stack is merged.
   2. Owner: set `DEVNET_RPC_URL` to the Helius devnet endpoint and re-run the deploy, so the registry self-test passes (see Blockers).
   3. Run the full flow on https://jamjam.tech: sign-in, ingest, gates, kit v1, then a post through Verify. Check the rows in Supabase.
-  4. Register Waterlily's own kit v1 (due Oct 9).
+  4. Register JamJam's own kit v1 (due Oct 9).
   5. Make the submission assets ([Colosseum hackathon page](https://www.colosseum.com/hackathon)): the presentation video, the product demo video (3 minutes or less), the logo, the go-to-market strategy, demand validation, and the repo link (the README is written for judges).
 - **Earlier items.** The full phased plan below stays the owner-approved scope (line on purpose of the build, 2026-10-06). The order above is ADR-008's proposal and is not binding until the owner ratifies it:
 

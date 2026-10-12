@@ -2,13 +2,13 @@
 type: research
 status: active
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [research, quests, lilypad, reuse]
 ---
 > **Status: active.** Research input (2026-10-06) for ambassadors and quests; partial review, see the access limitation below.
 
-# Lilypad quest API: review and fit for Waterlily
+# Lilypad quest API: review and fit for JamJam
 
 **Access limitation:** the repo couldn't be read directly. The `Lilypad-Tech` org has OAuth App access restrictions, so the GitHub connector returned 403. This review comes from GitHub code-search fragments and commit search (all 69 commits), so it's partial. To allow a full read, approve the GitHub MCP app for the Lilypad-Tech org, or add the repo to the session.
 
@@ -39,7 +39,7 @@ tags: [research, quests, lilypad, reuse]
 - **Points:** computed as the sum of completed task points.
 - **Rewards:** `grantReward` is an unauthenticated record, with no token, USDC or onchain payout.
 
-## 4. Fit for Waterlily
+## 4. Fit for JamJam
 - **Reuse as a reference:**
   - campaign / task / user_task model
   - points as a sum of completed tasks
@@ -55,7 +55,7 @@ tags: [research, quests, lilypad, reuse]
   - links to provenance attestations
   - versioned migrations
   - an Apollo upgrade (Apollo Server 3 is end-of-life)
-- **X-incentive risk (flagged).** The README's quest catalogue rewards X activity ("Points for: Like, RT, QT, Reply", "Bounty for Lilypad RTs"; test fixture "Tweet About Us"). That conflicts with X's developer policy ("shouldn't compensate people to take actions on X") and the Jan 2026 InfoFi ban. The risk sits in the quest design, not the code. Waterlily quests should reward off-X work.
+- **X-incentive risk (flagged).** The README's quest catalogue rewards X activity ("Points for: Like, RT, QT, Reply", "Bounty for Lilypad RTs"; test fixture "Tweet About Us"). That conflicts with X's developer policy ("shouldn't compensate people to take actions on X") and the Jan 2026 InfoFi ban. The risk sits in the quest design, not the code. JamJam quests should reward off-X work.
 
 ## 5. Effort for a minimal brand quest (manual review, admin-paid USDC, Solana login, no X quests)
 
@@ -70,6 +70,6 @@ tags: [research, quests, lilypad, reuse]
 | Tests and deployment | 6–10 |
 | **Total** | **~54–88h** |
 
-**Bottom line:** a thin, unauthenticated CRUD scaffold. Use it as a **data-model reference** and build a minimal quest feature fresh inside Waterlily's stack. A hackathon-sized quest (one brand, manual approval, one USDC payout) is far smaller than the estimate above, because it skips hardening.
+**Bottom line:** a thin, unauthenticated CRUD scaffold. Use it as a **data-model reference** and build a minimal quest feature fresh inside JamJam's stack. A hackathon-sized quest (one brand, manual approval, one USDC payout) is far smaller than the estimate above, because it skips hardening.
 
 **Sources:** github.com/Lilypad-Tech/lilypad-quest-api (code search and commits); X automation rules https://help.x.com/en/rules-and-policies/x-automation ; X developer policy https://docs.x.com/developer-terms/policy ; InfoFi ban https://x.com/nikitabier/status/2011825522817270230

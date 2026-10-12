@@ -22,7 +22,7 @@ describe('public pages', () => {
 describe('kit export', () => {
   it('writes sections, gates and sources as aDNA-style Markdown', () => {
     const s = {
-      brand: { id: 'b', name: 'Waterlily', type: 'company', description: null, website: null, goal: null, channel: null },
+      brand: { id: 'b', name: 'JamJam', type: 'company', description: null, website: null, goal: null, channel: null },
       answers: [], evidence: [],
       sources: [{ id: 's', url: 'https://example.com', title: 'Example', status: 'read', error: null }],
       sections: [{ section: 'purpose', body: 'Help brands prove what they said.', citations: ['e1'], status: 'approved' }],
@@ -31,7 +31,7 @@ describe('kit export', () => {
         payload: { sources: [{ id: 's', url: 'https://example.com', title: 'Example', status: 'read' }], sections: [{ section: 'purpose', body: 'Help brands prove what they said.', citations: ['e1'], status: 'approved' }], gates: [{ gate: 'purpose', approved_by: 'u', approved_at: '2026-10-08T00:00:00Z' }] } }],
     } as BrandState;
     const md = kitMarkdown(s);
-    expect(md).toContain('# Waterlily brand kit');
+    expect(md).toContain('# JamJam brand kit');
     expect(md).toContain('fingerprint: sha256:abc');
     expect(md).toContain('section: purpose');
     expect(md).toContain('Help brands prove what they said.');
@@ -40,7 +40,7 @@ describe('kit export', () => {
   });
   it('exports the registered snapshot, not sections edited after registration', () => {
     const s = {
-      brand: { id: 'b', name: 'Waterlily', type: 'company', description: null, website: null, goal: null, channel: null },
+      brand: { id: 'b', name: 'JamJam', type: 'company', description: null, website: null, goal: null, channel: null },
       answers: [], evidence: [], sources: [],
       sections: [{ section: 'purpose', body: 'Edited after v1.', citations: [], status: 'drafted' }],
       gates: [],
@@ -49,7 +49,7 @@ describe('kit export', () => {
     } as unknown as BrandState;
     const md = kitMarkdown(s);
     expect(md).toContain('The registered purpose.');
-    expect(md).toContain('# Waterlily brand kit');
+    expect(md).toContain('# JamJam brand kit');
     expect(md).not.toContain('Edited after v1.');
     expect(md).toContain('sections edited since v1 are not in this export');
     expect(md).toContain('- purpose: approved 2026-10-08T00:00:00Z');

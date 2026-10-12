@@ -2,12 +2,14 @@
 type: scope
 status: superseded
 created: 2026-09-28
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [scope, ai-creator, influencer, archive]
 superseded_by: adr_003_superhub_business_model
 ---
 > **Status: superseded.** Replaced by [ADR-003](../../decisions/adr_003_superhub_business_model.md), where "Create an influencer" is an experimental module. Kept as history ([ADR-000](../../decisions/adr_000_story_studio.md)).
+
+> **Note (2026-10-12):** the product is now called JamJam. This historical record keeps its original name, Waterlily.
 
 # Alternative entry: self-funding AI creator (social posts + subscriber chat)
 

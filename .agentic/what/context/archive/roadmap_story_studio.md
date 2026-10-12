@@ -2,12 +2,14 @@
 type: roadmap
 status: superseded
 created: 2026-09-28
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [roadmap, story-studio, archive]
 superseded_by: [adr_003_superhub_business_model, how/backlog/backlog]
 ---
 > **Status: superseded.** Replaced by the [backlog](../../../how/backlog/backlog.md) and [ADR-003](../../decisions/adr_003_superhub_business_model.md). Kept as history ([ADR-000](../../decisions/adr_000_story_studio.md)).
+
+> **Note (2026-10-12):** the product is now called JamJam. This historical record keeps its original name, Waterlily.
 
 # Story Studio: Roadmap (post-MVP)
 

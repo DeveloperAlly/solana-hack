@@ -2,13 +2,13 @@
 type: research
 status: active
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [research, adna, docs]
 ---
 > **Status: active.** Research input (2026-10-06); its recommendation was ratified as [ADR-004](../../decisions/adr_004_docs_use_adna.md). The "Problem today" section describes the repo before the migration.
 
-# aDNA for Waterlily project context: evaluation
+# aDNA for JamJam project context: evaluation
 
 *Evaluation 2026-10-06.*
 

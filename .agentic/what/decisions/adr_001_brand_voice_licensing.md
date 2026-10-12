@@ -2,13 +2,15 @@
 type: adr
 status: superseded
 created: 2026-10-05
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [adr, product-direction, licensing, ambassadors]
 supersedes: adr_000_story_studio
 superseded_by: [adr_002_purpose_build_run_prove, adr_003_superhub_business_model]
 ---
 > **Status: superseded** by [ADR-002](./adr_002_purpose_build_run_prove.md) and [ADR-003](./adr_003_superhub_business_model.md). Waterlily for Brands with licensing and ambassador payouts (PRD v2.1).
+
+> **Note (2026-10-12):** the product is now called JamJam. This historical record keeps its original name, Waterlily.
 
 # ADR-001: Waterlily for Brands (voice licensing and ambassador payouts)
 
