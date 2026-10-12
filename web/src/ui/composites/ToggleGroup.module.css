@@ -1,0 +1,16 @@
+.group { display: flex; flex-wrap: wrap; gap: var(--wl-space-2); }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--wl-control-target-min);
+  padding: 0 var(--wl-space-4);
+  border: var(--wl-border-width-default) solid var(--wl-action-secondary-border);
+  border-radius: var(--wl-radius-control);
+  background: var(--wl-action-secondary-bg);
+  color: var(--wl-action-secondary-fg);
+  font: inherit;
+  font-weight: var(--wl-font-weight-semibold);
+  cursor: pointer;
+}
+.chip:hover { background: var(--wl-bg-subtle); }
+.pressed, .pressed:hover { background: var(--wl-action-primary-bg); color: var(--wl-action-primary-fg); border-color: var(--wl-action-primary-bg); }

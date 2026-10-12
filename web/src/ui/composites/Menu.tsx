@@ -1,4 +1,7 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useDisclosure } from '../hooks/useDisclosure';
+import { useRovingFocus } from '../hooks/useRovingFocus';
+import { Icon } from '../primitives/Icon';
 import styles from './Menu.module.css';
 
 export interface MenuItem {
@@ -16,46 +19,41 @@ export interface MenuProps {
   triggerLabel?: string;
   items: MenuItem[];
   onSelect: (id: string) => void;
-  /** Start open (workbench and gallery). */
+  /** Start open (workbench and gallery). Focus stays where it is until the user opens the menu. */
   defaultOpen?: boolean;
   align?: 'start' | 'end';
 }
 
 /**
- * C16 Menu: a menu button with plain or checkable items.
- * Keyboard per the WAI-ARIA menu button pattern (https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/):
- * Enter/Space/Down open on the first item, Up opens on the last; Up/Down/Home/End move; Escape closes and returns focus.
+ * C16 Menu: a menu button with plain or checkable items, per the WAI-ARIA menu button pattern
+ * (https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/):
+ * - opening by click, Enter, Space or Down focuses the first enabled item; Up focuses the last;
+ * - Up/Down/Home/End move between items; Enter or Space chooses;
+ * - Escape and Tab close the menu and return focus to the trigger; a press outside closes it.
  */
 export function Menu({ trigger, triggerLabel, items, onSelect, defaultOpen = false, align = 'start' }: MenuProps) {
-  const [open, setOpen] = useState(defaultOpen);
-  const [focusIndex, setFocusIndex] = useState<number | null>(null);
   const base = useId();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
-  const enabled = items.map((it, i) => (it.disabled ? -1 : i)).filter((i) => i >= 0);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { open, show, hide } = useDisclosure({ defaultOpen, containerRef: rootRef });
+  const isDisabled = useCallback((i: number) => !!items[i]?.disabled, [items]);
+  const roving = useRovingFocus({ count: items.length, orientation: 'vertical', isDisabled });
+  // Which item to focus once the menu has rendered after a user opened it.
+  const pendingFocus = useRef<'first' | 'last' | null>(null);
 
   useEffect(() => {
-    if (open && focusIndex !== null) itemRefs.current[focusIndex]?.focus();
-  }, [open, focusIndex]);
+    if (!open || !pendingFocus.current) return;
+    roving.focusAt(pendingFocus.current === 'first' ? roving.first() : roving.last());
+    pendingFocus.current = null;
+  }, [open, roving]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
-
-  function openAt(index: number | null) {
-    setOpen(true);
-    setFocusIndex(index);
+  function openAt(where: 'first' | 'last') {
+    pendingFocus.current = where;
+    show();
   }
-  function close(returnFocus = true) {
-    setOpen(false);
-    setFocusIndex(null);
-    if (returnFocus) triggerRef.current?.focus();
+  function close() {
+    hide();
+    triggerRef.current?.focus();
   }
   function choose(i: number) {
     if (items[i].disabled) return;
@@ -65,24 +63,21 @@ export function Menu({ trigger, triggerLabel, items, onSelect, defaultOpen = fal
   function onTriggerKey(e: KeyboardEvent) {
     if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      openAt(enabled[0] ?? null);
+      openAt('first');
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      openAt(enabled[enabled.length - 1] ?? null);
+      openAt('last');
     }
   }
   function onItemKey(e: KeyboardEvent, i: number) {
-    const pos = enabled.indexOf(i);
-    const move = (p: number) => setFocusIndex(enabled[(p + enabled.length) % enabled.length]);
-    if (e.key === 'ArrowDown') move(pos + 1);
-    else if (e.key === 'ArrowUp') move(pos - 1);
-    else if (e.key === 'Home') move(0);
-    else if (e.key === 'End') move(enabled.length - 1);
-    else if (e.key === 'Escape') close();
-    else if (e.key === 'Tab') return close(false);
-    else if (e.key === 'Enter' || e.key === ' ') choose(i);
-    else return;
-    e.preventDefault();
+    if (roving.onItemKeyDown(e, i)) return;
+    if (e.key === 'Escape' || e.key === 'Tab') {
+      e.preventDefault();
+      close();
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      choose(i);
+    }
   }
 
   return (
@@ -96,18 +91,18 @@ export function Menu({ trigger, triggerLabel, items, onSelect, defaultOpen = fal
         aria-expanded={open}
         aria-controls={open ? `${base}-menu` : undefined}
         aria-label={triggerLabel}
-        onClick={() => (open ? close(false) : openAt(null))}
+        onClick={() => (open ? hide() : openAt('first'))}
         onKeyDown={onTriggerKey}
       >
         {trigger}
-        <svg aria-hidden="true" className={styles.chevron} viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 10l5 5 5-5" /></svg>
+        <Icon name="chevron-down" size="sm" />
       </button>
       {open && (
         <ul role="menu" id={`${base}-menu`} aria-labelledby={`${base}-trigger`} className={`${styles.menu} ${styles[align]}`}>
           {items.map((it, i) => (
             <li
               key={it.id}
-              ref={(el) => { itemRefs.current[i] = el; }}
+              ref={roving.itemRef(i)}
               role={it.checked === undefined ? 'menuitem' : 'menuitemradio'}
               aria-checked={it.checked === undefined ? undefined : it.checked}
               aria-disabled={it.disabled || undefined}
