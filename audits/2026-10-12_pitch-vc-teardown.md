@@ -97,7 +97,7 @@ That is backlog phases 2 to 4 (slide 11). Competitors meter by seats or credits;
 **Finding.** "Evidence-backed kits are the real difference, and they can be copied."
 
 **Answer.** The moat compounds:
-1. **The evidence store.** Every fact keeps its quote and every sentence in the kit traces to a fact (backlog phase 1).
+1. **The evidence store.** Every fact keeps its quote, and kit sections cite the facts they use; anything unsupported is labelled as an assumption (backlog phase 1).
 2. **The approval record.** Every approved and rejected draft trains a shared anti-slop writer, with consent (backlog phase 5). That data grows with every brand and can't be copied.
 3. **The open record of what's official.** It gets more useful as more brands, wallets and exchanges use it.
 
