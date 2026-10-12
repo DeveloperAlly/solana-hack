@@ -1,4 +1,5 @@
 import { Parser } from 'htmlparser2';
+import { CookieJar } from 'tough-cookie';
 import { HttpError } from './env';
 
 export const MAX_BYTES = 1_500_000;
@@ -40,12 +41,42 @@ export async function fetchHop(url: URL, headers: Record<string, string> = {}): 
 }
 
 /**
+ * The network side of one read: every request it makes goes through `hop`, which charges a fixed request budget and
+ * keeps cookies the way a browser does (RFC 6265, through tough-cookie's CookieJar:
+ * https://github.com/salesforce/tough-cookie), so a cookie a site sets on a redirect or a robots.txt answer is sent on
+ * the requests that follow, and no chain of redirects, robots.txt fetches or retries can turn one read into an
+ * unbounded number of requests (PR #71 review).
+ */
+export interface HopSession {
+  hop(url: URL, headers?: Record<string, string>): Promise<Response>;
+  readonly left: number;
+}
+
+export function hopSession(maxRequests: number): HopSession {
+  const jar = new CookieJar();
+  let left = maxRequests;
+  return {
+    get left() {
+      return left;
+    },
+    async hop(url, headers = {}) {
+      if (left <= 0) throw new HttpError(429, 'this read reached its request limit');
+      left--;
+      const cookie = await jar.getCookieString(url.toString()).catch(() => '');
+      const res = await fetchHop(url, cookie ? { ...headers, cookie } : headers);
+      for (const c of res.headers.getSetCookie()) await jar.setCookie(c, url.toString(), { ignoreError: true }).catch(() => undefined);
+      return res;
+    },
+  };
+}
+
+/**
  * Fetches a page. With a gate, redirects are followed one hop at a time (redirect: 'manual', supported by Workers:
  * https://developers.cloudflare.com/workers/runtime-apis/request/) and the gate is asked before each fetch, so an
  * address robots.txt disallows is never requested, not merely discarded after download (PR #71 review). Without a gate,
  * the platform follows redirects as before.
  */
-export async function fetchPage(url: URL, gate?: FetchGate): Promise<{ res: Response; url: URL }> {
+export async function fetchPage(url: URL, gate?: FetchGate, session?: HopSession): Promise<{ res: Response; url: URL }> {
   const init = { signal: AbortSignal.timeout(12000), headers: { 'user-agent': USER_AGENT } };
   if (!gate) {
     try {
@@ -58,7 +89,7 @@ export async function fetchPage(url: URL, gate?: FetchGate): Promise<{ res: Resp
   let current = url;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     if (!(await gate(current))) throw new HttpError(403, 'the link leads to an address its robots.txt does not let us read');
-    const res = await fetchHop(current);
+    const res = session ? await session.hop(current) : await fetchHop(current);
     const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
     if (!location) return { res, url: current };
     await res.body?.cancel().catch(() => undefined);
@@ -75,8 +106,8 @@ export async function fetchPage(url: URL, gate?: FetchGate): Promise<{ res: Resp
 }
 
 /** Follows a link's redirects with the gate checked before each hop, and returns where it ends; the page is not read. */
-export async function resolveRedirects(url: URL, gate: FetchGate): Promise<URL> {
-  const { res, url: final } = await fetchPage(url, gate);
+export async function resolveRedirects(url: URL, gate: FetchGate, session?: HopSession): Promise<URL> {
+  const { res, url: final } = await fetchPage(url, gate, session);
   await res.body?.cancel().catch(() => undefined);
   return final;
 }
@@ -138,7 +169,7 @@ export function pageLinks(html: string, landed: URL): string[] {
  * refused (422) unless `allowShort` is set, for a caller that still wants the page's links, such as a site reader
  * whose home page is mostly navigation (PR #71 review).
  */
-export async function readPage(raw: string, gate?: FetchGate, allowShort = false): Promise<{ url: string; title: string; text: string; links: string[] }> {
+export async function readPage(raw: string, gate?: FetchGate, allowShort = false, session?: HopSession): Promise<{ url: string; title: string; text: string; links: string[] }> {
   let url: URL;
   try {
     url = new URL(raw.includes('://') ? raw : `https://${raw}`);
@@ -147,7 +178,7 @@ export async function readPage(raw: string, gate?: FetchGate, allowShort = false
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new HttpError(400, 'only http and https links can be read');
   if (url.port && url.port !== '80' && url.port !== '443') throw new HttpError(400, 'that link uses an unusual port');
-  const { res, url: landed } = await fetchPage(url, gate);
+  const { res, url: landed } = await fetchPage(url, gate, session);
   if (!res.ok) throw new HttpError(502, `the site answered with HTTP ${res.status}`);
   const type = res.headers.get('content-type') ?? '';
   if (!/text\/html|text\/plain|markdown/.test(type)) throw new HttpError(415, 'that link is not a web page or text file');

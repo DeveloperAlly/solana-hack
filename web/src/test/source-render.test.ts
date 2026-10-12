@@ -275,6 +275,16 @@ describe('site adapter: rendered fallback for script-only sites (architecture §
     if (!r.ok || r.kind === 'document') throw new Error('expected a site read');
     expect(r.pages![0].text).toContain('text the page shows');
   });
+  it("does not accept Exa's cached shell with almost no text; renders the page instead (PR #71 review)", async () => {
+    network((url) => (url === 'https://api.exa.ai/contents' ? undefined : url === 'https://a.test/' ? { body: APP } : undefined));
+    const real = globalThis.fetch as unknown as (u: string, i?: RequestInit) => Promise<Response>;
+    vi.stubGlobal('fetch', vi.fn(async (u: string, i?: RequestInit) => (u === 'https://api.exa.ai/contents' ? new Response(JSON.stringify({ results: [{ url: 'https://a.test/', title: 'A', text: 'Loading...', extras: { links: [] } }] })) : real(u, i))));
+    const b = fakeBrowser();
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/', { website: 'a.test', subpages: 0 }, (g, max) => createRenderer(b.launch, g, max));
+    expect(r).toMatchObject({ ok: true });
+    if (!r.ok || r.kind === 'document') throw new Error('expected a site read');
+    expect(r.pages![0].text).toContain('text the page shows');
+  });
   it('without a renderer, a script-only site still asks for the text to be pasted', async () => {
     network({ 'https://a.test/': { body: APP } });
     const r = await readSite({}, 'https://a.test/', { website: 'a.test' });

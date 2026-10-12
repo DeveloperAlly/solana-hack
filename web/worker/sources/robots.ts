@@ -126,10 +126,28 @@ export async function readCapped(res: Response, max: number): Promise<{ bytes: U
   return { bytes: out.subarray(0, n), truncated };
 }
 
-/** Reads robots.txt for an origin. Never throws. */
-export async function fetchRobots(origin: string, fetcher: typeof fetch = fetch): Promise<RobotsCheck> {
+/** One robots.txt request; redirects are not followed by it (fetchRobots follows them). */
+export type RobotsFetch = (url: URL) => Promise<Response>;
+const plainRobotsFetch: RobotsFetch = (url) => fetch(url.toString(), { redirect: 'manual', signal: AbortSignal.timeout(5000), headers: { 'user-agent': USER_AGENT } });
+/** RFC 9309 §2.3.1.2: crawlers "SHOULD follow at least five consecutive redirects, even across authorities". */
+export const ROBOTS_MAX_REDIRECTS = 5;
+
+/**
+ * Reads robots.txt for an origin. Never throws. Redirects are followed here, one request at a time through `fetcher`,
+ * so a caller's request budget and cookies apply to every hop (PR #71 review).
+ */
+export async function fetchRobots(origin: string, fetcher: RobotsFetch = plainRobotsFetch): Promise<RobotsCheck> {
   try {
-    const res = await fetcher(`${origin}/robots.txt`, { redirect: 'follow', signal: AbortSignal.timeout(5000), headers: { 'user-agent': USER_AGENT } });
+    let url = new URL('/robots.txt', origin);
+    let res = await fetcher(url);
+    for (let hop = 0; res.status >= 300 && res.status < 400 && res.headers.get('location'); hop++) {
+      await res.body?.cancel().catch(() => undefined);
+      // Past five, RFC 9309 lets a crawler treat the file as unavailable; reading nothing is the stricter choice.
+      if (hop >= ROBOTS_MAX_REDIRECTS) return { state: 'unreachable' };
+      url = new URL(res.headers.get('location')!, url);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return { state: 'unreachable' };
+      res = await fetcher(url);
+    }
     if (res.status >= 400 && res.status < 500) return { state: 'none' };
     if (!res.ok) return { state: 'unreachable' };
     // Read up to the parsing limit in bytes, then decode: a limit in characters could stop short of 500 KiB. The body
