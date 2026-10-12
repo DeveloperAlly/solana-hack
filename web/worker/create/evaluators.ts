@@ -12,7 +12,8 @@
 // Tone and content findings are tracked (content is gated at approval by policyCheck). The voice-fit bands are
 // uncalibrated (voice.ts), so voice fit is tracked. Without a review there is no verdict (fail closed).
 import { differentFamily } from '../models';
-import { MAX_POST_CHARS, policyVerdict, slopCheck } from '../posts';
+import { MAX_POST_CHARS } from '../limits';
+import { policyVerdict, slopCheck } from '../posts';
 import { checkClaims, evidenceSentences, key as sentenceKey, type DraftClaim, type FactRef } from './claims';
 import { lintPlatform } from './platform';
 import { measureVoice, type VoiceSpec } from './voice';
@@ -60,10 +61,13 @@ export interface Evaluator {
 }
 
 const isFindings = (r: unknown): r is ReviewFindings => !!r && typeof r === 'object' && Array.isArray((r as ReviewFindings).claims);
+/** The writer of a text a person typed (an edit): no model wrote it, so no model family is excluded from reviewing it. */
+export const PERSON = 'person';
 /** A review counts only if it exists and its model shares no family with the writer's, both from the trace. */
 function validReview(i: EvalInput): string | null {
   if (!isFindings(i.review)) return 'the independent review did not run';
-  if (!differentFamily(i.generator, i.judge)) return 'the reviewer was not of another model family than the writer';
+  if (i.generator !== PERSON && !differentFamily(i.generator, i.judge)) return 'the reviewer was not of another model family than the writer';
+  if (i.generator === PERSON && !i.judge) return 'the reviewer model is unknown';
   return null;
 }
 /** Claims the reviewer could not resolve to the facts the writer was given count as unsupported. */
@@ -176,3 +180,47 @@ export function verdictOf(idx: number, results: Results): CandidateVerdict {
 export function pick(verdicts: CandidateVerdict[]): number {
   return [...verdicts].sort((a, b) => b.rank - a.rank || a.idx - b.idx)[0].idx;
 }
+
+/** Evaluator results without their bulky detail: what a post's record keeps. */
+export const briefResults = (r: Results) => Object.fromEntries(Object.entries(r).map(([id, x]) => [id, { pass: x.pass, status: x.status, version: x.version, score: x.score ?? null, reasons: x.reasons.slice(0, 8), model: x.model ?? null }]));
+
+/**
+ * The verdict a post carries for exactly one text (PR #99 review: no body is approvable without a passing verdict for
+ * its own hash). Written when a draft is saved, after an AI polish and after a person's edit; approval reads it.
+ * Findings keep the words each gate points at, so the checks list (checks.ts) is built from the same record.
+ */
+export interface PostVerdict {
+  bodyHash: string;
+  passed: boolean;
+  failedGates: string[];
+  reasons: string[];
+  evaluators: ReturnType<typeof briefResults>;
+  findings: { slop: string[]; claims: { rule: string; text: string; detail: string }[]; unsupported: string[]; silent: string[] };
+  source: 'draft' | 'polish' | 'edit' | 'approval';
+  generator: string | null;
+  judge: string | null;
+  prompt: { key: string; version: number } | null;
+  at: string;
+}
+
+export function postVerdict(bodyHash: string, results: Results, meta: Pick<PostVerdict, 'source' | 'generator' | 'judge' | 'prompt'>): PostVerdict {
+  const v = verdictOf(0, results);
+  const claimsDetail = results.claims?.detail as { findings?: { rule: string; text: string; detail: string }[] } | undefined;
+  const reviewDetail = results.review_claims?.detail as { claims?: { text: string; supported: boolean }[]; silent?: string[] } | undefined;
+  return {
+    bodyHash, passed: v.passed, failedGates: v.failedGates, reasons: v.reasons.slice(0, 12), evaluators: briefResults(results),
+    findings: {
+      slop: (results.slop?.detail as { hits?: string[] } | undefined)?.hits ?? [],
+      claims: (claimsDetail?.findings ?? []).map((f) => ({ rule: f.rule, text: f.text.slice(0, 500), detail: f.detail })),
+      unsupported: (reviewDetail?.claims ?? []).filter((c) => !c.supported).map((c) => c.text),
+      silent: reviewDetail?.silent ?? [],
+    },
+    ...meta, at: new Date().toISOString(),
+  };
+}
+
+/** A verdict that could not be computed: never approvable (fail closed), with the reason shown. */
+export const failedVerdict = (bodyHash: string, reason: string, meta: Pick<PostVerdict, 'source' | 'generator'>): PostVerdict => ({
+  bodyHash, passed: false, failedGates: ['review'], reasons: [`independent checks could not run: ${reason}`], evaluators: {}, findings: { slop: [], claims: [], unsupported: [], silent: [] },
+  judge: null, prompt: null, ...meta, at: new Date().toISOString(),
+});

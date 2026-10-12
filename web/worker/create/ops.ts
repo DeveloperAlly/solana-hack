@@ -7,7 +7,7 @@ import { stableId } from '../ids';
 import { CLAIMS_POLICY, contentHash, FLIRTY_NOTE, slopCheck } from '../posts';
 import type { StepContext } from '../engine/steps';
 import { evidenceSentences, type DraftClaim, type FactRef } from './claims';
-import { EVALUATORS, named, pick, runAll, verdictOf, withinLength, type EvalInput, type ReviewFindings, type Results } from './evaluators';
+import { EVALUATORS, named, pick, postVerdict, runAll, verdictOf, withinLength, type EvalInput, type ReviewFindings, type Results } from './evaluators';
 import { factDocs, loadCorpus, rankCorpus, RETRIEVE_DEFAULTS, type FactInput, type Ranked } from './retrieve';
 import { directives, toneTargets, VOICE_BANDS_VERSION, voiceSpec, type VoiceMeasure, type VoiceSpec } from './voice';
 import type { ClaimsResult } from './claims';
@@ -210,7 +210,9 @@ export const CREATE_WRITES: Record<string, (ctx: StepContext, args: Record<strin
       candidates: summary,
     };
     const notes = v.reasons.slice(0, 3).map((n) => n.slice(0, 200));
-    const checks = { slop: slopCheck(body), voiceFit: v.voiceFit, platform: v.platformFit, notes, source: 'ai', draft };
+    // The verdict for exactly this text (the one approval reads), from the same results the decision used.
+    const verdict = postVerdict(draft.bodyHash, res, { source: 'draft', generator: gens[chosen] ?? null, judge: judges[chosen] ?? null, prompt: prompts.review ? { key: 'create.review', version: prompts.review } : null });
+    const checks = { slop: slopCheck(body), voiceFit: v.voiceFit, platform: v.platformFit, notes, source: 'ai', draft, verdict };
     const rows = await Promise.all(summary.map(async (c) => ({
       id: await stableId(run.id, 'candidate', String(c.idx)), run_id: run.id, brand_id: run.brand_id, post_id: postId, idx: c.idx, chosen: c.idx === chosen,
       body: c.body, claims: (decision.results[c.idx].claims?.detail as ClaimsResult | undefined)?.claims ?? [], model: c.model, judge_model: c.judge, prompt_versions: prompts,

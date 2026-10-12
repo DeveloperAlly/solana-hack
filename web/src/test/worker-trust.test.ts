@@ -15,7 +15,9 @@ vi.mock('../../worker/registry', () => ({
   explorerTx: (s: string) => s,
 }));
 const { registerKit, reviewEvidence, draftSection } = await import('../../worker/api');
-const { approvePost, allEvidence } = await import('../../worker/posts');
+const { approvePost, allEvidence, contentHash } = await import('../../worker/posts');
+/** A passing verdict for exactly this text (PR #99: no text is approvable without one); these tests are about the claims check after it. */
+const passingFor = async (body: string) => ({ bodyHash: await contentHash(body), passed: true, failedGates: [], reasons: [], evaluators: {}, findings: { slop: [], claims: [], unsupported: [], silent: [] }, source: 'draft', generator: 'g', judge: 'j', prompt: null, at: '' });
 const { factTrust, usableFact, snapshotFact, SOURCE_TYPES, urlKind } = await import('../../worker/sources/registry');
 
 const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k', REGISTRAR_KEY: '[1]', RPC_URL: 'https://rpc.test', OPENROUTER_API_KEY: 'k' } as Env;
@@ -135,7 +137,7 @@ describe('an unapproved third-party fact (issue #57 acceptance)', () => {
   it('blocks a post that claims it, and the claims gate sees each fact with its quote', async () => {
     tables = readyBrand();
     await registerKit(env, user, brand);
-    tables.posts = [{ id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: `${CLAIM}.`, checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [] } }];
+    tables.posts = [{ id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: `${CLAIM}.`, checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [], verdict: await passingFor(`${CLAIM}.`) } }];
     llm = checker;
     await expect(approvePost(env, user, tables.posts[0] as never)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('claims gate') });
     expect(prompts[0].user).toContain('Founded in 2024 (quote: "founded in 2024")');
@@ -149,7 +151,7 @@ describe('an unapproved third-party fact (issue #57 acceptance)', () => {
     await registerKit(env, user, brand);
     const kit = tables.kits[0] as { payload: { evidence: { id: string; trust: string }[] } };
     expect(kit.payload.evidence.map((e) => e.id).sort()).toEqual(['e-owned', 'e-third']);
-    tables.posts = [{ id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: `${CLAIM}.`, checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [] } }];
+    tables.posts = [{ id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: `${CLAIM}.`, checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [], verdict: await passingFor(`${CLAIM}.`) } }];
     llm = checker;
     const post = await approvePost(env, user, tables.posts[0] as never);
     expect(post).toMatchObject({ status: 'approved' });

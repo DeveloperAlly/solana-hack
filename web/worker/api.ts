@@ -8,7 +8,7 @@ import { draftChecks } from './create/checks';
 import { activeRun, activeRuns, draftRun, getRun, ingestSource, startRun } from './engine/api';
 import type { WaitUntil } from './engine/executor';
 import { usableFact } from './sources/registry';
-import { approvePost, editPost, rejectPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
+import { approvePost, contentHash, editPost, rejectPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
 export const MAX_POSTS = 500;
@@ -343,10 +343,11 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
   // the post (create/checks.ts; issue #93). Owner only: a post of someone else's brand is reported as not found.
   if (p[1] === 'drafts') {
     if (!(p.length === 4 && p[3] === 'checks' && m === 'GET' && /^[0-9a-f-]{36}$/i.test(p[2]))) return json({ error: 'not found' }, 404);
-    const [post] = await db.select<Post>(env, 'posts', `${db.eq('id', p[2])}&select=id,brand_id,channel,checks`);
+    const [post] = await db.select<Post>(env, 'posts', `${db.eq('id', p[2])}&select=id,brand_id,channel,checks,body`);
     const [own] = post ? await db.select<{ id: string }>(env, 'brands', `${db.eq('id', post.brand_id)}&${db.eq('owner_id', user.id)}&select=id`) : [];
     if (!post || !own) throw new HttpError(404, 'draft not found');
-    return json(draftChecks(post));
+    // Checks describe the current text only: a verdict for an earlier text is not served (posts.ts approvePost rule).
+    return json(draftChecks(post, await contentHash(post.body)));
   }
 
   if (p[1] === 'me' && p.length === 2 && m === 'GET') {

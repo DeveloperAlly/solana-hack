@@ -84,6 +84,10 @@ describe('polish safety', () => {
   });
 });
 
+// A passing verdict for exactly the approval tests' text (PR #99: no text is approvable without one); these tests are
+// about the approval check (policyCheck) that runs after it.
+const passing = { bodyHash: await contentHash('We are 2x faster.'), passed: true, failedGates: [], reasons: [], evaluators: {}, findings: { slop: [], claims: [], unsupported: [], silent: [] }, source: 'draft', generator: 'g', judge: 'j', prompt: null, at: '' };
+
 describe('approval gates: claims and content policy', () => {
   const clean = { unsupported: [], sexual: false, minors: false, explicitLanguage: false };
   it('passes only with no unsupported claims and no blocked category', () => {
@@ -124,7 +128,7 @@ describe('approval gates: claims and content policy', () => {
     return { writes, system: () => system };
   }
   const llmEnv = { ...env, OPENROUTER_API_KEY: 'k' } as Env;
-  const post = { id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'We are 2x faster.', checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [] } } as unknown as Post;
+  const post = { id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: 'We are 2x faster.', checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [], verdict: passing } } as unknown as Post;
   const user = { id: 'u' } as never;
 
   it('blocks approval when the claims gate finds an unsupported claim, and records why', async () => {

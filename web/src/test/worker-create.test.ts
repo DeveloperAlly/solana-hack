@@ -16,7 +16,7 @@ const { runStep, READS } = await import('../../worker/engine/steps');
 const { JUDGES, taskModelsError, differentFamily } = await import('../../worker/models');
 const { SLOP_RULES, SLOP_TERMS } = await import('../../worker/slop');
 const { slopCheck, contentHash } = await import('../../worker/posts');
-const { checkClaims, countedNouns } = await import('../../worker/create/claims');
+const { checkClaims, countedNouns, evidenceSentences } = await import('../../worker/create/claims');
 const { bm25Scores, BM25, factDocs, passages, rankCorpus, loadCorpus, RETRIEVE_DEFAULTS } = await import('../../worker/create/retrieve');
 const { measureVoice, voiceSpec, TEMPLATE_DIALS, DIALS } = await import('../../worker/create/voice');
 const { lintPlatform, isBroetry } = await import('../../worker/create/platform');
@@ -59,7 +59,7 @@ let calls: Call[] = [];
 /** The drafter's reply per candidate (1-based index from the prompt). */
 let drafts: Record<number, { body: string; claims: { text: string; fact_ids: string[] }[] }>;
 /** The reviewer's reply for a post. */
-let review: (post: string) => Record<string, unknown>;
+let review: (post: string, asked?: string[]) => Record<string, unknown>;
 /** Which model the stub says answered, per schema (default: the first model the request listed). */
 let answeredBy: Partial<Record<string, string>> = {};
 let reviewStatus = 200;
@@ -68,9 +68,10 @@ let failWrites: RegExp | null = null;
 /** When set, every drafting call answers 429, as OpenRouter does once the free allowance is used up. */
 let draftRateLimited = false;
 
-const goodReview = (post: string) => ({
-  // The judge answers every sentence it was asked about (the evidence-bearing ones), as the prompt requires.
-  claims: post.includes('10 companies') ? [{ text: 'Teams at 10 companies use JamJam to keep their posts honest.', fact_ids: [F(1)], supported: true }] : [],
+const goodReview = (post: string, asked?: string[]) => ({
+  // The judge answers every sentence it was asked about (the evidence-bearing ones), as the prompt requires: supported
+  // when it says what fact 1 says (teams at 10 companies), unsupported otherwise.
+  claims: (asked ?? evidenceSentences(post, '4')).map((t) => (t.includes('10 companies') ? { text: t, fact_ids: [F(1)], supported: true } : { text: t, fact_ids: [], supported: false })),
   issues: [], tone: [{ dimension: 'warmth', observed: 'on' }, { dimension: 'energy', observed: 'on' }, { dimension: 'humour', observed: 'on' }],
   sexual: false, minors: false, explicitLanguage: false,
 });
@@ -117,7 +118,7 @@ beforeEach(async () => {
       if (schema === 'draft_candidate' && draftRateLimited) return new Response('{}', { status: 429 });
       let content = '{}';
       if (schema === 'draft_candidate') content = JSON.stringify(drafts[Number(/candidate (\d) of 3/.exec(system)![1])]);
-      if (schema === 'review_findings') content = JSON.stringify(review((JSON.parse(user) as { post: string }).post));
+      if (schema === 'review_findings') { const u = JSON.parse(user) as { post: string; sentences: string[] }; content = JSON.stringify(review(u.post, u.sentences)); }
       if (schema === 'policy') content = '{}';
       // The approval check (posts.ts policyCheck) has no schema: everything supported, nothing blocked.
       if (!schema) content = JSON.stringify({ unsupported: [], sexual: false, minors: false, explicitLanguage: false });
@@ -386,7 +387,7 @@ describe('claims gate (G2, C1): every claim resolves to usable evidence, or the 
     expect(post.checks.draft.verdict.failedGates).toEqual(['claims']);
     const a = await call('POST', `/brands/${BRAND}/posts/${post.id}/approve`, { rev: post.rev ?? 0 });
     expect(a.status).toBe(409);
-    expect(String(a.body.error)).toMatch(/independent checks did not pass this draft: claim "JamJam now serves 10 enterprise customers"/);
+    expect(String(a.body.error)).toMatch(/the checks did not pass this text: claim "JamJam now serves 10 enterprise customers"/);
     expect(db.tables.posts.find((p) => p.id === post.id)!.status).toBe('drafted');
   });
 
@@ -396,7 +397,8 @@ describe('claims gate (G2, C1): every claim resolves to usable evidence, or the 
     expect((post.checks.notes as string[])[0]).toMatch(/JamJam has 500 brands on board/);
     const c = await call('GET', `/drafts/${post.id}/checks`);
     expect(c.status).toBe(200);
-    expect(c.body).toMatchObject({ passed: false, threshold: null, charLimit: 3000, checks: [{ title: 'Unsupported claim', phrase: 'JamJam has 500 brands on board.', blocking: true, rule: { kind: 'phrase', blocks: true, fix: { kind: 'remove-line' } } }] });
+    expect(c.body).toMatchObject({ passed: false, threshold: null, charLimit: 3000 });
+    expect((c.body.checks as Row[])[0]).toMatchObject({ title: 'Unsupported claim', phrase: 'JamJam has 500 brands on board.', blocking: true, rule: { kind: 'phrase', blocks: true, fix: { kind: 'remove-line' } } });
   });
 
   it(`F6 fixtures (spec/evals/create/claims.json): recall of unsupported claims meets the §13.2 gate (>= 95%)`, () => {
@@ -626,6 +628,53 @@ describe('decision history (§6.2 "Collect from day one"): edits as original and
     expect(db.tables.post_decisions).toHaveLength(1);
   });
 
+  /** Answers the polish call (no reply schema) with `next`, and every other call as before. */
+  function polishReplies(next: () => string) {
+    const fetchStub = globalThis.fetch;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.startsWith('https://openrouter.ai') && !JSON.parse(String(init!.body)).response_format) {
+        const sys = JSON.parse(String(init!.body)).messages[0].content as string;
+        if (sys.startsWith('You polish')) return new Response(JSON.stringify({ model: 'x/y:free', choices: [{ message: { content: JSON.stringify({ body: next(), voiceFit: 90, platform: 90, notes: [] }) } }] }));
+      }
+      return fetchStub(url, init);
+    }));
+  }
+
+  it('an AI polish re-runs the full gate set: a failing polish cannot be approved until a polish passes', async () => {
+    drafts = { 1: UPGRADED, 2: UPGRADED, 3: UPGRADED };
+    const post = (await draft()).body.post as PostOut;
+    let next = 'JamJam now serves 10 enterprise customers, truly.';
+    polishReplies(() => next);
+    let p = await call('POST', `/brands/${BRAND}/posts/${post.id}/polish`, { rev: 0, action: 'beautify' });
+    expect(p.status).toBe(200);
+    expect((p.body.post as PostOut).checks.verdict).toMatchObject({ source: 'polish', passed: false, generator: 'x/y:free' });
+    let a = await call('POST', `/brands/${BRAND}/posts/${post.id}/approve`, { rev: (p.body.post as PostOut).rev });
+    expect([a.status, String(a.body.error)]).toEqual([409, expect.stringMatching(/^the checks did not pass this text: claim "JamJam now serves 10 enterprise customers, truly\."/)]);
+    next = 'Teams at 10 companies use JamJam.';
+    const now = db.tables.posts.find((x) => x.id === post.id) as PostOut;
+    p = await call('POST', `/brands/${BRAND}/posts/${post.id}/polish`, { rev: now.rev, action: 'beautify' });
+    expect((p.body.post as PostOut).checks.verdict).toMatchObject({ source: 'polish', passed: true });
+    a = await call('POST', `/brands/${BRAND}/posts/${post.id}/approve`, { rev: (p.body.post as PostOut).rev });
+    expect(a.status).toBe(200);
+  });
+
+  it('a LinkedIn draft polished past 3,000 characters is refused at approval (platform hard rule)', async () => {
+    const post = (await draft()).body.post as PostOut;
+    polishReplies(() => `Teams at 10 companies use JamJam.\n\n${'We think every brand deserves proof. '.repeat(85)}`);
+    const p = await call('POST', `/brands/${BRAND}/posts/${post.id}/polish`, { rev: 0, action: 'beautify' });
+    expect(p.status).toBe(200);
+    expect([...(p.body.post as PostOut).body].length).toBeGreaterThan(3000);
+    const a = await call('POST', `/brands/${BRAND}/posts/${post.id}/approve`, { rev: (p.body.post as PostOut).rev });
+    expect([a.status, String(a.body.error)]).toEqual([409, expect.stringContaining('Within 3,000 characters')]);
+  });
+
+  it('a person\'s edit is evaluated too (the review included, by default): its own verdict decides approval', async () => {
+    const post = (await draft()).body.post as PostOut;
+    const e = await call('PUT', `/brands/${BRAND}/posts/${post.id}`, { rev: 0, body: 'JamJam has 500 brands on board.' });
+    expect((e.body.post as PostOut).checks.verdict).toMatchObject({ source: 'edit', generator: 'person', passed: false });
+    expect((await call('POST', `/brands/${BRAND}/posts/${post.id}/approve`, { rev: (e.body.post as PostOut).rev })).status).toBe(409);
+  });
+
   it('records a rejection with its reason code; an unknown reason is refused', async () => {
     const post = (await draft()).body.post as PostOut;
     expect((await call('POST', `/brands/${BRAND}/posts/${post.id}/reject`, { rev: post.rev ?? 0, reason: 'meh' })).status).toBe(400);
@@ -654,16 +703,30 @@ describe('GET /api/drafts/:id/checks: the Ambassador screen\'s DraftCheck shape 
 
   it('the validator accepts #78\'s own fixture, and every check served passes it', () => {
     expect(FIXTURE_78.every(validCheck)).toBe(true);
-    const out = draftChecks({ channel: 'X', checks: { voiceFit: 70, draft: { bodyHash: 'h', chosen: 0, verdict: { passed: false, reasons: [] }, findings: { slop: ['unlock', '—', 'exclamation mark'], claims: [{ rule: 'number', text: 'We have 12 users', detail: 'no cited fact states 12' }], unsupported: ['Loved by founders'] } } } });
-    expect(out.checks.map((c) => [c.title, c.phrase, c.blocking])).toEqual([['Avoided term', 'unlock', true], ['Avoided term', '—', true], ['Avoided term', '!', true], ['Unsupported claim', 'We have 12 users', true], ['Claim to check', 'Loved by founders', false]]);
+    const ev = (pass: boolean, status = 'gate') => ({ pass, status, version: 1, score: null, reasons: [], model: null });
+    const verdict = { bodyHash: 'h', passed: false, failedGates: ['slop', 'claims', 'review_claims'], reasons: [], evaluators: { slop: ev(false), claims: ev(false), review_claims: ev(false), voice: ev(false, 'tracked') }, findings: { slop: ['unlock', '\u2014', 'exclamation mark'], claims: [{ rule: 'number', text: 'We have 12 users', detail: 'no cited fact states 12' }], unsupported: ['Loved by founders'], silent: ['We ship daily.'] }, source: 'draft', generator: 'g', judge: 'j', prompt: null, at: '' } as const;
+    const out = draftChecks({ channel: 'X', checks: { voiceFit: 70, verdict: verdict as never } }, 'h');
+    expect(out.checks.map((c) => [c.title, c.phrase, c.blocking, c.rule.blocks])).toEqual([['Avoided term', 'unlock', true, true], ['Avoided term', '\u2014', true, true], ['Avoided term', '!', true, true], ['Unsupported claim', 'We have 12 users', true, true], ['Unsupported claim', 'Loved by founders', true, true], ['Claim not reviewed', 'We ship daily.', true, true]]);
+    // A verdict for another text is not served: the checks describe the current text only.
+    expect(draftChecks({ channel: 'X', checks: { verdict: verdict as never } }, 'other').checks).toEqual([]);
     expect(out.checks.every((c) => validCheck(c as never))).toBe(true);
     expect([out.score, out.charLimit, out.passed]).toEqual([70, 280, false]);
+  });
+
+  it('a check blocks exactly when its evaluator is a gate that failed: the same source as verdict.passed', async () => {
+    drafts = { 1: UPGRADED, 2: SLOPPY, 3: { body: 'JamJam has 500 brands on board.', claims: [] } };
+    const post = (await draft()).body.post as PostOut & { checks: { verdict: { passed: boolean; evaluators: Record<string, { status: string; pass: boolean }> } } };
+    const out = draftChecks(post as never, await contentHash(post.body));
+    const failedGate = Object.entries(post.checks.verdict.evaluators).some(([, e]) => e.status === 'gate' && !e.pass);
+    expect(out.checks.length).toBeGreaterThan(0);
+    for (const c of out.checks) expect([c.blocking, c.rule.blocks]).toEqual([failedGate, failedGate]);
+    expect(post.checks.verdict.passed).toBe(!out.checks.some((c) => c.blocking) && !failedGate);
   });
 
   it('serves the same verdict the posts API returns, to the owner only', async () => {
     const post = (await draft()).body.post as PostOut;
     const c = await call('GET', `/drafts/${post.id}/checks`);
-    expect(c.body).toEqual(JSON.parse(JSON.stringify(draftChecks(post as never))));
+    expect(c.body).toEqual(JSON.parse(JSON.stringify(draftChecks(post as never, await contentHash(post.body)))));
     db.tables.brands[0].owner_id = 'someone-else';
     expect((await call('GET', `/drafts/${post.id}/checks`)).status).toBe(404);
   });
