@@ -5,6 +5,7 @@ import { Route, Routes } from 'react-router';
 import { renderWithRouter } from '../../test/render';
 import { AppShell } from './AppShell';
 import { hubNav } from '../../config/routes';
+import { GalleryModeContext } from '../hooks/galleryMode';
 
 const signOut = vi.fn(async () => ({ error: null }));
 vi.mock('../../lib/supabase', () => ({ supabase: { auth: { signOut: () => signOut() } } }));
@@ -29,6 +30,36 @@ describe('L1 AppShell', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     expect(signOut).toHaveBeenCalled();
     expect(await screen.findByText('landing')).toBeInTheDocument();
+  });
+  it('inside the gallery, Sign out calls no Supabase method and stays on the screen', async () => {
+    signOut.mockClear();
+    renderWithRouter(
+      <GalleryModeContext.Provider value={true}>
+        <Routes>
+          <Route path="/screens/X" element={<AppShell>gallery screen</AppShell>} />
+          <Route path="/" element={<p>landing</p>} />
+        </Routes>
+      </GalleryModeContext.Provider>,
+      '/screens/X',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+    expect(signOut).not.toHaveBeenCalled();
+    expect(screen.getByText('gallery screen')).toBeInTheDocument();
+  });
+  it('inside the gallery, a fixture onSignOut runs instead', async () => {
+    signOut.mockClear();
+    const onSignOut = vi.fn();
+    renderWithRouter(<GalleryModeContext.Provider value={true}><AppShell onSignOut={onSignOut}>x</AppShell></GalleryModeContext.Provider>);
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+    expect(onSignOut).toHaveBeenCalled();
+    expect(signOut).not.toHaveBeenCalled();
+  });
+  it('marks the current item from activePath and renders a custom nav and subnav', () => {
+    renderWithRouter(<AppShell nav={hubNav.slice(0, 2)} activePath={hubNav[1].path} subnav={<p>tabs</p>}>x</AppShell>, '/elsewhere');
+    const nav = screen.getByRole('navigation', { name: 'Hub' });
+    expect(within(nav).getAllByRole('link')).toHaveLength(2);
+    expect(within(nav).getAllByRole('link')[1]).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByText('tabs')).toBeInTheDocument();
   });
   it('preview adds no main landmark or skip link and does not sign out', async () => {
     signOut.mockClear();

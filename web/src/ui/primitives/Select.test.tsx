@@ -32,6 +32,15 @@ describe('P13 Select', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
+  it('puts className on the field wrapper and passes native props to the select', () => {
+    renderWithRouter(<Select label="Format" className="placed" name="format" required options={['Zip']} />);
+    const select = screen.getByRole('combobox', { name: 'Format' });
+    expect(select.parentElement).toHaveClass('placed');
+    expect(select).not.toHaveClass('placed');
+    expect(select).toHaveAttribute('name', 'format');
+    expect(select).toBeRequired();
+  });
+
   it('works controlled in the inline sort layout', async () => {
     renderWithRouter(example.render());
     const sort = screen.getByRole('combobox', { name: 'Sort' });

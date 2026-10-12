@@ -22,6 +22,19 @@ describe('C22 BarList', () => {
     expect(widths()).toEqual(['50']);
   });
 
+  it('scales fractional values to the true maximum', () => {
+    const { container } = renderWithRouter(<BarList label="L" items={[{ label: 'A', value: 0.4, display: '0.4' }, { label: 'B', value: 0.2, display: '0.2' }]} />);
+    expect([...container.querySelectorAll('rect:not(:first-child)')].map((r) => r.getAttribute('width'))).toEqual(['100', '50']);
+  });
+
+  it('draws every bar empty for an all-zero list, and for max 0', () => {
+    const { container, rerender } = renderWithRouter(<BarList label="L" items={[{ label: 'A', value: 0, display: '0' }, { label: 'B', value: 0, display: '0' }]} />);
+    const widths = () => [...container.querySelectorAll('rect:not(:first-child)')].map((r) => r.getAttribute('width'));
+    expect(widths()).toEqual(['0', '0']);
+    rerender(<BarList label="L" max={0} items={[{ label: 'A', value: 3, display: '3' }]} />);
+    expect(widths()).toEqual(['0']);
+  });
+
   it('renders nothing for an empty list', () => {
     const { container } = renderWithRouter(<BarList label="L" items={[]} />);
     expect(container).toBeEmptyDOMElement();

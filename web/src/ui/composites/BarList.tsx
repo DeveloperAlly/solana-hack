@@ -27,7 +27,8 @@ export interface BarListProps {
  */
 export function BarList({ label, items, max, hideLabels = false, size = 'md' }: BarListProps) {
   if (items.length === 0) return null;
-  const top = max ?? Math.max(...items.map((i) => i.value), 1);
+  // Scale to the true maximum (fractional lists fill the top bar); an all-zero list draws every bar empty.
+  const top = max ?? Math.max(...items.map((i) => i.value));
   return (
     <ul className={styles.list} aria-label={label}>
       {items.map((item) => (

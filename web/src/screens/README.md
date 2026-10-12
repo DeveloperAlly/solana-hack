@@ -79,6 +79,29 @@ To migrate: delete the page copy (component, CSS module, example, test), change 
 | `HubDial` (52) | `Scale` (C6) | `start` → `startLabel`, `end` → `endLabel`; add `layout="stacked"` for the dial look; `disabled` unchanged |
 | `BuilderCoverageBadge` (50) | `CoverageBadge` from `ui/domain/CoverageBadge` (D51) | `state` `'E' / 'I' / 'M'` → `status` `'evidenced' / 'inferred' / 'missing'`; `withDetail` → `display="legend"`; `coverageMeaning` → `coverageMeta` |
 | `HubCoverageBadge` (52) | `CoverageBadge` (D51) | `showWord` → `display="word"`; `coverageStatuses`, `coverageWord` unchanged. Drop the 52 change to `EvidenceChip.tsx`: this branch has it |
+| `SoonInlineForm` (51) | `InlineForm` from `ui/composites/InlineForm` (C30) | add `surface="card"`; `SoonInlineField` → `InlineFormField`; other props unchanged |
+| `SoonAddForm` (51) | `InlineForm` (C30) | unchanged (`triggerLabel` opens it in place); add `surface="card"` |
+| `AmbInlineForm` (53) | `InlineForm` (C30) | single field → `fields={[{ name, label, type, placeholder, hint, defaultValue, validate }]}`; `variant` → `submitVariant`; `onSubmit(value)` → `onSubmit(values)` and read `values[name]` |
+| `BuilderLinkAdder` (50) | `InlineForm` (C30) | `fields={[{ name: 'url', label, placeholder: 'Paste a URL', inputMode: 'url', validate }]}` with `layout="row"`, `resetOnSubmit`, `submitVariant="secondary"`, `submitLabel="Add link"`; `onAdd(url)` → `onSubmit(({ url }) => …)` |
+| `HubColumns` (52) | `Columns` from `ui/layouts/Columns` (L9) | unchanged (`start`, `end`, `endWidth`) |
+| `AmbColumns` (53) | `Columns` (L9) | children list → slots: `layout="main-aside"` → `<Columns end={aside}>{main}</Columns>`; `layout="rail-main-rail"` → `<Columns start={left} startWidth="fluid" end={right} gap={6}>{main}</Columns>` |
+| `SoonPageHeader` (51) | `PageHeader` from `ui/layouts/PageHeader` (L5) | `tag` → `badges={<ComingSoonFlag tag={tag} />}`; `definedIn` → `meta={\`Drawn, not built. Defined in: ${definedIn}\`}`; `title`, `intro`, `actions` unchanged |
+| `SoonHubFrame` (51) | keep as a page composition of `AppShell` + `PageHeader` | swap its `SoonPageHeader` for `PageHeader` |
+| `BuilderShell` (50) | `AppFrame` from `ui/layouts/AppFrame` (L11) | `context`, `flags`, `homeHref`, `preview` unchanged; `action` → `actions` |
+| `AmbShell` / `AmbDesktopShell` (53) | `AppFrame` (L11) | `nav` + `active` → `nav={{ label: 'Ambassador', items: nav, current: active }}`; `flag` → `flags`; account chip → `actions={<AmbAccountChip … />}`; wrap the body in `Container width="app"` |
+| `AmbMobileShell` + `AmbTabBar` (53) | `AppFrame` (L11) with `width="phone"` | `back`, `title`, `pinned`, `footer` unchanged; `tabs` → `nav={{ …, placement: 'tabs' }}` (omit `nav` when there is no tab bar); account chip → `actions` |
+| `AppShell` changes (52) | `AppShell` (L1) here | drop the 52 diff to `AppShell.tsx` / `AppShell.module.css`: this branch has `nav`, `homeHref`, `activePath`, `subnav`, `onSignOut` |
+| `HubApprovalCard` (52) | `ApprovalItem` from `ui/domain/ApprovalItem` (D1) | unchanged (`meta`, `incoming`, `media`, `note`, `draft`, `actions`, `outcome`, `blocked`) |
+| `BuilderApprovalItem` (50) | keep the page's ambassador-submission state, render it in `ApprovalItem` (D1) | `surface="row"`; kind / author / amount → `meta`; excerpt → `draft`; check chips + link → `checks`; status line → `status`; reject-reason form → children; buttons → `actions` |
+| `SoonStatusRow` + `SoonStatusList` (51) | `ListRow` + `List` from `ui/composites/ListRow` (C31) | `name` → `title`; `detail`, `status`, `actions`, `selected` unchanged |
+| `HubItemRow` (52) | `ListRow` (C31) | children → `title`; `lead`, `aside`, `actions`, `selected`, `unread`, `onSelect`, `as` unchanged |
+| `BuilderSourceList` (50) | keep as the D12 preset, rendering `List` + `ListRow` | per row: `tone` `waiting` → `tone="muted"`, `failed` → `tone="failed"` with `detail={error}`; status chip → `status={{ label, tone: 'solid' | 'neutral' }}` |
+
+| any `length + 1` or ad hoc id for a client-side item (all pages) | `newId(prefix?)` from `lib/id` | `newId('link')`; never derive an id from a list length (Codex review on PR #79) |
+
+**In the gallery, shell actions are inert.** `GalleryScreen` provides gallery mode (`ui/hooks/galleryMode.ts`); `AppShell` reads it and Sign out calls nothing. A page frame that adds its own auth or network action reads `useGalleryMode()` and does nothing (or calls a fixture) when it is true.
+
+**Every link between screens must target a registered artboard.** `src/gallery/links.test.tsx` scans source for `ScreenLink artboard=`, `screenPath(`, `useScreenHref()(` and literal `/screens/<X>`, and renders every screen in every state to collect links; it fails on any unregistered target. A page therefore merges after the pages it links to.
 
 ## Links between screens
 Added in [issue #46](https://github.com/DeveloperAlly/solana-hack/issues/46) after a Codex review finding on [PR #68](https://github.com/DeveloperAlly/solana-hack/pull/68): bare links reset the gallery theme.
