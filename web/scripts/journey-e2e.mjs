@@ -110,21 +110,41 @@ for (const e of state.evidence.filter((x) => x.review_status === 'proposed')) aw
 state = await must('brand state', api(token, 'GET', `/brands/${brand.id}`));
 out(`J3 confirmed; coverage ${state.coverage.covered}/${state.coverage.total} (ratio ${state.coverage.ratio.toFixed(2)})`);
 
+function voiceOffer(reply, label, near) {
+  if (!Array.isArray(reply.samples) || reply.samples.length !== 3 || new Set(reply.samples.map((sample) => sample.template)).size !== 3) fail(`${label}: expected three distinct voice samples`);
+  if (reply.samples.some((sample) => !sample.template || !sample.text?.trim() || sample.answer?.template !== sample.template || sample.answer?.sample !== sample.text)) fail(`${label}: sample and saved voice answer disagree`);
+  if (near && reply.samples[0].template !== near) fail(`${label}: the selected voice was not retained for refinement`);
+}
+
 // J4: voice by example, two rounds, then the pick saved as the Voice answer.
 const r1 = await must('voice round 1', api(token, 'POST', `/brands/${brand.id}/voice/samples`, { round: 1 }));
+voiceOffer(r1, 'voice round 1');
 out(`J4 round 1: ${r1.samples.map((s) => s.template).join(', ')}`);
 const r2 = await must('voice round 2', api(token, 'POST', `/brands/${brand.id}/voice/samples`, { round: 2, near: r1.samples[0].template }));
+voiceOffer(r2, 'voice round 2', r1.samples[0].template);
 out(`J4 round 2 near ${r1.samples[0].template}: ${r2.samples.map((s) => s.template).join(', ')}`);
 await must('save voice', api(token, 'PUT', `/brands/${brand.id}/answers/voice`, { data: r2.samples[0].answer, skipped: false }));
+state = await must('saved voice state', api(token, 'GET', `/brands/${brand.id}`));
+const savedVoice = state.answers.find((answer) => answer.step === 'voice' && !answer.skipped);
+if (savedVoice?.data.template !== r2.samples[0].template || savedVoice?.data.sample !== r2.samples[0].text) fail('the selected voice did not persist');
 out(`J4 voice saved: ${r2.samples[0].template}`);
 
 // J5: draft, approve (the three gates record who and when) and register kit v1 on Solana devnet.
-for (const s of ['origin', 'purpose', 'positioning', 'audience', 'voice', 'messaging']) {
-  await must(`draft ${s}`, api(token, 'POST', `/brands/${brand.id}/sections/${s}/draft`));
-  await must(`approve ${s}`, api(token, 'POST', `/brands/${brand.id}/sections/${s}/approve`, { note: 'e2e approval' }));
+const kitSections = ['origin', 'purpose', 'positioning', 'audience', 'voice', 'messaging'];
+const unapproved = await api(token, 'POST', `/brands/${brand.id}/kit/register`);
+if (unapproved.status !== 409) fail('kit registration did not refuse missing approvals');
+for (const s of kitSections) {
+  const drafted = await must(`draft ${s}`, api(token, 'POST', `/brands/${brand.id}/sections/${s}/draft`));
+  if (drafted.section?.section !== s || !drafted.section.body?.trim() || drafted.section.status !== 'drafted') fail(`draft ${s}: no current section draft`);
+  const approved = await must(`approve ${s}`, api(token, 'POST', `/brands/${brand.id}/sections/${s}/approve`, { note: 'e2e approval' }));
+  if (approved.section?.section !== s || approved.section.status !== 'approved') fail(`approve ${s}: section was not approved`);
 }
+state = await must('approved kit state', api(token, 'GET', `/brands/${brand.id}`));
+if (kitSections.some((section) => !state.sections.some((row) => row.section === section && row.status === 'approved'))) fail('the six section approvals did not persist');
+if (['purpose', 'positioning', 'voice'].some((gate) => !state.gates.some((row) => row.gate === gate && row.approved_by === perm.user.id && row.approved_at && row.note))) fail('the three gates did not persist owner, time and note');
 out('J5 six sections drafted and approved; gates purpose, positioning and voice recorded');
 const kit = await must('register kit', api(token, 'POST', `/brands/${brand.id}/kit/register`));
+if (kit.kit?.version !== 1 || kit.kit.status !== 'registered' || !kit.explorer || !kit.attestationExplorer) fail('kit v1 registration did not return registered proof');
 out(`J5 kit v${kit.kit.version} registered: ${kit.explorer}`);
 out(`J5 attestation: ${kit.attestationExplorer}`);
 
