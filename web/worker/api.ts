@@ -278,7 +278,8 @@ export async function saveAnswer(env: Env, brand: Brand, step: string, data: Rec
   const [row] = await db.upsert(env, 'answers', { brand_id: brand.id, step, data, skipped, updated_at: new Date().toISOString() }, 'brand_id,step');
   // Owner answers are evidence, dated (P2: "owner answer, date"). One row per filled field; an unchanged field keeps
   // its row (and its id and date), a changed or cleared field's row is removed, and a new value gets a new row.
-  const evFilter = `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}`;
+  // Interview rows only: an owner's edit of a source fact (journey.ts editFact, edited_from set) is not an answer.
+  const evFilter = `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}&edited_from=is.null`;
   const existing = await db.select<{ id: string; claim: string }>(env, 'evidence', `${evFilter}&select=id,claim`);
   const wanted = skipped ? [] : Object.entries(data).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`);
   const kept = new Set<string>();
@@ -382,6 +383,7 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const b = await body(req);
     const name = str(b.name, 120);
     if (!name) throw new HttpError(400, 'a brand name is required');
+    if (user.isAnonymous) await publicLimit(req, env, 'brand');
     await assertCanCreateBrand(env, user);
     const type = ['company', 'person', 'founder_linked'].includes(str(b.type)) ? str(b.type) : 'company';
     const [brand] = await db.insert<Brand>(env, 'brands', { owner_id: user.id, name, type, description: str(b.description, 300) || null, website: str(b.website, 300) || null, goal: str(b.goal, 300) || null, channel: str(b.channel, 60) || null });
@@ -441,7 +443,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   }
   if (p[3] === 'sections' && p[4] && isSection(p[4])) {
     const section = p[4];
-    if (p[5] === 'draft' && m === 'POST') return json({ section: await draftSection(env, brand, section) });
+    // Drafting calls the model; it starts after the brand is saved (journey J2 before J3), so anonymous use stays bounded.
+    if (p[5] === 'draft' && m === 'POST') { requirePermanent(user); return json({ section: await draftSection(env, brand, section) }); }
     if (p.length === 5 && m === 'PUT') {
       const b = await body(req);
       const text = str(b.body, 6000);
@@ -463,6 +466,7 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
   }
   // POST /api/brands/:id/voice/samples {round: 1 | 2, near?} -> {samples: [{template, label, text}] x3} (journey J4)
   if (p[3] === 'voice' && p[4] === 'samples' && p.length === 5 && m === 'POST') {
+    requirePermanent(user);
     const b = await body(req);
     return json({ samples: await voiceSamples(env, brand, b.round === 2 ? 2 : 1, str(b.near, 40) || undefined) });
   }

@@ -16,6 +16,7 @@ export const ANON_MAX_SOURCES = 8;
 
 export async function assertCanCreateBrand(env: Env, user: User) {
   if (!user.isAnonymous) return;
+  // The count below is check-then-insert; the per-IP limit the caller applies first (api.ts) bounds concurrent bursts.
   const rows = await db.select<{ id: string }>(env, 'brands', `${db.eq('owner_id', user.id)}&select=id&limit=${ANON_MAX_BRANDS + 1}`);
   if (rows.length >= ANON_MAX_BRANDS) throw new HttpError(409, 'save your brand with your email to start another one');
 }
@@ -34,7 +35,12 @@ export async function assertCanAddSource(env: Env, user: User, brandId: string) 
 export async function claimAnonymous(env: Env, user: User, anonymousToken: string) {
   requirePermanent(user);
   if (!anonymousToken) throw new HttpError(400, 'anonymousToken is required');
-  const anon = await userFromToken(env, anonymousToken);
+  // An expired anonymous token is not the caller's session expiring: say what happened (the UI refreshes the anonymous
+  // session before signing in; spec/api/README.md).
+  const anon = await userFromToken(env, anonymousToken).catch((e: unknown) => {
+    if (e instanceof HttpError && e.status === 401) throw new HttpError(409, 'the unsaved session expired before it was claimed; refresh it and try again');
+    throw e;
+  });
   if (!anon.isAnonymous) throw new HttpError(409, 'that session is not an anonymous one');
   if (anon.id === user.id) return { moved: [] as string[] };
   const moved = await db.update<{ id: string }>(env, 'brands', db.eq('owner_id', anon.id), { owner_id: user.id });
@@ -102,21 +108,21 @@ export const FIRST_POST_BRIEF = 'First post for this brand: introduce who it is,
 
 /**
  * J3 Edit: the owner rewords a fact read from a source. The source fact is rejected (its wording is not the owner's),
- * and the owner's wording is stored as a new fact with trust owner_answer, approved, keeping the source and quote for
- * reference. Its origin stays 'source': saveAnswer replaces rows with origin owner_answer per interview step, and an
- * edited fact must not be removed when an unrelated answer is saved. The owner's own statement may enter a kit (ADR-011).
+ * and the owner's wording is stored as the owner's own statement (origin and trust owner_answer, approved, no quote:
+ * ADR-011 never pairs an owner's wording with a source's quote), linked to the fact it replaced by edited_from
+ * (spec/db/012). saveAnswer replaces only interview rows (edited_from null), and removing the source keeps the edit.
  */
 export async function editFact(env: Env, brandId: string, id: string, claim: string) {
   const text = claim.trim().slice(0, 500);
   if (!text) throw new HttpError(400, 'the fact cannot be empty');
   const f = `${db.eq('brand_id', brandId)}&${db.eq('id', id)}`;
-  const [row] = await db.select<FactRow & { source_id: string | null }>(env, 'evidence', f);
+  const [row] = await db.select<FactRow>(env, 'evidence', f);
   if (!row) throw new HttpError(404, 'fact not found');
   if (row.trust === 'owner_answer') throw new HttpError(409, 'this fact is your own answer; change the answer instead');
   await db.update(env, 'evidence', f, { review_status: 'rejected' });
   const [edited] = await db.insert<FactRow>(env, 'evidence', {
-    brand_id: brandId, source_id: row.source_id, section: row.section, claim: text, quote: row.quote,
-    origin: 'source', trust: 'owner_answer', review_status: 'approved',
+    brand_id: brandId, source_id: null, section: row.section, claim: text, quote: null, edited_from: id,
+    origin: 'owner_answer', trust: 'owner_answer', review_status: 'approved',
   });
   const sections = await db.select<{ section: string; citations: string[] }>(env, 'kit_sections', `${db.eq('brand_id', brandId)}&select=section,citations`);
   return { evidence: edited, replaced: id, stale: sections.filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };

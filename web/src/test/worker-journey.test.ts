@@ -24,6 +24,7 @@ let limited: boolean;
 const users: Record<string, { id: string; email?: string; is_anonymous?: boolean }> = {
   anon: { id: 'a-1', is_anonymous: true },
   anon2: { id: 'a-2', is_anonymous: true },
+  expiredAnon: { id: 'a-3', is_anonymous: true },
   perm: { id: 'p-1', email: 'owner@example.com', is_anonymous: false },
 };
 const env = {
@@ -38,6 +39,7 @@ function matches(row: Row, q: URLSearchParams) {
     if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(k)) continue;
     if (v.startsWith('eq.') && String(row[k]) !== v.slice(3)) return false;
     if (v.startsWith('in.(') && !v.slice(4, -1).split(',').includes(String(row[k]))) return false;
+    if (v === 'is.null' && row[k] != null) return false;
   }
   return true;
 }
@@ -79,7 +81,7 @@ beforeEach(() => {
     }
     if (url === 'https://db.test/auth/v1/user') {
       const token = new Headers(init?.headers).get('authorization')?.slice(7) ?? '';
-      const u = users[token];
+      const u = token === 'expiredAnon' ? undefined : users[token];
       return u ? new Response(JSON.stringify(u)) : new Response('{}', { status: 401 });
     }
     if (url.startsWith('https://db.test')) return new Response(JSON.stringify(fakeDb(url, init)));
@@ -130,6 +132,21 @@ describe('reading before sign-in (anonymous users, decision D1)', () => {
     tables.brands = [b];
     const kit = await call('anon', 'POST', `/api/brands/${b.id}/kit/register`);
     expect(kit).toMatchObject({ status: 403, body: { error: 'save your brand with your email first' } });
+    const p = { id: uuid(), brand_id: b.id, rev: 1, status: 'approved', body: 'x', checks: {} };
+    tables.posts = [p];
+    expect((await call('anon', 'POST', `/api/brands/${b.id}/posts/${p.id}/register`, { rev: 1 })).status).toBe(403);
+  });
+  it('refuses model calls (section drafts, voice samples) until the brand is saved', async () => {
+    const b = brandRow('a-1');
+    tables.brands = [b];
+    tables.evidence = [fact(b.id, 'purpose')];
+    expect((await call('anon', 'POST', `/api/brands/${b.id}/sections/purpose/draft`)).status).toBe(403);
+    expect((await call('anon', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 })).status).toBe(403);
+    expect(prompts).toHaveLength(0);
+  });
+  it('applies the per-IP limit to anonymous brand creation', async () => {
+    limited = true;
+    expect((await call('anon', 'POST', '/api/brands', { name: 'Acme' })).status).toBe(429);
   });
   it('refuses requests with no token or an unknown token', async () => {
     expect((await call(null, 'POST', '/api/brands', { name: 'x' })).status).toBe(401);
@@ -149,8 +166,10 @@ describe('claim: brands read anonymously move to an existing account (J2)', () =
   it('refuses a token that is not an anonymous session, an unknown token, and an anonymous caller', async () => {
     tables.brands = [brandRow('a-1')];
     expect((await call('perm', 'POST', '/api/me/claim', { anonymousToken: 'perm' })).status).toBe(409);
-    expect((await call('perm', 'POST', '/api/me/claim', { anonymousToken: 'nobody' })).status).toBe(401);
+    // An invalid or expired anonymous token cannot be told apart; both are 409 with a reason, never the caller's 401.
+    expect((await call('perm', 'POST', '/api/me/claim', { anonymousToken: 'nobody' })).status).toBe(409);
     expect((await call('anon2', 'POST', '/api/me/claim', { anonymousToken: 'anon' })).status).toBe(403);
+    expect(await call('perm', 'POST', '/api/me/claim', { anonymousToken: 'expiredAnon' })).toMatchObject({ status: 409 });
     expect(tables.brands[0].owner_id).toBe('a-1');
   });
 });
@@ -230,7 +249,7 @@ describe('first post with no brief (J6)', () => {
 });
 
 describe('editing a fact (J3 Edit)', () => {
-  it('rejects the source fact and stores the owner wording as an approved owner statement', async () => {
+  it('rejects the source fact and stores the owner wording as an approved owner statement with no quote', async () => {
     const b = brandRow('p-1');
     const f = fact(b.id, 'origin', { trust: 'third_party', review_status: 'proposed', claim: 'Acme started in 2023' });
     tables.brands = [b];
@@ -240,7 +259,7 @@ describe('editing a fact (J3 Edit)', () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ replaced: f.id, stale: ['origin'] });
     expect(tables.evidence.find((e) => e.id === f.id)!.review_status).toBe('rejected');
-    expect(tables.evidence.find((e) => e.claim === 'Acme started in 2024')).toMatchObject({ trust: 'owner_answer', review_status: 'approved', origin: 'source' });
+    expect(tables.evidence.find((e) => e.claim === 'Acme started in 2024')).toMatchObject({ trust: 'owner_answer', review_status: 'approved', origin: 'owner_answer', quote: null, source_id: null, edited_from: f.id });
   });
   it('survives saving an interview answer for the same section (it is not an interview row)', async () => {
     const b = brandRow('p-1');
@@ -250,6 +269,21 @@ describe('editing a fact (J3 Edit)', () => {
     await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${f.id}`, { claim: 'Owner wording' });
     await call('perm', 'PUT', `/api/brands/${b.id}/answers/origin`, { data: { story: 'We started small' } });
     expect(tables.evidence.some((e) => e.claim === 'Owner wording')).toBe(true);
+    // An interview answer for the step is still replaced as before.
+    await call('perm', 'PUT', `/api/brands/${b.id}/answers/origin`, { data: { story: 'We started big' } });
+    expect(tables.evidence.some((e) => e.claim === 'story: We started small')).toBe(false);
+    expect(tables.evidence.some((e) => e.claim === 'story: We started big')).toBe(true);
+  });
+  it('keeps the owner edit when its source is removed', async () => {
+    const b = brandRow('p-1');
+    const s = { id: uuid(), brand_id: b.id, url: 'https://acme.test' };
+    const f = fact(b.id, 'origin', { trust: 'third_party', review_status: 'proposed', source_id: s.id });
+    tables.brands = [b];
+    tables.sources = [s];
+    tables.evidence = [f];
+    await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${f.id}`, { claim: 'Owner wording' });
+    expect((await call('perm', 'DELETE', `/api/brands/${b.id}/sources/${s.id}`)).status).toBe(200);
+    expect(tables.evidence.map((e) => e.claim)).toEqual(['Owner wording']);
   });
   it('refuses an empty edit, an unknown fact and an owner answer', async () => {
     const b = brandRow('p-1');
