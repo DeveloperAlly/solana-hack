@@ -33,6 +33,19 @@ Speaker notes are the [pitch script](./pitch_script_2026_10_12.md), word for wor
 | 10 | Roadmap | "From your brand kit to your whole brand team." Now: your brand kit, every fact sourced · Next: content you approve unedited · Then: publish everywhere; tips and fan rewards · Later: monetise your voice (AI agents pay per call to use your voice and brand) | Backlog phases 1 to 5 ([PR #55](https://github.com/DeveloperAlly/solana-hack/pull/55)); tips and fan rewards: [#76](https://github.com/DeveloperAlly/solana-hack/issues/76); agents licensing the kit: [#77](https://github.com/DeveloperAlly/solana-hack/issues/77) |
 | 11 | Team and ask | "Built by a founder who has shipped this before." Lilypad · original Waterlily.ai · IBM and Filecoin Foundation. Ask: founders who want their brand run for them | [Crowdfund Insider](https://www.crowdfundinsider.com/2024/08/227734-ally-haire-from-lilypad-shares-perspective-on-significance-of-open-source-ai-and-importance-of-accessing-compute-power/), [SiliconANGLE](https://siliconangle.com/2023/04/27/new-waterlily-service-offers-ai-image-generation-pays-royalties-artists/), [go-to-market §9](./gtm_2026_10_12.md#9-team) |
 
+## Appendix (not spoken)
+Product screens are taken from the [wireframe canvas](./links.md), with wireframe notes and build-status labels hidden.
+
+| # | Slide | Content | Source |
+|---|---|---|---|
+| A1 | It reads before it asks | Screen: J3 Confirm. Facts from your site, each with its quote; accept, edit or reject | Wireframe J3-Confirm |
+| A2 | Strategy, approved by you | Screen: J5 Approve kit. Purpose, positioning and voice at three gates; approval recorded | Wireframe J5-Approve-Kit |
+| A3 | Content that never lies for you | Screen: J6 First post. Approved voice; claims linked to evidence; unsupported claims blocked | Wireframe J6-First-Post |
+| A4 | Ambassadors write in your voice | Screen: Amb-3 Generate. Seats inside your rules; banned claims, avoided terms and missing disclosure caught | Wireframe Amb-3-Generate |
+| A5 | Anyone can check it's really you | Screen: J7 Prove. Post on the public record; Check a post shows Official | Wireframe J7-Proof |
+| A6 | A public record of what's official | Screen: Ledger. Approved kits and posts with transactions; hashes and ids only on-chain | Wireframe Ledger |
+| A7 | Solana in the architecture | In use today (devnet): Solana Attestation Service (credential WATERLILY, schema WL-KIT); a Registrar signs every record and brands sign in with email; Verify reads the attestation back from Solana; @solana/kit, @solana/attestation, Helius RPC · Designed next: schemas WL-ACCOUNT, WL-IDENTITY, WL-CONTENT, WL-CLAIM, WL-PERSONA, WL-ASSET; USDC payouts from the brand's wallet linked by signMessage; an open record any wallet or app can read · Roadmap: tips with Solana Pay and Blinks; x402 per-call licensing; stablecoin plans | [ADR-006](../decisions/adr_006_wallet_identity_split.md); [architecture §7](./brand_builder_architecture.md#7-proof-layer-what-gets-registered-when); WL-ASSET: [backlog L9](../../how/backlog/backlog.md); [#76](https://github.com/DeveloperAlly/solana-hack/issues/76), [#77](https://github.com/DeveloperAlly/solana-hack/issues/77); tip Blinks: [archived roadmap](./archive/roadmap_story_studio.md) |
+
 ## Before recording
 - [ ] Owner: confirm the launch prices on slide 9 and the ask on slide 11.
 - [ ] Re-check the Superteam Earn sponsor count on the day.
