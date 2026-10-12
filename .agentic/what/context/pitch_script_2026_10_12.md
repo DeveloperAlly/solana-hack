@@ -30,7 +30,7 @@ Total: 460 words, about 2:52 at 160 words a minute.
 - Identity: voice, positioning, messaging, every fact sourced
 - Strategy: approve once; every post follows
 - Governance: seats and approvals; approved work verified as yours
-- Culture and content: daily content in your voice that never lies for you
+- Culture: everyone who speaks for you sounds like you
 
 **4. How it works** (0:47–0:59)
 - It reads before it asks
@@ -95,7 +95,7 @@ Today a founder has three bad options. Hire an agency you can't afford. Do it yo
 
 **3. Solution** · 0:26–0:47 · 55 words
 
-A brand team does four jobs. Identity: your voice, positioning and messaging, drafted from your site, every fact sourced. Strategy: approve it once, and every post follows it. Governance: your team, partners and ambassadors get seats, and their approved posts verify as yours. Culture: content in your voice every day that never lies for you.
+A brand team does four jobs. Identity: your voice, positioning and messaging, drafted from your site, every fact sourced. Strategy: approve it once, and every post follows it. Governance: your team, partners and ambassadors get seats, and their approved posts verify as yours. Culture: everyone who speaks for you sounds like you, in every post.
 
 **4. How it works** · 0:47–0:59 · 32 words
 
