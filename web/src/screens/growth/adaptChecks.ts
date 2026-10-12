@@ -7,15 +7,22 @@ import { postLength, type Platform } from '../../config/platforms';
 const pass = (label: string): Gate => ({ blocking: false, label });
 const block = (label: string): Gate => ({ blocking: true, label });
 
-/** One version's content check: not empty, within the platform's sourced limit, every claim sourced. */
-export function versionCheck(platform: Platform, text: string, unsupportedClaims: number): Gate {
+/** The claims gate's result for a text: how many claims have no source, or pending while it re-checks an edit. */
+export type ClaimsResult = number | 'pending';
+
+/**
+ * One version's content check: not empty, within the platform's sourced limit, every claim sourced. An edited text is
+ * pending, and blocking, until the claims gate has re-read it: an edit never invents a pass (Codex review on PR 102).
+ */
+export function versionCheck(platform: Platform, text: string, claims: ClaimsResult): Gate {
   if (!text.trim()) return block('the version is empty');
   const limit = platform.limit;
   if (limit) {
     const over = postLength(platform, text) - limit.max;
     if (over > 0) return block(`${over} over ${platform.name}’s ${limit.max} limit`);
   }
-  if (unsupportedClaims > 0) return block(`${unsupportedClaims} ${unsupportedClaims === 1 ? 'claim has' : 'claims have'} no source`);
+  if (claims === 'pending') return block('re-checking claims');
+  if (claims > 0) return block(`${claims} ${claims === 1 ? 'claim has' : 'claims have'} no source`);
   return pass('Checks passed');
 }
 

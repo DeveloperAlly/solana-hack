@@ -18,6 +18,8 @@ export interface AdaptEdits {
   originalApproval?: Approval;
   chosen?: string[];
   texts: Record<string, string>;
+  /** The claims gate's last result per platform, with the text it read; a different text is pending until re-read. */
+  claims: Record<string, { text: string; unsourced: number }>;
   approvals: Record<string, Approval>;
   when: Record<string, string>;
   /** Platforms sent to the calendar, with their slots. */

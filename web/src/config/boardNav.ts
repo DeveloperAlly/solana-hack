@@ -1,7 +1,7 @@
 // Where a board sits in the one navigation (config/nav.ts; ADR-012: every screen has exactly one home). The stage is
 // the board's home, from its canvas page (`homeForArtboard`); the tab is the stage tab that opens this board, or the
 // tab of the board it belongs under (Platform-Detail under Platforms). Page frames read this; none hard-codes a stage.
-// Proposed for nav.ts itself (PR #102 note to the loop-core branch); kept beside it until then.
+// Proposed for nav.ts itself (PR 102 note to the loop-core branch); kept beside it until then.
 import type { ArtboardName } from './artboards';
 import { homeForArtboard, stageById, type StageId } from './nav';
 

@@ -22,7 +22,8 @@ const comparators: Record<BoardSort, (a: BoardEvent, b: BoardEvent) => number> =
   most: (a, b) => b.summary.count - a.summary.count,
   highest: byScore(-1),
   lowest: byScore(1),
-  upcoming: (a, b) => b.endsOn.localeCompare(a.endsOn),
+  // Upcoming: nearest first (Codex review on PR 102).
+  upcoming: (a, b) => a.endsOn.localeCompare(b.endsOn),
 };
 
 export interface EventsBoardFlow {

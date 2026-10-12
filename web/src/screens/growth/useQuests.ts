@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import type { Gate } from '../../domain/approval';
 import { gateFor, type AmbassadorPostItem, type GateContext } from '../../domain/queue';
-import { budgetCap, emptyQuestDraft, isQuestFormat, parseReward, parseSlots, questState, submissionGate, type Quest, type QuestDraft, type QuestState } from '../../domain/quest';
+import {
+  approveSubmission, budgetCap, isPayoutOutcome, emptyQuestDraft, isQuestFormat, parseReward, parseSlots, questSlots, questState,
+  type Quest, type QuestDraft, type QuestState,
+} from '../../domain/quest';
 import { loopStore } from '../../flows/loop/store';
 import { uniqueId } from '../../lib/id';
-import { growthSession } from './session';
 import { eventDay } from './eventPlan';
+import { growthSession } from './session';
 import type { QuestsData } from './types';
-
-/** Ambassador-post gates read nothing from the Brain or the learn loop. */
-const gateContext: GateContext = { brainVersion: '', proposal: () => undefined };
 
 export interface QuestView {
   quest: Quest;
@@ -38,7 +38,7 @@ export interface QuestsFlow {
   closeForm: () => void;
   /** INTEGRATION: POST /api/quests, with the budget cap held first (not built yet). */
   open: (d: QuestDraft) => void;
-  /** Approve and pay, through the one queue's outcomes (Today shows the same decision). INTEGRATION: POST /api/payouts (not built). */
+  /** Approve and pay through the shared action (domain/quest.ts approveSubmission), recorded in the loop store Today reads. */
   approve: (id: string) => void;
 }
 
@@ -49,7 +49,7 @@ function terms(q: Quest, waiting: number): string {
   return `${q.rewardUsdc} USDC each · ${q.slots - q.paid} of ${q.slots} slots left${waiting ? ` · ${waiting} submitted` : ''} · ${due}`;
 }
 
-/** Quests flow state (one hook): quests with their state, submissions as queue items, the new-quest form. */
+/** Quests flow state (one hook): quests with their state, submissions as items of the one queue, the new-quest form. */
 export function useQuests(data: QuestsData): QuestsFlow {
   const [session, set] = growthSession.use();
   const [loop, setLoop] = loopStore.use();
@@ -57,22 +57,22 @@ export function useQuests(data: QuestsData): QuestsFlow {
   const [form, setForm] = useState<QuestsFlow['form']>(null);
   const decided = (id: string) => Boolean(loop.outcomes[id]);
   const all = [...session.questsAdded, ...data.quests];
-  const paidNow = (q: Quest) => q.submissionIds.filter((id) => loop.outcomes[id]?.startsWith('Approved')).length;
+  // The same context Today gives gateFor: quest slots with this session's payouts counted.
+  const ctx: GateContext = {
+    brainVersion: '',
+    proposal: () => undefined,
+    quest: (id) => { const q = all.find((x) => x.id === id); return q && questSlots(q, data.submissions, loop.outcomes); },
+  };
   const quests = all.map((q) => {
-    const quest = { ...q, paid: q.paid + paidNow(q) };
-    const waiting = q.submissionIds.filter((id) => !decided(id)).length;
+    const quest = { ...q, ...questSlots(q, data.submissions, loop.outcomes) };
+    const waiting = data.submissions.filter((s) => s.questId === q.id && !decided(s.id)).length;
     return { quest, state: questState(quest, waiting), waiting, terms: terms(quest, waiting) };
   });
-  // One gate per submission: the queue's gate plus the quest's free slots, read by the badge and Approve alike.
-  // A decided submission keeps its own queue gate: the slots it filled never mark it blocked afterwards.
-  const gateOf = (item: AmbassadorPostItem) => {
-    const own = gateFor(item, gateContext);
-    return decided(item.id) ? own : submissionGate(own, quests.find((v) => v.quest.submissionIds.includes(item.id))?.quest);
-  };
   const submissions = data.submissions
-    .filter((s) => !focus || all.find((q) => q.id === focus)?.submissionIds.includes(s.id))
-    .map((item) => ({ item, gate: gateOf(item), outcome: loop.outcomes[item.id] }));
-  const paidSession = data.submissions.filter((s) => loop.outcomes[s.id]?.startsWith('Approved')).reduce((n, s) => n + s.payout.amount, 0);
+    .filter((s) => !focus || s.questId === focus)
+    // A decided submission shows its own checks: the slot it filled never marks it blocked afterwards.
+    .map((item) => ({ item, gate: gateFor(item, decided(item.id) ? { ...ctx, quest: () => undefined } : ctx), outcome: loop.outcomes[item.id] }));
+  const paidSession = data.submissions.filter((s) => isPayoutOutcome(loop.outcomes[s.id])).reduce((n, s) => n + s.payout.amount, 0);
 
   return {
     quests,
@@ -88,14 +88,15 @@ export function useQuests(data: QuestsData): QuestsFlow {
       const reward = parseReward(d.reward);
       const slots = parseSlots(d.slots);
       if (!d.task.trim() || !isQuestFormat(d.format) || reward === null || slots === null) return;
-      const quest: Quest = { id: uniqueId('qst'), task: d.task.trim(), format: d.format, rewardUsdc: reward, slots, paid: 0, due: d.due ? eventDay(d.due) : null, opens: null, submissionIds: [] };
+      const quest: Quest = { id: uniqueId('qst'), task: d.task.trim(), format: d.format, rewardUsdc: reward, slots, paid: 0, due: d.due ? eventDay(d.due) : null, opens: null };
       set({ questsAdded: [quest, ...session.questsAdded] });
       setForm(null);
     },
     approve: (id) => {
       const item = data.submissions.find((s) => s.id === id);
-      if (!item || gateOf(item).blocking || decided(id)) return;
-      setLoop({ outcomes: { ...loop.outcomes, [id]: `Approved. The ${item.payout.amount} ${item.payout.unit} payout is queued.` } });
+      if (!item || decided(id)) return;
+      const outcome = approveSubmission(item, gateFor(item, ctx));
+      if (outcome) setLoop({ outcomes: { ...loop.outcomes, [id]: outcome } });
     },
   };
 }

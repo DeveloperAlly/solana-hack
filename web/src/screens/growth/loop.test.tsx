@@ -10,6 +10,12 @@ import { growthArtboards } from './paths';
 import { loopStore } from '../../flows/loop/store';
 import { Quests as QuestsScreen } from './Quests';
 import { quests } from './quests.fixtures';
+import { EventsBoard as EventsBoardScreen } from './Events-Board';
+import { eventsBoard } from './board.fixtures';
+import { DistributeAdapt as AdaptScreen } from './Distribute-Adapt';
+import { adapt } from './adapt.fixtures';
+import { gateFor, type GateContext } from '../../domain/queue';
+import { approveSubmission, questSlots } from '../../domain/quest';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
 
@@ -421,5 +427,61 @@ describe('Frames take the stage from the board home (Codex review on PR #102)', 
     at(screenPath('Referral-Landing'));
     const nav = screen.getAllByRole('navigation', { name: 'Main' })[0];
     expect(within(nav).getByRole('link', { name: 'Ledger' }).getAttribute('href')).toMatch(/^\/screens\/Ledger/);
+  });
+});
+
+describe('Codex round 2 on PR 102', () => {
+  it('an edited version is re-checked, never passed: appending a space to the blocked Bluesky version keeps it blocked', async () => {
+    const user = at(screenPath('Distribute-Adapt'));
+    await user.click(screen.getByRole('checkbox', { name: /Bluesky/ }));
+    await user.click(screen.getByRole('button', { name: 'Edit Bluesky version' }));
+    await user.type(screen.getByLabelText('Bluesky version'), ' ');
+    await user.click(screen.getByRole('button', { name: 'Save Bluesky version' }));
+    const bluesky = () => screen.getByRole('region', { name: 'Bluesky' });
+    expect(within(bluesky()).getByText('Blocked: re-checking claims')).toBeInTheDocument();
+    expect(within(bluesky()).getByRole('button', { name: 'Approve Bluesky' })).toBeDisabled();
+    expect(await within(bluesky()).findByText('Blocked: 1 claim has no source')).toBeInTheDocument();
+    expect(within(bluesky()).getByRole('button', { name: 'Approve Bluesky' })).toBeDisabled();
+  });
+
+  it('removing the unsourced claim passes only after the re-check', async () => {
+    const user = userEvent.setup();
+    const data = { ...adapt, chosen: ['bluesky'] };
+    render(<MemoryRouter><AdaptScreen data={data} /></MemoryRouter>);
+    await user.click(screen.getByRole('button', { name: 'Edit Bluesky version' }));
+    await user.clear(screen.getByLabelText('Bluesky version'));
+    await user.type(screen.getByLabelText('Bluesky version'), 'Your agent didn’t forget. It was never told.');
+    await user.click(screen.getByRole('button', { name: 'Save Bluesky version' }));
+    expect(screen.getByText('Blocked: re-checking claims')).toBeInTheDocument();
+    expect(await screen.findByText('Checks passed')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve Bluesky' })).toBeEnabled();
+  });
+
+  it('Upcoming sorts nearest first', async () => {
+    const user = userEvent.setup();
+    const later = { ...eventsBoard.events[4], id: 'b-later', name: '[Summit] later side event', endsOn: '2026-12-01' };
+    const sooner = { ...eventsBoard.events[4], id: 'b-sooner', name: '[Meetup] sooner night', endsOn: '2026-10-20' };
+    render(<MemoryRouter><EventsBoardScreen data={{ ...eventsBoard, events: [later, sooner] }} /></MemoryRouter>);
+    await user.selectOptions(screen.getByLabelText('Sort'), 'upcoming');
+    const rows = within(screen.getByRole('table')).getAllByRole('row');
+    expect(within(rows[1]).getByRole('link')).toHaveTextContent('[Meetup] sooner night');
+    expect(within(rows[2]).getByRole('link')).toHaveTextContent('[Summit] later side event');
+  });
+
+  it('a slot filled from Quests blocks Today’s Approve for the other submission (one gate, one action)', async () => {
+    const user = userEvent.setup();
+    const pending = quests.submissions.map((s) => ({ ...s, disclosure: 'present' as const }));
+    const data = { ...quests, submissions: pending, quests: quests.quests.map((q) => (q.id === 'qst-answers' ? { ...q, slots: 3, paid: 2 } : q)) };
+    render(<MemoryRouter><QuestsScreen data={data} /></MemoryRouter>);
+    await user.click(within(screen.getByRole('list', { name: 'Quest submissions' })).getAllByRole('button', { name: 'Approve and pay' })[0]);
+    // Today's path: the same gateFor, given the quest slots and the shared loop store outcomes.
+    const outcomes = loopStore.read().outcomes;
+    const ctx: GateContext = { brainVersion: '3.1', proposal: () => undefined, quest: (id) => { const q = data.quests.find((x) => x.id === id); return q && questSlots(q, pending, outcomes); } };
+    const gate = gateFor(pending[1], ctx);
+    expect(gate).toEqual({ blocking: true, label: 'All 3 slots are paid; the budget is reached.' });
+    expect(approveSubmission(pending[1], gate)).toBeNull();
+    // And the other way: with the slot still free, Today's approval of it uses the same action and outcome.
+    const fresh: GateContext = { ...ctx, quest: (id) => { const q = data.quests.find((x) => x.id === id); return q && questSlots(q, pending, {}); } };
+    expect(approveSubmission(pending[1], gateFor(pending[1], fresh))).toBe('Approved. The 10 USDC payout is queued.');
   });
 });

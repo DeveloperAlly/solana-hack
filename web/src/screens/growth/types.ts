@@ -214,11 +214,14 @@ export interface GrowHomeData {
 
 // Distribute: adapt and schedule (canvas v21 Distribute-Adapt) ------------------------------------------------------
 
-/** One platform's adapted version as drafted: its text, and claims in it that have no source yet. */
+/** One platform's adapted version as drafted. */
 export interface AdaptVersionSeed {
   text: string;
-  /** Claims the claims gate found without a source; any blocks the version's approval. */
-  unsupportedClaims: number;
+  /**
+   * The sample claims gate: phrases it finds without a source. Its result for any text is how many of these the text
+   * still contains (the real gate re-reads the text against the Brain's facts). Any found blocks approval.
+   */
+  unsourcedClaims: string[];
 }
 
 /** A slot already taken on a platform's calendar (canvas note: "schedule conflict"). */

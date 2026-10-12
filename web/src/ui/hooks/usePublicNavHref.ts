@@ -8,7 +8,7 @@ const publicBoards: Record<string, ArtboardName> = { '/': 'Main', '/verify': 'Ve
 
 /**
  * Maps a public nav path to its link target. In the gallery each path with a canvas board opens that board's typed
- * screen path (keeping the theme), so a public screen's nav never leaves the gallery (Codex review on PR #102);
+ * screen path (keeping the theme), so a public screen's nav never leaves the gallery (Codex review on PR 102);
  * outside the gallery, and for a path with no board, the live route.
  */
 export function usePublicNavHref(): (path: string) => string {

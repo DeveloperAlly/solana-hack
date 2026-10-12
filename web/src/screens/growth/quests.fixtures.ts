@@ -5,17 +5,17 @@ import type { QuestsData } from './types';
 
 export const quests: QuestsData = {
   quests: [
-    { id: 'qst-tutorial', task: 'Write a tutorial: set up aDNA in an existing repo', format: 'tutorial', rewardUsdc: 50, slots: 5, paid: 2, due: 'Fri 24 Oct', opens: null, submissionIds: [] },
-    { id: 'qst-demo', task: 'Record a 2-minute demo of an agent reading the folder', format: 'video', rewardUsdc: 30, slots: 3, paid: 2, due: 'Sun 26 Oct', opens: null, submissionIds: [] },
-    { id: 'qst-answers', task: 'Answer 5 setup questions in the community', format: 'answers', rewardUsdc: 10, slots: 10, paid: 0, due: null, opens: null, submissionIds: ['q-quest-answers-1', 'q-quest-answers-2'] },
+    { id: 'qst-tutorial', task: 'Write a tutorial: set up aDNA in an existing repo', format: 'tutorial', rewardUsdc: 50, slots: 5, paid: 2, due: 'Fri 24 Oct', opens: null },
+    { id: 'qst-demo', task: 'Record a 2-minute demo of an agent reading the folder', format: 'video', rewardUsdc: 30, slots: 3, paid: 2, due: 'Sun 26 Oct', opens: null },
+    { id: 'qst-answers', task: 'Answer 5 setup questions in the community', format: 'answers', rewardUsdc: 10, slots: 10, paid: 0, due: null, opens: null },
   ],
   submissions: [
     {
-      id: 'q-quest-answers-1', kind: 'ambassadorPost', chip: 'Quest · Community answers', text: '[Creator name] answered 5 setup questions in the community',
+      id: 'q-quest-answers-1', kind: 'ambassadorPost', questId: 'qst-answers', chip: 'Quest · Community answers', text: '[Creator name] answered 5 setup questions in the community',
       meta: '10 USDC to their wallet on approval · disclosure present', payout: { amount: 10, unit: 'USDC' }, verified: true, disclosure: 'present', open: { label: 'Review', artboard: 'Quests' },
     },
     {
-      id: 'q-quest-answers-2', kind: 'ambassadorPost', chip: 'Quest · Community answers', text: '[Creator name] answered 5 setup questions in the community',
+      id: 'q-quest-answers-2', kind: 'ambassadorPost', questId: 'qst-answers', chip: 'Quest · Community answers', text: '[Creator name] answered 5 setup questions in the community',
       meta: '10 USDC to their wallet on approval · disclosure missing', payout: { amount: 10, unit: 'USDC' }, verified: true, disclosure: 'missing', open: { label: 'Review', artboard: 'Quests' },
     },
   ],

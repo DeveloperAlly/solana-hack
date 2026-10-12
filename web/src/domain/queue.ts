@@ -7,6 +7,7 @@ import type { ArtboardName } from '../config/artboards';
 import type { Gate } from './approval';
 import { proposalGate, type Proposal } from './proposal';
 import type { PostChecks } from './post';
+import { submissionGate, type QuestSlots } from './quest';
 
 interface QueueBase {
   id: string;
@@ -22,7 +23,8 @@ interface QueueBase {
 
 export interface DraftItem extends QueueBase { kind: 'draft'; checks: PostChecks; whyThis?: ArtboardName }
 export interface ReplyItem extends QueueBase { kind: 'reply'; checks: PostChecks }
-export interface AmbassadorPostItem extends QueueBase { kind: 'ambassadorPost'; payout: { amount: number; unit: 'USDC' }; verified: boolean; disclosure: 'present' | 'missing' }
+/** An ambassador post with a payout; `questId` marks a quest submission, whose payout also needs a free quest slot. */
+export interface AmbassadorPostItem extends QueueBase { kind: 'ambassadorPost'; payout: { amount: number; unit: 'USDC' }; verified: boolean; disclosure: 'present' | 'missing'; questId?: string }
 export interface EventContentItem extends QueueBase { kind: 'eventContent'; drafts: number }
 export interface LearnedRuleItem extends QueueBase { kind: 'learnedRule'; proposalId: string }
 export interface CampaignDecisionItem extends QueueBase { kind: 'campaignDecision'; capShare: number }
@@ -54,6 +56,8 @@ export const primaryActions: Record<QueueKind, { label: string; done: string; re
 export interface GateContext {
   brainVersion: string;
   proposal: (id: string) => Proposal | undefined;
+  /** A quest's slots and payouts so far (this session's approvals included), for quest submissions (domain/quest.ts). */
+  quest?: (id: string) => QuestSlots | undefined;
 }
 
 /** The no-AI-slop pass and the claims gate: the core product gates (issue #45). */
@@ -65,17 +69,21 @@ export function checksGate(c: PostChecks): Gate {
   return { blocking: false, label: `Slop check passed · claims backed (${c.claims.backed} of ${c.claims.total})` };
 }
 
+/** An ambassador post's own checks: verified against the kit, disclosure present. */
+function ambassadorGate(i: AmbassadorPostItem): Gate {
+  if (!i.verified) return { blocking: true, label: 'Not verified against your kit yet.' };
+  if (i.disclosure === 'missing') return { blocking: true, label: 'Disclosure missing. Ask them to add it.' };
+  return { blocking: false, label: `Verified against your kit · disclosure present · ${i.payout.amount} ${i.payout.unit} on approval` };
+}
+
 const opensElsewhere: Gate = { blocking: false, label: 'Decided on its own screen.' };
 
 /** One gate per kind. Badges and the primary action both read it, so a blocked badge never sits by an open button. */
 const gates: { [K in QueueKind]: (item: Extract<QueueItem, { kind: K }>, ctx: GateContext) => Gate } = {
   draft: (i) => checksGate(i.checks),
   reply: (i) => checksGate(i.checks),
-  ambassadorPost: (i) => {
-    if (!i.verified) return { blocking: true, label: 'Not verified against your kit yet.' };
-    if (i.disclosure === 'missing') return { blocking: true, label: 'Disclosure missing. Ask them to add it.' };
-    return { blocking: false, label: `Verified against your kit · disclosure present · ${i.payout.amount} ${i.payout.unit} on approval` };
-  },
+  // A quest submission also needs a free slot: the same gate on Quests and on Today (Codex review on PR 102).
+  ambassadorPost: (i, ctx) => (i.questId ? submissionGate(ambassadorGate(i), ctx.quest?.(i.questId)) : ambassadorGate(i)),
   learnedRule: (i, ctx) => {
     const p = ctx.proposal(i.proposalId);
     return p ? proposalGate(p, ctx.brainVersion) : { blocking: true, label: 'Proposal not found.' };

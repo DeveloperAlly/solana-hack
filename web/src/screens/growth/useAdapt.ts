@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { fingerprintOf, isStale, type Approval, type Gate } from '../../domain/approval';
 import { postFingerprint } from '../../domain/post';
 import { findPlatform, postLength, type Platform } from '../../config/platforms';
-import { scheduleGate, versionCheck } from './adaptChecks';
+import { scheduleGate, versionCheck, type ClaimsResult } from './adaptChecks';
 import { growthSession, nowIso, type AdaptEdits } from './session';
 import type { AdaptData } from './types';
 
@@ -13,6 +13,8 @@ export interface AdaptVersion {
   text: string;
   length: { used: number; max: number } | null;
   check: Gate;
+  /** The claims gate's result for this text, or pending while it re-reads an edit. */
+  claims: ClaimsResult;
   approval: VersionApproval;
   slot: string;
   /** What already holds this slot on this platform, or null. */
@@ -40,7 +42,13 @@ export interface AdaptFlow {
   confirmSchedule: () => void;
 }
 
-const empty: AdaptEdits = { texts: {}, approvals: {}, when: {} };
+const empty: AdaptEdits = { texts: {}, claims: {}, approvals: {}, when: {} };
+
+/** How long the sample claims gate takes to re-read an edit, so "re-checking" is a real state on screen. */
+export const CLAIMS_RECHECK_MS = 300;
+
+/** The sample claims gate: the seed's unsourced phrases still present in the text. INTEGRATION: POST /api/claims/check. */
+const runClaims = (phrases: string[], text: string) => phrases.filter((p) => text.includes(p)).length;
 
 /**
  * Distribute-Adapt flow state (one hook): the original and each platform version, each with its own approval bound
@@ -61,10 +69,11 @@ export function useAdapt(data: AdaptData): AdaptFlow {
   const platforms = useMemo(() => data.platformIds.map((id) => findPlatform(id)).filter((p): p is Platform => Boolean(p)), [data.platformIds]);
 
   const all = platforms.map((platform): AdaptVersion => {
-    const seed = data.versions[platform.id] ?? { text: '', unsupportedClaims: 0 };
+    const seed = data.versions[platform.id] ?? { text: '', unsourcedClaims: [] };
     const text = edits.texts[platform.id] ?? seed.text;
-    // An edit clears the version's own sample claim flag only when the person rewrote it; the gate re-reads the text.
-    const claims = edits.texts[platform.id] !== undefined && edits.texts[platform.id] !== seed.text ? 0 : seed.unsupportedClaims;
+    // The seed text was checked when it was drafted; any other text waits for the claims gate to re-read it.
+    const last = edits.claims[platform.id];
+    const claims: ClaimsResult = text === seed.text ? runClaims(seed.unsourcedClaims, text) : last?.text === text ? last.unsourced : 'pending';
     const approval: Approval | undefined = edits.approvals[platform.id] ?? data.approvals[platform.id];
     const fresh = approval ? !isStale(approval, fingerprintOf(original, text)) : false;
     const slot = edits.when[platform.id] ?? data.slots[0];
@@ -74,6 +83,7 @@ export function useAdapt(data: AdaptData): AdaptFlow {
       text,
       length: platform.limit ? { used: postLength(platform, text), max: platform.limit.max } : null,
       check: versionCheck(platform, text, claims),
+      claims,
       approval: !approval ? 'none' : fresh ? 'approved' : 'stale',
       slot,
       conflict: taken ? taken.what : null,
@@ -81,6 +91,20 @@ export function useAdapt(data: AdaptData): AdaptFlow {
   });
   const versions = all.filter((v) => chosen.includes(v.platform.id));
   const schedule = scheduleGate(originalApproval === 'approved', versions.map((v) => ({ name: v.platform.name, check: v.check, approved: v.approval === 'approved', conflict: v.conflict, slot: v.slot })));
+  // Re-run the claims gate on every edited text still pending, and store its result with the text it read.
+  const pending = all.filter((v) => v.claims === 'pending').map((v) => [v.platform.id, v.text] as const);
+  const pendingKey = JSON.stringify(pending);
+  useEffect(() => {
+    if (pending.length === 0) return undefined;
+    const t = setTimeout(() => {
+      const current = growthSession.read().adapt[data.post.id] ?? empty;
+      const claims = { ...current.claims };
+      for (const [id, text] of pending) claims[id] = { text, unsourced: runClaims(data.versions[id]?.unsourcedClaims ?? [], text) };
+      growthSession.set({ adapt: { ...growthSession.read().adapt, [data.post.id]: { ...current, claims } } });
+    }, CLAIMS_RECHECK_MS);
+    return () => clearTimeout(t);
+    // pendingKey stands for `pending` (texts per platform), so the timer restarts only when they change.
+  }, [pendingKey, data.post.id, data.versions]);
   const stamp = (fp: string): Approval => ({ by: data.approver, at: nowIso(), fingerprint: fp });
 
   return {
