@@ -2,6 +2,7 @@
 // the runtime source (workflow_defs, prompt_versions); this file exists so tests can check the migration's seed and
 // run the same definition. worker-engine.test.ts fails if the two drift apart.
 import type { WorkflowSpec } from './types';
+import { SOURCE_READ_LIMIT } from './readers';
 import { TASK_MODELS_KEY, type TaskModels } from '../models';
 
 /** The extraction prompt that ingest used inline in api.ts before the engine, with its three values as variables. */
@@ -76,7 +77,7 @@ export const EXTRACT_FACTS: WorkflowSpec = {
   concurrency: 'parallel',
   retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
   steps: [
-    { id: 'read', type: 'fetch', label: 'Reading the source', reader: '$input.reader', args: '$input.args', maxChars: 200000, maxBytes: 600000 },
+    { id: 'read', type: 'fetch', label: 'Reading the source', reader: '$input.reader', args: '$input.args', maxChars: SOURCE_READ_LIMIT.maxChars, maxBytes: SOURCE_READ_LIMIT.maxBytes },
     { id: 'chunk', type: 'code', label: 'Splitting it into parts', fn: 'chunk_text', args: { text: '$steps.read.text', target: '12000', min: '8000', max: '16000', overlap: '600', max_chunks: '20' } },
     {
       id: 'extract', type: 'map', label: 'Finding facts', over: '$steps.chunk.chunks', max: 20,
@@ -99,7 +100,28 @@ export const EXTRACT_FACTS: WorkflowSpec = {
   onFailure: { op: 'mark_source_failed', args: { sourceId: '$input.sourceId' } },
 };
 
-export const SEED_DEFS = [INGEST_URL, EXTRACT_FACTS];
+/**
+ * find_competitors v1 (issue #35; seeded by spec/db/014): competitor candidates for the positioning step. The read
+ * step reads pages similar to the brand's website through the 'competitors' reader (sources/search.ts readCompetitors,
+ * registered in intake.ts), then the save step stores each as a competitor_page source. No model step: candidates are
+ * not facts about the brand. A new run supersedes one still going for the same brand. The read is at most
+ * COMPETITOR_CANDIDATES pages of COMPETITOR_CHARS characters each, well within maxChars.
+ */
+export const FIND_COMPETITORS: WorkflowSpec = {
+  id: 'find_competitors',
+  version: 1,
+  title: 'Find competitor candidates',
+  concurrency: 'supersede',
+  retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
+  steps: [
+    // One paid Exa findSimilar call, declared so admission (spec/db/011 admit_run) counts it against the brand's budget.
+    { id: 'read', type: 'fetch', label: 'Looking for similar companies', reader: '$input.reader', args: '$input.args', maxChars: 20000, maxBytes: 60000, metered: 1 },
+    { id: 'save', type: 'write', label: 'Saving the candidates', op: 'save_competitor_candidates', args: { read: '$steps.read' } },
+  ],
+  output: '$steps.save',
+};
+
+export const SEED_DEFS = [INGEST_URL, EXTRACT_FACTS, FIND_COMPETITORS];
 export const SEED_PROMPTS = [
   { key: 'ingest.extract_facts', version: 1, body: EXTRACT_FACTS_PROMPT },
   { key: 'extract.facts', version: 1, body: EXTRACT_CHUNK_PROMPT },
@@ -124,4 +146,4 @@ export const SEED_CONFIG = [{ key: TASK_MODELS_KEY, value: EXTRACT_MODELS }];
 /** The definitions, prompts and config each migration seeds; worker-engine and worker-extract tests check them against the SQL. */
 /** Definitions each migration retires (status 'retired': no new runs; runs already started keep their version). */
 export const RETIRED_BY = { '011_fact_extraction.sql': [{ id: 'ingest_url', version: 1 }] };
-export const SEEDED_BY = { '010_workflow_engine.sql': { defs: [INGEST_URL], prompts: ['ingest.extract_facts'], config: [] }, '011_fact_extraction.sql': { defs: [EXTRACT_FACTS], prompts: ['extract.facts', 'extract.check_support'], config: SEED_CONFIG } };
+export const SEEDED_BY = { '010_workflow_engine.sql': { defs: [INGEST_URL], prompts: ['ingest.extract_facts'], config: [] }, '011_fact_extraction.sql': { defs: [EXTRACT_FACTS], prompts: ['extract.facts', 'extract.check_support'], config: SEED_CONFIG }, '014_intake_sources.sql': { defs: [FIND_COMPETITORS], prompts: [], config: [] } };

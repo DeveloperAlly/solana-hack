@@ -4,8 +4,9 @@
 // (https://developers.cloudflare.com/workflows/reference/limits/), page offsets into that text, and a failure turned
 // into an error the runner can classify (4xx stops retries; engine/runner.ts classify).
 //
-// Not registered: the document adapter (sources/document.ts). It reads uploaded bytes, and there is no upload store a
-// run could read them from yet, so a run cannot reach a document until one exists.
+// Readers registered from their own modules (registerReader): document, social_export, search and competitors
+// (intake.ts). A document is converted when it is uploaded and its text stored, so its reader reads the stored text;
+// there is no upload store.
 import { HttpError, type Env } from '../env';
 import { MeteredFailure } from '../metering';
 import { PASTE_MAX_CHARS, readPaste } from '../sources/paste';
@@ -26,6 +27,22 @@ export function capText(s: string, maxUnits: number, maxBytes: number) {
 
 const asText = (v: unknown) => (typeof v === 'string' ? v : '');
 
+/**
+ * The most text one source read carries into extract_facts: its read step's maxChars (UTF-16 units) and maxBytes (UTF-8
+ * bytes) in engine/seed.ts EXTRACT_FACTS and spec/db/011, sized so the step output stays under the Workflows 1 MiB
+ * limit. A source whose text is stored when it is added (an upload, an export) is checked against this before it is
+ * stored, so what is stored is never more than the run reads (Codex review on PR #100).
+ */
+export const SOURCE_READ_LIMIT = { maxChars: 200_000, maxBytes: 600_000 } as const;
+/** UTF-8 length of a string, without allocating its encoding. */
+export function utf8Length(s: string): number {
+  let n = 0;
+  for (const ch of s) { const c = ch.codePointAt(0)!; n += c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4; }
+  return n;
+}
+/** Whether a text fits SOURCE_READ_LIMIT whole. */
+export const fitsRead = (s: string) => s.length <= SOURCE_READ_LIMIT.maxChars && utf8Length(s) <= SOURCE_READ_LIMIT.maxBytes;
+
 export const READERS: Record<string, (env: Env, args: Record<string, unknown>) => Promise<SourceResult>> = {
   /** A web link: the brand's site (home page plus key subpages) or a third-party page, per sources/site.ts. */
   site: (env, a) => readSite(env, asText(a.url), { website: typeof a.website === 'string' && a.website ? a.website : null }),
@@ -45,7 +62,7 @@ export interface ReaderInput {
   sourceId?: string;
 }
 /** The brand a reader's input is checked for. */
-export interface ReaderBrand { id: string; website?: string | null }
+export interface ReaderBrand { id: string; name?: string; website?: string | null }
 /** Checks a request body for one reader; throws an HttpError (4xx) for input that reader cannot use. */
 export type ReaderInputCheck = (env: Env, brand: ReaderBrand, body: Record<string, unknown>) => Promise<ReaderInput>;
 
@@ -93,11 +110,13 @@ export async function readerInput(env: Env, reader: string, brand: ReaderBrand, 
 }
 
 /** HTTP status for each adapter failure. 4xx: the same input will fail again, so the run stops; 5xx: worth a retry. */
-const STATUS: Record<FailureCode, number> = {
+export const STATUS: Record<FailureCode, number> = {
   invalid_input: 400, robots_disallowed: 403, unsupported_type: 415, too_large: 413, empty: 422, needs_ocr: 422,
   // Every reading path already failed inside the adapter; its reason tells the person to paste the text instead.
   unreadable: 422,
   not_configured: 503,
+  // A transient failure of a paid service (sources/search.ts exaPost): 5xx, so the runner retries it with backoff.
+  unavailable: 503,
 };
 
 export interface ReadStepOutput {
@@ -112,7 +131,7 @@ export interface ReadStepOutput {
   truncated: boolean;
   /** For a multi-page source, where each page sits in `text` (pages cut off by the cap are left out). */
   pages: { url: string; title: string; start: number; end: number }[];
-  meta: { pages: number; cost: number; ms: number; via?: string; notes: string[] };
+  meta: { pages: number; cost: number | null; ms: number; via?: string; notes: string[] };
 }
 
 /** Reads a source with the named reader and shapes the result for a step. */

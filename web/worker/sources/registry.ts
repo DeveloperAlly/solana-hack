@@ -27,7 +27,11 @@ export const SOURCE_TYPES = {
   paste: { kind: 'paste', trust: 'owned', label: 'Text you paste in' },
   // A file the owner uploads, PDF, DOCX or XLSX (sources/document.ts, #33): the brand's own upload, so owned (plan v2 §5).
   document: { kind: 'document', trust: 'owned', label: 'A document you upload (PDF, DOCX, XLSX)' },
-  // Planned (#33, #35): no code writes these yet. Declared now so their facts arrive as third-party, never owned.
+  // The owner's own posts and profile text from their X or LinkedIn data export, parsed in the browser (architecture
+  // §6.1 "Source ingestion"; sources/social.ts, web/src/lib/socialExport.ts): the owner's own words, so owned.
+  social_export: { kind: 'social_export', trust: 'owned', label: 'Your own posts from an X or LinkedIn export' },
+  // Exa research (#35; sources/search.ts): pages others wrote about the brand, and pages of possible competitors. Both
+  // third-party: their facts wait for the owner, never pre-approved.
   search_result: { kind: 'search_result', trust: 'third_party', label: 'A web search result about the brand' },
   competitor_page: { kind: 'competitor_page', trust: 'third_party', label: 'A competitor page' },
 } as const satisfies Record<string, SourceType>;
