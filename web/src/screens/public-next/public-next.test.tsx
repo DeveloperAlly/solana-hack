@@ -6,8 +6,14 @@ import { GalleryScreen } from '../../gallery/Gallery';
 import { expectNoAxeViolations } from '../../test/axe';
 import { screenStates } from '../../ui/composites/DemoStateSwitcher';
 import { screens } from './registry';
-import { verifyPaths } from './paths';
-import { adnaLaunchPost, adnaStandardPost } from './posts.fixtures';
+import { screenPath } from '../../gallery/screenPath';
+import { verifyArtboards } from './paths';
+
+const verifyPaths = Object.fromEntries(Object.entries(verifyArtboards).map(([k, a]) => [k, screenPath(a)])) as Record<keyof typeof verifyArtboards, string>;
+import { adnaLaunchPost, adnaStandardPost, jamjamRetractedPost } from './posts.fixtures';
+import { renderWithRouter } from '../../test/render';
+import { VerifyMatchResult } from './components/VerifyMatchResult';
+import { VerifyRetractedResult } from './components/VerifyRetractedResult';
 import { verifyEdited, verifyNoMatch } from './verify.fixtures';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
@@ -174,6 +180,36 @@ describe('Ledger: filter, sort, paginate and check', () => {
   it('empty state says nothing is registered', () => {
     at(`${verifyPaths.ledger}?state=empty`);
     expect(screen.getByText('JamJam has nothing registered yet.')).toBeInTheDocument();
+  });
+});
+
+describe('links keep the gallery theme (Codex review, PR #68)', () => {
+  it('sample, ledger and check links carry ?theme=', async () => {
+    at(`${verifyPaths.match}?theme=wireframe-dark`);
+    expect(screen.getByRole('link', { name: 'Not found' })).toHaveAttribute('href', '/screens/Verify-2-NoMatch?theme=wireframe-dark');
+    expect(screen.getByRole('link', { name: "See aDNA's public ledger" })).toHaveAttribute('href', '/screens/Ledger?theme=wireframe-dark&brand=adna');
+    await userEvent.click(screen.getByRole('link', { name: "See aDNA's public ledger" }));
+    const check = within(screen.getByRole('table')).getAllByRole('link', { name: 'Check it' })[0];
+    expect(check.getAttribute('href')).toMatch(/^\/screens\/Verify-1-Match\?theme=wireframe-dark&q=/);
+  });
+});
+
+describe('receipts on results (Codex review, PR #68)', () => {
+  it('a match links the registration transaction, or shows [tx] while pending', () => {
+    const { unmount } = renderWithRouter(<VerifyMatchResult post={{ ...adnaLaunchPost, signature: 'ApproveSig' }} />);
+    expect(screen.getByRole('link', { name: /Registration transaction/ })).toHaveAttribute('href', 'https://explorer.solana.com/tx/ApproveSig?cluster=devnet');
+    unmount();
+    renderWithRouter(<VerifyMatchResult post={adnaLaunchPost} />);
+    expect(screen.queryByRole('link', { name: /Registration transaction/ })).toBeNull();
+    expect(screen.getByText('[tx]')).toBeInTheDocument();
+  });
+  it('a retraction links both the registration and the retraction transactions', () => {
+    const post = { ...jamjamRetractedPost, signature: 'ApproveSig', retraction: { at: null, reason: '[reason]', signature: 'RetractSig' } };
+    renderWithRouter(<VerifyRetractedResult post={post} />);
+    expect(screen.getByRole('link', { name: /Registration transaction/ })).toHaveAttribute('href', 'https://explorer.solana.com/tx/ApproveSig?cluster=devnet');
+    expect(screen.getByRole('link', { name: /Retraction transaction/ })).toHaveAttribute('href', 'https://explorer.solana.com/tx/RetractSig?cluster=devnet');
+    expect(screen.getByText('Registered')).toBeInTheDocument();
+    expect(screen.getByText('The registration stays on the public record; the retraction changes its status.')).toBeInTheDocument();
   });
 });
 

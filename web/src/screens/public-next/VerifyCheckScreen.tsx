@@ -13,9 +13,9 @@
  * | posts[].kitVersion        | registrations.kit_version                                                 | never                 |
  * | posts[].approver/approvedAt| registrations.approver_id, registered_at                                 | "[approver]", "[date]"|
  * | posts[].published         | registrations.platform_url and published time                             | not published yet     |
- * | posts[].signature         | registrations tx signature (SAS attestation)                              | "[tx]" while pending  |
+ * | posts[].signature         | registration tx: SAS attestation from registerPost (posts.ts); approval itself has no tx | "[tx]" while pending |
  * | posts[].bannedPhrases     | the brand's claims gate (kit voice rules)                                 | no banned phrases     |
- * | posts[].retraction        | proposed retraction record (research 10 §7.1 N4); not in the schema yet   | not retracted         |
+ * | posts[].retraction        | not built yet: no retraction endpoint or table in web/worker (research 10 §7.1 N4) | not retracted |
  * | intro, note               | Canvas copy for coming-soon boards (Verify-3, Verify-5)                   | hackathon boards      |
  * | errorNote                 | POST /api/verify `note`, or the request failure                           | never shown unless error |
  *
