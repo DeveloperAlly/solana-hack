@@ -1,6 +1,6 @@
 import { useBrand } from '../../lib/useBrand';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { PublicShell } from '../../ui/shells/PublicShell';
 import { Alert, Box, Button, Choice, Container, Field, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { api, ApiError } from '../../lib/api';
@@ -81,6 +81,8 @@ function Progress({ current }: { current: number }) {
 /** Build your brand (S1-S4): loads the owner's brand and walks the intake, gates and kit steps. */
 export function Build() {
   const params = useParams();
+  const [query] = useSearchParams();
+  const creating = query.get('new') === '1';
   const slug = (params['*'] ?? '').split('/')[0] || '';
   const navigate = useNavigate();
   const { state, noBrand, error, reload: load } = useBrand();
@@ -90,7 +92,7 @@ export function Build() {
 
   let content;
   if (error && !state && !noBrand) content = <Alert tone="danger" title="Could not load your brand">{error}</Alert>;
-  else if (noBrand) {
+  else if (noBrand || creating) {
     if (slug !== 'basics') return <Navigate to="/build/basics" replace />;
     content = <BasicsStep state={null} onSaved={async (id) => { await load(id); go(1); }} />;
   } else if (!state) content = <Text tone="secondary">Loading your brand…</Text>;

@@ -42,11 +42,12 @@ export function Create() {
   // draft use the controller current at the time.
   const ctrl = useRef<AbortController | null>(null);
   const following = useRef(new Map<string, AbortSignal>());
+  const selected = useRef(catalog.id); selected.current = catalog.id;
 
-  async function load(id = brandId, limit = shown) {
-    if (!id) return;
-    const r = await api<{ posts: Post[]; more?: boolean; capped?: boolean }>(`/brands/${id}/posts?limit=${limit}`);
-    if (ctrl.current?.signal.aborted) return;
+  async function load(id = brandId, limit = shown, signal = ctrl.current?.signal) {
+    if (!id || !signal || signal.aborted || selected.current !== id) return;
+    const r = await api<{ posts: Post[]; more?: boolean; capped?: boolean }>(`/brands/${id}/posts?limit=${limit}`, { signal });
+    if (signal.aborted || selected.current !== id) return;
     setPosts(r.posts);
     setMore(!!r.more);
     setCapped(!!r.capped);
@@ -61,7 +62,7 @@ export function Create() {
     api<{ runs?: { id: string }[] }>(`/brands/${id}/runs?kind=draft_post`, { signal: c.signal })
       .then(async (going) => {
         if (c.signal.aborted) return;
-        await load(id);
+        await load(id, shown, c.signal);
         for (const r of going.runs ?? []) void follow(r.id, id, c.signal);
       })
       .catch((e) => { if (!c.signal.aborted) setError(msg(e)); });
@@ -72,26 +73,26 @@ export function Create() {
 
   /** Follows one draft run to its end, then reloads the list (done) or shows its error (failed), until `signal` aborts. */
   async function follow(runId: string, id = brandId, signal = ctrl.current?.signal) {
-    if (!signal || signal.aborted) return;
+    if (!signal || signal.aborted || selected.current !== id) return;
     const already = following.current.get(runId);
     if (already && !already.aborted) return;
     following.current.set(runId, signal);
-    const update = (run: RunView) => setDrafting((d) => ({ ...d, [runId]: runMessage(run) }));
+    const update = (run: RunView) => { if (!signal.aborted && selected.current === id) setDrafting((d) => ({ ...d, [runId]: runMessage(run) })); };
     try {
       const end = await followRun(runId, {
         get: async (rid) => (await api<{ run: RunView }>(`/runs/${rid}`, { signal })).run,
         sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
         onUpdate: update,
-        cancelled: () => signal.aborted,
+        cancelled: () => signal.aborted || selected.current !== id,
       });
-      if (!end) return;
+      if (!end || selected.current !== id) return;
       if (end.status !== 'done') setError(end.error ?? 'Drafting failed. Try again.');
-      await load(id);
+      await load(id, shown, signal);
     } catch (err) {
-      if (!signal.aborted) setError(msg(err));
+      if (!signal.aborted && selected.current === id) setError(msg(err));
     } finally {
       if (following.current.get(runId) === signal) following.current.delete(runId);
-      if (!signal.aborted) setDrafting(({ [runId]: _, ...rest }) => rest);
+      if (!signal.aborted && selected.current === id) setDrafting(({ [runId]: _, ...rest }) => rest);
     }
   }
 
@@ -101,9 +102,13 @@ export function Create() {
    * list reloads when it ends; a finished draft reloads the list at once.
    */
   async function startAndFollow(body: { brief: string; channel: string }) {
-    const r = await api<{ post: Post | null; runId?: string }>(`/brands/${brandId}/posts`, { body, signal: ctrl.current?.signal });
-    if (!r.post && r.runId) void follow(r.runId);
-    else await load();
+    const id = brandId;
+    const signal = ctrl.current?.signal;
+    if (!id || !signal || signal.aborted || selected.current !== id) return;
+    const r = await api<{ post: Post | null; runId?: string }>(`/brands/${id}/posts`, { body, signal });
+    if (signal.aborted || selected.current !== id) return;
+    if (!r.post && r.runId) void follow(r.runId, id, signal);
+    else await load(id, shown, signal);
   }
 
   async function draft(e: FormEvent) {
