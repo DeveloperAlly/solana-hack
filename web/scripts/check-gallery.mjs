@@ -42,11 +42,10 @@ async function waitFor(url, ms = 30000) {
 /**
  * With EXPECT_BUILD set (the preview workflow passes the commit it built), wait for a positive signal before checking
  * a deployed URL: the served index carries that build id (<meta name="jamjam-build">, stamped by vite.config.ts) and
- * every script and stylesheet it references is served. Then the checks run once. The preview run on 7af126d started
- * checking 24 s after wrangler printed "Deployed jamjam-preview triggers" and its first page never rendered
- * (https://github.com/DeveloperAlly/solana-hack/actions/runs/38315349588, step "Check the preview gallery":
- * "waiting for locator('main').first() to be visible"); the same deployed build passed every check later. That run had
- * no way to tell which build it was served, so this makes it explicit instead of assuming.
+ * every script and stylesheet it references is served. Then the checks run once. Why: the preview run on 7af126d
+ * (https://github.com/DeveloperAlly/solana-hack/actions/runs/38315349588) printed "Deployed jamjam-preview triggers"
+ * at 22:13:19, started checking at 22:13:43, and its first page never rendered ("waiting for locator('main').first()
+ * to be visible"); nothing in that run showed which build the preview was serving.
  */
 async function waitForBuild(expected, ms = 120000) {
   const end = Date.now() + ms;
