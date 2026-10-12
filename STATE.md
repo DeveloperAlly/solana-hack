@@ -6,7 +6,7 @@ last_edited_by: agent
 ---
 # STATE
 
-**Phase:** Build: the product spine and the full UI are on main (all PRs through [#24](https://github.com/DeveloperAlly/solana-hack/pull/24) merged by 2026-10-12); the live registry self-test passes ([self-test on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118094002)). Sign-in by email works on the live app: the [`supabase-auth-config` run](https://github.com/DeveloperAlly/solana-hack/actions/runs/38207926808) set the URL Configuration and custom SMTP through Resend (sender JamJam), and the owner signed in ([sign-in proof on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118522618)). Purpose (ADR-002), business model and product map (ADR-003) and the Brand Builder architecture (accepted 2026-10-06) are decided. The phased build plan is [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4).
+**Phase:** Build: the product spine and the full UI are on main (all PRs through [#24](https://github.com/DeveloperAlly/solana-hack/pull/24) merged by 2026-10-12); the live registry self-test passes ([self-test on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118094002)). Sign-in by the emailed link works on the live app (sign-in by code is not yet exercised; see Blockers): the [`supabase-auth-config` run](https://github.com/DeveloperAlly/solana-hack/actions/runs/38207926808) set the URL Configuration and custom SMTP through Resend (sender JamJam), and the owner signed in ([sign-in proof on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118522618)). Purpose (ADR-002), business model and product map (ADR-003) and the Brand Builder architecture (accepted 2026-10-06) are decided. The phased build plan is [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4).
 
 **Where the build is (2026-10-08):**
 - **On main:**
@@ -49,7 +49,7 @@ last_edited_by: agent
 ## Next
 - **Now (2026-10-12):**
   1. Done 2026-10-08: the PR stack is merged.
-  2. Done 2026-10-12: `DEVNET_RPC_URL` points at Helius devnet and the live self-test passes ([self-test on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118094002)). Done 2026-10-12: sign-in email ([auth config run](https://github.com/DeveloperAlly/solana-hack/actions/runs/38207926808)).
+  2. Done 2026-10-12: `DEVNET_RPC_URL` points at Helius devnet and the live self-test passes ([self-test on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118094002)). Done 2026-10-12: custom SMTP and sign-in by the emailed link ([auth config run](https://github.com/DeveloperAlly/solana-hack/actions/runs/38207926808); [sign-in proof on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118522618)). Open: sign-in by code (see Blockers).
   3. Run the full flow on https://jamjam.tech: sign-in, ingest, gates, kit v1, then a post through Verify. Check the rows in Supabase.
   4. Register JamJam's own kit v1 (due Oct 9).
   5. Make the submission assets ([Colosseum hackathon page](https://www.colosseum.com/hackathon)): the presentation video, the product demo video (3 minutes or less), the logo, the go-to-market strategy, demand validation, and the repo link (the README is written for judges).
