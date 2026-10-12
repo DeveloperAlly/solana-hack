@@ -11,6 +11,7 @@ import { Brain } from './Brain';
 import { LearnRules } from './LearnRules';
 import { PostDetail } from './PostDetail';
 import { VerifyHome } from './VerifyHome';
+import { screens } from './registry';
 import { brainScreen, learnRules, learnRulesCollecting, postDetail, today, verifyHome } from './fixtures';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
@@ -215,6 +216,41 @@ describe('Brain and Learn-Rules share the Brain', () => {
     t.unmount();
     renderWithRouter(<LearnRules data={learnRules} />);
     expect(within(screen.getByRole('list', { name: 'Decided' })).getByText(/Open X threads with the problem, not the product · retired/)).toBeInTheDocument();
+  });
+
+  it('loop data follows the active brand: GamersLab shows its own Brain, and approving writes GamersLab state', async () => {
+    const entry = screens.find((s) => s.artboard === 'Brain')!;
+    act(() => selectBrand('gamerslab'));
+    const { unmount } = renderWithRouter(entry.render('success'));
+    expect(screen.getByRole('heading', { level: 1, name: 'The Brain' })).toBeInTheDocument();
+    expect(screen.getByText(/Everything JamJam knows about GamersLab/)).toBeInTheDocument();
+    expect(screen.getByText('Brain v1')).toBeInTheDocument();
+    expect(screen.queryByText(/Every agent reads the folder first/)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Retire: Never claim a user count without a source' }));
+    expect(screen.getByText('Brain v1.1')).toBeInTheDocument();
+    expect(loopStore.read().brainVersion).toBe('1.1');
+    unmount();
+    act(() => selectBrand('adna'));
+    renderWithRouter(entry.render('success'));
+    expect(screen.getByText('Brain v3.1')).toBeInTheDocument();
+    expect(loopStore.read().brainVersion).toBeUndefined();
+  });
+
+  it('a brand with no loop data says so, never showing another brand', () => {
+    act(() => selectBrand('filmfun'));
+    renderWithRouter(screens.find((s) => s.artboard === 'Today')!.render('success'));
+    expect(screen.getByRole('heading', { level: 1, name: 'No loop data for film.fun yet' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Needs you/ })).toBeNull();
+    expect(screen.queryByText(/Tuesday, aDNA/)).toBeNull();
+  });
+
+  it('an approved proposal keeps the Brain version its approval made after later approvals', async () => {
+    renderWithRouter(<LearnRules data={learnRules} />);
+    const x = screen.getAllByRole('region').find((r) => within(r).queryByRole('heading', { name: 'Open X threads with the problem, not the product' }))!;
+    await userEvent.click(within(x).getByRole('button', { name: 'Approve rule' }));
+    const decided = within(screen.getByRole('list', { name: 'Decided' }));
+    expect(decided.getByText(/Lead with the problem · active in Brain v3.1/)).toBeInTheDocument();
+    expect(decided.getByText(/Open X threads with the problem, not the product · active in Brain v3.2/)).toBeInTheDocument();
   });
 
   it('collecting shows nothing to suggest yet', () => {

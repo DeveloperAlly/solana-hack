@@ -2,7 +2,10 @@
 // Verify-Home (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn). The demo brand is aDNA, as the boards draw it;
 // people, events and figures the boards bracket stay bracketed. The Brain, posts and proposals are the shared
 // fixtures in src/domain/fixtures, so every page agrees.
-import { adnaBrain, adnaBrainFirstRun, OWNER } from '../../domain/fixtures/brain';
+import { adnaBrain, adnaBrainFirstRun, firstRunBrain, OWNER } from '../../domain/fixtures/brain';
+import type { LoopBase } from '../../flows/loop/useLoop';
+import type { LoopStageId } from '../../config/nav';
+import type { LoopStepState } from '../../domain/loop';
 import { adnaPosts } from '../../domain/fixtures/posts';
 import { adnaProposals } from '../../domain/fixtures/proposals';
 import type { LearnRulesData, PostDetailData, TodayData, VerifyHomeData } from './types';
@@ -76,3 +79,57 @@ export const verifyHome: VerifyHomeData = {
 };
 
 export const verifyHomeEmpty: VerifyHomeData = { ...verifyHome, kpis: [], registered: [], noMatch: [] };
+
+/** Every loop screen's data for one brand: the full set and the empty variant each screen's empty state shows. */
+export interface LoopBrandData {
+  today: TodayData;
+  todayAllClear: TodayData;
+  postDetail: PostDetailData;
+  postDetailEmpty: PostDetailData;
+  brain: LoopBase;
+  brainFirstRun: LoopBase;
+  learnRules: LearnRulesData;
+  learnRulesCollecting: LearnRulesData;
+  verifyHome: VerifyHomeData;
+  verifyHomeEmpty: VerifyHomeData;
+}
+
+const adna: LoopBrandData = { today, todayAllClear, postDetail, postDetailEmpty, brain: brainScreen, brainFirstRun, learnRules, learnRulesCollecting, verifyHome, verifyHomeEmpty };
+
+/**
+ * A demo brand the canvas draws no loop data for, on its first run: kit v1 and the kit gate rules in the Brain, nothing
+ * waiting, no posts, nothing registered, and Learn collecting. Copy the canvas does not give is bracketed.
+ */
+/** On a first run the kit is live and the first post is where the work is. */
+const firstRunSteps: Partial<Record<LoopStageId, LoopStepState>> = { brand: 'live', create: 'current' };
+
+function firstRunBrand(name: string, domain: string): LoopBrandData {
+  const b: LoopBase = { brain: firstRunBrain(name, domain), proposals: [], approver: OWNER };
+  const day: TodayData = {
+    ...b,
+    weekday: 'Tuesday',
+    status: `${domain} · Kit v1 on Solana`,
+    loopNote: 'Learn starts after 14 days of results',
+    loop: today.loop.map((s) => ({ ...s, state: firstRunSteps[s.stage] ?? 'not-started', detail: '[detail]' })),
+    queue: [],
+    done: [],
+    learned: 'Nothing yet: Learn starts after 14 days of results.',
+    next: [],
+    proof: '[Badge traffic, once the badge is on your site]',
+  };
+  const learn: LearnRulesData = { ...b, collecting: { days: 0, needed: 14 } };
+  const proof: VerifyHomeData = { brandName: name, kpis: [], registered: [], noMatch: [] };
+  return { today: day, todayAllClear: day, postDetail: { ...b, posts: [] }, postDetailEmpty: { ...b, posts: [] }, brain: b, brainFirstRun: b, learnRules: learn, learnRulesCollecting: learn, verifyHome: proof, verifyHomeEmpty: proof };
+}
+
+const byBrand: Record<string, LoopBrandData> = {
+  adna,
+  jamjam: firstRunBrand('JamJam', 'jamjam.tech'),
+  gamerslab: firstRunBrand('GamersLab', '[gamerslab domain]'),
+};
+
+/**
+ * The loop data for a brand id (the one active brand, flows/brand), or undefined when there is none yet: screens then
+ * say so, never showing another brand's data (Codex review on PR 111).
+ */
+export const loopDataFor = (brandId: string): LoopBrandData | undefined => byBrand[brandId];
