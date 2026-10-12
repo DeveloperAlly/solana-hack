@@ -45,7 +45,7 @@ This is the artifact acceptance record for [#114](https://github.com/DeveloperAl
 
 **Product:** JamJam.
 
-**Description:** JamJam is your brand team, in one app. Build your voice and launch your brand, create content in that voice, approve what goes out, and give anyone a way to check the approved text on Solana. Build, create, distribute, verify, grow and learn—one workflow for founders who need a brand team. Source: existing [GTM §1](./gtm_2026_10_12.md#1-what-we-sell), with the [demo](./demo_script_2026_10_13.md) showing the real core and full-vision previews.
+**Description:** JamJam is your brand team, in one app. Build your voice and launch your brand, create content in that voice, approve what goes out, and give anyone a way to check the approved text on Solana. Build, create, distribute, verify, grow and learn—one workflow for founders who need a brand team. Source: existing [GTM §1](https://github.com/DeveloperAlly/solana-hack/blob/791d01bf40d6cada78b1885ba314a2fd33fea3ad/.agentic/what/context/gtm_2026_10_12.md#1-what-we-sell), with the [demo](./demo_script_2026_10_13.md) showing the real core and full-vision previews.
 
 **Product URL:** https://jamjam.tech
 

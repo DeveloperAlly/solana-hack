@@ -51,6 +51,8 @@ The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [A
 | [.agentic/what/context/links.md](./.agentic/what/context/links.md) | active | Working links: wireframes, deck, PRD, research |
 | [audits/2026-10-13_engineering-release-readiness.md](./audits/2026-10-13_engineering-release-readiness.md) | active | Engineering release audit; separates code evidence from approved sales pitch |
 | [audits/2026-10-13_wireframe-coverage.md](./audits/2026-10-13_wireframe-coverage.md) | active | Coverage of all 125 exported wireframe boards |
+| [.agentic/what/context/submission-assets/recording_cues.md](./.agentic/what/context/submission-assets/recording_cues.md) | draft | Recording cues from the unchanged approved pitch |
+| [.agentic/what/context/submission-assets/jamjam-logo.png](./.agentic/what/context/submission-assets/jamjam-logo.png) | active | Exact deployed JamJam mark for submission |
 | [.agentic/what/context/submission_checklist_2026_10_13.md](./.agentic/what/context/submission_checklist_2026_10_13.md) | draft | Submission assets and acceptance evidence |
 | [.agentic/what/context/demo_script_2026_10_13.md](./.agentic/what/context/demo_script_2026_10_13.md) | draft | Demo recording runbook |
 | [audits/2026-10-12_onboarding-journey-wireframe-audit.md](./audits/2026-10-12_onboarding-journey-wireframe-audit.md) | active | Audit 2026-10-12: onboarding journey and wireframes vs the delivery plan; root causes, fixes and owner decisions |
@@ -90,8 +92,3 @@ The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [A
 | [.agentic/what/context/archive/influencer_scope.md](./.agentic/what/context/archive/influencer_scope.md) | superseded | Self-funding AI creator scope | ADR-003 ("Create an influencer", experimental) |
 | [.agentic/what/context/archive/ai_creator_angles.md](./.agentic/what/context/archive/ai_creator_angles.md) | superseded | AI creator angle options | ADR-003 |
 | [.agentic/what/context/archive/design_prompts_v1.md](./.agentic/what/context/archive/design_prompts_v1.md) | superseded | Claude Design prompts for Waterlily for Brands | To be rewritten from the compendium and the brand builder architecture |
-
-<!-- Delivery authority: AGENTS.md requires the canonical submission mission, master #38, execution #114 and STATE.md as the first read. -->
-
-| [.agentic/what/context/submission-assets/recording_cues.md](./.agentic/what/context/submission-assets/recording_cues.md) | draft | Recording cues from the unchanged approved pitch |
-| [.agentic/what/context/submission-assets/jamjam-logo.png](./.agentic/what/context/submission-assets/jamjam-logo.png) | active | Exact deployed JamJam mark for submission |
