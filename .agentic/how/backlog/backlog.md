@@ -228,7 +228,7 @@ Every module has one interface, its own tests, and no JamJam-specific names insi
 | X3 | Self-hosted provider | Any self-hosted, OpenAI-compatible GPU endpoint as one more provider behind X1 | spec | OpenAI-compatible API, no custom protocol | backend map §10 |
 | X4 | Workflow engine with run tracking and resumable progress | Long jobs survive reloads and failures | spec | Cloudflare Workflows | #32 |
 | X5 | Prompt library, versioned in a table | Prompts change without a deploy; each run records its prompt version | spec | | #32 |
-| X6 | Source adapters (URL, paste, PDF, DOCX, PPTX, X, LinkedIn) | One file plus a test per source type | partial (URL) | Exa, Workers AI `toMarkdown` | #33 |
+| X6 | Source adapters (URL, paste, PDF, DOCX, PPTX, X, LinkedIn) | One file plus a test per source type | partial: site (robots.txt, Exa contents with subpages, plain fetch, rendered Markdown, paste fallback), paste and document (PDF, DOCX, XLSX; scans flagged `needs_ocr`) adapters in `web/worker/sources/` (#33 adapters PR); not yet wired into a run (#32); PPTX, X and LinkedIn not built | Exa, Workers AI `toMarkdown` | #33 |
 | X7 | Quote normaliser and check | | built (`quote.ts`) | | #31 |
 | X8 | Slop and style rules, one list | | partial | `no-ai-slop`, `lint-voice` R1 to R13 | G1 |
 | X9 | Registry client (SAS) | | built (`registry.ts`) | | G-SAS |
