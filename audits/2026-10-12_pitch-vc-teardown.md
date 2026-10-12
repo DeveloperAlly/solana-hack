@@ -120,7 +120,7 @@ The owner's answers, which the deck and script now follow:
    - verified content from the brand and its ambassadors;
    - a verified AI persona;
    - USDC tips;
-   - rewards for real content ("Kaito, but legal": disclosed, approved, off X);
+   - rewards for real content: disclosed, approved, off X;
    - agents licensing the brand kit per call;
    - stablecoin plans.
 4. **AI does the content; paying communities is not the point.** Ambassadors are seats in the app, with approvals, so that their content is **verified** as the brand's. Verification of content, not payment, is why they exist.
