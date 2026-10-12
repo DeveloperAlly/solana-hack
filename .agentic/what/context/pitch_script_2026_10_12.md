@@ -212,7 +212,7 @@ I founded Lilypad, a decentralised AI compute network, and built the original Wa
 - Today: 12 voice templates on 9 dimensions
 - Next: your own voice from your posts and your edits
 - Later: a shared anti-slop writer trained on approvals, with consent; per-brand models at scale
-- Nothing grades itself: release gates on every change come with the evaluation harness (backlog X12, next)
+- Today the drafting model scores its own voice fit; the goal is that nothing grades itself, with independent release gates on every change once the evaluation harness ships (backlog X12, next)
 
 **A10 No AI Slop.** Answers 'how do you guarantee good copy', with the research behind each step.
 - Built: kit-facts-only prompt, banned list in the prompt, code check with forced rewrite, claims gate at approval, human approval
