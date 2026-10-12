@@ -301,7 +301,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
         c.notes.push('Exa returned no links for the home page; the key subpages were found with our own reader');
         let ownLinks: string[] = [];
         try {
-          const own = await readPage(url.toString(), allowedHere);
+          const own = await readPage(url.toString(), allowedHere, true);
           home = new URL(own.url);
           ownLinks = own.links;
         } catch {
@@ -323,13 +323,17 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   try {
     // readPage follows redirects one hop at a time and checks each address's robots.txt before fetching it (ingest.ts
     // fetchPage), so a disallowed destination is never requested (PR #71 review).
-    const page = await readPage(url.toString(), allowedHere);
+    // A home page with almost no text (mostly navigation) still gives its links, so the key subpages can carry the
+    // read (PR #71 review).
+    const page = await readPage(url.toString(), allowedHere, true);
     home = new URL(page.url);
-    const pages: SourcePage[] = [{ url: page.url, title: page.title, text: page.text }];
+    const shortHome = page.text.length < 40;
+    if (shortHome) c.notes.push('the home page has almost no readable text; its linked pages were read instead');
+    const pages: SourcePage[] = shortHome ? [] : [{ url: page.url, title: page.title, text: page.text }];
     if (opts.subpages > 0) pages.push(...(await readOwnSubpages(page.links, new Set([page.url, url.toString()]))));
     const kept = await admit(pages);
     if (kept.length) return ok(kept, cost, 'fetch');
-    fetchError = 'the page redirected to an address its robots.txt does not let us read';
+    fetchError = shortHome ? 'the page has almost no readable text, and no linked page could be read' : 'the page redirected to an address its robots.txt does not let us read';
     c.notes.push(`direct read refused: ${fetchError}`);
   } catch (e) {
     fetchError = e instanceof Error ? e.message : 'reading the page failed';

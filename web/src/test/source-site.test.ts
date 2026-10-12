@@ -92,6 +92,18 @@ describe('site adapter: Exa first', () => {
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/docs/about']);
     expect(calls.map((c) => c.url)).not.toContain('https://jamjam.tech/about');
   });
+  it('reads the linked pages of a home page that is mostly navigation (PR #71 review)', async () => {
+    const home = '<html><title>JamJam</title><body><nav><a href="/about">About</a></nav></body></html>';
+    stub({ page: (u) => (u === 'https://jamjam.tech/' ? new Response(home, { headers: { 'content-type': 'text/html' } }) : html('About', LONG)) });
+    const r = await readSite({}, 'https://jamjam.tech/', { website: 'jamjam.tech' });
+    expect(r).toMatchObject({ ok: true, url: 'https://jamjam.tech/about', meta: { via: 'fetch', pages: 1 } });
+    expect(r.meta.notes.join(' ')).toMatch(/almost no readable text; its linked pages were read/);
+  });
+  it('caps links after removing duplicates and fragments, so later key pages are not crowded out (PR #71 review)', () => {
+    const noise = Array.from({ length: 500 }, (_, i) => `<a href="#s${i}">s</a><a href="/">home</a>`).join('');
+    const links = pageLinks(`${noise}<a href="/about">About</a>`, new URL('https://jamjam.tech/'));
+    expect(links).toContain('https://jamjam.tech/about');
+  });
   it('ignores link-shaped text in scripts, styles and comments (PR #71 review)', async () => {
     const home = `<html><title>JamJam</title><body><p>${LONG}</p><script>const t = '<a href="/script-route">x</a>';</script><!-- <a href="/commented">old</a> --><a href="/about">About</a></body></html>`;
     const calls = stub({ page: (u) => (u === 'https://jamjam.tech/' ? new Response(home, { headers: { 'content-type': 'text/html' } }) : html('About', LONG)) });

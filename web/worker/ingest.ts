@@ -91,7 +91,9 @@ export function pageLinks(html: string, landed: URL): string[] {
       if (INERT.has(name)) { inert++; return; }
       if (inert) return;
       if (name === 'base' && baseHref === null && typeof attribs.href === 'string') baseHref = attribs.href;
-      if (name === 'a' && typeof attribs.href === 'string' && raw.length < 400) raw.push(attribs.href);
+      // No cap on raw anchors (the body is already capped at MAX_BYTES): the 200 limit applies to cleaned, unique
+      // links below, so duplicates and fragment links early on a dense page cannot crowd out later ones (PR #71 review).
+      if (name === 'a' && typeof attribs.href === 'string') raw.push(attribs.href);
     },
     onclosetag(name) {
       if (INERT.has(name) && inert > 0) inert--;
@@ -124,8 +126,12 @@ export function pageLinks(html: string, landed: URL): string[] {
   return links;
 }
 
-/** Fetches one public http(s) page and returns its title and readable text. */
-export async function readPage(raw: string, gate?: FetchGate): Promise<{ url: string; title: string; text: string; links: string[] }> {
+/**
+ * Fetches one public http(s) page and returns its title, readable text and links. A page with almost no text is
+ * refused (422) unless `allowShort` is set, for a caller that still wants the page's links, such as a site reader
+ * whose home page is mostly navigation (PR #71 review).
+ */
+export async function readPage(raw: string, gate?: FetchGate, allowShort = false): Promise<{ url: string; title: string; text: string; links: string[] }> {
   let url: URL;
   try {
     url = new URL(raw.includes('://') ? raw : `https://${raw}`);
@@ -149,7 +155,7 @@ export async function readPage(raw: string, gate?: FetchGate): Promise<{ url: st
     .replace(/[ \t]+/g, ' ')
     .replace(/\n\s*\n+/g, '\n')
     .trim();
-  if (text.length < 40) throw new HttpError(422, 'that page has almost no readable text');
+  if (text.length < 40 && !allowShort) throw new HttpError(422, 'that page has almost no readable text');
   // The page's own links (absolute http(s), at most 200), so a reader can choose subpages without another service.
   const links = pageLinks(body, landed);
   return { url: landed.toString(), title, text, links };
