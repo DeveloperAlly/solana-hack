@@ -868,6 +868,19 @@ describe('start checks: per-brand daily metered-call budget, run rate and anonym
       delete KINDS.count_things;
     }
   });
+  it('makes exactly one provider request when the workflow owns retries', async () => {
+    const provider = vi.fn(async () => new Response('{}', { status: 503 }));
+    vi.stubGlobal('fetch', provider);
+    await expect(chat(envWith, 'system', 'user', { attempts: 1 })).rejects.toMatchObject({ status: 502 });
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+  it('refuses a superseded run before consuming calls', async () => {
+    const { db: workerDb } = await import('../../worker/db');
+    db.tables.runs.push({ id: 'superseded-run', brand_id: BRAND, status: 'superseded', metered_used: 0, metered_budget: 10 });
+    await expect(workerDb.rpc(envWith, 'consume_metered', { p_run: 'superseded-run', p_n: 1 })).rejects.toMatchObject({ status: 409, message: 'run superseded' });
+    expect(db.tables.metered_usage).toHaveLength(0);
+    expect(db.tables.runs[0].metered_used).toBe(0);
+  });
   it('Codex P2 on PR #91: retries are metered call by call, and a run that reaches the budget mid-run stops there, not retried', async () => {
     // A step planned as one metered call that keeps failing, so its retries go past the plan: admitted at a budget of
     // 2, the third attempt is refused by the meter and the run ends there with the reason.

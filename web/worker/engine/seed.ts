@@ -94,7 +94,7 @@ export const EXTRACT_FACTS: WorkflowSpec = {
       step: { id: 'support_part', type: 'llm', label: 'Checking support', prompt: 'extract.check_support', schema: 'support_verdicts', vars: { brand_name: '$input.brandName' }, user: '{{items}}', userVars: { items: '$input.item.text' } },
     },
     { id: 'decide', type: 'code', label: 'Keeping only supported facts', fn: 'decide_facts', args: { facts: '$steps.align.facts', batches: '$steps.batch.batches', verdicts: '$steps.support' } },
-    { id: 'save', type: 'write', label: 'Saving the facts', op: 'save_extracted_facts', args: { sourceId: '$input.sourceId', read: '$steps.read', facts: '$steps.decide.facts', droppedAlign: '$steps.align.dropped', droppedSupport: '$steps.decide.dropped' } },
+    { id: 'save', type: 'write', label: 'Saving the facts', op: 'save_extracted_facts', args: { sourceId: '$input.sourceId', read: '$steps.read', facts: '$steps.decide.facts', droppedAlign: '$steps.align.dropped', droppedSupport: '$steps.decide.dropped', chunksSkipped: '$steps.chunk.skipped', charsSkipped: '$steps.chunk.charsSkipped' } },
   ],
   output: '$steps.save',
   onFailure: { op: 'mark_source_failed', args: { sourceId: '$input.sourceId' } },

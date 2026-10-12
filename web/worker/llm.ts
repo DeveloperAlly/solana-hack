@@ -13,6 +13,8 @@ export interface ChatOptions {
    * Enforcement still varies by provider, so callers must check the reply (schema.ts schemaError).
    */
   schema?: NamedSchema;
+  /** The workflow executor owns retries and meters each HTTP attempt. */
+  attempts?: 1 | 3;
   /**
    * Named free models to use instead of the default, in priority order, sent as OpenRouter's `models` list: if the first
    * errors (down, rate limited, refused), OpenRouter tries the next, and the reply's `model` names the one that answered
@@ -52,7 +54,7 @@ export async function chat(env: Env, system: string, user: string, opts: ChatOpt
   const model = env.OPENROUTER_MODEL || 'openrouter/free';
   if (opts.models && (!opts.models.length || !opts.models.every(isFreeModel))) throw new HttpError(500, 'only named free models may be requested');
   let last = 0;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < (opts.attempts ?? 3); attempt++) {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -64,7 +66,7 @@ export async function chat(env: Env, system: string, user: string, opts: ChatOpt
     });
     if (res.status === 429 || res.status >= 500) {
       last = res.status;
-      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      if (attempt + 1 < (opts.attempts ?? 3)) await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
       continue;
     }
     const data = (await res.json()) as { choices?: { message?: { content?: string } }[]; model?: string; usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number }; error?: { message?: string; code?: unknown } };
