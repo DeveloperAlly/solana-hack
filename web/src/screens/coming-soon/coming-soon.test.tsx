@@ -10,6 +10,8 @@ import { screens } from './registry';
 import { resetCampaignDraft } from './useCampaignFlow';
 import { resetMediaDraft } from './useMediaFlow';
 import { soonSession } from './useSoonSession';
+import { MediaReview } from './Media-Review';
+import { mediaComposer } from './Media-Composer.fixtures';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
 
@@ -464,5 +466,50 @@ describe('review fixes (Codex, PR #79)', () => {
     await user.click(screen.getByRole('button', { name: 'Remove Talk B' }));
     expect(screen.getByText('Talk C')).toBeInTheDocument();
     expect(screen.queryByText('Talk B')).not.toBeInTheDocument();
+  });
+});
+
+describe('review fixes, round 3 (Codex, PR #79)', () => {
+  it('a slop failure alone blocks approval, and its badge and the gate agree', () => {
+    render(
+      <MemoryRouter>
+        <MediaReview data={{ formats: mediaComposer.formats, checks: { 1: { claims: 'backed', slop: 'failed', alt: '[alt]' } } }} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Failed · blocked')).toBeInTheDocument();
+    expect(screen.getByText('Slide 1 failed the no-AI-slop check. Edit the slide to approve.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve and register' })).toBeDisabled();
+  });
+
+  it('checks follow the media type: an image card has one slide to check', async () => {
+    const user = at('/screens/Media-Composer');
+    await user.click(screen.getByRole('tab', { name: 'Image card' }));
+    await user.click(screen.getByRole('radio', { name: 'Image set' }));
+    await user.click(screen.getByRole('button', { name: 'Check and review' }));
+    expect(h1('Review your image card')).toBeInTheDocument();
+    expect(screen.getAllByRole('rowheader')).toHaveLength(1);
+    expect(screen.getByRole('cell', { name: '[headline]' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve and register' })).toBeEnabled();
+  });
+
+  it('the carousel review checks every slide of the draft', () => {
+    at('/screens/Media-Review');
+    expect(screen.getAllByRole('rowheader')).toHaveLength(4);
+    expect(screen.getAllByText('No claims')).toHaveLength(2);
+  });
+
+  it('a scheduled post leaves the other pickers and comes back when unscheduled', async () => {
+    const user = at('/screens/Publish-Calendar');
+    await user.click(screen.getAllByRole('button', { name: '[open slot]' })[0]);
+    await user.click(screen.getByRole('radio', { name: '[approved post 1]' }));
+    await user.click(screen.getByRole('button', { name: 'Schedule here' }));
+    await user.click(screen.getByRole('button', { name: '[open slot]' }));
+    expect(screen.queryByRole('radio', { name: '[approved post 1]' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '[approved post 2]' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Unschedule [approved post 1]' }));
+    expect(screen.getAllByRole('button', { name: '[open slot]' })).toHaveLength(2);
+    await user.click(screen.getAllByRole('button', { name: '[open slot]' })[1]);
+    expect(screen.getByRole('radio', { name: '[approved post 1]' })).toBeInTheDocument();
   });
 });

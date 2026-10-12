@@ -22,7 +22,7 @@ export const mediaKindTitles: Record<MediaKind, string> = { carousel: 'Make a ca
 /** Clears the media draft (tests, and starting a new piece). */
 export const resetMediaDraft = mediaDraft.reset;
 
-/** `defaults`: Composer's fixture formats. Review passes none and reads only what the person changed. */
+/** `defaults`: the fixture formats, used until the person edits a slide. */
 export function useMediaFlow(defaults: MediaFormat[] = []) {
   const [draft, set] = mediaDraft.use();
   const formats = draft.formats ?? defaults;
@@ -31,8 +31,8 @@ export function useMediaFlow(defaults: MediaFormat[] = []) {
     formats,
     kind,
     exportAs: draft.exportAs,
-    /** Slides of the current type when the person edited them; undefined means "use the screen's fixture". */
-    editedSlides: draft.formats?.find((f) => f.id === kind)?.slides,
+    /** The slides of the current media type: the ones Review checks. */
+    slides: formats.find((f) => f.id === kind)?.slides ?? [],
     setKind: (k: MediaKind) => set({ kind: k }),
     setExportAs: (o: ExportOption | undefined) => set({ exportAs: o }),
     editSlide: (k: MediaKind, id: string, text: string) =>

@@ -79,9 +79,16 @@ export type MediaKind = 'carousel' | 'card' | 'video';
 export interface MediaFormat { id: MediaKind; label: string; slides: Slide[]; hint: string }
 export interface ExportOption { value: string; label: string; /** What choosing it produces, shown once chosen. */ detail: string }
 export interface MediaComposerData { formats: MediaFormat[]; exportOptions: ExportOption[] }
-export type CheckResult = 'backed' | 'unsupported' | 'passed';
-export interface SlideCheck { id: string; slide: number; text: string; claims: CheckResult; slop: CheckResult; alt: Bracketed; /** The Claims row this slide's claim maps to. */ claimId?: string }
-export interface MediaReviewData { checks: SlideCheck[] }
+export type CheckResult = 'backed' | 'none' | 'unsupported' | 'passed' | 'failed';
+/** Check results for one slide, before they are matched to the draft's slides. */
+export interface SlideCheckDefaults { claims: CheckResult; slop: CheckResult; alt: Bracketed; /** The Claims row this slide's claim maps to. */ claimId?: string }
+export interface SlideCheck extends SlideCheckDefaults { id: string; slide: number; text: string }
+export interface MediaReviewData {
+  /** The media draft's default formats (Media-Composer's fixtures) until the person edits them. */
+  formats: MediaFormat[];
+  /** Check results by slide number; a slide without an entry has no claims and passed the slop check. */
+  checks: Record<number, SlideCheckDefaults>;
+}
 
 /* Campaign v2 (steps 2, 4, 5, 6 on this page; 1 and 3 on Superhub) */
 export interface AudienceSegment { id: string; label: Bracketed; tag: string }

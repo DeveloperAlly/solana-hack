@@ -6,13 +6,13 @@
  *
  * | Field            | Source                                                  | Empty when            |
  * |------------------|---------------------------------------------------------|-----------------------|
- * | checks[].slide   | Slide number in the media draft                         | no slides             |
- * | checks[].text    | Slide text                                              | never                 |
- * | checks[].claims  | Claims check: backed by an approved claim, or blocked   | never                 |
- * | checks[].slop    | No-AI-slop check result                                 | never                 |
- * | checks[].claimId | The claims row behind the slide's claim (Claims shows it approved) | no claim  |
- * | checks[].alt     | Alt text for the slide image                            | "[alt]" until written |
+ * | formats[]        | The media draft (useMediaFlow): one check per slide of the chosen type | no slides  |
+ * | checks[n].claims | Claims check for slide n: backed, no claims, or unsupported (blocks) | no claims  |
+ * | checks[n].slop   | No-AI-slop check for slide n: passed or failed (blocks)  | passed               |
+ * | checks[n].claimId| The claims row behind slide n's claim (Claims shows it approved) | no claim     |
+ * | checks[n].alt    | Alt text for slide n's image                            | "[alt]" until written |
  *
+ * Badges and the approve gate both read checkStatus (./slideChecks), so they cannot disagree.
  * States: success (slide 3 blocked until it has a source), loading (checks running), error (checks failed to run).
  */
 import { useState } from 'react';
@@ -25,7 +25,7 @@ import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { useSoonRoutes } from './routes';
 import { tableState } from './tableState';
 import { ChipBadge } from './ChipBadge';
-import { checkChips } from './status';
+import { checkStatus, deriveChecks, resultStatus } from './slideChecks';
 import { mediaKindNames, useMediaFlow } from './useMediaFlow';
 import { useSoonSession } from './useSoonSession';
 import { httpsUrl } from './validate';
@@ -34,18 +34,13 @@ import type { MediaReviewData, SlideCheck } from './types';
 export function MediaReview({ data, state = 'success' }: { data: MediaReviewData; state?: ScreenState }) {
   const routes = useSoonRoutes();
   const [session, set] = useSoonSession();
-  const media = useMediaFlow();
-  // A slide's claim is backed once its Claims row is approved (here or on Claims).
-  const checks = data.checks.map((c): SlideCheck => ({
-    ...c,
-    // Slide text edited on Media-Composer (useMediaFlow) replaces the fixture text.
-    text: media.editedSlides?.[c.slide - 1]?.text ?? c.text,
-    claims: c.claimId && session.claims?.[c.claimId]?.status === 'approved' ? 'backed' : c.claims,
-  }));
+  const media = useMediaFlow(data.formats);
+  // One check per slide of the draft (Composer's edits and media type); a claim approved on Claims counts as backed.
+  const checks = deriveChecks(media.slides, data.checks, (id) => session.claims?.[id]?.status === 'approved');
   const kindLabel = mediaKindNames[media.kind];
   const [fixing, setFixing] = useState<string | null>(null);
   const [approved, setApproved] = useState(false);
-  const blocked = checks.filter((c) => c.claims === 'unsupported');
+  const blocked = checks.filter((c) => checkStatus(c).blocking);
   // INTEGRATION: POST …/claims with the evidence URL, then re-run GET /api/drafts/:id/checks.
   const addSource = (checkId: string, url: string) => {
     const claimId = checks.find((c) => c.id === checkId)?.claimId;
@@ -56,7 +51,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
     <SoonPage header={{ title: `Review your ${kindLabel}`, intro: 'Every slide passes the same checks as a post before you can approve it.', definedIn: 'ChecksPanel D3 in the component inventory; no backend row yet (proposed in issue #51)' }}>
       {approved ? (
         // INTEGRATION: POST /api/drafts/:id/approve, then the Registrar's SAS content attestation.
-        <StatePanel kind="success" title="Approved and registered" body="Every slide passed its checks. Anyone can now check this carousel on Verify." actions={<Button href={routes.publishCalendar}>Schedule it</Button>} />
+        <StatePanel kind="success" title="Approved and registered" body={`Every slide passed its checks. Anyone can now check this ${kindLabel} on Verify.`} actions={<Button href={routes.publishCalendar}>Schedule it</Button>} />
       ) : (
         <Stack gap={4}>
           {media.exportAs && <Text tone="secondary">Format: {media.exportAs.label}. {media.exportAs.detail}</Text>}
@@ -65,15 +60,15 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
             columns={[
               { key: 'slide', header: 'Slide', rowHeader: true },
               { key: 'text', header: 'Text' },
-              { key: 'claims', header: 'Claims', cell: (r) => <ChipBadge chip={checkChips[r.claims]} /> },
-              { key: 'slop', header: 'Slop', cell: (r) => <ChipBadge chip={checkChips[r.slop]} /> },
+              { key: 'claims', header: 'Claims', cell: (r) => <ChipBadge chip={resultStatus(r.claims)} /> },
+              { key: 'slop', header: 'Slop', cell: (r) => <ChipBadge chip={resultStatus(r.slop)} /> },
               { key: 'alt', header: 'Alt text' },
             ]}
             rows={checks}
             rowKey={(r) => r.id}
             state={tableState[state]}
             error={<Alert tone="danger" title="The checks could not run. Nothing was approved." />}
-            actions={(r) => r.claims === 'unsupported' && <Button variant="secondary" aria-label={`Add a source for slide ${r.slide}`} onClick={() => setFixing(r.id)}>Add a source</Button>}
+            actions={(r) => resultStatus(r.claims).blocking && <Button variant="secondary" aria-label={`Add a source for slide ${r.slide}`} onClick={() => setFixing(r.id)}>Add a source</Button>}
           />
           {fixing && (
             <SoonInlineForm
@@ -84,7 +79,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
               onCancel={() => setFixing(null)}
             />
           )}
-          {blocked.map((c) => <Alert key={c.id} tone="warning" title={`Slide ${c.slide} has a claim with no evidence. Add a source or change the slide to approve.`} />)}
+          {blocked.map((c) => <Alert key={c.id} tone="warning" title={checkStatus(c).label} />)}
           <Stack direction="row" gap={3} wrap>
             <Button onClick={() => setApproved(true)} disabled={blocked.length > 0 || state !== 'success'}>Approve and register</Button>
             <Button href={routes.mediaComposer} variant="secondary">Edit slides</Button>

@@ -9,7 +9,7 @@
  * | days[]            | The week shown (client)                                      | never                      |
  * | slots[]           | drafts with a scheduled time and channel; open slots (D8)    | nothing scheduled          |
  * | failed            | drafts whose publish failed, with the connection's reason    | nothing failed             |
- * | approvedPosts[]   | GET …/drafts?status=approved (unscheduled)                   | no approved posts          |
+ * | approvedPosts[]   | GET …/drafts?status=approved; the picker offers only unscheduled ones | no approved posts  |
  *
  * States: success (one failed publish, as drawn), empty (nothing scheduled), loading.
  */
@@ -21,7 +21,9 @@ import { SoonCopyButton } from '../../ui/domain/SoonCopyButton';
 import { SoonWeekCalendar } from '../../ui/domain/SoonWeekCalendar';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { StateView } from './StateView';
-import { useSoonSession } from './useSoonSession';
+import { useSchedule } from './useSchedule';
+import { SoonStatusList } from '../../ui/domain/SoonStatusList';
+import { SoonStatusRow } from '../../ui/domain/SoonStatusRow';
 import { useSoonRoutes } from './routes';
 import type { CalendarSlot, PublishCalendarData } from './types';
 
@@ -29,21 +31,14 @@ const slotLabel = (s: CalendarSlot) => (s.status === 'open' ? '[open slot]' : `$
 
 export function PublishCalendar({ data, state = 'success' }: { data: PublishCalendarData; state?: ScreenState }) {
   const routes = useSoonRoutes();
-  const [session, set] = useSoonSession();
-  const slots = session.slots ?? data.slots;
+  const cal = useSchedule(data);
+  const { failed: f, reconnected } = cal;
   // One selection object: the slot picked and the post chosen for it, cleared together (Codex review on PR #79).
   const [selection, setSelection] = useState<{ slot: string; post: string } | null>(null);
   const clearSelection = () => setSelection(null);
-  // The failure shows while its slot is still failed; once the channel is reconnected (Settings-Connections), it can be retried.
-  const f = data.failed && slots.find((s) => s.id === data.failed?.slotId)?.status === 'failed' ? data.failed : null;
-  const reconnected = f ? session.connections?.[f.channel.toLowerCase()] === 'connected' : false;
-  const setSlot = (id: string, patch: Partial<CalendarSlot>) => set({ slots: slots.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
-  // INTEGRATION: POST /api/drafts/:id/publish (retry on the reconnected channel).
-  // INTEGRATION: PATCH /api/drafts/:id { scheduled_at } (D8); only approved posts can be scheduled.
   const schedule = () => {
     if (!selection) return;
-    const title = data.approvedPosts.find((p) => p.id === selection.post)?.title;
-    setSlot(selection.slot, { status: 'scheduled', time: '[time]', channel: 'LinkedIn', title });
+    cal.schedule(selection.slot, selection.post);
     clearSelection();
   };
   return (
@@ -58,7 +53,7 @@ export function PublishCalendar({ data, state = 'success' }: { data: PublishCale
             <Alert tone="danger" title={`A post didn't go out: "${f.title}" to ${f.channel} failed at ${f.time} (${f.reason}). Nothing was posted twice.`} />
             <Stack direction="row" gap={3} wrap>
               {reconnected ? (
-                <Button onClick={() => setSlot(f.slotId, { status: 'scheduled' })}>Retry now</Button>
+                <Button onClick={cal.retry}>Retry now</Button>
               ) : (
                 <Button href={routes.settingsConnections}>Reconnect and retry</Button>
               )}
@@ -66,17 +61,25 @@ export function PublishCalendar({ data, state = 'success' }: { data: PublishCale
             </Stack>
           </Stack>
         )}
-        <SoonWeekCalendar label="This week" days={data.days} slots={slots.map((s) => ({ id: s.id, day: s.day, status: s.status, label: slotLabel(s) }))} selectedId={selection?.slot ?? null} onSelect={(slot) => setSelection({ slot, post: '' })} />
+        <SoonWeekCalendar label="This week" days={data.days} slots={cal.slots.map((s) => ({ id: s.id, day: s.day, status: s.status, label: slotLabel(s) }))} selectedId={selection?.slot ?? null} onSelect={(slot) => setSelection({ slot, post: '' })} />
         {selection && (
           <Card variant="subtle" as="div">
             <Stack gap={3}>
-              <Choice legend="Schedule an approved post in this slot" options={data.approvedPosts.map((p) => ({ value: p.id, label: p.title }))} value={selection.post} onChange={(post) => setSelection({ ...selection, post })} />
+              {cal.available.length === 0 && <Text tone="secondary">Every approved post is already scheduled. Unschedule one to move it here.</Text>}
+              <Choice legend="Schedule an approved post in this slot" options={cal.available.map((p) => ({ value: p.id, label: p.title }))} value={selection.post} onChange={(post) => setSelection({ ...selection, post })} />
               <Stack direction="row" gap={3} wrap>
                 <Button onClick={schedule} disabled={!selection.post}>Schedule here</Button>
                 <Button variant="secondary" onClick={clearSelection}>Cancel</Button>
               </Stack>
             </Stack>
           </Card>
+        )}
+        {cal.filled.length > 0 && (
+          <SoonStatusList label="Scheduled this session">
+            {cal.filled.map((r) => (
+              <SoonStatusRow key={r.slotId} name={r.title} detail={r.day} actions={<Button variant="secondary" aria-label={`Unschedule ${r.title}`} onClick={() => cal.unschedule(r.slotId)}>Unschedule</Button>} />
+            ))}
+          </SoonStatusList>
         )}
         <Text variant="small" tone="secondary">Only approved posts can be scheduled. The published text must hash to the approved text, or it isn't registered.</Text>
       </StateView>

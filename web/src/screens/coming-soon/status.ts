@@ -1,6 +1,6 @@
 // Status chip labels for this page, in one lookup (issue #51). Labels are the canvas chip text on the board named.
 import type { BadgeTone } from '../../ui/primitives/Badge';
-import type { AudienceFit, CheckResult, ClaimStatus } from './types';
+import type { AudienceFit, ClaimStatus } from './types';
 
 export const soonStatus = {
   'not-connected': { label: 'Not connected', tone: 'neutral' }, // Settings-AI, Settings-Connections
@@ -41,13 +41,6 @@ export const claimChips = {
   pending: { label: 'Pending', tone: 'neutral' },
   expired: { label: 'Expired', tone: 'warning' },
 } as const satisfies Record<ClaimStatus, Chip>;
-
-/** Media slide check results (canvas Media-Review). */
-export const checkChips = {
-  backed: { label: 'Backed', tone: 'success' },
-  passed: { label: 'Passed', tone: 'success' },
-  unsupported: { label: 'Unsupported · blocked', tone: 'warning' },
-} as const satisfies Record<CheckResult, Chip>;
 
 /** Outcome log audience fit (canvas Outcome-Log). */
 export const fitChips = {

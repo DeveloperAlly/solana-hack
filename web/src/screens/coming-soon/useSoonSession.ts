@@ -3,7 +3,7 @@
 // INTEGRATION: each field is server state once its endpoint exists (named on each field).
 import { createStore } from './createStore';
 import type { SoonStatusId } from './status';
-import type { CalendarSlot, Claim, PaidPlan, StatusRowItem } from './types';
+import type { Claim, PaidPlan, StatusRowItem } from './types';
 
 export interface SoonSession {
   /** Active brand (D48), shared by the hub frame's switcher and Brand-Switcher. Session, no endpoint yet. */
@@ -23,8 +23,10 @@ export interface SoonSession {
   paid?: boolean;
   /** Claim edits by claim id, from Claims and from Media-Review "Add a source" (PATCH …/claims/:id). */
   claims?: Record<string, Partial<Claim>>;
-  /** Calendar after scheduling or retrying (PATCH /api/drafts/:id). */
-  slots?: CalendarSlot[];
+  /** Posts scheduled in this session, slot id -> post id (PATCH /api/drafts/:id { scheduled_at }). */
+  schedule?: Record<string, string>;
+  /** Failed slots retried after a reconnect (POST /api/drafts/:id/publish). */
+  retried?: string[];
 }
 
 export const soonSession = createStore<SoonSession>({});

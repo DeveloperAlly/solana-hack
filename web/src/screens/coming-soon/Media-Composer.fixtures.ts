@@ -1,6 +1,6 @@
 // Sample data for Media-Composer. Source: wireframe canvas (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn), board
 // Media-Composer, issue #51; backend map: no row yet (proposed in issue #51). Slide roles are the
-// canvas labels; slide text is bracketed because the canvas draws none.
+// canvas labels; slide text is bracketed, except slide 3, which is the text the Media-Review board shows for it.
 import type { MediaComposerData } from './types';
 
 export const mediaComposer: MediaComposerData = {
@@ -12,7 +12,7 @@ export const mediaComposer: MediaComposerData = {
       slides: [
         { id: 'c1', label: '1 · Hook', text: '[hook]' },
         { id: 'c2', label: '2 · Problem', text: '[problem]' },
-        { id: 'c3', label: '3 · Proof', text: '[proof]' },
+        { id: 'c3', label: '3 · Proof', text: '"Used by [n] brands"' },
         { id: 'c4', label: '4 · CTA', text: '[call to action]' },
       ],
     },
