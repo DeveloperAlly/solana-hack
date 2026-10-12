@@ -139,6 +139,7 @@ export interface VoiceTemplate {
 }
 
 export interface VoiceTemplatesData {
+  brand: string;
   kitVersion: string;
   voices: VoiceSummary[];
   selectedTemplate: string;

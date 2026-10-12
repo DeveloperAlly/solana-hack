@@ -1,0 +1,65 @@
+/*
+ * Data contract: Brand-Build (issue #52; canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, board Brand-Build,
+ * note n-bb). Shape: BrandBuildData in ./types.ts. Backend map §4 Brand Builder, row "Brand-Build":
+ * `GET …/kit/current`, `PATCH …/sections/:section`, `POST …/draft-section`, `POST …/ingest` (re-read);
+ * tables kit_versions, kit_sections, evidence.
+ *
+ * | Field                | Source                                                                               |
+ * |----------------------|--------------------------------------------------------------------------------------|
+ * | brand, intro         | brands.name; intro is product copy                                                   |
+ * | kit.version/approved | kit_versions (version, approved_at, approver); hash = registrations content hash     |
+ * | sections[].status    | kit_sections.state: Evidenced / Inferred / Missing (D51; same badge as Coverage-Map) |
+ * | sections[].body      | kit_sections content; Inferred carries "Drafted, confirm" (n-bb 2)                   |
+ * | sections[].source    | evidence: the cited source of each Evidenced or Inferred fact                        |
+ * | sections[].gate      | Gate sections: Purpose, Positioning, Voice attributes (n-bb 5)                       |
+ * | sections[].personas  | audiences, labelled Assumption (n-bb 3)                                              |
+ *
+ * States (n-bb): success = kit v1 approved; empty = every section Missing; loading = Onboard-3b (sources being read);
+ * error = Ingest-Error (a source failed).
+ */
+import { Button, Stack } from '../../ui/primitives';
+import { StatePanel } from '../../ui/composites/StatePanel';
+import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
+import { HubColumns } from '../../ui/domain/HubColumns';
+import { HubSideNav } from '../../ui/domain/HubSideNav';
+import { HubCoverageBadge } from '../../ui/domain/HubCoverageBadge';
+import { HubPage } from './parts/HubPage';
+import { PageHeader } from './parts/PageHeader';
+import { KitHeader } from './parts/KitHeader';
+import { KitSectionCard } from './parts/KitSectionCard';
+import { StateView } from './parts/StateView';
+import { useKitSections } from './hooks/useKitSections';
+import { paths } from './paths';
+import type { BrandBuildData } from './types';
+
+export function BrandBuild({ data, state = 'success' }: { data: BrandBuildData; state?: ScreenState }) {
+  const kit = useKitSections(data.sections);
+  const toc = kit.sections.map((s) => ({ id: s.id, label: `${s.num} ${s.title}`, href: `#${s.id}`, badge: <HubCoverageBadge status={s.status} /> }));
+  const body = (
+    <Stack gap={5}>
+      <KitHeader kit={data.kit} counts={kit.counts} />
+      <HubColumns start={<HubSideNav label="Kit sections" sections={[{ items: toc }]} />}>
+        {kit.sections.map((s) => <KitSectionCard key={s.id} section={s} kit={kit} />)}
+        <Stack direction="row" gap={3} justify="end" wrap>
+          {/* INTEGRATION: POST /api/brands/:id/ingest re-reads the sources; progress is Onboard-3b-Profiling. */}
+          <Button variant="secondary" href={paths.profiling}>Re-read sources</Button>
+          <Button href={paths.kitPublished}>Approve as kit v[n+1]</Button>
+        </Stack>
+      </HubColumns>
+    </Stack>
+  );
+  return (
+    <HubPage section="brand" sub="kit">
+      <PageHeader title={`${data.brand} brand kit`} tag="HACKATHON (THIN)" intro={data.intro} />
+      <StateView
+        state={state}
+        views={{
+          success: body,
+          empty: body,
+          loading: <StatePanel kind="loading" title="Reading your sources" body="Sections fill in as facts are found." actions={<Button variant="secondary" href={paths.profiling}>See progress</Button>} />,
+          error: <StatePanel kind="error" title="A source could not be read" body="The kit keeps what was found so far. Retry the source or skip it." actions={<Button href={paths.ingestError}>Fix the source</Button>} />,
+        }}
+      />
+    </HubPage>
+  );
+}
