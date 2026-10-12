@@ -271,16 +271,21 @@ export async function saveAnswer(env: Env, brand: Brand, step: string, data: Rec
  * Returns those sections as `reapprove`: they need a person to approve them again, not necessarily a redraft.
  */
 export async function patchBrand(env: Env, brand: Brand, patch: Record<string, string | null>) {
-  let reapprove: string[] = [];
-  if ('name' in patch && patch.name !== brand.name) {
+  const renamed = 'name' in patch && patch.name !== brand.name;
+  // Removes every gate and unapproves every section; returns the sections it covered.
+  const unapproveAll = async () => {
     const sections = await db.select<Pick<Section, 'section'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section`);
-    if (sections.length) {
-      await db.del(env, 'gates', db.eq('brand_id', brand.id));
-      await db.update(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&${db.eq('status', 'approved')}`, { status: 'drafted' });
-      reapprove = sections.map((s) => s.section);
-    }
-  }
+    if (!sections.length) return [];
+    await db.del(env, 'gates', db.eq('brand_id', brand.id));
+    await db.update(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&${db.eq('status', 'approved')}`, { status: 'drafted' });
+    return sections.map((s) => s.section);
+  };
+  // Before the name changes, so a failure part-way never leaves old-name approvals under the new name. Again after it,
+  // so an approval that landed between the two writes (another tab, still showing the old name) is undone too; any
+  // approval after the second pass is made under the new name. Found in review of PR #41.
+  const reapprove = renamed ? await unapproveAll() : [];
   const [row] = await db.update<Brand>(env, 'brands', db.eq('id', brand.id), patch);
+  if (renamed) for (const s of await unapproveAll()) if (!reapprove.includes(s)) reapprove.push(s);
   return { brand: row, reapprove };
 }
 

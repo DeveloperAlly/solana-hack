@@ -182,6 +182,25 @@ describe('renaming the brand (PR #40 review)', () => {
     const order = calls.map((c) => `${c.method} ${c.table}`);
     expect(order.indexOf('DELETE gates')).toBeLessThan(order.indexOf('PATCH brands'));
   });
+  it('unapproves again after the name write, undoing an approval that raced the rename (PR #41 review)', async () => {
+    tables.kit_sections = [{ brand_id: 'b', section: 'purpose', status: 'approved', citations: [] }];
+    tables.gates = [{ brand_id: 'b', gate: 'purpose' }];
+    tables.brands = [{ ...brand }];
+    // Another tab approves purpose between the first pass and the name write.
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'PATCH' && url.includes('/brands')) {
+        tables.kit_sections[0].status = 'approved';
+        tables.gates.push({ brand_id: 'b', gate: 'purpose' });
+      }
+      return realFetch(url, init);
+    }));
+    await patchBrand(env, brand, { name: 'JamJam Labs' });
+    expect(tables.gates).toHaveLength(0);
+    expect(tables.kit_sections[0].status).toBe('drafted');
+    const order = calls.map((c) => `${c.method} ${c.table}`);
+    expect(order.lastIndexOf('DELETE gates')).toBeGreaterThan(order.indexOf('PATCH brands'));
+  });
   it('leaves sections and gates alone when the name is unchanged', async () => {
     tables.kit_sections = [{ brand_id: 'b', section: 'purpose', status: 'approved', citations: [] }];
     tables.gates = [{ brand_id: 'b', gate: 'purpose' }];
