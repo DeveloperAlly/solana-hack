@@ -37,6 +37,7 @@ tags: [adr, evidence, trust, claims]
 ## Consequences
 - A third-party fact can reach a registered kit or support a post only after the owner approves it.
 - The claims gate receives each fact's verbatim quote with its claim.
+- The approval check's version (`POLICY_VERSION` in [`web/worker/posts.ts`](../../../web/worker/posts.ts)) moves to 3, so a post approved under the earlier check must pass the allow-list gate again before it can register ([PR #63 review](https://github.com/DeveloperAlly/solana-hack/pull/63)).
 - Computed confidence and the conflict queue (backlog B3a) are not part of this ADR; they belong to the fact-extraction work ([issue #57 comment](https://github.com/DeveloperAlly/solana-hack/issues/57)).
 - The UI to approve or reject facts belongs to the UI workstream; the API contract is in the slice 1a PR.
 

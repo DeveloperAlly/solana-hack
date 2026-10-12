@@ -258,10 +258,13 @@ export const CLAIMS_POLICY: Record<string, string> = {
 const CATEGORIES = { sexual: 'sexual content', minors: 'content sexualising or targeting minors', explicitLanguage: 'explicit language' } as const;
 type Category = keyof typeof CATEGORIES;
 /**
- * Version of the approval check. Bumped when what a passing result means changes; 2 = checked against the evidence
- * snapshot of the post's kit version. A result from an earlier version is not current and must be run again.
+ * Version of the approval check. Bumped when what a passing result means changes. A result from an earlier version is
+ * not current and must be run again before the post can register.
+ * - 2: checked against the evidence snapshot of the post's kit version.
+ * - 3: only allow-listed snapshot facts count, each with its quote (issue #57); a post that passed under 2 on a fact
+ *   that is now proposed, rejected or a legacy source fact must be checked again (PR #63 review).
  */
-export const POLICY_VERSION = 2;
+export const POLICY_VERSION = 3;
 export interface PolicyResult { v: number; claims: string; template: string | null; unsupported: string[]; blocked: string[]; passed: boolean }
 
 /**

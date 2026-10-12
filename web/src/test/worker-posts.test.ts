@@ -311,7 +311,9 @@ describe('claims check over large evidence', () => {
   });
   it('treats only the current result shape as passing', async () => {
     const { isCurrentPolicy } = await import('../../worker/posts');
-    expect(isCurrentPolicy({ v: 2, claims: '4', template: null, unsupported: [], blocked: [], passed: true })).toBe(true);
+    expect(isCurrentPolicy({ v: 3, claims: '4', template: null, unsupported: [], blocked: [], passed: true })).toBe(true);
+    // A passing result from before the allow-list (v2) must be run again (PR #63 review).
+    expect(isCurrentPolicy({ v: 2, claims: '4', template: null, unsupported: [], blocked: [], passed: true })).toBe(false);
     // A passing result from before evidence snapshots (no version) must be run again.
     expect(isCurrentPolicy({ claims: '4', template: null, unsupported: [], blocked: [], passed: true })).toBe(false);
     expect(isCurrentPolicy({ claims: '4', unsupported: [], explicit: false, passed: true })).toBe(false);
