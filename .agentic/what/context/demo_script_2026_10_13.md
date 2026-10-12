@@ -71,7 +71,7 @@ Route `/sign-in` · depends on EMAIL LINK · placeholder: wireframe Onboard-1-Si
 **Must come up:**
 - H1: "Sign in to launch your brand" (PR #107)
 - "We email you a sign-in link. No password, no wallet."
-- Cut: email link opened off camera
+- Cut: the sign-in email opened off camera
 - Lands on /home: "Welcome to JamJam"
 
 **Who cares, and why:** Judges, because a wallet and seed phrase are where most normal users quit crypto, and this has neither. Founders, because there is nothing to set up.
@@ -207,7 +207,7 @@ Route `end card (edited, not app copy)` · depends on NO DEPENDENCY · placehold
 ## 4. Recording runbook
 
 - **Gate:** rehearse the whole path once live on a separate rehearsal brand (a second sign-in), so JamJam's own kit is still v1 for the take; post the rehearsal's kit and post transactions on [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4) (STATE.md Next, item 3) before recording. The take then registers JamJam's kit v1 and first post; the Ledger also lists the rehearsal brand's rows.
-- **Before:** pre-answer the question steps; approve Gates 2 and 3 in that run. Sign in by the emailed link (sign-in by code is not exercised live).
+- **Before:** pre-answer the question steps; approve Gates 2 and 3 in that run. Sign in by the method STATE.md shows as proven live (email link or code).
 - **During:** cut every wait: the page read (12 s timeout, `ingest.ts`), drafting (up to about a minute), registration (confirmation poll up to 45 s, `registry.ts`). Keep the approved post text exactly as registered, because Verify hashes the text. Edited text hides Approve until "Save edits" is pressed. Explorer links open a new tab; cut to it and back.
 - **Fallback:** the free model can answer "busy": wait and retry. If a registration outcome is unknown, use "Check registration". Keep a second full take.
 - **After:** 3:00 or less, captions on, 1080p.
