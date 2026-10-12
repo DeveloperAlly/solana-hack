@@ -2,15 +2,15 @@
 // post Distribute-Adapt adapts are the same drafts Create shows, never a second draft system (issue #90, row "Events").
 // Provenance values are placeholders (README "Fixtures"): the kit and Brain versions follow the loop fixtures.
 import { postApprovalInputs, approvalState, type Post } from '../../domain/post';
-import { baseBrainVersion } from '../../flows/loop/brainVersion';
+import { adnaBrain } from '../../domain/fixtures/brain';
 import { approve } from '../../lib/approval';
 import { checksGate } from '../../domain/queue';
 import { findPlatform, postLength } from '../../config/platforms';
 import type { BadgeTone } from '../../ui/primitives/Badge';
 
 export const sampleKitVersion = 3;
-/** The Brain fixture's version, which sample approvals were made under (flows/loop/brainVersion.ts). */
-export const sampleBrainVersion = baseBrainVersion;
+/** The aDNA Brain fixture's version, which these aDNA sample approvals were made under (domain/fixtures/brain.ts). */
+export const sampleBrainVersion = adnaBrain.version;
 export const sampleApprover = '[approver]';
 
 /** "231 of 280 characters" where the platform has a limit, else "231 characters". */

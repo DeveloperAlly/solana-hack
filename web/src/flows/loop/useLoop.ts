@@ -5,6 +5,9 @@ import { nextBrainVersion, type Brain, type BrainRule } from '../../domain/brain
 import { withDecision, type Proposal } from '../../domain/proposal';
 import type { PayoutRecord } from '../../domain/quest';
 import { loopStore, today, type ProposalChange } from './store';
+import { brainFor, noBrain, OWNER } from '../../domain/fixtures/brain';
+import { proposalsFor } from '../../domain/fixtures/proposals';
+import { useActiveBrand } from '../brand/activeBrand';
 
 /** The loop fixtures a screen starts from: the Brain, the learn loop's proposals, and who approves. */
 export interface LoopBase {
@@ -123,4 +126,14 @@ export function useLoop(base: LoopBase): LoopFlow {
       set({ payouts: [...s.payouts, { ...record, at: today() }], outcomes: { ...s.outcomes, [record.submissionId]: outcome } });
     },
   };
+}
+
+/**
+ * The loop base of the one active brand (its Brain and proposals; flows/brand), for flows that read the loop without a
+ * screen's data (Quests). A brand with no loop data gets no Brain, never another brand's.
+ * INTEGRATION: X18 brand memory and the N5 learn loop serve these (ADR-013).
+ */
+export function useActiveLoopBase(): LoopBase {
+  const brand = useActiveBrand();
+  return { brain: brainFor(brand.id) ?? noBrain(brand.name), proposals: proposalsFor(brand.id), approver: OWNER };
 }

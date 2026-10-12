@@ -1,0 +1,26 @@
+[
+  {
+    "name": "today",
+    "ok": true
+  },
+  {
+    "name": "m-today",
+    "ok": true
+  },
+  {
+    "name": "post-detail",
+    "ok": true
+  },
+  {
+    "name": "brain",
+    "ok": true
+  },
+  {
+    "name": "learn-rules",
+    "ok": true
+  },
+  {
+    "name": "verify-home",
+    "ok": true
+  }
+]

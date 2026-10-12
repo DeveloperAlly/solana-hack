@@ -53,7 +53,7 @@ export function Brain({ data, state = 'success' }: { data: LoopBase; state?: Scr
           <Grid min="sm" gap={4}>
             <StatTile label="Kit" value={`v${b.kit.version}`} sub={`${b.kit.registered ? 'registered on Solana' : 'not registered'} · ${b.kit.sections} sections`} href={links.kit} sample />
             <StatTile label="Voices" value={String(b.voices.length)} sub={b.voices.map((v) => v.name.replace(' voice', '')).join(', ')} href={links.voices} sample />
-            <StatTile label="Facts with receipts" value={String(b.kit.factCount)} sub={`from ${b.kit.sources} sources · ${b.kit.expiringFacts} expire this month`} href={links.claims} sample />
+            <StatTile label="Facts with receipts" value={String(b.kit.factCount)} sub={`from ${b.kit.sources} ${b.kit.sources === 1 ? 'source' : 'sources'} · ${b.kit.expiringFacts} expire this month`} href={links.claims} sample />
             <StatTile label="Learned rules" value={String(rulesWith(b, 'active').length)} sub={`active · ${waiting} suggested, waiting on you`} sample />
           </Grid>
           <Card labelledBy="flow-h" header={<Heading level={2} size="lg" id="flow-h">How the Brain is used</Heading>}>

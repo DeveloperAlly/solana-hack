@@ -28,3 +28,6 @@ export const adnaProposals: Proposal[] = [
     evaluator: { name: evaluator, verdict: 'not supported', smallSample: true }, brainVersion: '3', status: 'rejected', decided: { at: '2 Oct' },
   },
 ];
+
+/** The learn loop's proposals for a demo brand by id; only aDNA has results to learn from yet. */
+export const proposalsFor = (brandId: string): Proposal[] => (brandId === 'adna' ? adnaProposals : []);

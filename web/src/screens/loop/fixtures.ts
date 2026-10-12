@@ -2,12 +2,12 @@
 // Verify-Home (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn). The demo brand is aDNA, as the boards draw it;
 // people, events and figures the boards bracket stay bracketed. The Brain, posts and proposals are the shared
 // fixtures in src/domain/fixtures, so every page agrees.
-import { adnaBrain, adnaBrainFirstRun, firstRunBrain, OWNER } from '../../domain/fixtures/brain';
+import { adnaBrain, adnaBrainFirstRun, brainFor, firstRunBrain, OWNER } from '../../domain/fixtures/brain';
 import type { LoopBase } from '../../flows/loop/useLoop';
 import type { LoopStageId } from '../../config/nav';
 import type { LoopStepState } from '../../domain/loop';
 import { adnaPosts } from '../../domain/fixtures/posts';
-import { adnaProposals } from '../../domain/fixtures/proposals';
+import { adnaProposals, proposalsFor } from '../../domain/fixtures/proposals';
 import type { LearnRulesData, PostDetailData, TodayData, VerifyHomeData } from './types';
 
 /** The Brain screen's data, and the base every loop screen extends. */
@@ -103,8 +103,8 @@ const adna: LoopBrandData = { today, todayAllClear, postDetail, postDetailEmpty,
 /** On a first run the kit is live and the first post is where the work is. */
 const firstRunSteps: Partial<Record<LoopStageId, LoopStepState>> = { brand: 'live', create: 'current' };
 
-function firstRunBrand(name: string, domain: string): LoopBrandData {
-  const b: LoopBase = { brain: firstRunBrain(name, domain), proposals: [], approver: OWNER };
+function firstRunBrand(id: string, name: string, domain: string): LoopBrandData {
+  const b: LoopBase = { brain: brainFor(id) ?? firstRunBrain(name, domain), proposals: proposalsFor(id), approver: OWNER };
   const day: TodayData = {
     ...b,
     weekday: 'Tuesday',
@@ -124,8 +124,8 @@ function firstRunBrand(name: string, domain: string): LoopBrandData {
 
 const byBrand: Record<string, LoopBrandData> = {
   adna,
-  jamjam: firstRunBrand('JamJam', 'jamjam.tech'),
-  gamerslab: firstRunBrand('GamersLab', '[gamerslab domain]'),
+  jamjam: firstRunBrand('jamjam', 'JamJam', 'jamjam.tech'),
+  gamerslab: firstRunBrand('gamerslab', 'GamersLab', '[gamerslab domain]'),
 };
 
 /**

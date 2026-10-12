@@ -5,8 +5,7 @@ import {
   approveSubmission, budgetCap, emptyQuestDraft, paidCount, isQuestFormat, parseReward, parseSlots, questWithPayouts, questState,
   type Quest, type QuestDraft, type QuestState,
 } from '../../domain/quest';
-import { useLoop } from '../../flows/loop/useLoop';
-import { brainScreen } from '../loop/fixtures';
+import { useActiveLoopBase, useLoop } from '../../flows/loop/useLoop';
 import { uniqueId } from '../../lib/id';
 import { eventDay } from './eventPlan';
 import { growthSession } from './session';
@@ -55,7 +54,7 @@ function terms(q: Quest, waiting: number): string {
 export function useQuests(data: QuestsData): QuestsFlow {
   const [session, set] = growthSession.use();
   // The loop flow every queue uses: its brand-scoped outcomes and payout records (Today reads the same).
-  const loop = useLoop(brainScreen);
+  const loop = useLoop(useActiveLoopBase());
   const [focus, setFocus] = useState<string | null>(null);
   const [form, setForm] = useState<QuestsFlow['form']>(null);
   const decided = (id: string) => Boolean(loop.outcome(id));
