@@ -28,7 +28,7 @@ export interface ApprovedPost {
   published: { platform: string; at: IsoDateTime; url: string | null } | null;
   /** Ledger label, e.g. "LinkedIn launch post". */
   label: string;
-  /** Registration transaction signature; null while the canvas shows "[tx]". */
+  /** SAS registration transaction (registerPost, web/worker/posts.ts); approval has none. Null while "[tx]". */
   signature: string | null;
   /** Phrases the brand's claims gate bans; added text containing one is flagged on Verify-3. */
   bannedPhrases: string[];
