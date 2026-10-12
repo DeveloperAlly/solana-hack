@@ -121,6 +121,7 @@ const actions = {
 export type JourneyActions = { [K in keyof typeof actions]: (...args: Parameters<(typeof actions)[K]>) => void | Promise<void> } & {
   verifyCode?: (code: string) => Promise<void>;
   finishGaps?: () => Promise<void>;
+  approveSupportingSection?: (id: string) => Promise<void>;
   resolveConflict?: (id: string, resolution: { mode: 'keep'; keep: string[] } | { mode: 'reject_all' } | { mode: 'answer'; answer: { text: string; value: string } }) => Promise<void>;
   editPost?: (text: string) => Promise<void>;
   polishPost?: (action: string) => Promise<void>;

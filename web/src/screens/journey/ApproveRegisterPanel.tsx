@@ -12,6 +12,7 @@ export interface ApproveRegisterPanelProps {
   onChain: string;
   approved: number;
   total: number;
+  blockedReason?: string;
   onRegister: () => void | Promise<void>;
   /** Retries a failed registration. */
   onRetry: () => void | Promise<void>;
@@ -24,12 +25,12 @@ export interface ApproveRegisterPanelProps {
  * "Approve and register kit v1", disabled until all three gates are approved. A failed registration keeps the kit
  * approved and offers Retry, Copy error details and Review the kit; drafting waits for a registered kit. Composition only, no styles.
  */
-export function ApproveRegisterPanel({ onChain, approved, total, onRegister, onRetry, failure }: ApproveRegisterPanelProps) {
+export function ApproveRegisterPanel({ onChain, approved, total, onRegister, onRetry, failure, blockedReason }: ApproveRegisterPanelProps) {
   const task = useJourneyTask();
   const to = useJourneyHref();
   const [lastTry, setLastTry] = useState(failure?.lastTry ?? '');
-  const ready = approved === total;
-  const gatesHint = `Approve all ${total} gates first: ${approved} of ${total} approved.`;
+  const ready = approved === total && !blockedReason;
+  const gatesHint = blockedReason || `Approve all ${total} gates first: ${approved} of ${total} approved.`;
   return (
     <Stack gap={4}>
       {task.error && <Alert tone="danger">{task.error}</Alert>}

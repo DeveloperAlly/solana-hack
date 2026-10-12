@@ -12,5 +12,5 @@ export function kitView(state: JourneyBrandState, voice: GapsVoiceData['voice'],
     if (section?.status === 'approved' && approved) gate.approval = { decision: { status: 'approved', by: approved.approved_by, at: approved.approved_at, why: approved.note }, fingerprint: gateFingerprint(gate) };
     return gate;
   });
-  return { approver, voice, gates, alsoDrafted: state.sections.filter(s => !ids.includes(s.section as typeof ids[number])).map(s => ({ label: s.section, value: s.status })), onChain: 'Brand ID, kit hash, version, approver ID and domain-verification flag. Kit words stay off chain.' };
+  return { approver, voice, gates, supportingSections: state.sections.filter(s => !ids.includes(s.section as typeof ids[number])).map(s => ({ id: s.section, title: s.section[0].toUpperCase() + s.section.slice(1), draft: s.body, approved: s.status === 'approved', evidence: state.evidence.filter(e => s.citations?.includes(e.id)).map(e => factFromRow(state, e)) })), alsoDrafted: state.sections.filter(s => !ids.includes(s.section as typeof ids[number])).map(s => ({ label: s.section, value: s.status })), onChain: 'Brand ID, kit hash, version, approver ID and domain-verification flag. Kit words stay off chain.' };
 }

@@ -45,6 +45,13 @@ describe('Journey auth handoff', () => {
     expect(mocks.signInWithOtp).not.toHaveBeenCalled();
     expect(sessionStorage.getItem('jamjam.journey.authHandoff')).toBeNull();
   });
+  it('completes a returned magic link once when the route and code action race', async () => {
+    mocks.updateUser.mockResolvedValue({ error: { code: 'email_exists' } });
+    await sendJourneyEmail('existing@example.com', 'brand');
+    await Promise.all([finishJourneySignIn(), finishJourneySignIn()]);
+    expect(mocks.api).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem('jamjam.journey.authHandoff')).toBeNull();
+  });
   it('retains the handoff for retry when the server claim fails', async () => {
     mocks.updateUser.mockResolvedValue({ error: { code: 'email_exists' } });
     await sendJourneyEmail('existing@example.com');

@@ -8,7 +8,7 @@ const mock = vi.hoisted(() => ({ api: vi.fn(), refresh: vi.fn(async () => {}), s
 vi.mock('../../lib/api', async original => ({ ...await original<typeof import('../../lib/api')>(), api: mock.api }));
 vi.mock('../../lib/auth', () => ({ useAuth: () => ({ session: mock.session }) }));
 vi.mock('../../lib/liveBrands', () => ({ useLiveBrands: () => ({ id: 'brand', refresh: mock.refresh }) }));
-vi.mock('./auth', () => ({ ensureJourneySession: vi.fn(), finishJourneySignIn: vi.fn(), pendingJourneyEmail: () => '', sendJourneyEmail: vi.fn() }));
+vi.mock('./auth', () => ({ ensureJourneySession: vi.fn(), finishJourneySignIn: vi.fn(), pendingJourneyEmail: () => '', pendingJourneyBrand: () => undefined, sendJourneyEmail: vi.fn() }));
 import { LiveJourneyProvider, LiveJourneyScreen } from './LiveJourney';
 const base: JourneyBrandState = { brand: { id: 'brand', name: 'Brand', website: 'https://brand.example' }, evidence: [], sources: [], answers: [], sections: [], gates: [], kits: [{ id: 'kit', version: 1, status: 'registered', hash: 'kit-hash' }], coverage: { sections: [], ratio: 0 }, journey: { read: { site: 'brand.example', sources: [], facts: [], coverage: { found: 0, partly: 0, needsYou: 6, percent: 0 } }, confirm: { facts: [], voice: { id: 'voice', section: 'Voice', status: 'needs-you', statement: 'Choose a voice' }, missing: { id: 'missing', section: 'Kit', status: 'needs-you', statement: 'Answer gaps' }, readinessBase: 0, questionsLeft: 1, timeLeft: '1 minute', deferredNote: '' }, gapsVoice: { brandName: 'Brand', alternatives: { question: '', hint: '', options: [], source: '' }, edgeQuestion: '', originQuestion: '', originNote: '', questions: [{ id: 'origin.why', step: 'origin', field: 'origin.why', question: 'Why does this brand exist?', kind: 'missing', optional: false, sections: ['origin'] }] } } };
 let state: JourneyBrandState;
@@ -24,6 +24,8 @@ beforeEach(() => {
     if (path.endsWith('/claims')) return { claimMap: { rev: post.rev, claimsGate: '5', items: [{ text: post.body, kind: 'factual', status: 'supported', facts: [{ id: 'fact', claim: 'We help founders.', quote: 'We help founders.' }] }], unsupported: 0, partial: false } };
     if (path.endsWith('/voice/samples')) return { samples: [{ template: 'candid_founder', label: 'Candid founder', text: init?.body?.round === 2 ? 'Second sample' : 'First sample', answer: { template: 'candid_founder', sample: 'Second sample', claims: '4' } }] };
     if (path.includes('/answers/')) return { answer: {} };
+    if (path.includes('/sections/') && path.endsWith('/approve')) { const id = path.split('/')[4]; state.sections = state.sections.map(s => s.section === id ? { ...s, status: 'approved' } : s); return { section: state.sections.find(s => s.section === id) }; }
+    if (path === '/brands/brand/kit/register') return { kit: state.kits[0] };
     if (path.endsWith('/approve')) { post = { ...post, status: 'approved', approved_by: 'owner', approved_at: 'now', rev: post.rev + 1 }; return { post: structuredClone(post) }; }
     if (path.endsWith('/register')) { post = { ...post, status: 'registered', signature: 'real-server-signature', hash: 'registered-hash' }; return { post: structuredClone(post) }; }
     if (path === '/verify') return { official: init?.body?.text === post.body, checked: true };
@@ -31,9 +33,27 @@ beforeEach(() => {
   });
 });
 function at(step: string) {
-  return render(<MemoryRouter initialEntries={[`/journey/${step}`]}><LiveJourneyProvider><Routes><Route path="/journey/gapsVoice" element={<LiveJourneyScreen target="gapsVoice" />} /><Route path="/journey/approveKit" element={<div>Kit review route</div>} /><Route path="/journey/firstPost" element={<LiveJourneyScreen target="firstPost" />} /><Route path="/journey/proof" element={<LiveJourneyScreen target="proof" />} /></Routes></LiveJourneyProvider></MemoryRouter>);
+  return render(<MemoryRouter initialEntries={[`/journey/${step}`]}><LiveJourneyProvider><Routes><Route path="/journey/gapsVoice" element={<LiveJourneyScreen target="gapsVoice" />} /><Route path="/journey/approveKit" element={step === 'approveKit' ? <LiveJourneyScreen target="approveKit" /> : <div>Kit review route</div>} /><Route path="/journey/firstPost" element={<LiveJourneyScreen target="firstPost" />} /><Route path="/journey/proof" element={<LiveJourneyScreen target="proof" />} /></Routes></LiveJourneyProvider></MemoryRouter>);
 }
 describe('Live Journey endpoint integration', () => {
+  it('requires human review of all six sections; three approved gates alone cannot register', async () => {
+    const gates = ['purpose', 'positioning', 'voice'];
+    state.sections = ['purpose', 'positioning', 'voice', 'audience', 'origin', 'messaging'].map(section => ({ section, body: `Actual ${section} draft`, status: gates.includes(section) ? 'approved' : 'drafted' }));
+    state.gates = gates.map(gate => ({ gate, approved_by: 'owner', approved_at: 'now' }));
+    at('approveKit');
+    await screen.findByText('Actual audience draft');
+    const register = screen.getByRole('button', { name: 'Approve and register kit v1' });
+    expect(register).toBeDisabled();
+    expect(mock.api.mock.calls.filter(([path]) => String(path).includes('/sections/') && String(path).endsWith('/approve'))).toHaveLength(0);
+    for (const section of ['audience', 'origin', 'messaging']) {
+      await userEvent.click(screen.getByRole('button', { name: `Approve ${section}` }));
+      await waitFor(() => expect(screen.queryByRole('button', { name: `Approve ${section}` })).not.toBeInTheDocument());
+    }
+    await waitFor(() => expect(register).not.toBeDisabled());
+    await userEvent.click(register);
+    await screen.findByRole('heading', { name: 'Your first post, from kit v1' });
+    expect(mock.api).toHaveBeenCalledWith('/brands/brand/kit/register', { body: {} });
+  });
   it('writes authoritative gap answers using server step keys and persists the chosen voice before advancing', async () => {
     at('gapsVoice');
     await screen.findByText('First sample');
