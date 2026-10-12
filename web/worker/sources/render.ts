@@ -22,7 +22,7 @@ import { PAGE_TEXT_MAX } from './types';
  *   again and costs another request from the budget. An error response (not 2xx) is refused, never shown, so an error
  *   page is never read as the page (PR #71 review).
  * - Scripts, stylesheets and data requests go out only after robots.txt for their address allows them, from at most
- *   MAX_ORIGINS origins and MAX_REQUESTS requests a page.
+ *   MAX_ORIGINS usable origins (MAX_ORIGIN_CHECKS checked in all) and MAX_REQUESTS requests a page.
  * - Everything not needed for text is refused without a fetch: images, media, fonts, beacons, prefetches, frames.
  * - What request interception cannot see is switched off. The page is served with a Content-Security-Policy that
  *   blocks frames, workers and plugins (https://www.w3.org/TR/CSP3/), service workers are bypassed, and WebSocket,
@@ -110,8 +110,12 @@ export function launchFailure(e: unknown): RenderUnavailable {
 
 /** Request types read only to render text. Anything else is refused without a fetch. */
 const NEEDED = new Set(['document', 'script', 'stylesheet', 'xhr', 'fetch']);
-/** Distinct origins a rendered page may load scripts and data from; each new one costs a robots.txt fetch. */
+/** Distinct origins a rendered page may load scripts and data from: origins with at least one request robots.txt
+ * allowed. An origin whose requests are refused does not take a slot (PR #71 review). */
 export const MAX_ORIGINS = 6;
+/** Distinct origins whose robots.txt one rendered page may cause to be checked, refused ones included, so a page that
+ * asks for many origins cannot spend the read's request budget on robots.txt fetches. */
+export const MAX_ORIGIN_CHECKS = 3 * MAX_ORIGINS;
 /** Requests one rendered page may cause in all (page loads and the scripts and data let through), whatever its
  * scripts do, so a page that loops on fetch cannot turn one read into thousands of requests (PR #71 review). */
 export const MAX_REQUESTS = 150;
@@ -248,7 +252,7 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
       }
       own.add(page);
       const p = page;
-      const origins = new Set<string>();
+      const origins = { allowed: new Set<string>(), checked: new Set<string>() };
       const budget = { left: MAX_REQUESTS };
       await p.setUserAgent(USER_AGENT);
       await p.setBypassServiceWorker(true);
@@ -287,7 +291,7 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
   // One decision per request, made once: answer it from our own reader, let it through, or refuse it. Resolution is
   // checked again right before acting, since another handler may have resolved it while this one awaited
   // (https://pptr.dev/guides/network-interception).
-  const decide = async (page: RenderPage, req: InterceptedRequest, origins: Set<string>, budget: { left: number }) => {
+  const decide = async (page: RenderPage, req: InterceptedRequest, origins: { allowed: Set<string>; checked: Set<string> }, budget: { left: number }) => {
     const refuse = async () => { if (!req.isInterceptResolutionHandled()) await req.abort('blockedbyclient'); };
     const type = req.resourceType();
     let u: URL;
@@ -349,11 +353,20 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
       headers['content-security-policy'] = csp;
       return void (req.isInterceptResolutionHandled() || (await req.respond({ status: res.status, contentType, headers, body })));
     }
-    if (!origins.has(u.origin)) {
-      if (origins.size >= MAX_ORIGINS) return void (await refuse());
-      origins.add(u.origin);
+    if (!origins.allowed.has(u.origin)) {
+      // No slot left for another usable origin: refused before its robots.txt is fetched.
+      if (origins.allowed.size >= MAX_ORIGINS) return void (await refuse());
+      if (!origins.checked.has(u.origin)) {
+        if (origins.checked.size >= MAX_ORIGIN_CHECKS) return void (await refuse());
+        origins.checked.add(u.origin);
+      }
     }
     if (!(await gate(u))) return void (await refuse());
+    // Only an origin with an allowed request takes a slot; checked again after the wait, since requests run concurrently.
+    if (!origins.allowed.has(u.origin)) {
+      if (origins.allowed.size >= MAX_ORIGINS) return void (await refuse());
+      origins.allowed.add(u.origin);
+    }
     if (budget.left <= 0) return void (await refuse());
     budget.left--;
     if (!req.isInterceptResolutionHandled()) await req.continue();

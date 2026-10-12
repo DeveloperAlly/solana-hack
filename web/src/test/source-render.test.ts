@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createRenderer, launchFailure, MAX_ORIGINS, MAX_REQUESTS, pageData, PRE_SCRIPT, RENDER_CSP, type InterceptedRequest, type RenderBrowser, type RenderPage, type RenderTarget } from '../../worker/sources/render';
+import { createRenderer, launchFailure, MAX_ORIGIN_CHECKS, MAX_ORIGINS, MAX_REQUESTS, pageData, PRE_SCRIPT, RENDER_CSP, type InterceptedRequest, type RenderBrowser, type RenderPage, type RenderTarget } from '../../worker/sources/render';
 import { BROWSER_UNAVAILABLE, readSite } from '../../worker/sources/site';
 import { fetchRobots, robotsAllows } from '../../worker/sources/robots';
 import { MAX_BYTES, MAX_LINK_LENGTH, MAX_PAGE_LINKS } from '../../worker/ingest';
@@ -271,6 +271,31 @@ describe('renderer: robots.txt before every request the browser makes', () => {
     const continued = b.outcomes.filter((o) => o.type === 'script' && o.how === 'continue').length;
     expect(continued).toBe(MAX_ORIGINS);
     expect(fetched.filter((u) => u.endsWith('/robots.txt')).length).toBe(1 + MAX_ORIGINS);
+  });
+  it('counts only origins robots.txt allows toward the cap, so refused trackers cannot crowd out the CDN', async () => {
+    network({ 'https://a.test/': { body: APP }, 'https://cdn.test/lib.js': {} });
+    const trackers = Array.from({ length: MAX_ORIGINS }, (_, i) => `https://evil${i}.test/t.js`);
+    for (const t of trackers) ROBOTS[new URL(t).origin] = 'User-agent: *\nDisallow: /\n';
+    try {
+      const b = fakeBrowser(async (issue) => { for (const u of [...trackers, 'https://cdn.test/lib.js']) await issue(u, 'script'); });
+      await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/'));
+      expect(b.outcomes.filter((o) => o.url.startsWith('https://evil')).every((o) => o.how === 'abort')).toBe(true);
+      expect(b.outcomes.find((o) => o.url === 'https://cdn.test/lib.js')?.how).toBe('continue');
+    } finally {
+      for (const t of trackers) delete ROBOTS[new URL(t).origin];
+    }
+  });
+  it(`checks robots.txt for at most ${MAX_ORIGIN_CHECKS} origins a page asks for`, async () => {
+    network({ 'https://a.test/': { body: APP } });
+    const urls = Array.from({ length: MAX_ORIGIN_CHECKS + 5 }, (_, i) => `https://x${i}.test/t.js`);
+    for (const u of urls) ROBOTS[new URL(u).origin] = 'User-agent: *\nDisallow: /\n';
+    try {
+      const b = fakeBrowser(async (issue) => { for (const u of urls) await issue(u, 'script'); });
+      await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/'));
+      expect(fetched.filter((u) => u.endsWith('/robots.txt') && u.includes('://x')).length).toBe(MAX_ORIGIN_CHECKS);
+    } finally {
+      for (const u of urls) delete ROBOTS[new URL(u).origin];
+    }
   });
   it('launches the browser only when needed, renders at most maxPages pages, and closes it', async () => {
     network({ 'https://a.test/': { body: APP } });
@@ -569,5 +594,15 @@ describe('site adapter: static text a style sheet may hide is not trusted on a s
     const r = await readSite({}, 'https://a.test/', { website: 'a.test', subpages: 0 }, (g, max) => createRenderer(b.launch, g, max));
     expect(r).toMatchObject({ ok: true, meta: { via: 'fetch' } });
     expect(b.stats().launched).toBe(0);
+  });
+});
+
+describe('site adapter: style sheet conflicts send a scripted page to the browser (PR #71 review)', () => {
+  it('renders a scripted page when a later rule restores what an earlier one hides', async () => {
+    const long = `<p>${'Details a shopper reads before buying the product. '.repeat(3)}</p>`;
+    network({ 'https://a.test/': { body: `<html><head><style>.details { display: none } .details { display: block }</style></head><body><div class="details">${long}</div><script src="/app.js"></script></body></html>` } });
+    const b = fakeBrowser();
+    await readSite({}, 'https://a.test/', { website: 'a.test', subpages: 0 }, (g, max) => createRenderer(b.launch, g, max));
+    expect(b.stats().launched).toBe(1);
   });
 });

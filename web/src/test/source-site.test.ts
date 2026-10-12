@@ -329,16 +329,48 @@ describe('site adapter: a read reports everything it spent, on every exit (PR #7
 });
 
 describe('page text: rules in the page\'s own style sheets (PR #71 review)', () => {
-  it('hides what a top-level rule hides by tag, class or id, and nothing else', () => {
-    const page = (css: string, body: string) => pageText(`<style>${css}</style>${body}`).text;
+  it('on a scripted page, hides what a top-level rule hides by tag, class or id, and nothing else', () => {
+    const page = (css: string, body: string) => pageText(`<script src="/app.js"></script><style>${css}</style>${body}`).text;
     expect(page('.bootstrap { display: none }', '<div class="a bootstrap">Hidden</div><p>Shown</p>')).toBe('Shown');
     expect(page('p.x, #y { visibility: hidden }', '<p class="x">H1</p><div id="y">H2</div><p>Shown</p>')).toBe('Shown');
     // The last declaration wins; a rule that only sometimes applies, or needs a style engine to match, is left alone.
     expect(page('.a { display: none; display: block }', '<div class="a">Shown</div>')).toBe('Shown');
     expect(page('@media print { .a { display: none } }', '<div class="a">Shown</div>')).toBe('Shown');
     expect(page('div > .a, .a:hover, [data-x] { display: none }', '<div class="a" data-x="1">Shown</div>')).toBe('Shown');
-    expect(pageText('<style media="print">.a { display: none }</style><template><style>.b { display: none }</style></template><div class="a b">Shown</div>').text).toBe('Shown');
+    expect(pageText('<script src="/app.js"></script><style media="print">.a { display: none }</style><template><style>.b { display: none }</style></template><div class="a b">Shown</div>').text).toBe('Shown');
     expect(page('/* .a { display: none } */ @import url(x.css); .b { display: none }', '<div class="a">Shown</div><div class="b">Hidden</div>')).toBe('Shown');
+  });
+  it('does not hide what the page\'s own styles could show again, and calls that text unverified', () => {
+    const read = (css: string, body: string) => pageText(`<script src="/app.js"></script><style>${css}</style>${body}<p>${LONG}</p>`);
+    // The Codex case: a later rule for the same selector restores it.
+    const later = read('.details { display: none } .details { display: block }', '<div class="details">Details text.</div>');
+    expect(later.text).toContain('Details text.');
+    expect(later.verified).toBe(false);
+    // A rule for another class on the same element restores it (the usual open/closed toggle).
+    const toggle = read('.modal { display: none } .modal.is-open { display: flex }', '<div class="modal is-open">Open modal.</div><div class="modal">Closed modal.</div>');
+    expect(toggle.text).toContain('Open modal.');
+    expect(toggle.text).not.toContain('Closed modal.');
+    // A visible descendant inside a visibility: hidden ancestor shows itself again.
+    const descendant = read('.wrap { visibility: hidden } .wrap .note { visibility: visible }', '<div class="wrap"><p class="note">Note text.</p></div>');
+    expect(descendant.text).toContain('Note text.');
+    expect(descendant.verified).toBe(false);
+    // Its own inline style restores it.
+    expect(read('.x { display: none }', '<div class="x" style="display: block">Inline shown.</div>').text).toContain('Inline shown.');
+    // Any !important on a hiding property: no rule is applied.
+    const important = read('.x { display: none } .y { display: grid !important }', '<div class="x">Kept.</div>');
+    expect(important.text).toContain('Kept.');
+    expect(important.verified).toBe(false);
+    // With no showing rule that could match, the hiding rule applies and the text stays verified.
+    const clean = read('.x { display: none } .y { display: flex }', '<div class="x">Gone.</div>');
+    expect(clean.text).not.toContain('Gone.');
+    expect(clean.verified).toBe(true);
+  });
+  it('applies no style sheet hiding on a page without scripts: its text is kept', () => {
+    const p = pageText(`<style>.x { display: none }</style><div class="x">Kept without scripts.</div><p>${LONG}</p>`);
+    expect(p.text).toContain('Kept without scripts.');
+    expect(p.verified).toBe(true);
+    // Inline styles and the hidden attribute still apply.
+    expect(pageText('<div style="display: none">A</div><div hidden>B</div><p>C</p>').text).toBe('C');
   });
   it('marks a scripted page uncertain when a hiding rule cannot be evaluated, and only then', () => {
     const v = (css: string, scripts = true, media = '') => pageText(`<style${media}>${css}</style>${scripts ? '<script src="/app.js"></script>' : ''}<p>${LONG}</p>`).verified;
@@ -358,7 +390,7 @@ describe('page text: rules in the page\'s own style sheets (PR #71 review)', () 
   it('reads the selectors in time linear in the style sheet', () => {
     const big = '@a{}'.repeat(200_000) + '.z{display:none}';
     const t = Date.now();
-    expect(hidingSelectors(big)).toEqual({ selectors: [{ tag: null, classes: ['z'], id: null }], uncertain: false });
+    expect(hidingSelectors(big)).toEqual({ hiders: [{ sel: { tag: null, classes: ['z'], id: null }, prop: 'display' }], showers: [], uncertain: false });
     expect(Date.now() - t).toBeLessThan(2000);
   });
 });
