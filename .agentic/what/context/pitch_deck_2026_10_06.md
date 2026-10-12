@@ -6,7 +6,7 @@ updated: 2026-10-12
 last_edited_by: agent
 tags: [deck, pitch, colosseum]
 ---
-> **Status: draft.** Pitch deck v4 for the Colosseum submission: 11 slides, about 2:59 spoken. Built from the [VC and judge review](./vc_judge_review_2026_10_06.md), [research 10](./research/10_competitor_onboarding_pricing.md) and the owner's review of 2026-10-12. Every spoken word is in the [pitch script](./pitch_script_2026_10_12.md). Placeholders in [brackets] still need real values.
+> **Status: draft.** Pitch deck for the Colosseum submission. Built from the [VC and judge review](./vc_judge_review_2026_10_06.md), [research 10](./research/10_competitor_onboarding_pricing.md) and the owner's review of 2026-10-12. Every spoken word, with its timing, is in the [pitch script](./pitch_script_2026_10_12.md). Placeholders in [brackets] still need real values.
 
 # Pitch deck v4: JamJam, build your brand, run it, prove it
 
