@@ -1,0 +1,18 @@
+{
+  "about": "Slop gate fixtures (architecture §13.2 'Slop hits in shipped drafts: 0', 'Slop false flags on human posts: < 5%'; backlog G1). Synthetic, written for this PR. 'slop' items must be flagged; 'human' items are plain posts that must not be. Real held-out brand posts (F4) replace the human set when the owner provides them.",
+  "items": [
+    { "id": "h1", "kind": "human", "text": "We shipped Verify today. Paste any post and see if a brand registered it." },
+    { "id": "h2", "kind": "human", "text": "Three things we learned building a brand kit in a week. First, people skip long forms." },
+    { "id": "h3", "kind": "human", "text": "The landing page now loads in under a second on a phone." },
+    { "id": "h4", "kind": "human", "text": "Our kit has six sections. Each one cites the page it came from." },
+    { "id": "h5", "kind": "human", "text": "Testing every quote by hand was slow, so we automated it." },
+    { "id": "x1", "kind": "slop", "text": "Unlock the power of your brand with JamJam." },
+    { "id": "x2", "kind": "slop", "text": "In today's fast-paced world, brands need proof." },
+    { "id": "x3", "kind": "slop", "text": "A seamless way to post — and prove it." },
+    { "id": "x4", "kind": "slop", "text": "We are so excited to launch!" },
+    { "id": "x5", "kind": "slop", "text": "It's not just a tool, it's a movement." },
+    { "id": "x6", "kind": "slop", "text": "Time to 𝐮𝐧𝐥𝐨𝐜𝐤 growth." },
+    { "id": "x7", "kind": "slop", "text": "Let's delve into what makes a brand." },
+    { "id": "x8", "kind": "slop", "text": "Leverage your voice to navigate the market." }
+  ]
+}

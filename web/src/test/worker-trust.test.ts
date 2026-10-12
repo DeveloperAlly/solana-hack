@@ -14,8 +14,10 @@ vi.mock('../../worker/registry', () => ({
   NotLanded: class extends Error {},
   explorerTx: (s: string) => s,
 }));
-const { registerKit, reviewEvidence, ingest, draftSection } = await import('../../worker/api');
-const { approvePost, allEvidence } = await import('../../worker/posts');
+const { registerKit, reviewEvidence, draftSection } = await import('../../worker/api');
+const { approvePost, allEvidence, contentHash } = await import('../../worker/posts');
+/** A passing verdict for exactly this text (PR #99: no text is approvable without one); these tests are about the claims check after it. */
+const passingFor = async (body: string) => ({ bodyHash: await contentHash(body), passed: true, failedGates: [], reasons: [], evaluators: {}, findings: { slop: [], claims: [], unsupported: [], silent: [] }, source: 'draft', generator: 'g', judge: 'j', prompt: null, at: '' });
 const { factTrust, usableFact, snapshotFact, SOURCE_TYPES, urlKind } = await import('../../worker/sources/registry');
 
 const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k', REGISTRAR_KEY: '[1]', RPC_URL: 'https://rpc.test', OPENROUTER_API_KEY: 'k' } as Env;
@@ -43,6 +45,14 @@ function fakeDb(url: string, init: RequestInit = {}) {
   const q = u.searchParams;
   const method = init.method ?? 'GET';
   const body = init.body ? JSON.parse(String(init.body)) : undefined;
+  // spec/db/013 change_post_with_decision: the post change (compare-and-swap) and its decision row together.
+  if (u.pathname.endsWith('/rpc/change_post_with_decision')) {
+    const post = (tables.posts ?? []).find((p) => p.id === body.p_post && Number(p.rev ?? 0) === body.p_rev && body.p_statuses.includes(p.status));
+    if (!post) return [];
+    Object.assign(post, body.p_patch, { rev: Number(post.rev ?? 0) + 1 });
+    (tables.post_decisions ??= []).push({ post_id: post.id, ...body.p_decision });
+    return [post];
+  }
   const rows = (tables[table] ??= []);
   if (method === 'GET') return Number(q.get('offset') ?? 0) > 0 ? [] : rows.filter((r) => matches(r, q));
   if (method === 'DELETE') { tables[table] = rows.filter((r) => !matches(r, q)); return null; }
@@ -127,7 +137,7 @@ describe('an unapproved third-party fact (issue #57 acceptance)', () => {
   it('blocks a post that claims it, and the claims gate sees each fact with its quote', async () => {
     tables = readyBrand();
     await registerKit(env, user, brand);
-    tables.posts = [{ id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: `${CLAIM}.`, checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [] } }];
+    tables.posts = [{ id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: `${CLAIM}.`, checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [], verdict: await passingFor(`${CLAIM}.`) } }];
     llm = checker;
     await expect(approvePost(env, user, tables.posts[0] as never)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('claims gate') });
     expect(prompts[0].user).toContain('Founded in 2024 (quote: "founded in 2024")');
@@ -141,7 +151,7 @@ describe('an unapproved third-party fact (issue #57 acceptance)', () => {
     await registerKit(env, user, brand);
     const kit = tables.kits[0] as { payload: { evidence: { id: string; trust: string }[] } };
     expect(kit.payload.evidence.map((e) => e.id).sort()).toEqual(['e-owned', 'e-third']);
-    tables.posts = [{ id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: `${CLAIM}.`, checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [] } }];
+    tables.posts = [{ id: 'p', rev: 1, brand_id: 'b', kit_version: 1, status: 'drafted', body: `${CLAIM}.`, checks: { slop: { passed: true, hits: [] }, voiceFit: 80, platform: 80, notes: [], verdict: await passingFor(`${CLAIM}.`) } }];
     llm = checker;
     const post = await approvePost(env, user, tables.posts[0] as never);
     expect(post).toMatchObject({ status: 'approved' });
@@ -208,41 +218,8 @@ describe('drafting and registration use the allow-list', () => {
     // Another brand's fact is not found: the filter carries the brand id.
     await expect(reviewEvidence(env, { ...brand, id: 'other' }, 'e-third', 'approved')).rejects.toMatchObject({ status: 404 });
   });
-  it('ingest records the trust class from the registry', async () => {
-    tables = { sources: [], evidence: [] };
-    page = '<html><title>JamJam</title><body><p>JamJam was founded in 2024 to help brands prove what they say.</p></body></html>';
-    llm = () => ({ facts: [{ section: 'purpose', claim: 'Founded 2024', quote: 'JamJam was founded in 2024' }] });
-    await ingest(env, { ...brand, website: 'example.com' }, 'https://www.example.com/about');
-    expect(tables.evidence[0]).toMatchObject({ origin: 'source', trust: 'owned', review_status: 'approved' });
-    expect(tables.sources[0]).toMatchObject({ kind: 'site' });
-  });
-  it('a page off the brand website is third-party and waits for the owner (PR #63 review)', async () => {
-    tables = { sources: [], evidence: [] };
-    page = '<html><title>News</title><body><p>JamJam was founded in 2024 to help brands prove what they say.</p></body></html>';
-    llm = () => ({ facts: [{ section: 'purpose', claim: 'Founded 2024', quote: 'JamJam was founded in 2024' }] });
-    const r = await ingest(env, { ...brand, website: 'jamjam.tech' }, 'https://news.example.org/jamjam');
-    expect(tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
-    expect(tables.sources[0]).toMatchObject({ kind: 'page' });
-    expect(r).toMatchObject({ kind: 'page', needsReview: 1 });
-    // With no website set, nothing counts as owned.
-    tables = { sources: [], evidence: [] };
-    await ingest(env, brand, 'https://jamjam.tech');
-    expect(tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
-  });
-  it('an on-site link that redirects off the website is third-party (PR #63 review)', async () => {
-    tables = { sources: [], evidence: [] };
-    page = '<html><title>Elsewhere</title><body><p>JamJam was founded in 2024 to help brands prove what they say.</p></body></html>';
-    llm = () => ({ facts: [{ section: 'purpose', claim: 'Founded 2024', quote: 'JamJam was founded in 2024' }] });
-    const realFetch = globalThis.fetch;
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-      const res = await realFetch(url, init);
-      if (url.startsWith('https://jamjam.tech')) Object.defineProperty(res, 'url', { value: 'https://elsewhere.example/landing' });
-      return res;
-    }));
-    await ingest(env, { ...brand, website: 'jamjam.tech' }, 'https://jamjam.tech/go');
-    expect(tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
-    expect(tables.sources[0]).toMatchObject({ kind: 'page', url: 'https://elsewhere.example/landing' });
-  });
+  // Ingest runs on the workflow engine (issue #32): its trust-class tests (registry kind, off-site page, redirect off
+  // the website) moved to worker-engine.test.ts, 'evidence trust through the engine'.
   it('urlKind matches the website and its subdomains only', () => {
     expect(urlKind('https://blog.jamjam.tech/post', 'https://www.jamjam.tech')).toBe('site');
     expect(urlKind('https://jamjam.tech', 'jamjam.tech')).toBe('site');
