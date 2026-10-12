@@ -6,6 +6,19 @@ last_edited_by: agent
 ---
 # STATE
 
+## Current release checkpoint — 2026-10-13
+
+Authority: [canonical plan](.agentic/how/missions/mission_hackathon_submission.md), [master #38](https://github.com/DeveloperAlly/solana-hack/issues/38), [execution #114](https://github.com/DeveloperAlly/solana-hack/issues/114). This checkpoint supersedes the older status narrative below.
+
+- Codex owns integrations, release validation and submission execution; Claude owns UI finishing. Pitch deck/script are locked. No Docker.
+- Backend integration passed 1,894 tests, typecheck, build and Cloudflare deployment dry-run. Embedded PostgreSQL checks applied migrations 001–014 and exercised confidence, corrections, metering and admission reservations. These are local evidence, not deployed acceptance.
+- Applied production migrations confirmed through 010. Release migrations 011–014 and actual Cloudflare Workflow provisioning remain release gates.
+- Live Journey adapter has been integrated with the existing screens and real APIs. Combined release tests and independent review are running; deployed Journey acceptance is pending.
+- Submission preparation is running against the existing approved pitch. A complete asset package and portal receipt are pending; submission is not complete.
+- Work is bounded to 20-minute blocks with 10-minute reports, per the canonical plan.
+
+## Earlier checkpoint (historical; superseded above)
+
 **Phase:** Build: the product spine and the full UI are on main (all PRs through [#24](https://github.com/DeveloperAlly/solana-hack/pull/24) merged by 2026-10-12); the live registry self-test passes ([self-test on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118094002)). Sign-in by the emailed link works on the live app (sign-in by code is not yet exercised; see Blockers): the [`supabase-auth-config` run](https://github.com/DeveloperAlly/solana-hack/actions/runs/38207926808) set the URL Configuration and custom SMTP through Resend (sender JamJam), and the owner signed in ([sign-in proof on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118522618)). Purpose (ADR-002), business model and product map (ADR-003) and the Brand Builder architecture (accepted 2026-10-06) are decided. The phased build plan is [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4).
 
 **New UI flow (2026-10-12, [issue #45](https://github.com/DeveloperAlly/solana-hack/issues/45)):** built on the long-lived `ui/integration` branch and hosted by the separate preview Worker `jamjam-preview`. [PR #85](https://github.com/DeveloperAlly/solana-hack/pull/85) merges it to main; the deploy workflow then ships it to jamjam.tech, so the `/screens` gallery and the new routes go live there on that merge. UI-0 ([issue #46](https://github.com/DeveloperAlly/solana-hack/issues/46), [PR #66](https://github.com/DeveloperAlly/solana-hack/pull/66), open against `ui/integration`): shared components, the `/screens` gallery with per-page registries, the `wireframe-dark` theme, a browser axe check with colour contrast on, and the preview deploy workflow.

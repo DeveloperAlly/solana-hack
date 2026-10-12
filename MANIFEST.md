@@ -85,3 +85,5 @@ The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [A
 | [.agentic/what/context/archive/influencer_scope.md](./.agentic/what/context/archive/influencer_scope.md) | superseded | Self-funding AI creator scope | ADR-003 ("Create an influencer", experimental) |
 | [.agentic/what/context/archive/ai_creator_angles.md](./.agentic/what/context/archive/ai_creator_angles.md) | superseded | AI creator angle options | ADR-003 |
 | [.agentic/what/context/archive/design_prompts_v1.md](./.agentic/what/context/archive/design_prompts_v1.md) | superseded | Claude Design prompts for Waterlily for Brands | To be rewritten from the compendium and the brand builder architecture |
+
+<!-- Delivery authority: AGENTS.md requires the canonical submission mission, master #38, execution #114 and STATE.md as the first read. -->
