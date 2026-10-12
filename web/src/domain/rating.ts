@@ -176,3 +176,18 @@ export function replaceInSummary(summary: RatingSummary, before: RatingScores, a
   const averages = Object.fromEntries(ratingQuestions.map((q) => [q.id, a[q.id] + (after[q.id] - before[q.id]) / n])) as Record<RatingQuestionId, number>;
   return { ...summary, averages };
 }
+
+/**
+ * The one rule for the viewer's own rating (Codex review on PR 115): the loaded rating against this session's copy.
+ * Loaded data wins when it is a tombstone (a removal always overrides the cached copy) or holds at least as many
+ * versions (a newer loaded version supersedes it); the session copy wins only while it is ahead with an edit not yet
+ * loaded. Either may be absent.
+ */
+export function resolveViewerRating(loaded: EventRating | undefined, session: EventRating | undefined): EventRating | undefined {
+  if (!loaded || !session) return loaded ?? session;
+  if (loaded.removal || session.removal) return loaded.removal ? loaded : session;
+  return loaded.versions.length >= session.versions.length ? loaded : session;
+}
+
+/** Whether a new version may be registered on the viewer's rating: never on a tombstone. */
+export const canAddVersion = (mine: EventRating | undefined): boolean => !mine?.removal;

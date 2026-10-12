@@ -6,6 +6,7 @@ import { GalleryScreen } from '../../gallery/Gallery';
 import { screenPath } from '../../gallery/screenPath';
 import { planTemplates } from '../../domain/event';
 import { growthSession } from './session';
+import { canAddVersion, resolveViewerRating, withVersion } from '../../domain/rating';
 import { growthArtboards } from './paths';
 import { loopStore } from '../../flows/loop/store';
 import { Quests as QuestsScreen } from './Quests';
@@ -17,7 +18,7 @@ import { eventsBoard } from './board.fixtures';
 import { DistributeAdapt as AdaptScreen } from './Distribute-Adapt';
 import { adapt } from './adapt.fixtures';
 import { gateFor, type GateContext } from '../../domain/queue';
-import { approveSubmission, questWithPayouts } from '../../domain/quest';
+import { approveSubmission, questState, type Quest, type QuestState, questWithPayouts } from '../../domain/quest';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
 
@@ -630,5 +631,58 @@ describe('Event-Rating: Codex round on PR 102 at 3bd476b', () => {
     await new Promise((r) => setTimeout(r, 500));
     expect(screen.queryByText('You went')).toBeNull();
     expect(screen.getByLabelText('Talks worth it')).toBeDisabled();
+  });
+});
+
+describe('Quest payout gate follows questState (Codex review on PR 102)', () => {
+  it('only an open quest pays: coming-soon and paid out block, each with its label, in Quests and Today alike', () => {
+    const item = { ...quests.submissions[0], disclosure: 'present' as const };
+    const base = quests.quests.find((q) => q.id === 'qst-answers')!;
+    const cases: [Quest, QuestState, RegExp][] = [
+      [{ ...base, opens: 'Mon 3 Nov' }, 'coming-soon', /^Not open yet \(Mon 3 Nov\)/],
+      [{ ...base, slots: 1, paidSubmissionIds: ['[paid-1]'] }, 'paid', /^All 1 slot is paid/],
+      [base, 'open', /^Verified against your kit/],
+    ];
+    for (const [quest, state, label] of cases) {
+      expect(questState(quest, 0)).toBe(state);
+      const gate = gateFor(item, { brainVersion: '3.1', proposal: () => undefined, quest: () => quest });
+      expect(gate.label).toMatch(label);
+      expect(gate.blocking).toBe(state !== 'open');
+      expect(approveSubmission(item, quest, gate) === null).toBe(state !== 'open');
+    }
+  });
+});
+
+describe('The viewer’s rating: loaded data wins (Codex review on PR 115)', () => {
+  it('a rating registered this session, then loaded as a tombstone: the removal shows, no Edit, registering refused', async () => {
+    const user = userEvent.setup();
+    const view = render(<MemoryRouter initialEntries={['/r?event=b-demo']}><Routes><Route path="/r" element={<EventRatingScreen data={eventRatingData} />} /></Routes></MemoryRouter>);
+    await user.type(screen.getByLabelText('Guest-list email'), 'attendee@example.com');
+    await user.click(screen.getByRole('button', { name: 'Check the guest list' }));
+    await screen.findByText('You went', { exact: true });
+    for (const label of ['Talks worth it', 'Well run', 'Right people', 'Sponsor value', 'Would go again']) await user.selectOptions(screen.getByLabelText(label), '5');
+    await user.type(screen.getByLabelText('In a line'), 'First take');
+    await user.click(screen.getByRole('button', { name: 'Register my rating' }));
+    expect(screen.getByRole('button', { name: 'Edit my rating' })).toBeInTheDocument();
+    const cached = growthSession.read().myRatings['b-demo'];
+    view.unmount();
+    // A refresh: the server now holds the viewer's rating, removed after a report.
+    const tombstone = { ...cached, removal: { at: '[date]', reason: 'Removed after a report, reviewed by a person.', reviewedBy: '[Reviewer]' } };
+    const refreshed = { ...eventRatingData, events: eventRatingData.events.map((e) => (e.id === 'b-demo' ? { ...e, viewerRatingId: cached.id, ratings: [tombstone, ...e.ratings], summary: { ...e.summary, count: e.summary.count + 1, removed: e.summary.removed + 1 } } : e)) };
+    render(<MemoryRouter initialEntries={['/r?event=b-demo']}><Routes><Route path="/r" element={<EventRatingScreen data={refreshed} />} /></Routes></MemoryRouter>);
+    expect(screen.getByText('Your rating was removed')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit my rating' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Register my rating' })).toBeNull();
+    expect(screen.getAllByText(/97 registered · 96 shown/)[0]).toBeInTheDocument();
+  });
+
+  it('resolveViewerRating: a tombstone or a newer loaded version wins; a session edit ahead of the load wins', () => {
+    const base = eventRatingData.events.find((e) => e.id === 'b-vip')!.ratings[0];
+    const v2 = withVersion(base, base.versions[0]);
+    expect(resolveViewerRating(base, v2)).toBe(v2);
+    expect(resolveViewerRating(v2, base)).toBe(v2);
+    const removed = { ...base, removal: { at: '[date]', reason: 'r', reviewedBy: '[Reviewer]' } };
+    expect(resolveViewerRating(removed, v2)).toBe(removed);
+    expect(canAddVersion(resolveViewerRating(removed, v2))).toBe(false);
   });
 });

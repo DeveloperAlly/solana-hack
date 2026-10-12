@@ -90,21 +90,29 @@ export function questGate(d: QuestDraft): { blocking: boolean; label: string } {
   return { blocking: false, label: `Holds ${budgetCap(parseReward(d.reward)!, parseSlots(d.slots)!).toFixed(2)} USDC before it opens.` };
 }
 
+/** What paying a submission means in each quest state: only an open quest pays (submitted is open with work waiting). */
+const payableIn: Record<QuestState, (q: Quest) => Gate | null> = {
+  'coming-soon': (q) => ({ blocking: true, label: `Not open yet (${q.opens}): nothing is paid before the quest opens.` }),
+  paid: (q) => ({ blocking: true, label: `All ${q.slots} ${q.slots === 1 ? 'slot is' : 'slots are'} paid; the budget is reached.` }),
+  open: () => null,
+  submitted: () => null,
+};
+
 /**
  * The quest part of a submission's gate, applied on top of the queue's own checks (domain/queue.ts gateFor). It needs the
- * full quest (Codex review on PR 102): an unknown quest blocks, a quest not yet open blocks (questState's coming-soon:
- * paying now would spend its budget before it opens), a payout that is not the quest's reward blocks, and once every
- * slot is paid the budget is reached, so no further submission can be approved.
+ * full quest (Codex review on PR 102): an unknown quest blocks; the quest's own state (questState, the one source)
+ * decides whether it pays at all, so the gate and the state shown can never disagree; a payout that is not the quest's
+ * reward blocks; and a submission already paid is never paid again.
  */
 export function submissionGate(queueGate: Gate, item: { id: string; payout: { amount: number; unit: string } }, quest: Quest | undefined): Gate {
   if (!quest) return { blocking: true, label: 'Quest not found.' };
-  if (quest.opens) return { blocking: true, label: `Not open yet (${quest.opens}): nothing is paid before the quest opens.` };
+  // Idempotent by identity: a submission already paid (server record or session payout) is never paid again.
+  if (quest.paidSubmissionIds.includes(item.id)) return { blocking: true, label: 'Already paid.' };
+  const byState = payableIn[questState(quest, 0)](quest);
+  if (byState) return byState;
   if (item.payout.unit !== 'USDC' || item.payout.amount !== quest.rewardUsdc) {
     return { blocking: true, label: `The payout (${item.payout.amount} ${item.payout.unit}) is not this quest’s reward (${quest.rewardUsdc} USDC).` };
   }
-  // Idempotent by identity: a submission already paid (server record or session payout) is never paid again.
-  if (quest.paidSubmissionIds.includes(item.id)) return { blocking: true, label: 'Already paid.' };
-  if (paidCount(quest) >= quest.slots) return { blocking: true, label: `All ${quest.slots} ${quest.slots === 1 ? 'slot is' : 'slots are'} paid; the budget is reached.` };
   return queueGate;
 }
 
