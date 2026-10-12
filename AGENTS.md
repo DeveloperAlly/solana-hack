@@ -2,7 +2,7 @@
 type: governance
 status: active
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-12
 last_edited_by: agent
 tags: [governance, rules]
 ---
@@ -17,3 +17,4 @@ These rules bind every agent and human working in this repo.
 5. **Public-repo firewall.** Never reference private repositories, private vaults, local paths, personal data or secrets.
 6. **Every factual claim cites a source** (a link, a research doc, an ADR, or the issue it came from).
 7. **MANIFEST.md indexes and never restates.** It points to docs; it does not copy their content. Live status lives only in [STATE.md](./STATE.md).
+8. **The canvas follows the product.** The [wireframe canvas](./.agentic/what/context/links.md) is the UI spec, and its Journey page is the onboarding spec. A PR that changes what a user sees, and an ADR or plan change that changes product behaviour, updates the canvas in the same change, or says in the PR why no update is needed. The [PR template](./.github/pull_request_template.md) asks for this. Why: decisions that never reached the canvas let it drift from the product ([2026-10-12 audit](./audits/2026-10-12_onboarding-journey-wireframe-audit.md), root cause 2).

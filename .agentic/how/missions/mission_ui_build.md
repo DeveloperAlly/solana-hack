@@ -13,7 +13,7 @@ tags: [mission, ui, build, components, design-tokens, proof-driven-delivery]
 **Parent:** [hackathon submission](./mission_hackathon_submission.md), phase D (build). This is the **UI track of the build plan in [issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4)**, which stays the canonical checklist and the tracking issue. Issue #4 owns the system side (agents, LLM gateway, connectors, registrar); this mission owns the screens and components those phases need.
 **Approach:** [ADR-005](../../what/decisions/adr_005_ui_component_system.md) (proposed).
 **Component list:** [component inventory](../../what/context/component_inventory.md) (proposed); §8 maps every screen to its components and its slice.
-**Reference design:** the wireframe canvas ([links](../../what/context/links.md)). The canvas is the spec; a slice is built only from screens that are drawn and signed off.
+**Reference design:** the wireframe canvas ([links](../../what/context/links.md)). The canvas is the spec; a slice is built only from screens that are drawn and signed off. Onboarding follows the canvas's Journey page (stages, aha moments and time budgets), and every slice that touches a user-facing screen updates the canvas or says why not ([AGENTS.md](../../../AGENTS.md) rule 8).
 **Deadline:** Oct 12, 11:59pm PT ([mission](./mission_hackathon_submission.md)). JamJam's own kit v1 is due by Oct 9 ([STATE](../../../STATE.md)).
 
 ## 1. How the work runs
