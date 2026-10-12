@@ -97,7 +97,6 @@ export interface GenerateData {
   angle: string;
   draft: string;
   generatedNote: string;
-  charLimit: number;
   /** On-brand score of `draft` as generated (74% on the canvas). */
   score: number;
   /** Score once every flag is fixed (91% on canvas Amb-4). */

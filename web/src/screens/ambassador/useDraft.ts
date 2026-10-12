@@ -3,6 +3,7 @@ import { uniqueId } from '../../lib/id';
 import { applyFix, draftChecks, gateFor, isOpen, scoreFor } from './draftRules';
 import { pieceLabel } from './copy';
 import { ambSession } from './session';
+import { charLimitFor } from '../../config/platforms';
 import type { GenerateData } from './types';
 
 export { applyFix, isOpen, scoreFor };
@@ -26,7 +27,9 @@ export function useDraft(data: GenerateData, { generating = false }: { generatin
   const open = useMemo(() => data.checks.filter((c) => isOpen(c, text)), [data.checks, text]);
   const score = scoreFor(open.length, data);
   // Every check shown (list, badges) and the gate come from this one function (draftRules.ts).
-  const checks = draftChecks({ text, rules: data.checks, score, threshold: data.threshold, charLimit: data.charLimit, pieceDone: Boolean(piece.done) });
+  // The limit comes from the selected piece's channel (config/platforms.ts), not one fixture value (Codex review on PR #78).
+  const charLimit = charLimitFor(piece.channel);
+  const checks = draftChecks({ text, rules: data.checks, score, threshold: data.threshold, charLimit, pieceDone: Boolean(piece.done) });
   const gate = gateFor(checks, generating);
   const disclosed = !open.some((c) => c.rule.kind === 'missing');
 
@@ -45,6 +48,8 @@ export function useDraft(data: GenerateData, { generating = false }: { generatin
   return {
     text,
     setText,
+    /** The selected piece's character limit, or null. */
+    charLimit,
     angle,
     setAngle,
     format,

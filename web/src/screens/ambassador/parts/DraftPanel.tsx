@@ -6,7 +6,8 @@ import type { DraftState } from '../useDraft';
 
 export interface DraftPanelProps {
   draft: DraftState;
-  charLimit: number;
+  /** The selected piece's limit; null where its channel has none. */
+  charLimit: number | null;
   generating: boolean;
 }
 
@@ -21,7 +22,7 @@ export function DraftPanel({ draft, charLimit, generating }: DraftPanelProps) {
   );
   return (
     <Stack gap={3}>
-      <AmbDraftEditor label="Draft" value={draft.text} onChange={draft.setText} highlights={draft.highlights} charLimit={charLimit} generating={generating} toolbar={toolbar} />
+      <AmbDraftEditor label="Draft" value={draft.text} onChange={draft.setText} highlights={draft.highlights} charLimit={charLimit ?? undefined} generating={generating} toolbar={toolbar} />
       {history.open && (
         <Card variant="subtle" as="div">
           <Text variant="label">Earlier versions</Text>

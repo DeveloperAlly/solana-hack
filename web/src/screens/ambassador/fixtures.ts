@@ -114,7 +114,6 @@ export const generateData: GenerateData = {
     'adna.network',
   ].join('\n\n'),
   generatedNote: 'Draft generated 16:18 · edits saved',
-  charLimit: 3000,
   score: 74,
   scoreWhenClean: 91,
   threshold: 80,

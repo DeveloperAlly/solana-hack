@@ -9,7 +9,8 @@ import { applyFix, isOpen, scoreFor } from './useDraft';
 import { draftChecks, gateFor, hasToken, removeFlagged } from './draftRules';
 import { AmbGenerate } from './AmbGenerate';
 import { AmbPublish } from './AmbPublish';
-import { adnaFormats, publishData, statusPaid } from './fixtures';
+import { AmbDetail } from './AmbDetail';
+import { adnaFormats, campaignDetail, mai, publishData, statusPaid } from './fixtures';
 import { campaignProgress } from './copy';
 import { ambSession } from './session';
 import { generateData } from './fixtures';
@@ -351,7 +352,7 @@ describe('draft rules and the one publish gate (Codex review on PR #78)', () => 
   const [banned, , disclosure] = generateData.checks;
   const checksOf = (text: string, threshold = generateData.threshold, pieceDone = false) => {
     const open = generateData.checks.filter((c) => isOpen(c, text));
-    return draftChecks({ text, rules: generateData.checks, score: scoreFor(open.length, generateData), threshold, charLimit: generateData.charLimit, pieceDone });
+    return draftChecks({ text, rules: generateData.checks, score: scoreFor(open.length, generateData), threshold, charLimit: 3000, pieceDone });
   };
   const gateOf = (text: string, generating = false) => gateFor(checksOf(text), generating);
 
@@ -393,6 +394,21 @@ describe('draft rules and the one publish gate (Codex review on PR #78)', () => 
     const cont = screen.getByRole('button', { name: 'Continue to publish' });
     expect(cont).toBeEnabled();
     fireEvent.change(box, { target: { value: `${clean} ${'x'.repeat(3000)}` } });
+    expect(cont).toBeDisabled();
+    expect(cont).toHaveAccessibleDescription(/Over the 3000-character limit/);
+  });
+
+  it('the limit follows the selected format\'s channel: a long tutorial for the blog is not over any limit (Codex review on PR #78)', async () => {
+    at('/screens/Amb-3-Generate');
+    await h1('Write your piece');
+    const clean = applyFix(disclosure, applyFix(banned, generateData.draft));
+    const long = `${clean} ${'x'.repeat(3000)}`;
+    fireEvent.change(screen.getByRole('combobox', { name: 'Format' }), { target: { value: 'tutorial' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Draft' }), { target: { value: long } });
+    const cont = screen.getByRole('button', { name: 'Continue to publish' });
+    expect(cont).toBeEnabled();
+    expect(screen.queryByText(/over the limit/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Format' }), { target: { value: 'linkedin' } });
     expect(cont).toBeDisabled();
     expect(cont).toHaveAccessibleDescription(/Over the 3000-character limit/);
   });
@@ -622,5 +638,24 @@ describe('Codex review round 4 on PR #78: status values derive from the session'
     cleanup();
     at('/screens/Amb-5d-BudgetReached');
     expect(await screen.findByRole('button', { name: 'Pay me if GamersLab adds budget' })).toBeInTheDocument();
+  });
+});
+
+describe('joining when already signed in (Codex review on PR #78)', () => {
+  it('a signed-in ambassador joins in one click, with no email code', async () => {
+    const u = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/screens/Amb-2-Detail']}>
+        <Routes>
+          <Route path="/screens/Amb-2-Detail" element={<AmbDetail data={{ ...campaignDetail, account: mai }} device="desktop" />} />
+          <Route path="/screens/Amb-3-Generate" element={<p>Generate opened</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.queryByLabelText('Sign in with email to join')).not.toBeInTheDocument();
+    expect(screen.getByText('Signed in as Mai T.')).toBeInTheDocument();
+    await u.click(screen.getByRole('button', { name: 'Join and start writing' }));
+    expect(screen.getByText('Generate opened')).toBeInTheDocument();
+    expect(ambSession.read().campaign?.title).toBe(campaignDetail.campaign.title);
   });
 });

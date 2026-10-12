@@ -47,7 +47,7 @@ export function AmbGenerate({ data, device, state = 'success' }: AmbGenerateProp
   const generating = state === 'loading';
   const draft = useDraft(data, { generating });
   const flags = useDisclosure();
-  const editor = <DraftPanel draft={draft} charLimit={data.charLimit} generating={generating} />;
+  const editor = <DraftPanel draft={draft} charLimit={draft.charLimit} generating={generating} />;
   const actions = (layout: 'stack' | 'row', publishLabel: string) => (
     <DraftActions draft={draft} generating={generating} publishLabel={publishLabel} onPublish={() => flow.go('publish')} layout={layout} />
   );

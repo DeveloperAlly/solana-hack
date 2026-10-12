@@ -49,12 +49,13 @@ export function AmbDetail({ data, device }: AmbDetailProps) {
   const { campaign } = data;
   const join = useJoin({
     startOpen: desktop,
+    signedIn: data.account !== null,
     onJoined: () => {
       flow.remember({ campaign: { title: campaign.title, brand: campaign.brand } });
       flow.go('generate');
     },
   });
-  const joinPanel = <JoinPanel join={join} emailPlaceholder={data.joinEmail} />;
+  const joinPanel = <JoinPanel join={join} emailPlaceholder={data.joinEmail} signedInAs={data.account?.name} />;
 
   const main = (
     <Stack gap={5}>

@@ -63,6 +63,8 @@ export interface Platform {
   rules: PostingRule[];
   /** What works today, with its source (only where the repo shows it). */
   today?: { text: string; source: Source };
+  /** The platform's hard character limit for a post, with its source; absent where it has none or none is known. */
+  charLimit?: { value: number; source: Source };
 }
 
 const unsourced: PostingRule[] = [{ text: '[platform posting rules]', source: null }];
@@ -89,6 +91,7 @@ export const platforms: Platform[] = [
       { text: 'A paid post can carry X’s paid-partnership label (the paid_partnership field).', source: backendMapApis },
     ],
     today: { text: 'Create drafts X posts and holds them to X’s 280-character limit.', source: createDrafts },
+    charLimit: { value: 280, source: createDrafts },
   },
   {
     id: 'linkedin',
@@ -105,6 +108,9 @@ export const platforms: Platform[] = [
       { text: 'Reading comments on your posts is not available to apps (r_member_social is closed).', source: { label: 'Backend map §4, row "Engage-Queue"' } },
     ],
     today: { text: 'Create drafts LinkedIn posts (the default channel).', source: createDrafts },
+    // Web search on 2026-10-13: third-party posting guides agree on 3,000; LinkedIn's own help page could not be read
+    // (robots), so confirm it before the Worker enforces it.
+    charLimit: { value: 3000, source: { label: 'Third-party posting guides (LinkedIn’s own help page not read; to confirm)', href: 'https://authoredup.com/blog/linkedin-character-limit' } },
   },
   { id: 'bluesky', name: 'Bluesky', kind: 'social', status: 'planned', plans: ['draft', 'publish', 'verify'], connect: toConfirm, rules: unsourced },
   {
@@ -161,3 +167,5 @@ export const platforms: Platform[] = [
 export const statusLabel = (s: PlatformStatus): string => platformStatuses.find((x) => x.id === s)!.label;
 export const kindLabel = (k: PlatformKind): string => platformKinds.find((x) => x.id === k)!.label;
 export const findPlatform = (id: string | null | undefined): Platform | undefined => platforms.find((p) => p.id === id);
+/** The hard character limit of a post on this platform, or null where it has none (a blog) or none is known. */
+export const charLimitFor = (id: string | null | undefined): number | null => findPlatform(id)?.charLimit?.value ?? null;

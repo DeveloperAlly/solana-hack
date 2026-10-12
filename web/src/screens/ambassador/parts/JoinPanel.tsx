@@ -8,11 +8,19 @@ export interface JoinPanelProps {
   join: JoinState;
   /** Placeholder for the email field (canvas Amb-2: "mai@[email]"). */
   emailPlaceholder: string;
+  /** The signed-in ambassador's name, when signed in. */
+  signedInAs?: string;
 }
 
 /** Inline sign-in to join a campaign, one view per step of useJoin (canvas note n-a2; ADR-006 email code). */
-export function JoinPanel({ join, emailPlaceholder }: JoinPanelProps) {
+export function JoinPanel({ join, emailPlaceholder, signedInAs }: JoinPanelProps) {
   const views: Record<JoinStep, ReactNode> = {
+    'signed-in': (
+      <Stack gap={2}>
+        <Text variant="small" tone="secondary">Signed in as {signedInAs}</Text>
+        <Button onClick={join.joinSignedIn} fullWidth>Join and start writing</Button>
+      </Stack>
+    ),
     start: <Button onClick={join.open} fullWidth>Join and start writing</Button>,
     email: (
       <InlineForm

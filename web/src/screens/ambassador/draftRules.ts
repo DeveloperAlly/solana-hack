@@ -83,7 +83,8 @@ export interface ChecksInput {
   rules: DraftCheck[];
   score: number;
   threshold: number;
-  charLimit: number;
+  /** The selected piece's channel limit (config/platforms.ts charLimitFor); null where the channel has none. */
+  charLimit: number | null;
   /** The chosen piece was already written for this campaign (canvas Amb-3: "(done)"; Amb-2: one per channel). */
   pieceDone: boolean;
 }
@@ -110,7 +111,7 @@ export function draftChecks({ text, rules, score, threshold, charLimit, pieceDon
   const out: DraftCheckResult[] = [];
   if (pieceDone) out.push({ id: 'piece-done', title: 'Piece already written', label: 'You already wrote this piece for this campaign. Pick another format.', blocking: true });
   if (!hasBody(text, rules)) out.push({ id: 'empty', title: 'No post yet', label: 'Write your post first.', blocking: true });
-  if (text.length > charLimit) {
+  if (charLimit !== null && text.length > charLimit) {
     out.push({ id: 'limit', title: 'Over the limit', label: `Over the ${charLimit}-character limit by ${text.length - charLimit}.`, blocking: true });
   }
   for (const c of rules) {
