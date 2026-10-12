@@ -24,22 +24,30 @@ const PRICE = /[$€£¥]\s?\d|\b\d+(\.\d+)?\s?(usd|usdc|eur|dollars?|cents?)\b|
 /** Comparable text: the quote normaliser, lower case, single spaces. */
 const norm = (s: string) => normaliseQuote(s).toLowerCase().replace(/\s+/g, ' ').trim();
 
+// Words that end a counted phrase: common verbs and auxiliaries ("10 companies use", "40 founders have").
+const PHRASE_END = new Set('use uses used using trust trusts trusted rely relies relied love loves loved run runs ran ship ships shipped build builds built choose chooses chose chosen join joins joined sign signs signed pick picks picked switch switched work works worked help helps helped make makes made get gets got see sees saw say says said want wants need needs like likes call calls rate rates post posted publish published grow grew create created write wrote read reads now already today'.split(' '));
+const QUALIFIERS = new Set(['percent', 'per', 'over', 'more', 'than', 'about', 'around', 'nearly', 'almost', 'plus', 'up']);
+
 /**
- * The counted word after each number in a claim: the first content word after it ("10 enterprise customers" ->
- * enterprise). It must appear in a cited fact, so a fact about "10 companies" never backs "10 enterprise customers"
- * (the #64 design review example), even though the number matches; an added qualifier ("10 big companies") is refused
- * the same way. A year (1900-2099) counts nothing, so "in 2026, JamJam ..." is not read as a count of JamJams.
+ * The counted phrase after each number in a claim: every word after it up to a verb, a preposition or other function
+ * word, or punctuation ("10 happy enterprise customers use JamJam" -> happy, enterprise, customer). Each word must
+ * appear in a cited fact, so a fact about "10 companies" never backs "10 enterprise customers" (the #64 design review
+ * example), and an adjective cannot hide the noun ("10 happy enterprise customers" against "10 happy companies"; PR #99
+ * review). A year (1900-2099) counts nothing.
  */
 export function countedNouns(text: string): string[] {
-  const w = words(text);
   const out: string[] = [];
-  for (let i = 0; i < w.length; i++) {
-    if (!/^\d/.test(w[i]) || /^(19|20)\d\d$/.test(w[i])) continue;
-    for (let j = i + 1; j < w.length; j++) {
-      if (/^\d/.test(w[j])) break;
-      if (STOP.has(w[j]) || ['percent', 'per', 'over', 'more', 'than', 'about', 'around', 'nearly', 'almost', 'plus'].includes(w[j])) continue;
-      out.push(fold(w[j]));
-      break;
+  // Phrases end at punctuation, so the text is split there first.
+  for (const part of normaliseQuote(text).split(/[,.;:!?()"\u2014\u2013]+/)) {
+    const w = words(part);
+    for (let i = 0; i < w.length; i++) {
+      if (!/^\d/.test(w[i]) || /^(19|20)\d\d$/.test(w[i])) continue;
+      let j = i + 1;
+      while (j < w.length && QUALIFIERS.has(w[j])) j++;
+      for (let taken = 0; j < w.length && taken < 5; j++, taken++) {
+        if (/^\d/.test(w[j]) || STOP.has(w[j]) || PHRASE_END.has(w[j])) break;
+        out.push(fold(w[j]));
+      }
     }
   }
   return out;
@@ -109,8 +117,11 @@ export function needsEvidence(sentence: string, level: string): boolean {
   return !isOpinion(sentence);
 }
 
+/** The sentences of a post that need evidence under the claims gate: the ones the reviewer must rule on. */
+export const evidenceSentences = (body: string, level: string) => sentences(body).filter((s) => needsEvidence(s, level));
+
 /** A sentence or claim as compared: normalised, without its closing punctuation. */
-const key = (s: string) => norm(s).replace(/[\s.!?…:;,"'\u2019\u201d)]+$/u, '');
+export const key = (s: string) => norm(s).replace(/[\s.!?…:;,"'\u2019\u201d)]+$/u, '');
 
 /**
  * Checks a candidate's declared claims against the usable facts it was given. A claim is one whole sentence of the post,

@@ -6,14 +6,14 @@
 // evaluators read the independent reviewer's findings (backlog G4: another model family, fresh context).
 //
 // Status: a 'gate' evaluator decides whether a draft is approvable as written; a 'tracked' one is recorded and shown but
-// never decides. Every model-judged measure is tracked until its judge agrees with the owner's labels at Cohen's kappa
-// >= 0.6 (architecture §13.3: "if it drops below 0.6 the judge falls back to 'tracked' and the decision goes back to
-// people"); no labels exist yet (issue #65), so none gates. The voice-fit bands are uncalibrated (voice.ts), so voice
-// fit is tracked too. What a model evaluator gates on is only that an independent review happened at all: without one
-// there is no verdict and the draft is not approvable (fail closed).
+// never decides. The claims judge gates: architecture §6.1 (Claims gate row) makes a judge of another model family the
+// runtime claims gate, and a code gate alone always has another gap (PR #99 review). Its agreement with the owner's
+// labels (§13.3, Cohen's kappa >= 0.6) is not yet measured (no labels, issue #65), so "verified" is not claimed for it.
+// Tone and content findings are tracked (content is gated at approval by policyCheck). The voice-fit bands are
+// uncalibrated (voice.ts), so voice fit is tracked. Without a review there is no verdict (fail closed).
 import { differentFamily } from '../models';
 import { policyVerdict, slopCheck } from '../posts';
-import { checkClaims, type DraftClaim, type FactRef } from './claims';
+import { checkClaims, evidenceSentences, key as sentenceKey, type DraftClaim, type FactRef } from './claims';
 import { lintPlatform } from './platform';
 import { measureVoice, type VoiceSpec } from './voice';
 
@@ -96,12 +96,21 @@ export const EVALUATORS: Record<string, Evaluator> = {
     run: (i) => { const missing = validReview(i); return { pass: !missing, reasons: missing ? [`no independent review: ${missing}`] : [], model: i.judge ?? null }; },
   },
   review_claims: {
-    id: 'review_claims', version: 1, kind: 'model', status: 'tracked', inputs: ['review', 'facts', 'generator', 'judge'], source: 'backlog G2, G4; tracked until kappa >= 0.6 (architecture §13.3, issue #65)',
+    id: 'review_claims', version: 2, kind: 'model', status: 'gate', inputs: ['review', 'body', 'facts', 'claimsLevel', 'generator', 'judge'], source: 'backlog G2, G4; architecture §6.1 Claims gate row (at runtime the gate is a judge of another family, given only the cited facts); PR #99 review',
+    // Gates (PR #99 review: a lexical gate always has another gap). Passes only when the reviewer ruled every sentence
+    // that needs evidence supported by facts it was given, and called no claim unsupported. No review, or a sentence
+    // left without a verdict, is not a pass (fail closed). The code gate (claims) still refuses the obvious cases first.
     run: (i) => {
       if (validReview(i)) return { pass: false, reasons: ['not reviewed'], model: i.judge ?? null };
       const claims = reviewedClaims(i);
+      const ruled = new Map(claims.map((c) => [sentenceKey(c.text), c]));
+      const silent = evidenceSentences(i.body, i.claimsLevel).filter((s) => !ruled.has(sentenceKey(s)));
       const bad = claims.filter((c) => !c.supported);
-      return { pass: bad.length === 0, reasons: bad.map((c) => `reviewer: no evidence for "${c.text.slice(0, 120)}"`), model: i.judge ?? null, detail: { claims } };
+      return {
+        pass: bad.length === 0 && silent.length === 0,
+        reasons: [...bad.map((c) => `reviewer: no evidence for "${c.text.slice(0, 120)}"`), ...silent.map((s) => `reviewer gave no verdict on "${s.slice(0, 120)}"`)],
+        model: i.judge ?? null, detail: { claims, silent },
+      };
     },
   },
   policy: {

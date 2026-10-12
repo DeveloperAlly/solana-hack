@@ -67,7 +67,8 @@ let reviewStatus = 200;
 let failWrites: RegExp | null = null;
 
 const goodReview = (post: string) => ({
-  claims: post.includes('10 companies') ? [{ text: 'Teams at 10 companies use JamJam', fact_ids: [F(1)], supported: true }] : [],
+  // The judge answers every sentence it was asked about (the evidence-bearing ones), as the prompt requires.
+  claims: post.includes('10 companies') ? [{ text: 'Teams at 10 companies use JamJam to keep their posts honest.', fact_ids: [F(1)], supported: true }] : [],
   issues: [], tone: [{ dimension: 'warmth', observed: 'on' }, { dimension: 'energy', observed: 'on' }, { dimension: 'humour', observed: 'on' }],
   sexual: false, minors: false, explicitLanguage: false,
 });
@@ -159,7 +160,7 @@ describe('draft_post on the engine (T1, T1b): best of 3, every candidate and ver
     expect(d.verdict.passed).toBe(true);
     expect(d.bodyHash).toBe(await contentHash(GOOD.body));
     expect(d.candidates).toHaveLength(3);
-    expect(d.candidates.map((c) => c.failedGates)).toEqual([[], ['claims'], ['slop', 'claims']]);
+    expect(d.candidates.map((c) => c.failedGates)).toEqual([[], ['claims', 'review_claims'], ['slop', 'claims', 'review_claims']]);
     expect(d.claims).toEqual([{ text: GOOD.claims[0].text, factIds: [F(1)], ok: true }]);
     expect((d.why as { facts: unknown }).facts).toEqual([{ id: F(1), claim: FACTS[0].claim }]);
     expect(r.body.runId).toBeTruthy();
@@ -317,8 +318,10 @@ describe('claims gate (G2, C1): every claim resolves to usable evidence, or the 
 
   it('"used by teams at 10 companies" can never be drafted as "10 enterprise customers", whatever the writer cites', () => {
     const facts = [{ id: 'f', claim: 'JamJam is used by teams at 10 companies.', quote: 'used by teams at 10 companies' }];
-    expect(countedNouns('JamJam now serves 10 enterprise customers')).toEqual(['enterprise']);
-    expect(countedNouns('Founded in 2026, JamJam has 3 big teams')).toEqual(['big']);
+    expect(countedNouns('JamJam now serves 10 enterprise customers')).toEqual(['enterprise', 'customer']);
+    expect(countedNouns('Founded in 2026, JamJam has 3 big teams')).toEqual(['big', 'team']);
+    expect(countedNouns('We serve 10 happy enterprise customers who use it')).toEqual(['happy', 'enterprise', 'customer']);
+    expect(countedNouns('Teams at 10 companies use JamJam')).toEqual(['company']);
     const r = checkClaims('JamJam now serves 10 enterprise customers.', [{ text: 'JamJam now serves 10 enterprise customers', fact_ids: ['f'] }], facts, '4', 'JamJam');
     expect(r.passed).toBe(false);
     expect(r.findings.map((f) => f.rule)).toContain('counted_noun');
@@ -360,7 +363,7 @@ describe('claims gate (G2, C1): every claim resolves to usable evidence, or the 
     expect(unsupported.length).toBeGreaterThanOrEqual(10);
     expect(caught.map((i) => i.id)).toEqual(unsupported.map((i) => i.id));
     expect(caught.length / unsupported.length).toBeGreaterThanOrEqual(0.95);
-    // Precision is reported, not gated (§13.2): 25 of 25 unsupported caught, 0 of 16 supported flagged on this set.
+    // Precision is reported, not gated (§13.2): 26 of 26 unsupported caught, 0 of 17 supported flagged on this set (code gate alone).
     console.info(`F6 synthetic: caught ${caught.length}/${unsupported.length}, false alarms ${falseAlarms.length}/${supported.length}`);
     expect(falseAlarms.map((i) => i.id)).toEqual([]);
   });
@@ -417,20 +420,27 @@ describe('independent review (G4): another model family, fresh context, verdict 
     const verdict = (rev: unknown, gen: string, judge: string) => verdictOf(0, { ...code, ...runAll(named('review,review_claims,policy,tone', 'model'), { ...input, review: rev as never, generator: gen, judge }) });
     const nem = 'nvidia/nemotron-3-super-120b-a12b:free';
     expect(verdict(goodReview(GOOD.body), nem, 'dots-studio/dots-3-note-preview:free').passed).toBe(true);
-    expect(verdict(null, nem, 'dots-studio/dots-3-note-preview:free')).toMatchObject({ passed: false, failedGates: ['review'] });
-    expect(verdict(goodReview(GOOD.body), nem, 'nvidia/llama-3.1-nemotron-70b-instruct:free')).toMatchObject({ passed: false, failedGates: ['review'] });
-    expect(verdict(goodReview(GOOD.body), 'openrouter/free', 'dots-studio/dots-3-note-preview:free')).toMatchObject({ passed: false, failedGates: ['review'] });
-    // The reviewer's own findings are tracked (§13.3: no judge gates before kappa >= 0.6): shown, not deciding.
-    const flagged = verdict({ ...goodReview(GOOD.body), claims: [{ text: 'Teams at 10 companies use JamJam', fact_ids: [], supported: false }], sexual: true }, nem, 'dots-studio/dots-3-note-preview:free');
-    expect(flagged.passed).toBe(true);
-    expect(flagged.reasons).toEqual(expect.arrayContaining(['reviewer: no evidence for "Teams at 10 companies use JamJam" (tracked)', 'content policy: sexual content (tracked)']));
-    expect(flagged.reasons.every((r) => r.endsWith('(tracked)'))).toBe(true);
+    expect(verdict(null, nem, 'dots-studio/dots-3-note-preview:free')).toMatchObject({ passed: false, failedGates: ['review', 'review_claims'] });
+    expect(verdict(goodReview(GOOD.body), nem, 'nvidia/llama-3.1-nemotron-70b-instruct:free')).toMatchObject({ passed: false, failedGates: ['review', 'review_claims'] });
+    expect(verdict(goodReview(GOOD.body), 'openrouter/free', 'dots-studio/dots-3-note-preview:free')).toMatchObject({ passed: false, failedGates: ['review', 'review_claims'] });
+    // The reviewer's claim verdicts gate (architecture §6.1 Claims gate row: at runtime the gate is a judge of another
+    // family): one unsupported sentence, or an evidence-bearing sentence it gave no verdict on, fails the candidate.
+    const flagged = verdict({ ...goodReview(GOOD.body), claims: [{ text: GOOD.body, fact_ids: [F(1)], supported: false }] }, nem, 'dots-studio/dots-3-note-preview:free');
+    expect(flagged).toMatchObject({ passed: false, failedGates: ['review_claims'] });
+    const silent = verdict({ ...goodReview(GOOD.body), claims: [] }, nem, 'dots-studio/dots-3-note-preview:free');
+    expect(silent).toMatchObject({ passed: false, failedGates: ['review_claims'] });
+    expect(silent.reasons[0]).toMatch(/^reviewer gave no verdict on "Teams at 10 companies/);
+    // Content findings stay tracked: approval's policyCheck is the content gate.
+    const content = verdict({ ...goodReview(GOOD.body), sexual: true }, nem, 'dots-studio/dots-3-note-preview:free');
+    expect([content.passed, content.reasons]).toEqual([true, expect.arrayContaining(['content policy: sexual content (tracked)'])]);
   });
 
-  it('the reviewer sees only the post and the facts, never the drafting prompt or the writer\'s claims', async () => {
+  it('the reviewer sees the post, the sentences code found needing evidence, and the facts; never the drafting prompt or the writer\'s claims', async () => {
     await draft();
+    const asked = llm('review_findings').map((c) => JSON.parse(c.user) as { post: string; sentences: string[] });
+    expect(asked.find((a) => a.post === GOOD.body)!.sentences).toEqual([GOOD.body]);
     for (const c of llm('review_findings')) {
-      expect(Object.keys(JSON.parse(c.user))).toEqual(['post', 'facts']);
+      expect(Object.keys(JSON.parse(c.user))).toEqual(['post', 'sentences', 'facts']);
       expect(c.system).not.toContain('candidate');
       expect(c.user).not.toContain('fact_ids');
     }
@@ -457,8 +467,8 @@ describe('the evaluator registry: one entry per evaluator, named by the definiti
     expect(() => named('review', 'code')).toThrow(/review/);
   });
 
-  it('model-judged measures are tracked until calibrated; code gates decide (§13.3)', () => {
-    expect(Object.values(EVALUATORS).filter((e) => e.status === 'gate').map((e) => e.id)).toEqual(['slop', 'claims', 'platform', 'length', 'review']);
+  it('the claims judge gates (§6.1); other model-judged measures are tracked until calibrated (§13.3)', () => {
+    expect(Object.values(EVALUATORS).filter((e) => e.status === 'gate').map((e) => e.id)).toEqual(['slop', 'claims', 'platform', 'length', 'review', 'review_claims']);
   });
 
   it('a new evaluator is one registry entry: its gate decides the verdict with no other code change', () => {

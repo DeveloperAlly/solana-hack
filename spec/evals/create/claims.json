@@ -25,6 +25,11 @@
       "id": "f-first",
       "claim": "JamJam is the first brand tool to register posts on Solana.",
       "quote": "the first brand tool to register posts on Solana"
+    },
+    {
+      "id": "f-happy",
+      "claim": "JamJam has 10 happy companies.",
+      "quote": "10 happy companies"
     }
   ],
   "items": [
@@ -483,6 +488,37 @@
       "level": "4",
       "body": "Start with your own website and see what it says.",
       "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "u26",
+      "kind": "counted_phrase_hidden_noun",
+      "level": "4",
+      "body": "We serve 10 happy enterprise customers.",
+      "claims": [
+        {
+          "text": "We serve 10 happy enterprise customers.",
+          "fact_ids": [
+            "f-happy"
+          ]
+        }
+      ],
+      "expect": "unsupported",
+      "note": "Codex review on PR #99: an adjective must not hide the noun"
+    },
+    {
+      "id": "s17",
+      "kind": "supported",
+      "level": "4",
+      "body": "JamJam has 10 happy companies.",
+      "claims": [
+        {
+          "text": "JamJam has 10 happy companies.",
+          "fact_ids": [
+            "f-happy"
+          ]
+        }
+      ],
       "expect": "supported"
     }
   ]

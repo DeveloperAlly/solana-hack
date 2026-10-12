@@ -69,4 +69,21 @@ describe('Create follows a draft that outlasts the request', () => {
     expect(await screen.findByDisplayValue('Teams at 10 companies use JamJam.', {}, { timeout: 8000 })).toBeInTheDocument();
     expect(seen.filter((x) => x === 'GET /api/runs/run-1')).toHaveLength(2);
   }, 10000);
+
+  it('asks for runs still going before loading the list, so a run that ends in between is not lost', async () => {
+    // A controllable fake: the run is still going when the runs list is read, and finishes as the post list is read.
+    let state: 'running' | 'done' = 'running';
+    const order: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      let body: unknown = {};
+      if (url === '/api/me') body = { user: { email: 'o@example.com' }, brands: [brand] };
+      else if (url === `/api/brands/${brand.id}/runs?kind=draft_post`) { order.push('runs'); body = { runs: state === 'running' ? [{ id: 'run-1' }] : [] }; }
+      else if (/\/posts\?limit=\d+$/.test(url)) { order.push('list'); body = { posts: state === 'done' && order.filter((o) => o === 'list').length > 1 ? [done] : [], more: false }; state = 'done'; }
+      else if (url === '/api/runs/run-1') { order.push('poll'); body = { run: { id: 'run-1', status: state, error: null, resume_at: null }, steps: [] }; }
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    }));
+    renderWithRouter(<Create />);
+    expect(await screen.findByDisplayValue('Teams at 10 companies use JamJam.', {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(order.slice(0, 2)).toEqual(['runs', 'list']);
+  }, 10000);
 });

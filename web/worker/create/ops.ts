@@ -6,7 +6,7 @@ import { HttpError } from '../env';
 import { stableId } from '../ids';
 import { CLAIMS_POLICY, contentHash, FLIRTY_NOTE, slopCheck } from '../posts';
 import type { StepContext } from '../engine/steps';
-import type { DraftClaim, FactRef } from './claims';
+import { evidenceSentences, type DraftClaim, type FactRef } from './claims';
 import { MAX_BODY, named, pick, runAll, verdictOf, type EvalInput, type ReviewFindings, type Results } from './evaluators';
 import { factDocs, loadCorpus, rankCorpus, RETRIEVE_DEFAULTS, type FactInput, type Ranked } from './retrieve';
 import { directives, toneTargets, VOICE_BANDS_VERSION, voiceSpec, type VoiceMeasure, type VoiceSpec } from './voice';
@@ -80,13 +80,17 @@ export const CREATE_READS: Record<string, (ctx: StepContext, args: Record<string
   },
   /**
    * For each candidate: the model that wrote it, read from the trace (run_steps), and the reviewer's input. The reviewer
-   * sees only the post and the facts the writer was given: fresh context, never the drafting prompt or the writer's
-   * claims (backlog G4).
+   * sees the post, the sentences code found needing evidence, and the facts the writer was given: fresh context, never
+   * the drafting prompt or the writer's claims (backlog G4).
    */
-  review_inputs: async (ctx, { candidates, facts }) => {
+  review_inputs: async (ctx, { candidates, facts, claims }) => {
     const generators = await traceModels(ctx, 'draft');
     const given = list<{ id: string; claim: string; quote: string | null }>(facts).map((f) => ({ id: f.id, claim: f.claim, quote: f.quote }));
-    const items = list<{ body: string }>(candidates).map((c, idx) => ({ idx, input: JSON.stringify({ post: asText(c?.body).trim(), facts: given }) }));
+    // The sentences the reviewer must rule on: those code finds needing evidence under the kit's claims gate (claims.ts).
+    const items = list<{ body: string }>(candidates).map((c, idx) => {
+      const post = asText(c?.body).trim();
+      return { idx, input: JSON.stringify({ post, sentences: evidenceSentences(post, asText(claims)), facts: given }) };
+    });
     return { generators, items };
   },
   /** The model that answered each item of a map step, from the trace: the last successful attempt per item. */

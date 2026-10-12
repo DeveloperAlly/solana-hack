@@ -56,8 +56,10 @@ export function Create() {
         if (c.signal.aborted) return;
         if (!me.brands.length) return setError('Build your brand first, then come back to create.');
         setBrandId(me.brands[0].id);
-        await load(me.brands[0].id);
+        // Runs still going are read before the list (PR #99 review): a run that ends between the two reads then has its
+        // post in the list, and one still going is followed and reloads the list when it ends.
         const going = await api<{ runs?: { id: string }[] }>(`/brands/${me.brands[0].id}/runs?kind=draft_post`, { signal: c.signal });
+        await load(me.brands[0].id);
         for (const r of going.runs ?? []) void follow(r.id, me.brands[0].id, c.signal);
       })
       .catch((e) => { if (!c.signal.aborted) setError(msg(e)); });
