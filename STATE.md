@@ -1,7 +1,7 @@
 ---
 type: state
 status: active
-updated: 2026-10-08
+updated: 2026-10-12
 last_edited_by: agent
 ---
 # STATE
@@ -32,6 +32,7 @@ last_edited_by: agent
 - ADR-006: email sign-in (Supabase OTP); a server Registrar keypair signs registrations; a wallet only for USDC payouts (owner, 2026-10-06; G-WALLET decided).
 - Wireframes: voices follow research 06 (12 templates, 9 dimensions, claims gate); licensing screens stay parked; aDNA stays the sample brand.
 - [ADR-007](./.agentic/what/decisions/adr_007_pitch_positioning.md): the pitch makes end to end (build, run, prove, pay) the differentiator and leads the sale with crypto and developer brands; build scope unchanged. Deck v2 text and notes are in [pitch_deck_2026_10_06.md](./.agentic/what/context/pitch_deck_2026_10_06.md) (draft; placeholders to fill), with the [review](./.agentic/what/context/vc_judge_review_2026_10_06.md) behind it.
+- [ADR-008](./.agentic/what/decisions/adr_008_rename_jamjam.md): the product is renamed JamJam (jamjam.tech) with a wireframe black-and-white brand; the pitch deck is renamed and restyled. Other docs, the README and app copy still say Waterlily in places.
 - Demo: Waterlily builds its own brand from scratch, live (headline). aDNA is the second case (strong written brand, no social). film.fun and GamersLab are semi-established case studies. Polish actions include Beautify.
 
 - [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed, awaiting the owner's ratification): the submission critical path. The spine, a thin Create, and Verify and Ledger come first, then the submission assets. Payouts, X and LinkedIn OAuth, quests, claims, the full settings and the remaining canvas batches are cut. The hub screens that label them "coming soon" are on main (#15).
