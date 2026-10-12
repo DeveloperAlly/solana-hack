@@ -81,9 +81,19 @@ jobs:
             echo "Created Resend domain $MAIL_DOMAIN"
           fi
           test -n "$id" && [ "$id" != null ] || { echo "::error::Could not find or create the Resend domain (is the key Full access?)"; exit 1; }
-          r -X POST "https://api.resend.com/domains/$id/verify" -o /dev/null
           d=$(r "https://api.resend.com/domains/$id")
           status=$(jq -r .status <<<"$d")
+          # Verification is asynchronous and marks the domain pending while it runs
+          # (https://resend.com/docs/api-reference/domains/verify-domain), so only start it when
+          # the domain is not already verified, then poll for up to 2 minutes for a settled status.
+          if [ "$status" != verified ]; then
+            r -X POST "https://api.resend.com/domains/$id/verify" -o /dev/null
+            for _ in $(seq 1 12); do
+              sleep 10
+              d=$(r "https://api.resend.com/domains/$id"); status=$(jq -r .status <<<"$d")
+              [ "$status" = pending ] || break
+            done
+          fi
           echo "Resend domain status: $status"
           table=$(jq -r '"| Type | Name (in jamjam.tech zone) | Value | Priority | Status |\n|---|---|---|---|---|",
                           (.records[] | "| \(.type) | `\(.name)` | `\(.value)` | \(.priority // "") | \(.status) |")' <<<"$d")
