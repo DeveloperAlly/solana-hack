@@ -58,7 +58,7 @@ export default {
       // ok is false when a registrar key is set but unusable: every registration would fail. The status stays 200 so
       // the Settings screen can still read the diagnostic fields.
       const isFreeTier = await openRouterFreeTier(env.OPENROUTER_API_KEY);
-      return json({ ok: !registrarError, registrar, registrarError, rpcConfigured: !!env.RPC_URL, aiConfigured: !!env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || 'openrouter/auto', isFreeTier });
+      return json({ ok: !registrarError, registrar, registrarError, rpcConfigured: !!env.RPC_URL, aiConfigured: !!env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || 'openrouter/free', isFreeTier });
     }
 
     // S0 done-when (3): one Registrar-signed devnet registration. Deploy-run only (token), so the

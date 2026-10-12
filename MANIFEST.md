@@ -48,6 +48,8 @@ The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [A
 | [.agentic/what/context/vc_judge_review_2026_10_06.md](./.agentic/what/context/vc_judge_review_2026_10_06.md) | active | VC and hackathon-judge review of the wireframes and docs; informs the deck |
 | [.agentic/what/context/swot.md](./.agentic/what/context/swot.md) | historical | SWOT of the licensing-era concept; still informs risks |
 | [.agentic/what/context/links.md](./.agentic/what/context/links.md) | active | Working links: wireframes, deck, PRD, research |
+| [audits/2026-10-12_onboarding-journey-wireframe-audit.md](./audits/2026-10-12_onboarding-journey-wireframe-audit.md) | active | Audit 2026-10-12: onboarding journey and wireframes vs the delivery plan; root causes, fixes and owner decisions |
+| [.github/pull_request_template.md](./.github/pull_request_template.md) | active | PR checklist, including the canvas check (AGENTS.md rule 8) |
 | [.agentic/what/context/research/README.md](./.agentic/what/context/research/README.md) | active | Research index |
 | [.agentic/what/context/research/01_brand_pillars.md](./.agentic/what/context/research/01_brand_pillars.md) | active | Brand-building pillars and the 9-step onboarding workflow |
 | [.agentic/what/context/research/02_brand_voice_elements.md](./.agentic/what/context/research/02_brand_voice_elements.md) | active | Brand voice elements and the Brand Kit data model |

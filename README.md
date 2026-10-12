@@ -34,7 +34,7 @@ Coming soon: X and LinkedIn publishing, ambassador campaigns with USDC payouts, 
 | API | Cloudflare Worker: `/api/*`, with static assets for everything else | `web/worker` |
 | Data | Supabase Postgres, with RLS on and no policies, so only the Worker's server key can read or write | `spec/db` |
 | Auth | Supabase email OTP. The Worker checks every token with Supabase Auth | `web/worker/auth.ts` |
-| AI | OpenRouter (default `openrouter/auto`) behind one gateway with retries and logging | `web/worker/llm.ts` |
+| AI | OpenRouter (default `openrouter/free`, the free models router) behind one gateway with retries and logging | `web/worker/llm.ts` |
 | Proof | SAS on Solana devnet: credential `WATERLILY` (the product's former name, fixed on chain), schema `WL-KIT` v1, Registrar-signed | `web/worker/registry.ts`, `spike/` |
 | Deploy | GitHub Actions to Cloudflare (custom domain jamjam.tech), followed by Playwright and registry checks | `.github/workflows` |
 

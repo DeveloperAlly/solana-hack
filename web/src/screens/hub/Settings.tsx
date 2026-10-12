@@ -43,7 +43,7 @@ export function Settings() {
           <Box as="section" padding={5} border="default" radius="box" aria-labelledby="h-ai">
             <Stack gap={4}>
               <Heading level={2} size="lg" id="h-ai">AI model</Heading>
-              <Row name="Default model" status={health?.aiConfigured === true ? 'On' : health?.aiConfigured === false ? 'Not configured' : 'Unknown'} tone={health?.aiConfigured === true ? 'success' : 'warning'} detail={`Through OpenRouter: ${health?.model ?? 'openrouter/auto'}. Every draft passes the no-AI-slop rules before you see it.`} />
+              <Row name="Default model" status={health?.aiConfigured === true ? 'On' : health?.aiConfigured === false ? 'Not configured' : 'Unknown'} tone={health?.aiConfigured === true ? 'success' : 'warning'} detail={`Through OpenRouter: ${health?.model ?? 'openrouter/free'}. Every draft passes the no-AI-slop rules before you see it.`} />
               <Row name="Bring your own key (Claude, OpenAI)" status="Coming soon" tone="neutral" detail="Use your own model account for drafting." />
             </Stack>
           </Box>
