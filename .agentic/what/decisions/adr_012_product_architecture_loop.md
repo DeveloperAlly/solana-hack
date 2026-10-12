@@ -41,7 +41,7 @@ tags: [adr, product, information-architecture, navigation, ui]
    - what was learned;
    - what's next.
 
-   Every item has a one-tap approve that works on a phone. Today also shows where the brand is in the loop (for example "Step 3 of 6").
+   Every item has a one-tap approve that works on a phone. Today also shows where the brand is in the loop: a strip of the six steps, each marked live, current or not yet started, with a count of live steps (for example "3 of 6 steps live"). The count is of live steps, not a position, because steps can go live out of order.
 2. **The navigation is the loop.** One sidebar, defined once in code (`web/src/config/nav.ts`), holds Today, then **Brand · Create · Distribute · Verify · Grow · Learn**, then the utilities Inbox and Settings. On mobile the tab bar shows Today, Create, Verify, Grow and More. Inside a step, sections use tabs.
 
    | Step | What lives here (existing boards → step) |
@@ -71,7 +71,7 @@ tags: [adr, product, information-architecture, navigation, ui]
 
    Create reads it for every draft, Distribute reads its voice and rules to adapt a post per platform, Grow reads it for ambassador kits, campaign briefs and event plans, and Verify shows which kit versions are registered; and every draft has a **Why this?** listing the facts, voice and rules it used. This extends "every fact has a receipt" from the kit to every output. Learn proposes rules from results, and a person approves each one before it enters the Brain (ADR-003: a person reviews everything). A rule can be retired, and approvals bound to an older Brain go stale.
 5. **Proof is ambient.** Verified state shows on every post, in Today, in the ledger and through the public badge. The badge links to Verify, which offers "Make yours on JamJam", so proof also drives distribution.
-6. **Progressive disclosure.** On a first run, Brand, then the first post, then Verify are live. Distribute, Grow and Learn show teaching empty states until they apply. The Journey (J1 to J8) ends on Today, showing "3 of 6".
+6. **Progressive disclosure.** On a first run, Brand, then the first post, then Verify are live. Distribute, Grow and Learn show teaching empty states until they apply. The Journey (J1 to J8) ends on Today, showing "3 of 6 steps live": Brand, Create and Verify live, Distribute, Grow and Learn not yet started.
 7. **Shells by role:**
    - owner or team: the full loop;
    - ambassador: brand seats plus public campaigns;
