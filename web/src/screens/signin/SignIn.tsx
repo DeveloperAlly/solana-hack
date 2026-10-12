@@ -68,7 +68,7 @@ export function SignIn() {
       <Container width="reading">
         <Stack gap={6}>
           <Stack gap={2}>
-            <Heading level={1}>Sign in to build your brand</Heading>
+            <Heading level={1}>Sign in to launch your brand</Heading>
             <Text tone="secondary">We email you a sign-in link. No password, no wallet.</Text>
           </Stack>
           {!supabase && <Alert tone="warning" title="Sign-in is not configured on this build" />}

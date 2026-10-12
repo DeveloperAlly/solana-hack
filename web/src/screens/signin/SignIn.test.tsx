@@ -7,7 +7,7 @@ import { SignIn } from './SignIn';
 describe('SignIn', () => {
   it('asks for an email and rejects a malformed one without calling Supabase', async () => {
     renderAt(<SignIn />);
-    expect(screen.getByRole('heading', { level: 1, name: 'Sign in to build your brand' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Sign in to launch your brand' })).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Email'), 'not-an-email');
     await userEvent.click(screen.getByRole('button', { name: 'Email me a sign-in link' }));
     expect(screen.getAllByRole('alert').some((a) => a.textContent?.includes('Enter an email address'))).toBe(true);

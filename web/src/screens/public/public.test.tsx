@@ -7,7 +7,7 @@ import { kitMarkdown } from '../hub/Brand';
 import type { BrandState } from '../build/Build';
 
 describe('public pages', () => {
-  for (const [path, heading] of [['/system', 'Workbench'], ['/how-it-works', 'How it works'], ['/verify', 'Check a post'], ['/ledger', 'Ledger'], ['/sign-in', 'Sign in to build your brand']]) {
+  for (const [path, heading] of [['/system', 'Workbench'], ['/how-it-works', 'How it works'], ['/verify', 'Check a post'], ['/ledger', 'Ledger'], ['/sign-in', 'Sign in to launch your brand']]) {
     it(`${path} renders its heading with no axe violations`, async () => {
       const { container } = renderWithRouter(<App />, path);
       expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
