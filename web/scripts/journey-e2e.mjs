@@ -48,7 +48,8 @@ async function must(label, p, want = [200, 201]) {
   return r.body;
 }
 
-out(`base ${BASE}, site ${SITE}`);
+// The site is operator input: only its hostname is logged (no path, query or token), since the proof is public.
+out(`base ${BASE}, site host ${new URL(SITE).hostname}`);
 const health = await must('health', req(`${BASE}/api/health`));
 out(`health ${JSON.stringify(health)}`);
 
