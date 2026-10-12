@@ -19,7 +19,7 @@ last_edited_by: agent
 **Deadline:** Colosseum Crypto World's Fair, Oct 12 2026, 11:59pm PT (Oct 13, 5:59pm Melbourne). JamJam's own kit v1 is due by Oct 9.
 
 ## Recent decisions
-- Product renamed from Waterlily to JamJam (owner, 2026-10-12). On-chain and infrastructure names keep the old name on purpose: the SAS credential `WATERLILY`, the `WL-*` schemas, and the Cloudflare Worker name `waterlily` (renaming it is an owner follow-up).
+- Product renamed from Waterlily to JamJam (owner, 2026-10-12, given in a working session, so there is no public record to link; the live domain jamjam.tech already carried the name). On-chain and infrastructure names keep the old name on purpose: the SAS credential `WATERLILY`, the `WL-*` schemas, and the Cloudflare Worker name `waterlily` (renaming it is an owner follow-up).
 - ADR-002: JamJam: build your brand, run it, prove it.
 - ADR-003: Brand superhub; the brand pays a subscription; partners and ambassadors are seats; USDC ambassador payouts; provenance is a feature; human review on everything; no-AI-slop pass.
 - ADR-004: Docs use aDNA (this structure).

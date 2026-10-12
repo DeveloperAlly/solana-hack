@@ -12,7 +12,6 @@ tags: [manifest, index]
 | Field | Value |
 |---|---|
 | Name | JamJam |
-| Former name | Waterlily (renamed 2026-10-12; see [STATE.md](./STATE.md)) |
 | Owner | Ally Haire |
 | Domain | jamjam.tech |
 | Hosting | Cloudflare |
