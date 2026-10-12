@@ -14,7 +14,7 @@ tags: [submission, recording, pitch-lock]
 
 Use [JamJam: build, create, prove](https://claude.ai/artifact/4QPRrRAXx8VF4PsKf5qZ8d), the exact existing public read-only artifact. Browser inspection on 13 October showed **24 slides**, the JamJam cover and a Present control. Download was disabled in that public view. The source is the original artifact; do not regenerate it from the text mirror or redesign it. Its sales voice, main slides and appendix remain unchanged.
 
-The existing [pitch script](../pitch_script_2026_10_12.md) records option A, “before and after,” **441 words**, a **2:45** main presentation and separate appendix talking points for Q&A. Follow those words and times as written. The [deck mirror](../pitch_deck_2026_10_06.md) is a reference, not authority to overwrite newer source content. Any optional upgrade belongs in a separate owner comment.
+The existing [pitch script](https://github.com/DeveloperAlly/solana-hack/blob/791d01bf40d6cada78b1885ba314a2fd33fea3ad/.agentic/what/context/pitch_script_2026_10_12.md) records option A, “before and after,” **441 words**, a **2:45** main presentation and separate appendix talking points for Q&A. Follow those words and times as written. The [deck mirror](../pitch_deck_2026_10_06.md) is a reference, not authority to overwrite newer source content. Any optional upgrade belongs in a separate owner comment.
 
 ## Capture and recording
 

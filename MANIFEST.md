@@ -92,3 +92,6 @@ The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [A
 | [.agentic/what/context/archive/design_prompts_v1.md](./.agentic/what/context/archive/design_prompts_v1.md) | superseded | Claude Design prompts for Waterlily for Brands | To be rewritten from the compendium and the brand builder architecture |
 
 <!-- Delivery authority: AGENTS.md requires the canonical submission mission, master #38, execution #114 and STATE.md as the first read. -->
+
+| [.agentic/what/context/submission-assets/recording_cues.md](./.agentic/what/context/submission-assets/recording_cues.md) | draft | Recording cues from the unchanged approved pitch |
+| [.agentic/what/context/submission-assets/jamjam-logo.png](./.agentic/what/context/submission-assets/jamjam-logo.png) | active | Exact deployed JamJam mark for submission |

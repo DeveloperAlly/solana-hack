@@ -16,12 +16,12 @@ Target submission time is **4:00 pm Melbourne, 13 October 2026**, leaving a buff
 
 | Portal item | Existing source | Remaining action / owner |
 |---|---|---|
-| Product name and description | [README](../../../README.md), existing [GTM](./gtm_2026_10_12.md) §1 | Codex: fill from existing copy within the portal's length limit; retain the sales voice |
+| Product name and description | [README](../../../README.md), existing [GTM](https://github.com/DeveloperAlly/solana-hack/blob/791d01bf40d6cada78b1885ba314a2fd33fea3ad/.agentic/what/context/gtm_2026_10_12.md) §1 | Codex: fill from existing copy within the portal's length limit; retain the sales voice |
 | Chain and tools | README Architecture | Codex: confirm the shipped stack/devnet designation and fill the field |
 | Team background | GTM §9; [#60](https://github.com/DeveloperAlly/solana-hack/issues/60) | Codex: populate the recorded biography and account fields; isolate any genuinely missing identity/location detail |
 | Logo / graphic | [Exact deployed JamJam wordmark PNG](./submission-assets/jamjam-logo.png), 368 × 72 | Codex: supply this existing mark to the portal; use the approved deck mark if its original asset becomes accessible |
 | Repository | [DeveloperAlly/solana-hack](https://github.com/DeveloperAlly/solana-hack) | Codex: identify release SHA and enter the public repository URL |
-| Presentation video, 2–3 minutes | Existing deck and [pitch script](./pitch_script_2026_10_12.md) from [#69](https://github.com/DeveloperAlly/solana-hack/pull/69) | Codex: capture, export, upload and validate; Ally provides narration or an existing recording where needed; deck, mirror and script are locked against agent edits without explicit authorization |
+| Presentation video, 2–3 minutes | Existing deck and [pitch script](https://github.com/DeveloperAlly/solana-hack/blob/791d01bf40d6cada78b1885ba314a2fd33fea3ad/.agentic/what/context/pitch_script_2026_10_12.md) from [#69](https://github.com/DeveloperAlly/solana-hack/pull/69) | Codex: capture, export, upload and validate; Ally provides narration or an existing recording where needed; deck, mirror and script are locked against agent edits without explicit authorization |
 | Demo video, at most 3 minutes | [Revised demo runbook](./demo_script_2026_10_13.md) | Codex: capture the rehearsed release, edit waits, export, upload and validate; narration uses the demo runbook |
 | GTM, demand and distribution | Existing GTM §§3–8 | Codex: fill from existing GTM; commercial changes remain owner decisions |
 | Prior development / eligibility | [Official requirements](https://colosseum.com/hackathon) | Codex: prepare disclosure from repo history; account holder confirms eligibility attestations where required |
@@ -53,7 +53,7 @@ This is the artifact acceptance record for [#114](https://github.com/DeveloperAl
 
 **Chain/tools:** Solana devnet; Solana Attestation Service; Cloudflare Workers; React/Vite; Supabase; OpenRouter; Exa. Sources: [README Architecture](../../../README.md#architecture), [backend map](./backend_map.md). Confirm the final deployed revision before entering runtime-specific details.
 
-**Business/team content:** use the existing [GTM](./gtm_2026_10_12.md) sections 3–9. The pitch deck, mirror, script and appendix are locked; this package does not edit them.
+**Business/team content:** use the existing [GTM](https://github.com/DeveloperAlly/solana-hack/blob/791d01bf40d6cada78b1885ba314a2fd33fea3ad/.agentic/what/context/gtm_2026_10_12.md) sections 3–9. The pitch deck, mirror, script and appendix are locked; this package does not edit them.
 
 ## Repository artifact check
 
