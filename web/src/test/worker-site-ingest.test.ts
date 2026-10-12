@@ -27,6 +27,8 @@ function factsFor(userMsg: string) {
 
 let step = fakeStep();
 let llmCalls = 0;
+let fetches = 0;
+let runFetches = 0;
 let robots = 'User-agent: *\nAllow: /\n';
 beforeEach(async () => {
   await seedTables();
@@ -36,6 +38,7 @@ beforeEach(async () => {
   robots = 'User-agent: *\nAllow: /\n';
   vi.stubGlobal('fetch', vi.fn(async (url: string | URL, init?: RequestInit) => {
     const u = String(url);
+    fetches++;
     if (u.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'u', email: 'o@example.com' }));
     if (u.startsWith('https://db.test')) return new Response(JSON.stringify(fakeDb(u, init)));
     if (u.startsWith('https://openrouter.ai')) {
@@ -53,7 +56,9 @@ afterEach(() => vi.unstubAllGlobals());
 
 const binding = () => ({
   async create(o: { id?: string }) {
+    const before = fetches;
     await runWorkflow(envWith, o.id!, step.api, localDeps).catch((e) => { if (!(e instanceof Evicted)) throw e; });
+    runFetches = fetches - before;
     return { id: o.id! };
   },
   async get(id: string) {
@@ -106,6 +111,9 @@ describe('reading the website (J1)', () => {
     expect(ev).toHaveLength(3); // one kept per page: home (bridges), about (founded), pricing (plans)
     expect(res.body.dropped).toBe(2);
     expect(ev.every((e) => e.trust === 'owned' && e.review_status === 'approved')).toBe(true);
+    // Every request the Workflow instance makes (site, model, database) stays under Workers Free's 50 per instance.
+    expect(runFetches).toBeLessThan(50);
+    console.log(`ingest_site subrequests for 3 pages: ${runFetches}`);
   });
   it('a retried save writes no duplicate sources or facts', async () => {
     await call('POST', `/brands/${BRAND}/sources`, { url: 'https://acme.test/' });

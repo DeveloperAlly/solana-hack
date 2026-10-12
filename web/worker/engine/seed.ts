@@ -38,6 +38,10 @@ export const INGEST_URL: WorkflowSpec = {
  * ingest_site v1: the brand's own website read as a site (architecture §6.1: home page plus about 8 key subpages, robots.txt
  * first, a rendered fallback for script-only pages), through the source adapter registry (sources/site.ts). Facts are
  * extracted per page, each quote checked against its own page, and each page saved as its own source.
+ * Budget: the home page plus 3 subpages. Workers Free allows 50 subrequests per Workflow instance
+ * (https://developers.cloudflare.com/workflows/reference/limits/; the account's plan is not verified). Measured: 30
+ * requests for a 3-page site (worker-site-ingest.test.ts asserts under 50); a 4th page adds about 7. A retried step
+ * adds its own requests. Architecture §6.1's "about 8 subpages" needs Workers Paid (10,000 per instance).
  */
 export const INGEST_SITE: WorkflowSpec = {
   id: 'ingest_site',
@@ -46,9 +50,9 @@ export const INGEST_SITE: WorkflowSpec = {
   concurrency: 'parallel',
   retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
   steps: [
-    { id: 'read', type: 'source', label: 'Reading your site', source: 'site', url: '$input.url', website: '$input.website', subpages: 8, maxChars: 20000, excerptChars: 14000 },
+    { id: 'read', type: 'source', label: 'Reading your site', source: 'site', url: '$input.url', website: '$input.website', subpages: 3, maxChars: 20000, excerptChars: 14000 },
     {
-      id: 'extract', type: 'map', label: 'Finding facts on each page', over: '$steps.read.pages', max: 9,
+      id: 'extract', type: 'map', label: 'Finding facts on each page', over: '$steps.read.pages', max: 4,
       step: {
         id: 'extract_page', type: 'llm', label: 'Finding facts', prompt: 'ingest.extract_facts', json: true,
         vars: { brand_name: '$input.brandName', max_quote: '$const.MAX_QUOTE', sections: '$const.SECTIONS' },
