@@ -73,19 +73,38 @@ const isOpinion = (s: string) => OPINION.test(normaliseQuote(s).trim());
 /** A fragment that states nothing: under 3 words without a number, or only links, hashtags and mentions. */
 const isFragment = (s: string) => (words(s).length < 3 && !/\d/.test(s)) || s.replace(/https?:\/\/\S+|\bwww\.\S+|\S+\.(?:com|net|org|io|tech|network|xyz|app|dev)\S*|[#@][\w-]+/gi, '').replace(/[^\p{L}\p{N}]/gu, '') === '';
 
+// Comparisons and multipliers: "simpler than", "more ... than", "vs", "2x", "doubles".
+const COMPARISON = /\b\w+er than\b|\b(?:more|less|fewer)\s+\w+\s+than\b|\bvs\.?(?=\s)|\bversus\b|\bcompared (?:to|with)\b|\b\d+(?:\.\d+)?x\b|\b(?:doubles?|doubled|triples?|tripled|halves|halved)\b/i;
+// A question that states its answer: "Did you know X ...?", "Fun fact: ...".
+const LEADING = /^(?:did you know|have you heard|fun fact|ever wondered why)\b/i;
+// A name doing something, inside any sentence shape: "JamJam doubles revenue", "Stripe uses JamJam".
+const NAME_VERB = /(?:^|[^\p{L}\p{N}])(\p{Lu}[\p{L}\p{N}]*)\s+(?:is|are|was|were|has|had|does|did|\p{Ll}+s)\b/gu;
+const NOT_NAMES = new Set(['I', 'We', 'You', 'They', 'He', 'She', 'It', 'This', 'That', 'These', 'Those', 'There', 'Here', 'What', 'Who', 'Why', 'How', 'Which', 'Where', 'When', 'Is', 'Are', 'Does', 'Do', 'Did', 'Has', 'Have', 'Can', 'Will', 'Would', 'Should', 'Could', 'Let', 'Try', 'Start']);
+
+/**
+ * True when a sentence carries an assertion whatever its shape (PR #99 review: the shape of a sentence never exempts
+ * its content): a number, price, guarantee, superlative, comparison or named customer; a question that states its
+ * answer ("Did you know JamJam doubles revenue?"); or a name doing something ("JamJam doubles revenue").
+ */
+export function embeddedAssertion(s: string): boolean {
+  if (NUMBER.test(s) || PRICE.test(s) || GUARANTEE.test(s) || SUPERLATIVE.test(s) || COMPARISON.test(s) || namedCustomers(s).length) return true;
+  if (LEADING.test(normaliseQuote(s).trim())) return true;
+  return [...s.matchAll(NAME_VERB)].some((m) => !NOT_NAMES.has(m[1]));
+}
+
 /**
  * Which sentences of a post need evidence under the claims gate (posts.ts CLAIMS_POLICY). Inverted on review of PR #99:
- * a sentence needs evidence unless it is positively not a factual statement, so a new shape of claim is caught by
- * default rather than missed until someone lists it.
- * - light (3): any sentence with a number, statistic, price or named customer;
- * - standard (4): every sentence except questions, imperatives and calls to action, first-person opinions, feelings
- *   and intentions ("opinions and intentions are fine"), and fragments with nothing to state;
- * - strict (5): every sentence except questions, imperatives and fragments.
+ * a sentence needs evidence unless it is positively not a statement of fact, and its shape never exempts its content.
+ * - light (3): any sentence with a number, statistic, price or named customer, in any shape;
+ * - standard (4): every sentence with an embedded assertion (embeddedAssertion), and every other sentence except
+ *   questions, imperatives and calls to action, first-person opinions, feelings and intentions ("opinions and
+ *   intentions are fine"), and fragments with nothing to state;
+ * - strict (5): every sentence except questions, imperatives and fragments with nothing embedded.
  */
 export function needsEvidence(sentence: string, level: string): boolean {
-  if (isFragment(sentence) || isQuestion(sentence)) return false;
   if (level === '3') return NUMBER.test(sentence) || PRICE.test(sentence) || namedCustomers(sentence).length > 0;
-  if (isImperative(sentence)) return false;
+  if (embeddedAssertion(sentence)) return true;
+  if (isFragment(sentence) || isQuestion(sentence) || isImperative(sentence)) return false;
   if (level === '5') return true;
   return !isOpinion(sentence);
 }

@@ -1,5 +1,7 @@
+import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { renderWithRouter } from '../../test/render';
 import { Create } from './Create';
 
@@ -55,5 +57,16 @@ describe('Create follows a draft that outlasts the request', () => {
     expect(await screen.findByText(/Waiting for the AI model's daily allowance/)).toBeInTheDocument();
     expect(await screen.findByDisplayValue('Teams at 10 companies use JamJam.', {}, { timeout: 8000 })).toBeInTheDocument();
     expect(screen.queryByText(/Waiting for the AI model's daily allowance/)).toBeNull();
+  }, 10000);
+
+  it('follows the run under StrictMode, whose effect runs set up, clean up and set up again', async () => {
+    const seen = mockApi([{ status: 'running' }, { status: 'done' }]);
+    // StrictMode at the root, as web/src/main.tsx mounts the app.
+    render(<StrictMode><MemoryRouter><Create /></MemoryRouter></StrictMode>);
+    const brief = await screen.findByLabelText('What is the post about?');
+    fireEvent.change(brief, { target: { value: 'launch' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Draft a post' }));
+    expect(await screen.findByDisplayValue('Teams at 10 companies use JamJam.', {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(seen.filter((x) => x === 'GET /api/runs/run-1')).toHaveLength(2);
   }, 10000);
 });

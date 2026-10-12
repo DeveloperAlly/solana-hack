@@ -360,7 +360,7 @@ describe('claims gate (G2, C1): every claim resolves to usable evidence, or the 
     expect(unsupported.length).toBeGreaterThanOrEqual(10);
     expect(caught.map((i) => i.id)).toEqual(unsupported.map((i) => i.id));
     expect(caught.length / unsupported.length).toBeGreaterThanOrEqual(0.95);
-    // Precision is reported, not gated (§13.2): 21 of 21 unsupported caught, 0 of 14 supported flagged on this set.
+    // Precision is reported, not gated (§13.2): 25 of 25 unsupported caught, 0 of 16 supported flagged on this set.
     console.info(`F6 synthetic: caught ${caught.length}/${unsupported.length}, false alarms ${falseAlarms.length}/${supported.length}`);
     expect(falseAlarms.map((i) => i.id)).toEqual([]);
   });
@@ -370,6 +370,9 @@ describe('claims gate (G2, C1): every claim resolves to usable evidence, or the 
     for (const s of ['JamJam runs on Solana.', 'The product supports teams.', 'Our customers ship faster.', 'Stripe uses JamJam.']) expect([s, needsEvidence(s, '4')]).toEqual([s, true]);
     for (const s of ['Is your brand provable?', 'Try it on your own site.', "Let's build it together.", 'We think every brand deserves proof.', "We're excited to share this.", 'We will open the beta soon.', 'jamjam.tech', '#buildinpublic']) expect([s, needsEvidence(s, '4')]).toEqual([s, false]);
     expect([needsEvidence('We think it helps.', '5'), needsEvidence('Try it.', '5')]).toEqual([true, false]);
+    // The shape never exempts the content (PR #99 review): an assertion inside a question, an imperative or an opinion.
+    for (const s of ['Did you know JamJam doubles revenue?', 'Try JamJam, guaranteed to double revenue.', 'We think JamJam doubles revenue.', 'Is it true that 9 of 10 founders agree?', 'Ask why Acme switched to JamJam.']) expect([s, needsEvidence(s, '4')]).toEqual([s, true]);
+    expect(needsEvidence('Want to know how 40 founders use it?', '3')).toBe(true);
     expect([needsEvidence('JamJam runs on Solana.', '3'), needsEvidence('Stripe uses JamJam.', '3'), needsEvidence('We have 40 users.', '3')]).toEqual([false, true, true]);
   });
 

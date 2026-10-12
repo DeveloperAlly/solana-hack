@@ -35,9 +35,11 @@ export function Create() {
   // Draft runs still going, by run id, with what to say about each (followRun.ts). Read back from the server on load,
   // so leaving and coming back resumes following them.
   const [drafting, setDrafting] = useState<Record<string, string>>({});
-  const following = useRef(new Set<string>());
-  const gone = useRef(false);
-  useEffect(() => () => { gone.current = true; }, []);
+  // Each run of the mount effect owns an AbortController, aborted by its cleanup: leaving the page, or StrictMode's
+  // set-up, clean-up, set-up cycle, stops that run's polling and its requests (PR #99 review). Follows started by a
+  // draft use the controller current at the time.
+  const ctrl = useRef<AbortController | null>(null);
+  const following = useRef(new Map<string, AbortSignal>());
 
   async function load(id = brandId, limit = shown) {
     if (!id) return;
@@ -47,38 +49,44 @@ export function Create() {
     setCapped(!!r.capped);
   }
   useEffect(() => {
-    api<{ brands: { id: string }[] }>('/me')
+    const c = new AbortController();
+    ctrl.current = c;
+    api<{ brands: { id: string }[] }>('/me', { signal: c.signal })
       .then(async (me) => {
+        if (c.signal.aborted) return;
         if (!me.brands.length) return setError('Build your brand first, then come back to create.');
         setBrandId(me.brands[0].id);
         await load(me.brands[0].id);
-        const going = await api<{ runs?: { id: string }[] }>(`/brands/${me.brands[0].id}/runs?kind=draft_post`);
-        for (const r of going.runs ?? []) void follow(r.id, me.brands[0].id);
+        const going = await api<{ runs?: { id: string }[] }>(`/brands/${me.brands[0].id}/runs?kind=draft_post`, { signal: c.signal });
+        for (const r of going.runs ?? []) void follow(r.id, me.brands[0].id, c.signal);
       })
-      .catch((e) => setError(msg(e)));
+      .catch((e) => { if (!c.signal.aborted) setError(msg(e)); });
+    return () => c.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** Follows one draft run to its end, then reloads the list (done) or shows its error (failed). */
-  async function follow(runId: string, id = brandId) {
-    if (following.current.has(runId)) return;
-    following.current.add(runId);
+  /** Follows one draft run to its end, then reloads the list (done) or shows its error (failed), until `signal` aborts. */
+  async function follow(runId: string, id = brandId, signal = ctrl.current?.signal) {
+    if (!signal || signal.aborted) return;
+    const already = following.current.get(runId);
+    if (already && !already.aborted) return;
+    following.current.set(runId, signal);
     const update = (run: RunView) => setDrafting((d) => ({ ...d, [runId]: runMessage(run) }));
     try {
       const end = await followRun(runId, {
-        get: async (rid) => (await api<{ run: RunView }>(`/runs/${rid}`)).run,
+        get: async (rid) => (await api<{ run: RunView }>(`/runs/${rid}`, { signal })).run,
         sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
         onUpdate: update,
-        cancelled: () => gone.current,
+        cancelled: () => signal.aborted,
       });
       if (!end) return;
       if (end.status !== 'done') setError(end.error ?? 'Drafting failed. Try again.');
       await load(id);
     } catch (err) {
-      if (!gone.current) setError(msg(err));
+      if (!signal.aborted) setError(msg(err));
     } finally {
-      following.current.delete(runId);
-      if (!gone.current) setDrafting(({ [runId]: _, ...rest }) => rest);
+      if (following.current.get(runId) === signal) following.current.delete(runId);
+      if (!signal.aborted) setDrafting(({ [runId]: _, ...rest }) => rest);
     }
   }
 

@@ -434,6 +434,56 @@
         }
       ],
       "expect": "supported"
+    },
+    {
+      "id": "u22",
+      "kind": "question_with_assertion",
+      "level": "4",
+      "body": "Did you know JamJam doubles revenue?",
+      "claims": [],
+      "expect": "unsupported",
+      "note": "Codex review on PR #99: a question's shape does not exempt its content"
+    },
+    {
+      "id": "u23",
+      "kind": "imperative_with_guarantee",
+      "level": "4",
+      "body": "Try JamJam, guaranteed to double revenue.",
+      "claims": [],
+      "expect": "unsupported",
+      "note": "Codex review on PR #99"
+    },
+    {
+      "id": "u24",
+      "kind": "opinion_with_assertion",
+      "level": "4",
+      "body": "We think JamJam doubles revenue.",
+      "claims": [],
+      "expect": "unsupported"
+    },
+    {
+      "id": "u25",
+      "kind": "question_with_number",
+      "level": "3",
+      "body": "Want to know how 40 founders use it?",
+      "claims": [],
+      "expect": "unsupported"
+    },
+    {
+      "id": "s15",
+      "kind": "question",
+      "level": "4",
+      "body": "Have you tried writing a post without a single adjective?",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s16",
+      "kind": "imperative",
+      "level": "4",
+      "body": "Start with your own website and see what it says.",
+      "claims": [],
+      "expect": "supported"
     }
   ]
 }

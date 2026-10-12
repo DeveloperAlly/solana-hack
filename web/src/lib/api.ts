@@ -7,12 +7,14 @@ export class ApiError extends Error {
 }
 
 /** Calls the Worker's /api with the signed-in user's access token. */
-export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+/** `signal` cancels the request (an AbortController owned by the screen that asked). */
+export async function api<T>(path: string, init: { method?: string; body?: unknown; signal?: AbortSignal } = {}): Promise<T> {
   const token = (await supabase?.auth.getSession())?.data.session?.access_token;
   const res = await fetch(`/api${path}`, {
     method: init.method ?? (init.body ? 'POST' : 'GET'),
     headers: { ...(init.body ? { 'content-type': 'application/json' } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}) },
     body: init.body ? JSON.stringify(init.body) : undefined,
+    ...(init.signal ? { signal: init.signal } : {}),
   });
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (!res.ok) throw new ApiError(res.status, data.error || `Request failed (${res.status})`);
