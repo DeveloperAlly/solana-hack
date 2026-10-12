@@ -868,6 +868,18 @@ describe('start checks: per-brand daily metered-call budget, run rate and anonym
       delete KINDS.count_things;
     }
   });
+  it('reserves the last anonymous source slot atomically across simultaneous starts', async () => {
+    db.tables.sources = Array.from({ length: 7 }, (_, i) => ({ id: `source-${i}`, brand_id: BRAND }));
+    setBudget({ anonymous: 1000 });
+    const anonymous = { id: 'u', isAnonymous: true };
+    const starts = await Promise.allSettled([1, 2].map(() => admit(envWith, { brand: db.tables.brands[0] as never, kind: 'extract_facts', actor: anonymous, awaited: true })));
+    expect(starts.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(starts.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    const failure = starts.find((result) => result.status === 'rejected') as PromiseRejectedResult;
+    expect(failure.reason).toMatchObject({ status: 429, message: 'save your brand to read more sources' });
+    expect(db.tables.runs.filter((run) => run.status === 'reserved')).toHaveLength(1);
+    expect(db.tables.sources).toHaveLength(7);
+  });
   it('makes exactly one provider request when the workflow owns retries', async () => {
     const provider = vi.fn(async () => new Response('{}', { status: 503 }));
     vi.stubGlobal('fetch', provider);

@@ -114,6 +114,16 @@ const brandRow = (owner: string, extra: Row = {}) => ({ id: uuid(), owner_id: ow
 const fact = (brand: string, section: string, extra: Row = {}) => ({ id: uuid(), brand_id: brand, section, claim: `${section} fact`, quote: 'Acme builds bridges', origin: 'source', trust: 'owned', review_status: 'approved', source_id: null, created_at: new Date().toISOString(), ...extra });
 
 describe('reading before sign-in (anonymous users, decision D1)', () => {
+  it('enforces the source cap through the generic run endpoint too', async () => {
+    const brand = brandRow('a-1');
+    tables.brands = [brand];
+    tables.sources = Array.from({ length: ANON_MAX_SOURCES }, () => ({ id: uuid(), brand_id: brand.id, url: 'https://acme.test' }));
+    const response = await call('anon', 'POST', `/api/brands/${brand.id}/runs`, { kind: 'extract_facts', url: 'https://acme.test' });
+    expect(response.status).toBe(409);
+    expect(tables.runs).toHaveLength(0);
+    expect(tables.sources).toHaveLength(ANON_MAX_SOURCES);
+  });
+
   it('lets an anonymous visitor create one brand and refuses a second', async () => {
     const first = await call('anon', 'POST', '/api/brands', { name: 'Acme', website: 'https://acme.test' });
     expect(first.status).toBe(201);

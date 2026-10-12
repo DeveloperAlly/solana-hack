@@ -123,7 +123,7 @@ const pt = (status: number, message: string) => new FakePgError(status, `PT${sta
 /** Same semantics as spec/db/011 admit_run (checked against Postgres 16): expired reservations dropped, then the
  * network cap, the run rate, the spend allowance and the metered-call budget, then the run row as a reservation.
  * Single-threaded here, as the advisory locks make it in Postgres. */
-function admitRun(a: { p_brand: string; p_kind: string; p_version: number; p_executor: string; p_progress: unknown; p_created_by: string | null; p_planned: number; p_budget: number; p_run_rate: number; p_spend_cap: number; p_client_key: string | null; p_client_cap: number; p_ttl_s: number }) {
+function admitRun(a: { p_brand: string; p_kind: string; p_version: number; p_executor: string; p_progress: unknown; p_created_by: string | null; p_planned: number; p_budget: number; p_run_rate: number; p_spend_cap: number; p_client_key: string | null; p_client_cap: number; p_ttl_s: number; p_source_cap?: number | null }) {
   const now = Date.now();
   const iso = new Date(now).toISOString();
   db.tables.runs = db.tables.runs.filter((r) => !(r.brand_id === a.p_brand && r.status === 'reserved' && String(r.reserved_until) <= iso));
@@ -132,6 +132,7 @@ function admitRun(a: { p_brand: string; p_kind: string; p_version: number; p_exe
   if (a.p_client_key !== null && db.tables.runs.filter((r) => r.client_key === a.p_client_key && String(r.created_at) >= hourAgo && live(r)).length >= a.p_client_cap) throw pt(429, 'too many reads from your network; wait a little and try again');
   const runs = db.tables.runs.filter((r) => r.brand_id === a.p_brand);
   if (runs.filter((r) => String(r.created_at) >= hourAgo).length >= a.p_run_rate) throw pt(429, `this brand has started ${a.p_run_rate} runs in the last hour; wait a little and try again`);
+  if (a.p_source_cap != null && db.tables.sources.filter((s) => s.brand_id === a.p_brand).length + runs.filter((r) => r.status === 'reserved' && live(r) && ['extract_facts','ingest_url'].includes(String(r.kind))).length >= a.p_source_cap) throw pt(429, 'save your brand to read more sources');
   if (a.p_planned > 0) {
     const today = new Date(Math.floor(now / 86_400_000) * 86_400_000).toISOString();
     const ids = new Set(runs.map((r) => r.id));

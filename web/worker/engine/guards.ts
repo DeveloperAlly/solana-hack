@@ -6,6 +6,7 @@
 // smaller caps. The values are computed here; spec/db/012 admit_run checks them and reserves in one transaction. Owner types are read from the caller (`isAnonymous`, set by auth for a
 // Supabase anonymous user in PR #96); without it every caller is a permanent account, so this does not depend on #96.
 import { db } from '../db';
+import { ANON_MAX_SOURCES, assertCanAddSource } from '../journey';
 import type { Env } from '../env';
 import type { BrandRef } from './kinds';
 import type { StepSpec, WorkflowSpec } from './types';
@@ -76,7 +77,7 @@ export async function admissionLimits(env: Env, caller: Caller, spec: WorkflowSp
     setting(env, 'daily_spend_usd', type, DEFAULT_DAILY_SPEND_USD, false),
     setting(env, 'network_run_rate', type, DEFAULT_NETWORK_RUN_RATE),
   ]);
-  return { planned: plannedMeteredCalls(spec), budget, runRate, spendCap, clientCap };
+  return { planned: plannedMeteredCalls(spec), budget, runRate, spendCap, clientCap, sourceCap: caller.isAnonymous && ['extract_facts', 'ingest_url'].includes(spec.id) ? ANON_MAX_SOURCES : null };
 }
 
 /**
@@ -84,7 +85,9 @@ export async function admissionLimits(env: Env, caller: Caller, spec: WorkflowSp
  * refuses stops the start. None by default: the network cap, run rate, spend and metered-call budget are not guards,
  * they are checked and reserved atomically by admit_run.
  */
-export const START_GUARDS: StartGuard[] = [];
+export const START_GUARDS: StartGuard[] = [async (env, caller, brand, spec) => {
+  if (caller.isAnonymous && ['extract_facts', 'ingest_url'].includes(spec.id)) await assertCanAddSource(env, caller, brand.id);
+}];
 export function registerStartGuard(g: StartGuard) {
   if (!START_GUARDS.includes(g)) START_GUARDS.push(g);
 }

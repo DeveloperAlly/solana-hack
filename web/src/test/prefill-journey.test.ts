@@ -117,6 +117,13 @@ const user = { id: 'u' };
 
 describe('the routes return #75\'s shapes when wired to the prefill module', () => {
   beforeEach(async () => { await read(SITE); });
+  it('includes the latest completed competitor suggestions in Journey gaps', async () => {
+    const runId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    db.tables.runs.push({ id: runId, brand_id: BRAND, kind: 'find_competitors', status: 'done', created_at: new Date().toISOString() });
+    db.tables.sources.push({ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', brand_id: BRAND, run_id: runId, kind: 'competitor_page', title: 'Coffee Market', url: 'https://coffee.example', status: 'read', created_at: new Date().toISOString() });
+    const response = await call('GET', `/brands/${BRAND}`);
+    expect(response.body.journey).toMatchObject({ gapsVoice: { alternatives: { options: ['Coffee Market'] } } });
+  });
   it('serves the existing Journey projections directly in brand state', async () => {
     const response = await call('GET', `/brands/${BRAND}`);
     const current = await state();
