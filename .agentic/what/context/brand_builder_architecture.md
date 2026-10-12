@@ -94,7 +94,7 @@ Backlog IDs are the [backlog](../../how/backlog/backlog.md) rows; a range such a
 | 6 | **Learn from what works** | N1 to N5 (B16 is Brand's consumer of the loop) | All spec; N5 is new in this section |
 | All | Shared engine and settings | X1 to X18, S1 to S3, S5, S6 | Built: X7, X9, X13, S1. Partial: X1, X6, X8. The rest is spec; X18 is new in this section |
 
-Every stage is accounted for in the spec. What gets built, and when, is decided by demand or market need (owner, 2026-10-13); the phase each row sits in, or the "By demand" list, is in [backlog §15](../../how/backlog/backlog.md#15-build-order).
+Every stage is accounted for in the spec and has its screens in the UI proof of concept, built now on fixture data. Which features are integrated with real services, and when, is decided by demand or market need (owner, 2026-10-13; three delivery layers in [ADR-013](../decisions/adr_013_six_stages_one_intelligence_system.md) decision 7); the phase each row sits in, or the "By demand" list, is in [backlog §15](../../how/backlog/backlog.md#15-build-order).
 
 ### 2a.2 The brand intelligence system (backlog X18)
 
@@ -182,7 +182,7 @@ interface DistributionAdapter {
 
 Rules: the registry, not the adapter, hashes the text returned by `readBack` and compares it with the approved hash, so the match is never self-reported; it must match 100% of the time (§6.1 Publishing row), and the manual adapter's read-back is the pasted link fetched by the registry; disclosure flags are pre-filled from the asset's generation record (backlog P5); tokens are encrypted at rest per brand (backlog X11, G-SECRETS); a platform's cost is shown before posting (backlog P2, G-X-COST); a failed publish alerts (P5a).
 
-**Every platform is accounted for in the spec; which are built is decided by demand.** The table carries only what the repo's research already says; anything else is marked UNVERIFIED and is checked against the platform's own docs before its row is built.
+**Every platform is in the spec and in the UI proof of concept now; which are integrated is decided by demand.** The table carries only what the repo's research already says. Anything else is marked UNVERIFIED and is checked against the platform's own docs when its integration is picked up; it never blocks the platform's screens.
 
 | Platform | Row | Access model and API (repo evidence) | Metrics read-back | AI disclosure | Source |
 |---|---|---|---|---|---|

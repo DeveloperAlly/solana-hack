@@ -19,7 +19,7 @@ tags: [backlog, product-map, component-inventory]
 - **spec:** designed in a doc or stub, no code.
 - **accepted 2026-10-12** (in the Tag column): new in this pass and accepted by the owner on 2026-10-12.
 
-**Tag** (the build tag from compendium §5): hackathon, hackathon (thin), coming soon, experimental, roadmap, and, from 2026-10-13, **by demand**: accounted for in the spec and built when demand or market need shows (owner, 2026-10-13; [ADR-013](../../what/decisions/adr_013_six_stages_one_intelligence_system.md), proposed).
+**Tag** (the build tag from compendium §5): hackathon, hackathon (thin), coming soon, experimental, roadmap, and, from 2026-10-13, **by demand**: screens built now in the UI proof of concept; real integration built when demand or market need shows (owner, 2026-10-13; [ADR-013](../../what/decisions/adr_013_six_stages_one_intelligence_system.md), proposed).
 
 **Stages** (owner, 2026-10-13; [architecture §2a](../../what/context/brand_builder_architecture.md#2a-system-architecture-six-stages-on-one-intelligence-system-proposed-2026-10-13)). The sections follow the six stages, and every stage reads from and writes to one brand intelligence system (X18):
 
@@ -369,7 +369,7 @@ Components: S6, A6, K2, M4 to M8, L12; V5 and the shared writer model when the h
 
 ### By demand
 
-Accounted for in the spec and built when demand or market need shows (owner, 2026-10-13; [ADR-013](../../what/decisions/adr_013_six_stages_one_intelligence_system.md), proposed). Each platform row starts by checking its UNVERIFIED access facts ([architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19)).
+Screens are in the UI proof of concept now; real integration is built when demand or market need shows (owner, 2026-10-13; [ADR-013](../../what/decisions/adr_013_six_stages_one_intelligence_system.md), proposed). Each platform's integration starts by checking its UNVERIFIED access facts ([architecture §2a.4](../../what/context/brand_builder_architecture.md#2a4-distribute-everywhere-backlog-p7-to-p19)).
 
 Components: P8 to P19, R11.
 
