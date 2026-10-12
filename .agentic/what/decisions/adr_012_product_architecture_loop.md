@@ -5,7 +5,6 @@ created: 2026-10-13
 updated: 2026-10-13
 last_edited_by: agent
 tags: [adr, product, information-architecture, navigation, ui]
-supersedes: navigation line of ADR-003 (product map) and UI mission requirement R11
 ---
 > **Status: proposed.** JamJam's UI is organised around one loop of six steps (Brand, Create, Distribute, Verify, Grow, Learn), opened by a Today queue of decisions, with one Brain that every step reads from and Learn writes back to.
 
@@ -78,7 +77,7 @@ supersedes: navigation line of ADR-003 (product map) and UI mission requirement 
    - ambassador: brand seats plus public campaigns;
    - public: the landing page, Verify (check a post, badge landing, tips), the Ledger, the events board (Events-Board, Event-Rating), and the referral and team-invite landings.
 8. **Events are part of Grow** (owner, 2026-10-13, [issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90): "events are massive in crypto"). An event comes from a Luma calendar or is added by hand; it has a role (hosting, speaking, sponsoring, attending) that picks a content plan (announce, countdown, live, recap, follow up) made of ordinary drafts; it can belong to a campaign, lists the ambassadors attending, and its results feed Learn. Luma's public API lists a calendar's events and guests and has webhooks, scoped by an API key per calendar ([Luma API changelog](https://docs.luma.com/reference/changelog)); whether it needs a paid plan is unverified. A public **events board** (roadmap) lets people who attended rate an event on five questions; ratings are registered so they can't be quietly edited or removed, and organisers can reply.
-9. **One story everywhere.** The landing page, the hub home, the canvas, the pitch deck and the README all name the six steps in the same order and with the same words.
+9. **One story everywhere.** The landing page, Today, the canvas, the pitch deck and the README all name the six steps in the same order and with the same words.
 
 ## Runtime behind the UI (answers the CPO audit, [PR #86 comment](https://github.com/DeveloperAlly/solana-hack/pull/86#issuecomment-6126845806))
 The data model is decided in [ADR-013](https://github.com/DeveloperAlly/solana-hack/pull/88) (brand memory, X18; learn loop, N5). This ADR fixes only what the UI depends on:
