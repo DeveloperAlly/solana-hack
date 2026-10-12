@@ -10,7 +10,7 @@ tags: [pitch, script, colosseum]
 
 # Pitch script: JamJam
 
-Total: 466 words, about 2:55 at 160 words a minute.
+Total: 472 words, about 2:57 at 160 words a minute.
 
 ## 1. Dot points per slide
 
@@ -53,7 +53,7 @@ Total: 466 words, about 2:55 at 160 words a minute.
 - Monetise your voice: agents pay per call to use your voice and brand; stablecoin plans
 
 **7. Solana integration** (1:40–1:46)
-- Today: official records on Solana; email sign-in; live verification
+- Today: Solana registry live on devnet; email sign-in; Verify page
 - Next: verified accounts; ambassador payouts in USDC; open record
 - Later: USDC tips; voice licensing; stablecoin plans
 
@@ -75,13 +75,13 @@ Total: 466 words, about 2:55 at 160 words a minute.
 - Flywheel: every check happens on a public JamJam Verify page
 - Refer a friend: you both get 2 months free
 
-**11. Roadmap** (2:33–2:40)
+**11. Roadmap** (2:33–2:42)
 - Now: your brand kit
 - Next: content you approve unedited
-- Then: publish everywhere; tips and fan rewards
+- Then: publish direct to X, LinkedIn, Bluesky, Threads (paste-back elsewhere); tips and fan rewards
 - Later: monetise your voice
 
-**12. Team and ask** (2:40–2:55)
+**12. Team and ask** (2:42–2:57)
 - Founded Lilypad; built the original Waterlily.ai
 - Developer communities at IBM and Filecoin Foundation
 - JamJam: your brand team, in one app
@@ -128,10 +128,10 @@ We checked fifty-nine products. The best do two of the four steps. JamJam is the
 
 Building your brand kit is free. Solo is thirty-nine dollars a month, Team is a hundred and ninety-nine, and we take three percent on tips and rewards. Every check of a post happens on a public JamJam page. Refer a friend, and you both get two months free.
 
-**11. Roadmap** · 2:33–2:40 · 19 words
+**11. Roadmap** · 2:33–2:42 · 25 words
 
-Next: content you approve unedited, publishing everywhere, tips and fan rewards, then getting paid when agents use your voice.
+Next: content you approve unedited, publishing direct to X, LinkedIn, Bluesky and Threads, tips and fan rewards, then getting paid when agents use your voice.
 
-**12. Team and ask** · 2:40–2:55 · 40 words
+**12. Team and ask** · 2:42–2:57 · 40 words
 
 I founded Lilypad, a decentralised AI compute network, and built the original Waterlily, AI art that paid its artists. I've built developer communities at IBM and the Filecoin Foundation. JamJam: your brand team, in one app. Every post provably yours.
