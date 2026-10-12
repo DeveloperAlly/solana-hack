@@ -102,7 +102,7 @@ describe('D82 JourneyClaimText', () => {
 describe('D86 JourneyChecklist', () => {
   it('counts done items and links open ones', async () => {
     const { container } = renderWithRouter(<JourneyChecklist title="Get set up" items={[{ id: 'a', label: 'Kit', hint: '', done: true }, { id: 'b', label: 'Add sources', hint: 'fewer questions', done: false, href: '/screens/J1-Read' }]} />);
-    expect(screen.getByRole('progressbar', { name: '1 of 2 done' })).toHaveAttribute('value', '50');
+    expect(screen.getByRole('progressbar', { name: '1 of 2 done' })).toHaveAttribute('aria-valuenow', '50');
     expect(screen.getByRole('link', { name: 'Start: Add sources' })).toHaveAttribute('href', '/screens/J1-Read');
     expect(screen.getByText('done')).toBeInTheDocument();
     await expectNoAxeViolations(container);

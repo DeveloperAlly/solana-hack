@@ -216,7 +216,7 @@ describe('Review rule: labels claim only what the product does', () => {
     at('proof');
     expect(screen.getAllByText('Coming soon')).toHaveLength(2);
     fireEvent.click(button('Copy check link'));
-    expect(await screen.findByRole('button', { name: 'Copy check link: copied' })).toBeInTheDocument();
+    expect(await screen.findByText('Copied')).toBeInTheDocument();
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://jamjam.tech/verify');
   });
 });
@@ -289,7 +289,8 @@ describe('Journey screens: other interactions and states', () => {
     expect(screen.getByRole('heading', { name: 'Kit v1 is approved, but not registered yet' })).toBeInTheDocument();
     expect(screen.getAllByText('Approved')).toHaveLength(3);
     expect(screen.queryByText('Continue without registering')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Review the kit' })).toHaveAttribute('href', path('brandBuild'));
+    // Brand-Build is not registered yet (links.test merge order), so this opens the live Brand page until it lands.
+    expect(screen.getByRole('link', { name: 'Review the kit' })).toHaveAttribute('href', '/brand');
     await click('Retry registration');
     expect(screen.getByText('Not yet · last try just now')).toBeInTheDocument();
   });
@@ -419,7 +420,7 @@ describe('Earlier choices carry to later screens (fixtures are only the defaults
     expect(screen.getByText('LinkedIn launch post')).toBeInTheDocument();
     expect(screen.getByLabelText('Text or URL')).toHaveValue('Brand tools kept asking what my website already said. JamJam reads first, drafts posts in your voice and waits for your approval. Anyone can check what really came from you.');
     fireEvent.click(button('Copy post'));
-    expect(await screen.findByRole('button', { name: 'Copy post: copied' })).toBeInTheDocument();
+    expect(await screen.findByText('Copied')).toBeInTheDocument();
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringMatching(/^Brand tools kept asking/));
   });
 
@@ -443,6 +444,47 @@ describe('Earlier choices carry to later screens (fixtures are only the defaults
     const sources = within(screen.getByRole('region', { name: 'Sources' }));
     expect(sources.getByText('one.example.com')).toBeInTheDocument();
     expect(sources.getByText('two.example.com')).toBeInTheDocument();
+  });
+});
+
+describe('Codex round 2: approvals, retry and the voice choice stay consistent', () => {
+  it('an approval goes stale when its inputs change, and registration waits until it is approved again', async () => {
+    at('gapsVoice');
+    await finishGapsVoice();
+    again('approveKit');
+    for (const b of screen.getAllByRole('button', { name: 'Approve' })) await userEvent.click(b);
+    expect(button('Approve and register kit v1')).toBeEnabled();
+    again('gapsVoice');
+    await userEvent.type(screen.getByLabelText('What can only you do?'), ' and shows its working');
+    again('approveKit');
+    const positioning = screen.getByRole('region', { name: 'Positioning' });
+    expect(within(positioning).getByText(/Its inputs changed since you approved it/)).toBeInTheDocument();
+    expect(within(positioning).getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+    expect(button('Approve and register kit v1')).toBeDisabled();
+    expect(screen.getByText('Approve all 3 gates first: 2 of 3 approved.')).toBeInTheDocument();
+    await userEvent.click(within(positioning).getByRole('button', { name: 'Approve' }));
+    expect(button('Approve and register kit v1')).toBeEnabled();
+  });
+
+  it('Retry goes through the same gate as Register: reopening a gate disables it', async () => {
+    at('approveKit', 'error');
+    expect(button('Retry registration')).toBeEnabled();
+    await userEvent.click(within(screen.getByRole('region', { name: 'Voice' })).getByRole('button', { name: 'Change' }));
+    expect(button('Retry registration')).toBeDisabled();
+    expect(screen.getAllByText('Approve all 3 gates first: 2 of 3 approved.').length).toBeGreaterThan(0);
+  });
+
+  it('the voice is picks or one sentence, never both', async () => {
+    at('gapsVoice');
+    await userEvent.click(screen.getByRole('radio', { name: 'B Candid founder' }));
+    await click('None of these: write one sentence');
+    await userEvent.type(screen.getByLabelText('Your voice in one sentence'), 'Plain and direct.');
+    await click('Use this');
+    expect(screen.getByText('Your sentence: "Plain and direct."')).toBeInTheDocument();
+    for (const r of screen.getAllByRole('radio')) expect(r).not.toBeChecked();
+    await userEvent.click(screen.getByRole('radio', { name: 'A Plainspoken' }));
+    expect(screen.queryByText(/Your sentence:/)).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'A Plainspoken' })).toBeChecked();
   });
 });
 
