@@ -123,9 +123,9 @@ Route `/build/purpose (Gate 1)` · depends on P0: AI MODEL · placeholder: wiref
 - "Approve purpose" moves on to Gate 2; press Back to show the alert "Approved": "Recorded {date, time}."
 - Cut: Gates 2 and 3 already approved
 
-**Who cares, and why:** Founders, because they keep the final say and can see nothing was invented. Judges, because a person approving each step is what makes the proof mean something.
+**Who cares, and why:** Founders, because they keep the final say and can see where each part came from. Judges, because a person approving each step is what makes the proof mean something.
 
-**Say:** Now it drafts our purpose, and shows me exactly where it got it from. Anything it had to guess is marked as a guess. I approve it, and that decision is recorded. Positioning and voice work the same way.
+**Say:** Now it drafts our purpose, and shows me exactly where it got it from. It is told to mark anything it had to guess. I approve it, and that decision is recorded. Positioning and voice work the same way.
 
 **Recording:** Needs OPENROUTER_API_KEY live (aiConfigured unconfirmed in STATE.md). Free model can return 'busy': retry, keep the best take. Approving moves straight to Gate 2: press Back once to film the Approved alert, then cut.
 
@@ -223,7 +223,7 @@ Route `end card (edited, not app copy)` · depends on NO DEPENDENCY · placehold
 
 **0:36** A few quick questions, and it already knows half the answers. I pick a voice, Candid founder, and set it to strict: no claim goes out without proof.
 
-**0:52** Now it drafts our purpose, and shows me exactly where it got it from. Anything it had to guess is marked as a guess. I approve it, and that decision is recorded. Positioning and voice work the same way.
+**0:52** Now it drafts our purpose, and shows me exactly where it got it from. It is told to mark anything it had to guess. I approve it, and that decision is recorded. Positioning and voice work the same way.
 
 **1:15** That's our brand, approved. One click puts it on Solana: a fingerprint anyone can check, while the words stay private. Here's the transaction.
 
