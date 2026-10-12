@@ -13,7 +13,7 @@ export interface DnsRecord {
   value: string;
 }
 
-export type DnsCheckStatus = 'waiting' | 'not-found';
+export type DnsCheckStatus = 'waiting' | 'not-found' | 'verified';
 
 /**
  * The words for a failed check, from the current domain, record and causes: the on-screen heading, and the subject and
@@ -39,7 +39,7 @@ export interface BuilderDnsRecordProps {
 
 /**
  * D37 DnsRecordCard: the TXT record to add (with Copy value), then the check status and its actions.
- * waiting (canvas board Onboard-2-Domain) or not found with causes (Onboard-2b-DomainFailed; note n-ob2b).
+ * waiting (canvas board Onboard-2-Domain), not found with causes (Onboard-2b-DomainFailed; note n-ob2b), or verified.
  */
 export function BuilderDnsRecord({ record, domain, status, causes = [], actions }: BuilderDnsRecordProps) {
   if (status === 'not-found') {
@@ -71,8 +71,8 @@ export function BuilderDnsRecord({ record, domain, status, causes = [], actions 
         />
       </Card>
       <Card variant="subtle" as="div">
-        <Badge>Status: waiting for record</Badge>
-        <Text tone="secondary">DNS changes can take a few minutes. We re-check while this page is open.</Text>
+        <Badge tone={status === 'verified' ? 'success' : 'neutral'}>{status === 'verified' ? 'Status: verified' : 'Status: waiting for record'}</Badge>
+        <Text tone="secondary">{status === 'verified' ? `${domain} is verified. Posts and claims can be checked against it.` : 'DNS changes can take a few minutes. We re-check while this page is open.'}</Text>
         <div className={styles.actions}>{actions}</div>
       </Card>
     </div>

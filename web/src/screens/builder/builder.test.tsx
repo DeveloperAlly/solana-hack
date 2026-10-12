@@ -133,8 +133,14 @@ describe('Brand Builder: screen interactions', () => {
     expect(screen.queryByText('Unverified')).not.toBeInTheDocument();
     await click('Back', 'link');
     await h1('Prove you own your domain');
+    // The verified status, the card and the Continue action agree.
+    expect(screen.getByText('Status: verified')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Continue' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Check now' })).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Domain'), 'x');
     expect(within(screen.getByRole('banner')).getByText('Unverified')).toBeInTheDocument();
+    expect(screen.getByText('Status: waiting for record')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue (when verified)' })).toBeDisabled();
   });
 
   it('domain: the developer email is built from the current domain, record and causes', async () => {
@@ -222,6 +228,15 @@ describe('Brand Builder: screen interactions', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Changes requested');
     await click('Save, decide later', 'link');
     await h1('Alternatives and your edge');
+  });
+
+  it('coverage: the open-gates alert and the disabled Approve kit v1 agree as gates are approved', async () => {
+    const gate = at(screenPath(boards.gatePurpose));
+    await click('Approve purpose');
+    gate.unmount();
+    at(screenPath(boards.coverage));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Still open: positioning, voice.');
+    expect(screen.getByRole('button', { name: 'Approve kit v1' })).toBeDisabled();
   });
 
   it('coverage: Approve kit v1 is disabled while gates are open, with links to them', async () => {

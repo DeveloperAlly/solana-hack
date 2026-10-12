@@ -124,6 +124,11 @@ export function resetBuilderFlow() {
   listeners.forEach((l) => l());
 }
 
+/** The gates that still block kit v1 (note n-g1.3: kit v1 needs all three approved). */
+export function openGates(gates: Record<GateId, GateDecision>): GateId[] {
+  return (Object.keys(gates) as GateId[]).filter((g) => gates[g].status !== 'approved');
+}
+
 export function useBuilderFlow(key: FlowKey) {
   const flow = useSyncExternalStore(subscribe, () => state);
   const to = useBoardHref();
@@ -148,7 +153,8 @@ export function useBuilderFlow(key: FlowKey) {
     signIn: (email: string) => set({ email }),
     enterLinks: (links: string) => set({ links }),
     chooseSources: (sources: string[]) => set({ sources }),
-    allGatesApproved: Object.values(flow.gates).every((g) => g.status === 'approved'),
+    /** Gates not yet approved. The Coverage-Map alert and the kit approval block both read this, never a second check. */
+    openGates: openGates(flow.gates),
     decide: (gate: GateId, decision: GateDecision) => set({ gates: { ...flow.gates, [gate]: decision } }),
     choosePositioning: (option: string) => set({ positioningOption: option }),
     pickVoice: (voice: VoicePick) => set({ voice }),

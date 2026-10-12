@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithRouter } from '../../test/render';
 import { expectNoAxeViolations } from '../../test/axe';
 import { example } from './BuilderApprovalItem.example';
+import { BuilderApprovalItem, approvalView, type ApprovalStatus } from './BuilderApprovalItem';
 
 describe('BuilderApprovalItem', () => {
   it('pays only after approval, once, with no axe violations', async () => {
@@ -35,5 +36,14 @@ describe('BuilderApprovalItem', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send rejection' }));
     expect(screen.getByRole('status')).toHaveTextContent('Rejected: Off-brand claim');
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+  });
+  it.each(Object.keys(approvalView) as ApprovalStatus[])('status %s: the status line and the enabled actions come from one table', (status) => {
+    const item = { id: 's', kind: 'Post', author: 'A', amount: '1 USDC', excerpt: 'x', checks: [], link: { label: 'Open', href: '/x' } };
+    renderWithRouter(<ul><BuilderApprovalItem item={item} defaultStatus={status} /></ul>);
+    const v = approvalView[status];
+    expect(screen.getByRole('status')).toHaveTextContent(v.label);
+    expect(screen.getByRole('button', { name: 'Approve' })).toHaveProperty('disabled', !v.approve);
+    expect(screen.getByRole('button', { name: 'Reject' })).toHaveProperty('disabled', !v.reject);
+    expect(screen.getByRole('button', { name: 'Pay (owner only)' })).toHaveProperty('disabled', !v.pay);
   });
 });

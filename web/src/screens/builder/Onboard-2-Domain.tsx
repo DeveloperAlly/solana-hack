@@ -18,7 +18,8 @@
  */
 import { Badge, Button, Field, Grid, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
-import { BuilderDnsRecord, dnsCheckCopy } from '../../ui/domain/BuilderDnsRecord';
+import type { ReactNode } from 'react';
+import { BuilderDnsRecord, dnsCheckCopy, type DnsCheckStatus } from '../../ui/domain/BuilderDnsRecord';
 import { BuilderStep } from './BuilderStep';
 import { BuilderStepFooter } from './BuilderStepFooter';
 import { useBuilderFlow } from './useBuilderFlow';
@@ -33,9 +34,14 @@ export function Onboard2Domain({ data }: { data: DomainData }) {
   const domain = brand.domain ?? data.domain;
   const copy = dnsCheckCopy(domain, data.record, data.causes);
   const mailto = `mailto:?subject=${encodeURIComponent(copy.subject)}&body=${encodeURIComponent(copy.body)}`;
-  const actions = waiting
-    ? <Button href={next ?? ''} onClick={() => enterBrand({ brandName: name, domain })}>Check now</Button>
-    : <><Button href={next ?? ''} onClick={() => enterBrand({ verified: true })}>Check again</Button><Button href={mailto} variant="secondary">Email these steps to my developer</Button></>;
+  // One status drives the record card, its actions and whether Continue is open: a verified domain in the flow wins.
+  const status: DnsCheckStatus = brand.verified ? 'verified' : data.check;
+  const actions: Record<DnsCheckStatus, ReactNode> = {
+    waiting: <Button href={next ?? ''} onClick={() => enterBrand({ brandName: name, domain })}>Check now</Button>,
+    'not-found': <><Button href={next ?? ''} onClick={() => enterBrand({ verified: true })}>Check again</Button><Button href={mailto} variant="secondary">Email these steps to my developer</Button></>,
+    verified: null,
+  };
+  const continueStep = { label: status === 'verified' ? 'Continue' : 'Continue (when verified)', href: skip, blockedReason: status === 'verified' ? null : 'Verify the domain first, or skip.' };
   return (
     <BuilderStep
       flow={flowKey}
@@ -44,7 +50,7 @@ export function Onboard2Domain({ data }: { data: DomainData }) {
       flag={waiting && <Badge>Optional for now</Badge>}
       intro={waiting && 'A verified domain lets people check that posts and claims really come from you. You can skip this and verify later.'}
       footer={
-        <BuilderStepFooter back={back} next={waiting ? { label: 'Continue (when verified)', blockedReason: 'Verify the domain first, or skip.' } : undefined}>
+        <BuilderStepFooter back={back} next={waiting ? continueStep : undefined}>
           <Button href={skip ?? ''} variant="secondary" onClick={() => enterBrand({ brandName: name, domain, verified: false })}>Skip, continue unverified</Button>
         </BuilderStepFooter>
       }
@@ -56,7 +62,7 @@ export function Onboard2Domain({ data }: { data: DomainData }) {
         </Grid>
       )}
       {/* INTEGRATION: POST /api/brands/:id/domain/check (backend map §4); the Registrar writes an identity attestation on success. */}
-      <BuilderDnsRecord record={data.record} domain={domain} status={data.check} causes={data.causes} actions={actions} />
+      <BuilderDnsRecord record={data.record} domain={domain} status={status} causes={data.causes} actions={actions[status]} />
       {waiting ? (
         <Card variant="subtle" as="div">
           <Text><strong>If you skip:</strong> your brand shows an <Badge>Unverified</Badge> flag. You can still build, approve and register your kit and posts. Until the domain is verified, Verify shows your brand name as self-declared, and ambassador payouts stay off.</Text>

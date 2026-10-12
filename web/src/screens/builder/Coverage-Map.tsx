@@ -23,14 +23,13 @@ import { BuilderStep } from './BuilderStep';
 import { BuilderStepFooter } from './BuilderStepFooter';
 import { gateBoards, useBoardHref } from './paths';
 import { useBuilderFlow } from './useBuilderFlow';
-import type { CoverageData, GateId } from './types';
+import type { CoverageData } from './types';
 
 export function CoverageMap({ data }: { data: CoverageData }) {
-  const { back, next, gates, allGatesApproved, brandFor } = useBuilderFlow('coverage');
+  const { back, next, openGates: pending, brandFor } = useBuilderFlow('coverage');
   const name = brandFor(data.brand).name;
   const fill = (s: string) => s.replace('{brand}', name);
   const to = useBoardHref();
-  const pending = (Object.keys(gates) as GateId[]).filter((g) => gates[g].status !== 'approved');
   return (
     <BuilderStep
       flow="coverage"
@@ -40,7 +39,7 @@ export function CoverageMap({ data }: { data: CoverageData }) {
       flag={<SampleFlag />}
       footer={
         // INTEGRATION: POST /api/brands/:id/kit/approve (backend map §4, row "Onboard-6-Published, Kit-RegisterFailed").
-        <BuilderStepFooter back={back} next={{ label: 'Approve kit v1', href: next, blockedReason: allGatesApproved ? null : 'Approve the three gates first.' }}>
+        <BuilderStepFooter back={back} next={{ label: 'Approve kit v1', href: next, blockedReason: pending.length ? 'Approve the three gates first.' : null }}>
           <Button href={to('brandBuild')} variant="secondary">Review sections first</Button>
         </BuilderStepFooter>
       }
