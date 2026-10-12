@@ -33,3 +33,13 @@ export class MeteredFailure extends HttpError {
     return new MeteredFailure(status, message, cost, trace);
   }
 }
+
+/**
+ * The brand's metered-call budget ran out mid-run (spec/db/011 consume_metered refused the next call). Not retried:
+ * the run ends failed with this message, which says when to start again.
+ */
+export class BudgetExhausted extends HttpError {
+  constructor(message: string) {
+    super(429, message);
+  }
+}
