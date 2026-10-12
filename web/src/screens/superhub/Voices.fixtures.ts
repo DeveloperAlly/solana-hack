@@ -9,7 +9,6 @@ const t = (id: string, name: string, description: string, values: number[], cont
 });
 
 export const voiceTemplates: VoiceTemplatesData = {
-  brand: 'aDNA',
   kitVersion: 'v[n]',
   voices: [
     { id: 'core', name: 'Core', detail: 'Candid/Founder · overrides (roadmap): X, LinkedIn', status: 'Approved at Gate 3' },

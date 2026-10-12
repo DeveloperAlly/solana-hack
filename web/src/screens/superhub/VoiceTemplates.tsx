@@ -6,7 +6,7 @@
  *
  * | Field               | Source                                                                                  |
  * |---------------------|-----------------------------------------------------------------------------------------|
- * | brand, kitVersion   | brands.name; kit_versions (current)                                                     |
+ * | kitVersion          | kit_versions (current); the title names the brand chosen in the switcher                |
  * | voices[]            | voices: name, template, overrides (roadmap), status (approved at Gate 3 or draft)       |
  * | templates[]         | templates: name, preset values (8 dials + claims gate), content-policy flag             |
  * | templates[].desc    | Read off each preset's 1 and 5 values, not written copy (n-vt 3)                        |
@@ -27,10 +27,12 @@ import { StateView } from './parts/StateView';
 import { TemplateGallery } from './parts/TemplateGallery';
 import { PresetMatrix } from './parts/PresetMatrix';
 import { useHubLinks } from './paths';
+import { useActiveBrand } from './hooks/useHubSession';
 import type { VoiceTemplatesData } from './types';
 
 export function VoiceTemplates({ data, state = 'success' }: { data: VoiceTemplatesData; state?: ScreenState }) {
   const links = useHubLinks();
+  const brand = useActiveBrand();
   const templates = (
     <StateView
       state={state}
@@ -48,7 +50,7 @@ export function VoiceTemplates({ data, state = 'success' }: { data: VoiceTemplat
         intro="A voice is a template plus per-channel overrides. Every template is a preset of the same 9 dimensions: 8 dials and claims strictness as a gate. Your kit can hold several voices."
         actions={<Button href={links.voiceEditor}>New voice</Button>}
       />
-      <Card labelledBy="voices-kit" header={<Heading level={2} size="lg" id="voices-kit">{data.brand} voices in kit {data.kitVersion}</Heading>}>
+      <Card labelledBy="voices-kit" header={<Heading level={2} size="lg" id="voices-kit">{brand.name} voices in kit {data.kitVersion}</Heading>}>
         <Stack as="ul" gap={0}>
           {data.voices.map((v) => (
             <HubItemRow key={v.id} as="li" aside={<Badge>{v.status}</Badge>} actions={<Button variant="secondary" href={links.voiceEditor}>Edit</Button>}>

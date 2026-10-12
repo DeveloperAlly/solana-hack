@@ -9,9 +9,9 @@ import type { EngageQueueData, EngageRulesData, InfluencerQueueData, InfluencerS
 export const engageQueue: EngageQueueData = {
   intro: 'We find conversations and draft replies in your Replies voice. You approve every one.',
   queue: [
-    { id: 'q1', channel: 'X · mention', author: '@[handle]', ago: '14 min ago', incoming: 'Does aDNA work with [agent tool] or is it another thing I have to wire up myself?', note: 'Drafted reply · Replies voice · Slop check ✓', draft: 'Works out of the box. Drop an aDNA file in your repo root and [agent tool] reads it at the start of each session. Setup: adna.network/[docs]' },
-    { id: 'q2', channel: 'LinkedIn · comment on your post', author: '[Name], [role]', ago: '1 h ago', incoming: 'How is this different from just keeping a README for the agent?', note: 'Drafted reply · Core voice · Slop check ✓ · 1 fix', draft: 'Fair question. A README is written for people and drifts. aDNA is structured for agents, versioned with the code, and the same file works across tools.' },
-    { id: 'q3', channel: 'Discord · #help', author: '[member]', ago: '3 h ago', incoming: 'Is there a template for monorepos?', note: 'No confident answer found in your sources. Draft held for you to write.' },
+    { id: 'q1', rule: 'r1', channel: 'X · mention', author: '@[handle]', ago: '14 min ago', incoming: 'Does aDNA work with [agent tool] or is it another thing I have to wire up myself?', note: 'Drafted reply · Replies voice · Slop check ✓', draft: 'Works out of the box. Drop an aDNA file in your repo root and [agent tool] reads it at the start of each session. Setup: adna.network/[docs]' },
+    { id: 'q2', rule: 'r1', channel: 'LinkedIn · comment on your post', author: '[Name], [role]', ago: '1 h ago', incoming: 'How is this different from just keeping a README for the agent?', note: 'Drafted reply · Core voice · Slop check ✓ · 1 fix', draft: 'Fair question. A README is written for people and drifts. aDNA is structured for agents, versioned with the code, and the same file works across tools.' },
+    { id: 'q3', rule: 'r2', channel: 'Discord · #help', author: '[member]', ago: '3 h ago', incoming: 'Is there a template for monorepos?', note: 'No confident answer found in your sources. Draft held for you to write.' },
   ],
   suggestions: [
     { id: 's1', who: '@[account]', what: 'posted about agents losing context mid-task · 2 h ago · 40 replies' },

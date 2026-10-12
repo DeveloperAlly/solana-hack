@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router';
 import type { HubSideNavSection } from '../../../ui/domain/HubSideNav';
 import { useHubLinks } from '../paths';
 import type { InboxData, InboxMessage } from '../types';
-import { useOutcomes } from './useOutcomes';
+import { useHubSession } from './useHubSession';
 
 export type InboxOutcome = 'sent' | 'snoozed' | 'done';
 
@@ -21,26 +22,32 @@ function matches(m: InboxMessage, filter: string, query: string, unreadOnly: boo
 
 /**
  * Inbox-All state (n-inb1): rail filter (folder, source or label), search, unread-only filter, the open thread,
- * checked rows, labels and assignee per thread, the reply draft per thread with validation, and what happened to each.
+ * checked rows, labels and assignee per thread, the reply draft per thread with validation, and what happened to each
+ * (kept in the hub session, so Needs reply shows the same).
  */
 export function useInbox(data: InboxData) {
   const links = useHubLinks();
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [unreadOnly, setUnreadOnly] = useState(false);
-  const [openId, setOpenId] = useState(data.messages[0]?.id);
+  // A thread opened from elsewhere (Needs reply → Review draft reply) arrives in router state.
+  const opened = (useLocation().state as { open?: string } | null)?.open;
+  const [openId, setOpenId] = useState(opened ?? data.messages[0]?.id);
   const [checked, setChecked] = useState<string[]>([]);
   const [replies, setReplies] = useState<Record<string, string>>({});
   const [labels, setLabels] = useState<Record<string, string[]>>(() => Object.fromEntries(data.messages.map((m) => [m.id, m.labels])));
   const [assignee, setAssignee] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
-  const { outcomeOf, set, clear } = useOutcomes<InboxOutcome>();
+  const [session, update] = useHubSession();
+  const outcomeOf = (id: string): InboxOutcome | undefined => session.inbox[id];
+  const set = (id: string, o: InboxOutcome) => update((s) => ({ ...s, inbox: { ...s.inbox, [id]: o } }));
+  const clear = (id: string) => update((s) => ({ ...s, inbox: Object.fromEntries(Object.entries(s.inbox).filter(([k]) => k !== id)) }));
   const [last, setLast] = useState<{ id: string; outcome: InboxOutcome } | null>(null);
   const act = (id: string, outcome: InboxOutcome) => { set(id, outcome); setLast({ id, outcome }); };
 
   const visible = useMemo(
-    () => data.messages.filter((m) => matches({ ...m, labels: labels[m.id] ?? [] }, filter, query, unreadOnly, outcomeOf(m.id))),
-    [data.messages, filter, query, unreadOnly, labels, outcomeOf],
+    () => data.messages.filter((m) => matches({ ...m, labels: labels[m.id] ?? [] }, filter, query, unreadOnly, session.inbox[m.id])),
+    [data.messages, filter, query, unreadOnly, labels, session.inbox],
   );
   const open = visible.find((m) => m.id === openId) ?? visible[0];
   const countOf = (outcome: InboxOutcome) => data.messages.filter((m) => outcomeOf(m.id) === outcome).length;

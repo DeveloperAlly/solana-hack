@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { PartnersData } from '../types';
+import { uniqueId } from '../../../lib/id';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -22,7 +23,7 @@ export function usePartnerInvite(data: PartnersData) {
     if (!ready) return;
     // INTEGRATION: invite becomes a membership with the partner role; email needs SMTP (backend map Roadmap "Partners").
     const label = data.voiceOptions.find((v) => v.value === voices)?.label ?? '';
-    setPartners((p) => [...p, { id: `p${p.length + 1}`, name: to, voices: label, pieces: '0', status: 'Invited' }]);
+    setPartners((p) => [...p, { id: uniqueId('partner'), name: to, voices: label, pieces: '0', status: 'Invited' }]);
     setSent(to);
     setError(null);
     setEmail('');

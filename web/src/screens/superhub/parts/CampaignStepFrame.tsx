@@ -6,18 +6,17 @@ import { HubPage } from './HubPage';
 
 export interface CampaignStepFrameProps {
   flow: CampaignFlow;
-  steps: string[];
   title: string;
   intro?: ReactNode;
   children: ReactNode;
 }
 
 /** One Campaign v2 step: hub frame, L6 WizardLayout with the six-step stepper, and Back / Next from the flow hook (Next waits for a complete step and says what is missing). */
-export function CampaignStepFrame({ flow, steps, title, intro, children }: CampaignStepFrameProps) {
+export function CampaignStepFrame({ flow, title, intro, children }: CampaignStepFrameProps) {
   return (
     <HubPage section="create" sub="campaigns" width="wizard">
       <WizardLayout
-        steps={steps.map((label) => ({ label }))}
+        steps={flow.steps}
         current={flow.current}
         hrefFor={flow.hrefFor}
         title={title}

@@ -24,15 +24,21 @@ import { HubPage } from './parts/HubPage';
 import { PageHeader } from './parts/PageHeader';
 import { NeedsReplyCard } from './parts/NeedsReplyCard';
 import { StatusNote } from './parts/StatusNote';
-import { useOutcomes } from './hooks/useOutcomes';
+import { useHubSession } from './hooks/useHubSession';
 import { useHubLinks } from './paths';
 import type { NeedsReplyData } from './types';
 
+const outcomeLabel = { sent: 'replied', snoozed: 'snoozed', done: 'no reply needed' } as const;
+
 export function InboxNeedsReply({ data }: { data: NeedsReplyData }) {
   const links = useHubLinks();
-  const { outcomeOf, set, clear } = useOutcomes<'snoozed' | 'dismissed'>();
+  // Outcomes live in the hub session by thread, so Inbox-All and this list always agree.
+  const [session, update] = useHubSession();
+  const outcomeOf = (i: { threadId: string }) => session.inbox[i.threadId];
+  const set = (threadId: string, o: 'snoozed' | 'done') => update((s) => ({ ...s, inbox: { ...s.inbox, [threadId]: o } }));
+  const clear = (threadId: string) => update((s) => ({ ...s, inbox: Object.fromEntries(Object.entries(s.inbox).filter(([k]) => k !== threadId)) }));
   const [drafted, setDrafted] = useState(false);
-  const open = data.items.filter((i) => !outcomeOf(i.id));
+  const open = data.items.filter((i) => !outcomeOf(i));
   const groups = [...new Set(data.items.map((i) => i.group))];
   const rail = (
     <Stack gap={4}>
@@ -60,12 +66,12 @@ export function InboxNeedsReply({ data }: { data: NeedsReplyData }) {
           return (
             <Stack key={g} as="section" gap={3} aria-label={`${g} (${items.length})`}>
               <Text variant="label">{g} ({items.length})</Text>
-              {items.map((i) => <NeedsReplyCard key={i.id} item={i} onAct={(o) => set(i.id, o)} />)}
+              {items.map((i) => <NeedsReplyCard key={i.id} item={i} onAct={(o) => set(i.threadId, o === 'dismissed' ? 'done' : o)} />)}
             </Stack>
           );
         })}
-        {data.items.filter((i) => outcomeOf(i.id)).map((i) => (
-          <StatusNote key={i.id} onUndo={() => clear(i.id)}>{`${i.from}: ${outcomeOf(i.id) === 'snoozed' ? 'snoozed' : 'no reply needed'}.`}</StatusNote>
+        {data.items.filter((i) => outcomeOf(i)).map((i) => (
+          <StatusNote key={i.id} onUndo={() => clear(i.threadId)}>{`${i.from}: ${outcomeLabel[outcomeOf(i) ?? 'done']}.`}</StatusNote>
         ))}
         <Text variant="small" tone="secondary">{data.footnote}</Text>
       </HubColumns>

@@ -1,15 +1,17 @@
 import { useState } from 'react';
+import { downloadCsv, toCsv } from '../../../lib/csv';
 import type { Lead, LeadsData } from '../types';
 
-/** Leads as CSV text (the export runs in the browser; nothing is uploaded). */
+const statusLabel: Record<Lead['status'], string> = { new: 'New', queued: 'Draft in queue' };
+
+/** The rows on screen, as CSV (formula-safe, lib/csv): what you see is what you export, statuses included. */
 export function leadsCsv(rows: Lead[]): string {
-  const cell = (v: string) => `"${v.replace(/"/g, '""')}"`;
-  return ['Lead,Fit,Why,Status', ...rows.map((l) => [l.name, l.fit, l.why, l.status].map(cell).join(','))].join('\n');
+  return toCsv(['Lead', 'Fit', 'Why', 'Status'], rows.map((l) => [l.name, l.fit, l.why, statusLabel[l.status]]));
 }
 
 /**
  * Leads state (n-le): the who-we're-looking-for form (validated; pre-filled from the brand pack), the result list,
- * Draft outreach per lead (it joins the approval queue), and the CSV export.
+ * Draft outreach per lead (it joins the approval queue), and the CSV export of the rows as they stand.
  */
 export function useLeads(data: LeadsData) {
   const [query, setQuery] = useState(data.query);
@@ -24,18 +26,10 @@ export function useLeads(data: LeadsData) {
     setSearched(query.who.trim());
   }
 
-  function exportCsv() {
-    // INTEGRATION: GET …/leads.csv returns every lead; locally the visible rows are exported in the browser.
-    const url = URL.createObjectURL(new Blob([leadsCsv(rows)], { type: 'text/csv' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'leads.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   return {
     query, setField: (k: keyof LeadsData['query'], v: string) => setQuery((q) => ({ ...q, [k]: v })), error, searched, find,
-    rows, draftOutreach: (id: string) => setRows((r) => r.map((l) => (l.id === id ? { ...l, status: 'queued' } : l))), exportCsv,
+    rows, statusLabel, draftOutreach: (id: string) => setRows((r) => r.map((l) => (l.id === id ? { ...l, status: 'queued' } : l))),
+    // INTEGRATION: GET …/leads.csv returns every lead; locally the rows on screen are exported in the browser.
+    exportCsv: () => downloadCsv('leads.csv', leadsCsv(rows)),
   };
 }

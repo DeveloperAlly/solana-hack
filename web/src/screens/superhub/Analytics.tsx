@@ -17,7 +17,7 @@
  * disconnected (n-ane). Analytics-Empty is the same screen in its empty, loading and error states.
  */
 import { useState } from 'react';
-import { Grid, SelectField } from '../../ui/primitives';
+import { Grid, Link, SelectField, Text } from '../../ui/primitives';
 import { StatTile } from '../../ui/composites/StatTile';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { HubPage } from './parts/HubPage';
@@ -25,9 +25,11 @@ import { PageHeader } from './parts/PageHeader';
 import { StateView } from './parts/StateView';
 import { AnalyticsConnect } from './parts/AnalyticsConnect';
 import { AnalyticsBreakdowns } from './parts/AnalyticsBreakdowns';
+import { useHubLinks } from './paths';
 import type { AnalyticsData } from './types';
 
 export function Analytics({ data, state = 'success' }: { data: AnalyticsData; state?: ScreenState }) {
+  const links = useHubLinks();
   const [range, setRange] = useState(data.ranges[0]?.value ?? '');
   const rangeLabel = data.ranges.find((r) => r.value === range)?.label ?? '';
   const numbers = data.byRange[range];
@@ -48,6 +50,7 @@ export function Analytics({ data, state = 'success' }: { data: AnalyticsData; st
             <>
               <Grid min="sm" gap={4}>{numbers.kpis.map((k) => <StatTile key={k.label} label={k.label} value={k.value} sub={k.sub} sample />)}</Grid>
               <AnalyticsBreakdowns numbers={numbers} suggestions={data.suggestions} note={data.suggestionsNote} />
+              <Text variant="small"><Link href={links.analyticsEmpty}>Connected accounts</Link></Text>
             </>
           ),
           empty: connect,

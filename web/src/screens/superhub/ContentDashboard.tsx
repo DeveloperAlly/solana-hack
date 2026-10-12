@@ -48,7 +48,7 @@ export function ContentDashboard({ data, state = 'success' }: { data: ContentDas
       items={data.tabs.map((t, i) => ({
         id: t.id,
         label: t.label,
-        count: t.count,
+        count: view.countFor(t),
         panel: <ContentTabPanel tab={t} drafts={view.draftsFor(t.status)} starts={empty && i === 0 ? data.starts : undefined} channelLabel={view.channel === 'all' ? '' : ` for ${view.channel}`} />,
       }))}
     />

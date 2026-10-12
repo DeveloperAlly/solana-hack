@@ -2,12 +2,14 @@
 // canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, boards Draft-Review, Draft-Review-Beautified and
 // Draft-Review-PolishError, notes n-dr, n-drb, n-dre (text as drawn; brackets kept; scores are [placeholders],
 // self-graded today, posts.ts L81 per n-dr 3). Backend map row "Draft-Review" (.agentic/what/context/backend_map.md §4).
-// slopPhrases is a short sample of the kind of phrase the no-AI-slop pass removes, so the live check can be tried here.
+// slopPhrases and avoidTerms are short samples of what the no-AI-slop pass and the kit's vocabulary block, so the live
+// checks can be tried here; the real lists come from the slop rules and the kit (Brand-Build section 11).
 import type { DraftReviewData } from './types';
 
 const draft = '[Draft post in the core voice, about 220 characters, written from the brief and the approved messaging]';
 
 export const draftReview: DraftReviewData = {
+  draftId: 'd1',
   title: 'X post · Core voice',
   context: 'aDNA · first post after kit v[n] · drafted from your brief',
   charLimit: 280,
@@ -33,7 +35,7 @@ export const draftReview: DraftReviewData = {
     { label: 'Voice fit · Core voice', result: '[score] / 100 · self-graded today' },
     { label: 'Platform score · X', result: '[score] / 100 · self-graded today' },
   ],
-  vocabulary: 'Pass',
+  avoidTerms: ['seamless', 'revolutionize'],
   scoresNote: 'Scores are sample data until the scorers are calibrated.',
   publishOptions: [
     { value: 'now', label: 'Post to @[aDNA X handle] now' },

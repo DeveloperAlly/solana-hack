@@ -1,5 +1,6 @@
 import { useId, type ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
+import { HubSideNavItemBody } from './HubSideNavItemBody';
 import styles from './HubSideNav.module.css';
 
 export interface HubSideNavItem {
@@ -26,16 +27,6 @@ export interface HubSideNavProps {
   onSelect?: (id: string) => void;
 }
 
-function ItemBody({ item }: { item: HubSideNavItem }) {
-  return (
-    <>
-      <span className={styles.label}>{item.label}</span>
-      {item.count !== undefined && <span className={styles.count}>{item.count}</span>}
-      {item.badge}
-    </>
-  );
-}
-
 /**
  * L7 side rail (canvas Inbox-All, Inbox-NeedsReply; L8 table of contents on Brand-Build): titled groups of links or
  * filter buttons with counts or badges. Links go through the router; buttons filter in place.
@@ -55,9 +46,9 @@ export function HubSideNav({ label, sections, current, onSelect }: HubSideNavPro
               return (
                 <li key={item.id}>
                   {item.href ? (
-                    <RouterLink to={item.href} className={cls} aria-current={active ? 'page' : undefined}><ItemBody item={item} /></RouterLink>
+                    <RouterLink to={item.href} className={cls} aria-current={active ? 'page' : undefined}><HubSideNavItemBody label={item.label} count={item.count} badge={item.badge} /></RouterLink>
                   ) : (
-                    <button type="button" className={cls} aria-pressed={active} onClick={() => onSelect?.(item.id)}><ItemBody item={item} /></button>
+                    <button type="button" className={cls} aria-pressed={active} onClick={() => onSelect?.(item.id)}><HubSideNavItemBody label={item.label} count={item.count} badge={item.badge} /></button>
                   )}
                 </li>
               );

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useHubSession } from './useHubSession';
+import { uniqueId } from '../../../lib/id';
 import type { EngageRule, EngageRulesData } from '../types';
 
 const blankRule = { when: '', where: '', then: 'Draft a reply for approval' };
@@ -8,7 +10,10 @@ const blankRule = { when: '', where: '', then: 'Draft a reply for approval' };
  * (an edit needs your approval again before it sends), and which suggested lists you opened for review.
  */
 export function useEngageRules(data: EngageRulesData) {
-  const [rules, setRules] = useState<EngageRule[]>(data.rules);
+  const [added, setAdded] = useState<EngageRule[]>([]);
+  const [session, update] = useHubSession();
+  // On / off lives in the hub session, so the reply queue drops the items of a rule that is off.
+  const rules = [...data.rules, ...added].map((r) => ({ ...r, on: !session.rulesOff.includes(r.id) }));
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(blankRule);
   const [formError, setFormError] = useState<string | null>(null);
@@ -22,7 +27,7 @@ export function useEngageRules(data: EngageRulesData) {
   function addRule() {
     if (!form.when.trim() || !form.where.trim()) return setFormError('Say when the rule fires and where it looks.');
     // INTEGRATION: POST the rule (rules table; backend map Roadmap line "Engage-Rules"); replies still queue for a person.
-    setRules((r) => [...r, { id: `r${r.length + 1}`, ...form, on: true }]);
+    setAdded((a) => [...a, { id: uniqueId('rule'), ...form, on: true }]);
     setForm(blankRule);
     setFormError(null);
     setAdding(false);
@@ -38,8 +43,10 @@ export function useEngageRules(data: EngageRulesData) {
   }
 
   return {
-    rules, toggleRule: (id: string) => setRules((r) => r.map((x) => (x.id === id ? { ...x, on: !x.on } : x))),
-    adding, startAdding: () => setAdding(true), cancelAdding: () => { setAdding(false); setFormError(null); },
+    rules,
+    toggleRule: (id: string) => update((s) => ({ ...s, rulesOff: s.rulesOff.includes(id) ? s.rulesOff.filter((x) => x !== id) : [...s.rulesOff, id] })),
+    // Cancel resets the whole add-rule form: open state, fields and error together.
+    adding, startAdding: () => setAdding(true), cancelAdding: () => { setAdding(false); setForm(blankRule); setFormError(null); },
     form, setField: (k: keyof typeof blankRule, v: string) => setForm((f) => ({ ...f, [k]: v })), formError, addRule,
     wording, approved, approve: () => setApproved(true),
     editingWording, wordingDraft, setWordingDraft, wordingError, saveWording,

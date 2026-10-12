@@ -28,7 +28,7 @@ export function PolishBar({ review, failureReason }: PolishBarProps) {
       )}
       <Stack direction="row" gap={2} align="center" wrap role="group" aria-label="Polish actions">
         {actions.map((a) => (
-          <Button key={a} variant={pressed === a ? 'primary' : 'secondary'} aria-pressed={pressed === a} onClick={() => review.polish(a)}>{polishLabels[a]}</Button>
+          <Button key={a} variant={pressed === a ? 'primary' : 'secondary'} aria-pressed={pressed === a} disabled={review.locked} onClick={() => review.polish(a)}>{polishLabels[a]}</Button>
         ))}
         <CheckboxRow label="Accessible mode (Beautify uses no Unicode styling)" checked={review.accessible} onChange={() => review.setAccessible(!review.accessible)} />
       </Stack>

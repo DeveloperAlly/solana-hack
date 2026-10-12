@@ -42,6 +42,9 @@ export const artboards = {
   ambassadors: 'Dashboard',
   verifyMatch: 'Verify-1-Match',
   campaignAudience: 'Campaign-v2-3-Audience',
+  campaignPlan: 'Campaign-v2-4-Plan',
+  campaignBudget: 'Campaign-v2-5-Budget',
+  campaignLaunch: 'Campaign-v2-6-Launch',
 } as const;
 
 /** A link key: an artboard above, or the calendar anchor on the content dashboard. */

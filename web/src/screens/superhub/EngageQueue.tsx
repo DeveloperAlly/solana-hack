@@ -26,6 +26,7 @@ import { WorthEngaging } from './parts/WorthEngaging';
 import { useReviewQueue } from './hooks/useReviewQueue';
 import { useHubLinks } from './paths';
 import { useOutcomes } from './hooks/useOutcomes';
+import { useHubSession } from './hooks/useHubSession';
 import type { EngageQueueData } from './types';
 
 export function EngageQueue({ data }: { data: EngageQueueData }) {
@@ -34,8 +35,12 @@ export function EngageQueue({ data }: { data: EngageQueueData }) {
   const [tab, setTab] = useState('queue');
   const drafted = useOutcomes<'drafted'>();
   const worth = { suggestions: data.suggestions, note: data.suggestionsNote, isDrafted: (id: string) => !!drafted.outcomeOf(id), onDraft: (id: string) => drafted.set(id, 'drafted') };
-  const sent = data.queue.filter((q) => queue.outcomeOf(q.id) === 'sent');
-  const waiting = data.queue.filter((q) => queue.outcomeOf(q.id) !== 'sent');
+  const [session] = useHubSession();
+  // Items routed by a rule that was switched off on Engage-Rules leave the queue.
+  const routed = data.queue.filter((q) => !session.rulesOff.includes(q.rule));
+  const hidden = data.queue.length - routed.length;
+  const sent = routed.filter((q) => queue.outcomeOf(q.id) === 'sent');
+  const waiting = routed.filter((q) => queue.outcomeOf(q.id) !== 'sent');
   const list = (items: typeof data.queue, empty: string) =>
     items.length ? <Stack gap={4}>{items.map((q) => <ReplyCard key={q.id} item={q} queue={queue} />)}</Stack> : <EmptyState level={3} title={empty} />;
   return (
@@ -56,7 +61,7 @@ export function EngageQueue({ data }: { data: EngageQueueData }) {
           value={tab}
           onChange={setTab}
           items={[
-            { id: 'queue', label: 'Reply queue', count: waiting.length, panel: list(waiting, 'Nothing to reply to') },
+            { id: 'queue', label: 'Reply queue', count: waiting.length, panel: <>{hidden > 0 && <Text variant="small" tone="secondary">{hidden} hidden by rules that are off.</Text>}{list(waiting, 'Nothing to reply to')}</> },
             { id: 'worth', label: 'Worth engaging', count: data.suggestions.length, panel: <WorthEngaging {...worth} level={3} /> },
             { id: 'lists', label: 'Suggested lists', count: data.listsCount, panel: <Button variant="secondary" href={links.engageRules}>Review suggested lists</Button> },
             { id: 'sent', label: 'Sent', count: sent.length, panel: list(sent, 'Nothing sent yet') },

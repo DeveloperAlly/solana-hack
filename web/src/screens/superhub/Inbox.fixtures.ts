@@ -58,11 +58,11 @@ export const needsReply: NeedsReplyData = {
     { label: 'Everyone else', value: '48 h' },
   ],
   items: [
-    { id: 'r1', group: 'Overdue', due: 'Overdue 5 h', overdue: true, source: 'LinkedIn', from: '[Name], [role]', label: 'Leads', quote: 'Saw the aDNA launch. Could we talk about [company] adopting it?', why: 'Why flagged: direct question from a likely lead, unanswered 9 h (target 4 h)', canSnooze: true, canDismiss: true },
-    { id: 'r2', group: 'Overdue', due: 'Overdue 1 h', overdue: true, source: 'X DM', from: '@[journalist]', label: 'Press', quote: 'Writing a piece on agent memory. Got 10 minutes this week?', why: 'Why flagged: meeting request with a deadline ("this week")', canSnooze: true, canDismiss: true },
-    { id: 'r3', group: 'Due today', due: 'Due 13:41', overdue: false, source: 'Telegram', from: '[Name] · [partner]', label: 'Partners', quote: 'Still up for the co-marketing post next week? We need a date by Thursday', why: 'Why flagged: partner asked for a date; deadline Thursday', canSnooze: true, canDismiss: false },
-    { id: 'r4', group: 'Due today', due: 'Due 12:55', overdue: false, source: 'WhatsApp', from: '[Customer]', quote: 'Hi, is there an enterprise version?', why: 'Why flagged: buying question', canSnooze: true, canDismiss: false },
-    { id: 'r5', group: 'Due today', due: 'Due tomorrow', overdue: false, source: 'Discord', from: 'Mai T.', label: 'Ambassadors', quote: 'When does the LinkedIn payout land?', why: 'Why flagged: payout question · answer found: paid 17:05 yesterday, receipt attached to draft', canSnooze: false, canDismiss: false },
+    { id: 'r1', threadId: 't2', group: 'Overdue', due: 'Overdue 5 h', overdue: true, source: 'LinkedIn', from: '[Name], [role]', label: 'Leads', quote: 'Saw the aDNA launch. Could we talk about [company] adopting it?', why: 'Why flagged: direct question from a likely lead, unanswered 9 h (target 4 h)', canSnooze: true, canDismiss: true },
+    { id: 'r2', threadId: 't5', group: 'Overdue', due: 'Overdue 1 h', overdue: true, source: 'X DM', from: '@[journalist]', label: 'Press', quote: 'Writing a piece on agent memory. Got 10 minutes this week?', why: 'Why flagged: meeting request with a deadline ("this week")', canSnooze: true, canDismiss: true },
+    { id: 'r3', threadId: 't1', group: 'Due today', due: 'Due 13:41', overdue: false, source: 'Telegram', from: '[Name] · [partner]', label: 'Partners', quote: 'Still up for the co-marketing post next week? We need a date by Thursday', why: 'Why flagged: partner asked for a date; deadline Thursday', canSnooze: true, canDismiss: false },
+    { id: 'r4', threadId: 't3', group: 'Due today', due: 'Due 12:55', overdue: false, source: 'WhatsApp', from: '[Customer]', quote: 'Hi, is there an enterprise version?', why: 'Why flagged: buying question', canSnooze: true, canDismiss: false },
+    { id: 'r5', threadId: 't4', group: 'Due today', due: 'Due tomorrow', overdue: false, source: 'Discord', from: 'Mai T.', label: 'Ambassadors', quote: 'When does the LinkedIn payout land?', why: 'Why flagged: payout question · answer found: paid 17:05 yesterday, receipt attached to draft', canSnooze: false, canDismiss: false },
   ],
   footnote: '"No reply needed" teaches the flagger. Group chatter and reactions are never flagged.',
 };

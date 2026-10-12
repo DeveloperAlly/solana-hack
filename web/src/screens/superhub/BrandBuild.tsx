@@ -6,7 +6,8 @@
  *
  * | Field                | Source                                                                               |
  * |----------------------|--------------------------------------------------------------------------------------|
- * | brand, intro         | brands.name; intro is product copy                                                   |
+ * | (title)              | The brand chosen in the switcher (hub session); intro is product copy                |
+ * | intro                | Product copy                                                                         |
  * | kit.version/approved | kit_versions (version, approved_at, approver); hash = registrations content hash     |
  * | sections[].status    | kit_sections.state: Evidenced / Inferred / Missing (D51; same badge as Coverage-Map) |
  * | sections[].body      | kit_sections content; Inferred carries "Drafted, confirm" (n-bb 2)                   |
@@ -29,12 +30,14 @@ import { KitHeader } from './parts/KitHeader';
 import { KitSectionCard } from './parts/KitSectionCard';
 import { StateView } from './parts/StateView';
 import { useKitSections } from './hooks/useKitSections';
+import { useActiveBrand } from './hooks/useHubSession';
 import { useHubLinks } from './paths';
 import type { BrandBuildData } from './types';
 
 export function BrandBuild({ data, state = 'success' }: { data: BrandBuildData; state?: ScreenState }) {
   const links = useHubLinks();
   const kit = useKitSections(data.sections);
+  const brand = useActiveBrand();
   const toc = kit.sections.map((s) => ({ id: s.id, label: `${s.num} ${s.title}`, href: `#${s.id}`, badge: <HubCoverageBadge status={s.status} /> }));
   const body = (
     <Stack gap={5}>
@@ -52,7 +55,7 @@ export function BrandBuild({ data, state = 'success' }: { data: BrandBuildData; 
   );
   return (
     <HubPage section="brand" sub="kit">
-      <PageHeader title={`${data.brand} brand kit`} tag="HACKATHON (THIN)" intro={data.intro} />
+      <PageHeader title={`${brand.name} brand kit`} tag="HACKATHON (THIN)" intro={data.intro} />
       <StateView
         state={state}
         views={{

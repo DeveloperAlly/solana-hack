@@ -12,6 +12,7 @@
  * | versions[]        | drafts polish history (v1 first draft, v2 slop fixes, then each polish action)              |
  * | slopFixes         | drafts slop fixes from the no-AI-slop pass                                                  |
  * | slopPhrases       | The no-AI-slop rules, run again on edits (sample list here)                                 |
+ * | avoidTerms        | kit vocabulary: terms to avoid (Brand-Build section 11; sample list here)                   |
  * | approvedNumbers   | claims (approved) that the claims gate allows                                               |
  * | polishResults     | `POST …/polish` output per action                                                           |
  * | scores            | Voice fit and platform scores: [placeholders], self-graded in the same call today (n-dr 3)  |

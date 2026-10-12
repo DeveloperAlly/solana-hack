@@ -20,7 +20,7 @@ export function ChecksAndPublish({ review, data }: ChecksAndPublishProps) {
   return (
     <Stack as="aside" gap={4} aria-label="Checks and publish">
       <Card as="section" labelledBy="draft-checks" header={<Heading level={2} size="lg" id="draft-checks">Checks</Heading>}>
-        <KeyValueList label="Checks" items={review.checks.map((c) => ({ label: c.label, value: <Badge tone={c.ok ? 'neutral' : 'warning'}>{c.result}</Badge> }))} />
+        <KeyValueList label="Checks" items={review.checks.map((c) => ({ label: c.label, value: <Badge tone={c.blocking ? 'warning' : 'neutral'}>{c.value}</Badge> }))} />
         <Text variant="small" tone="secondary">{data.scoresNote}</Text>
       </Card>
       <Card as="section" labelledBy="draft-publish" header={<Heading level={2} size="lg" id="draft-publish">Publish</Heading>}>

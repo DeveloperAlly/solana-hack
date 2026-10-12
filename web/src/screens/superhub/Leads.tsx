@@ -55,7 +55,7 @@ export function Leads({ data }: { data: LeadsData }) {
             { key: 'name', header: 'Lead', rowHeader: true },
             { key: 'fit', header: 'Fit', sort: (a, b) => a.fit.localeCompare(b.fit) },
             { key: 'why', header: 'Why' },
-            { key: 'status', header: 'Status', cell: (l) => <Badge>{l.status === 'new' ? 'New' : 'Draft in queue'}</Badge> },
+            { key: 'status', header: 'Status', cell: (l) => <Badge>{leads.statusLabel[l.status]}</Badge> },
           ]}
           actions={(l) => (l.status === 'new'
             ? <Button variant="secondary" onClick={() => leads.draftOutreach(l.id)}>Draft outreach</Button>

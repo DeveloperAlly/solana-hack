@@ -3,19 +3,36 @@ import { useLocation, useNavigate } from 'react-router';
 import { useHubLinks, type HubLink } from '../paths';
 import type { CampaignData } from '../types';
 
-export type CampaignStep = 'goal' | 'measure';
-
 /**
- * Step order of the Campaign v2 wizard in this build: Goal (artboard v2-1) → Measure (v2-2) → Audience (v2-3, page #51,
- * per the coordinator's routing for issue #52). `current` is the stepper position each artboard draws.
+ * The Campaign v2 wizard, in the one order the canvas stepper draws (boards Campaign-v2-1-Goal and -2-Measure):
+ * Goal and platforms → Audience → Success → Content plan → People and budget → Review. The stepper, Next and Back are
+ * all derived from this array, so they cannot disagree. Audience, Content plan, People and budget, and Review are
+ * built on page #51 (artboards Campaign-v2-3 to v2-6).
  */
-const flow: Record<CampaignStep, { current: number; back: HubLink; next: HubLink; nextLabel: string; backLabel: string }> = {
-  goal: { current: 0, back: 'content', backLabel: 'Cancel', next: 'campaignMeasure', nextLabel: 'Next: success metrics' },
-  measure: { current: 2, back: 'campaignGoal', backLabel: 'Back', next: 'campaignAudience', nextLabel: 'Next: audience' },
-};
+export const campaignSteps = [
+  { id: 'goal', label: 'Goal and platforms', link: 'campaignGoal', next: 'Next: audience' },
+  { id: 'audience', label: 'Audience', link: 'campaignAudience', next: 'Next: success metrics' },
+  { id: 'measure', label: 'Success', link: 'campaignMeasure', next: 'Next: content plan' },
+  { id: 'plan', label: 'Content plan', link: 'campaignPlan', next: 'Next: people and budget' },
+  { id: 'budget', label: 'People and budget', link: 'campaignBudget', next: 'Next: review' },
+  { id: 'launch', label: 'Review', link: 'campaignLaunch', next: 'Launch' },
+] as const satisfies readonly { id: string; label: string; link: HubLink; next: string }[];
 
-/** Completed steps link back: step 1 to Goal, step 2 to Audience. */
-const stepLink: Record<number, HubLink> = { 0: 'campaignGoal', 1: 'campaignAudience' };
+export type CampaignStep = (typeof campaignSteps)[number]['id'];
+
+/** Position, Next and Back for one step, from the ordered steps. Cancel on the first step returns to Content. */
+export function stepNav(step: CampaignStep) {
+  const current = campaignSteps.findIndex((s) => s.id === step);
+  const prev = campaignSteps[current - 1];
+  const next = campaignSteps[current + 1];
+  return {
+    current,
+    back: (prev?.link ?? 'content') as HubLink,
+    backLabel: prev ? 'Back' : 'Cancel',
+    next: (next?.link ?? 'content') as HubLink,
+    nextLabel: campaignSteps[current].next,
+  };
+}
 
 /** Most supporting metrics allowed (n-c2 1). */
 export const MAX_SUPPORTING = 3;
@@ -31,6 +48,7 @@ export interface CampaignHandoff {
  * is complete; it then moves on and hands the campaign name to the next step.
  */
 export function useCampaignFlow(step: CampaignStep, data: CampaignData) {
+  const nav = stepNav(step);
   const navigate = useNavigate();
   const links = useHubLinks();
   const handoff = useLocation().state as CampaignHandoff | null;
@@ -60,7 +78,7 @@ export function useCampaignFlow(step: CampaignStep, data: CampaignData) {
   function next() {
     if (missing.length) return;
     // INTEGRATION: POST …/campaigns (step 1) or PATCH /api/campaigns/:id (step 3), backend map row "Campaign-v2-1, Campaign-v2-2".
-    navigate(links[flow[step].next], { state: { campaignName: name.trim() || handoff?.campaignName } satisfies Partial<CampaignHandoff> });
+    navigate(links[nav.next], { state: { campaignName: name.trim() || handoff?.campaignName } satisfies Partial<CampaignHandoff> });
   }
 
   function toggleSupporting(id: string) {
@@ -71,7 +89,8 @@ export function useCampaignFlow(step: CampaignStep, data: CampaignData) {
   }
 
   return {
-    ...flow[step], back: links[flow[step].back], hrefFor: (i: number) => (stepLink[i] ? links[stepLink[i]] : undefined), missing, next, campaignName: handoff?.campaignName,
+    ...nav, back: links[nav.back], steps: campaignSteps.map((s) => ({ label: s.label })),
+    hrefFor: (i: number) => (i < nav.current ? links[campaignSteps[i].link] : undefined), missing, next, campaignName: handoff?.campaignName,
     name, setName, dates, setDates, purpose, setPurpose, customPurpose, setCustomPurpose,
     platforms, togglePlatform: (id: string) => setPlatforms((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])),
     poster, setPoster,

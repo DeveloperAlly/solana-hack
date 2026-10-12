@@ -40,16 +40,16 @@ describe('Hub navigation, home, content and analytics', () => {
 
   it('Content: the channel filter and tabs change the list; Review opens the draft', async () => {
     renderScreen('Content-Dashboard');
-    expect(screen.getAllByRole('link', { name: /^Review / })).toHaveLength(6);
+    expect(screen.getAllByRole('button', { name: /^Review / })).toHaveLength(6);
     await userEvent.click(screen.getByRole('button', { name: 'X' }));
-    expect(screen.getAllByRole('link', { name: /^Review / })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^Review / })).toHaveLength(2);
     await userEvent.click(screen.getByRole('button', { name: 'TikTok' }));
     expect(screen.getByText('Nothing in needs approval for TikTok')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: 'Replies (4)' }));
     expect(screen.getByRole('link', { name: 'Open the reply queue' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: /Needs approval/ }));
     await userEvent.click(screen.getByRole('button', { name: 'All' }));
-    await userEvent.click(screen.getAllByRole('link', { name: /^Review / })[0]);
+    await userEvent.click(screen.getAllByRole('button', { name: /^Review / })[0]);
     expect(screen.getByRole('heading', { level: 1, name: 'X post · Core voice' })).toBeInTheDocument();
   });
 
@@ -81,5 +81,15 @@ describe('Hub navigation, home, content and analytics', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Reconnect' }));
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('Analytics links', () => {
+  it('Analytics links to its connect view (Analytics-Empty), and back', async () => {
+    renderScreen('Analytics');
+    await userEvent.click(screen.getByRole('link', { name: 'Connected accounts' }));
+    expect(screen.getByRole('heading', { name: 'Connect your accounts to see performance' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('link', { name: "See what's working" }));
+    expect(screen.getByText('64')).toBeInTheDocument();
   });
 });

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useHubLinks } from '../paths';
 import type { InfluencerSetupData } from '../types';
+import { useHubSession } from './useHubSession';
 
 /**
  * Influencer-Setup state (n-is): persona fields with validation; brand and voice are chosen by the person, never
@@ -11,6 +12,7 @@ import type { InfluencerSetupData } from '../types';
 export function usePersonaSetup(data: InfluencerSetupData) {
   const navigate = useNavigate();
   const links = useHubLinks();
+  const [, update] = useHubSession();
   const [name, setName] = useState(data.name);
   const [brand, setBrand] = useState('');
   const [voice, setVoice] = useState('');
@@ -35,6 +37,11 @@ export function usePersonaSetup(data: InfluencerSetupData) {
     files, pickFiles: (list: FileList | null) => setFiles(list?.length ?? 0),
     // INTEGRATION: POST …/personas (backend map row "Influencer-Setup, Influencer-Queue"); avatar files go to Storage.
     save: () => { if (validate()) setSaved(true); },
-    create: () => { if (ready && validate()) navigate(links.influencerQueue); },
+    // The created persona names the approval queue (hub session).
+    create: () => {
+      if (!ready || !validate()) return;
+      update((s) => ({ ...s, persona: { name: name.trim(), line: persona, voice: voiceName ?? '' } }));
+      navigate(links.influencerQueue);
+    },
   };
 }

@@ -6,7 +6,6 @@
  *
  * | Field             | Source                                                                                    |
  * |-------------------|-------------------------------------------------------------------------------------------|
- * | steps             | The six wizard steps as drawn                                                             |
  * | purposes          | Campaign purposes (n-c1 1: purpose sets the default success metric on the next step)      |
  * | platforms         | Channel registry (M2); image and video formats produce scripts and briefs (n-c1 2)        |
  * | posterOptions     | Who posts; choosing ambassadors adds the payout step (n-c1 3)                             |
@@ -25,7 +24,7 @@ import type { CampaignData } from './types';
 export function CampaignGoal({ data }: { data: CampaignData }) {
   const flow = useCampaignFlow('goal', data);
   return (
-    <CampaignStepFrame flow={flow} steps={data.steps} title="What's this campaign for?">
+    <CampaignStepFrame flow={flow} title="What's this campaign for?">
       <Stack gap={5}>
         <PurposeOptions options={data.purposes} value={flow.purpose} onChange={flow.setPurpose} />
         {flow.purpose === 'custom' && <Field label="Describe it" value={flow.customPurpose} onChange={(e) => flow.setCustomPurpose(e.target.value)} />}

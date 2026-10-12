@@ -98,7 +98,7 @@ describe('Grow (n-eq, n-er, n-pa, n-le, n-is, n-iq)', () => {
     await userEvent.clear(name);
     await userEvent.type(name, 'Sample persona');
     await userEvent.click(create);
-    expect(screen.getByRole('heading', { level: 1, name: '[Influencer name]: this week' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Sample persona: this week' })).toBeInTheDocument();
   });
 
   it('Influencer-Queue: a post with no watermark is blocked until it is re-stamped, then can be approved', async () => {

@@ -6,7 +6,6 @@
 import type { CampaignData } from './types';
 
 export const campaign: CampaignData = {
-  steps: ['Goal and platforms', 'Audience', 'Success', 'Content plan', 'People and budget', 'Review'],
   purposes: [
     { id: 'launch', label: 'Launch', description: 'A release, feature or standard' },
     { id: 'awareness', label: 'Awareness', description: 'Get known by a new audience' },

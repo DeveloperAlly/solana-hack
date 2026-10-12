@@ -4,7 +4,7 @@
 import type { HubHomeData } from './types';
 
 export const hubHome: HubHomeData = {
-  greeting: 'Tuesday, aDNA',
+  weekday: 'Tuesday',
   status: 'adna.network verified ✓ · 4 voices · Plan: [plan name] · 3 seats',
   reviewCount: 12,
   kpis: [

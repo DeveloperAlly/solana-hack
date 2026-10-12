@@ -40,7 +40,7 @@ describe('Draft-Review flow (n-dr, n-drb, n-dre)', () => {
     await userEvent.type(post, 'Agents get 10x faster.');
     expect(within(checks()).getByText('Passed after 2 fixes')).toBeInTheDocument();
     expect(within(checks()).getByText(/Blocked · unapproved: 10x/)).toBeInTheDocument();
-    expect(within(publish()).getByText(/A number is not an approved claim/)).toBeInTheDocument();
+    expect(within(publish()).getByText(/a number is not an approved claim/)).toBeInTheDocument();
     await userEvent.clear(post);
     await userEvent.type(post, 'Agents read the file at the start of each session.');
     expect(within(checks()).getByText('Pass · 0 unapproved claims')).toBeInTheDocument();

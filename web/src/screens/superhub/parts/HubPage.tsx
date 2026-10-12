@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { AppShell } from '../../../ui/shells/AppShell';
 import { TabNav } from '../../../ui/composites/TabNav';
@@ -7,6 +7,7 @@ import { demoBrands } from '../../../ui/domain/demoBrands';
 import { Container, Stack } from '../../../ui/primitives';
 import { useHubLinks } from '../paths';
 import { hubSubnav, hubTopNav, sectionLink, type HubSection } from './hubNav';
+import { useActiveBrand } from '../hooks/useHubSession';
 
 export interface HubPageProps {
   section: HubSection;
@@ -18,21 +19,21 @@ export interface HubPageProps {
 }
 
 /**
- * The Superhub frame for every screen on this page: L1 AppShell with the canvas top nav, the brand switcher (D48),
+ * The Superhub frame for every screen on this page: L1 AppShell with the canvas top nav, the brand switcher (D48; the choice is kept for every later screen),
  * the section's sub-tabs, and the content container. Sign out goes back to the landing artboard (no auth here).
  */
 export function HubPage({ section, sub, width = 'app', children }: HubPageProps) {
   const links = useHubLinks();
   const navigate = useNavigate();
-  const [brand, setBrand] = useState('adna');
+  const brand = useActiveBrand();
   const subnav = hubSubnav[section];
   return (
     <AppShell
       nav={hubTopNav.map((n) => ({ path: links[n.link], label: n.label, tag: n.tag }))}
       homeHref={links.home}
       activePath={links[sectionLink[section]]}
-      brandName={demoBrands.find((b) => b.id === brand)?.name}
-      brandSlot={<BrandSwitcher brands={demoBrands} currentId={brand} onSelect={setBrand} />}
+      brandName={brand.name}
+      brandSlot={<BrandSwitcher brands={demoBrands} currentId={brand.id} onSelect={brand.select} />}
       subnav={subnav && <TabNav label={subnav.label} items={subnav.items.map((i) => ({ ...i, href: links[i.link] }))} value={sub ?? ''} />}
       onSignOut={() => navigate(links.main)}
     >

@@ -4,7 +4,7 @@
  *
  * | Field        | Source (backend map §4, row "Content-Dashboard (and its empty state), Hub-Home" unless noted)            |
  * |--------------|----------------------------------------------------------------------------------------------------------|
- * | greeting     | Client: weekday + active brand name (brands)                                                             |
+ * | weekday      | Client: today's weekday; the title adds the brand chosen in the switcher (hub session)                   |
  * | status       | brands (domain verified), voices count, memberships (seats); plan from `GET …/plan` (row Settings › Plan) |
  * | reviewCount  | Sum of the queues below                                                                                  |
  * | kpis         | `GET …/drafts?status=` counts; replies `GET …/replies` (Grow, Engage-Queue); ambassador posts            |
@@ -25,14 +25,16 @@ import { HubColumns } from '../../ui/domain/HubColumns';
 import { HubPage } from './parts/HubPage';
 import { PageHeader } from './parts/PageHeader';
 import { HomeAside } from './parts/HomeAside';
+import { useActiveBrand } from './hooks/useHubSession';
 import { useHubLinks } from './paths';
 import type { HubHomeData } from './types';
 
 export function HubHome({ data }: { data: HubHomeData }) {
   const links = useHubLinks();
+  const brand = useActiveBrand();
   return (
     <HubPage section="home">
-      <PageHeader title={data.greeting} intro={data.status} actions={<Button href={links.content}>Review {data.reviewCount} items</Button>} />
+      <PageHeader title={`${data.weekday}, ${brand.name}`} intro={data.status} actions={<Button href={links.content}>Review {data.reviewCount} items</Button>} />
       <Grid min="sm" gap={4}>
         {data.kpis.map((k) => <StatTile key={k.label} {...k} href={k.href && links[k.href]} />)}
       </Grid>

@@ -1,4 +1,5 @@
-import { Button, Heading, Stack, Text } from '../../../ui/primitives';
+import { Button, Heading, Link, Stack, Text } from '../../../ui/primitives';
+import { useHubLinks } from '../paths';
 import { Card } from '../../../ui/composites/Card';
 import { StatePanel } from '../../../ui/composites/StatePanel';
 import type { ScreenState } from '../../../ui/composites/DemoStateSwitcher';
@@ -18,6 +19,7 @@ export interface AnalyticsConnectProps {
  * (loading); a disconnected source says which dates are missing, with Reconnect (error).
  */
 export function AnalyticsConnect({ connect, state }: AnalyticsConnectProps) {
+  const links = useHubLinks();
   const { rows, banner, connect: link, reconnectFailed } = useConnections(connect.sources, state === 'error' ? connect.error : undefined, 'collecting');
   return (
     <Stack gap={4}>
@@ -34,6 +36,7 @@ export function AnalyticsConnect({ connect, state }: AnalyticsConnectProps) {
       {state === 'loading' && <StatePanel kind="loading" title="Collecting your first numbers" body="New connections show numbers after about 24 hours." />}
       {/* INTEGRATION: reconnect re-runs the provider OAuth (row "Settings › Connections"); the metrics cron backfills. */}
       <ConnectionBanner message={banner} onReconnect={reconnectFailed} />
+      <Text variant="small"><Link href={links.analytics}>See what's working</Link></Text>
     </Stack>
   );
 }

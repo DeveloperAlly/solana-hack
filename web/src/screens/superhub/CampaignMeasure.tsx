@@ -12,7 +12,8 @@
  * | plan[]          | `POST …/plan` draft content plan, day × brand / ambassadors (generated next, n-c2 3)        |
  * | budget          | Preview of step 5: spending cap, slots (campaigns; payouts in USDC)                         |
  *
- * States drawn: success only. Next goes to Campaign-v2-3-Audience (page #51).
+ * States drawn: success only. Steps run in canvas order (useCampaignFlow campaignSteps): Back goes to Audience and Next to
+ * the content plan (Campaign-v2-3 and -v2-4, page #51).
  */
 import { Badge } from '../../ui/primitives/Badge';
 import { Heading, Stack, Text } from '../../ui/primitives';
@@ -26,7 +27,7 @@ import type { CampaignData } from './types';
 export function CampaignMeasure({ data }: { data: CampaignData }) {
   const flow = useCampaignFlow('measure', data);
   return (
-    <CampaignStepFrame flow={flow} steps={data.steps} title="How will you know it worked?" intro={`${flow.campaignName ? `${flow.campaignName}: ` : ''}Pick one main goal and up to three supporting numbers. Each shows where the number comes from.`}>
+    <CampaignStepFrame flow={flow} title="How will you know it worked?" intro={`${flow.campaignName ? `${flow.campaignName}: ` : ''}Pick one main goal and up to three supporting numbers. Each shows where the number comes from.`}>
       <Stack gap={5}>
         <Card as="div">
           <MetricPicker metrics={data.metrics} flow={flow} />

@@ -32,7 +32,7 @@ export interface NeedsItem {
 }
 
 export interface HubHomeData {
-  greeting: string;
+  weekday: string;
   status: string;
   reviewCount: number;
   kpis: Kpi[];
@@ -68,6 +68,8 @@ export interface InboxData {
 
 export interface NeedsReplyItem {
   id: string;
+  /** The Inbox-All thread this item is about. */
+  threadId: string;
   group: string;
   due: string;
   overdue: boolean;
@@ -115,7 +117,6 @@ export interface KitSection {
 }
 
 export interface BrandBuildData {
-  brand: string;
   intro: string;
   kit: { version: string; approved: string; approver: string; hash: string };
   sections: KitSection[];
@@ -139,7 +140,6 @@ export interface VoiceTemplate {
 }
 
 export interface VoiceTemplatesData {
-  brand: string;
   kitVersion: string;
   voices: VoiceSummary[];
   selectedTemplate: string;
@@ -218,6 +218,8 @@ export interface DraftCheck {
 }
 
 export interface DraftReviewData {
+  /** The content-dashboard draft shown when none is passed in router state. */
+  draftId: string;
   title: string;
   context: string;
   charLimit: number;
@@ -229,7 +231,8 @@ export interface DraftReviewData {
   beautifyNotes: string[];
   /** Voice fit and platform scores (self-graded placeholders today). */
   scores: DraftCheck[];
-  vocabulary: string;
+  /** Terms the kit's vocabulary section says to avoid (vocabulary check). */
+  avoidTerms: string[];
   scoresNote: string;
   publishOptions: FieldOption[];
   approvalNote: string;
@@ -249,7 +252,6 @@ export interface CampaignMetric {
 }
 
 export interface CampaignData {
-  steps: string[];
   purposes: { id: string; label: string; description: string }[];
   platforms: { id: string; label: string; detail?: string }[];
   posterOptions: FieldOption[];
@@ -266,6 +268,8 @@ export interface CampaignData {
 // Grow ----------------------------------------------------------------------------------------------------------
 export interface ReplyItem {
   id: string;
+  /** The engagement rule that routed this item into the queue (Engage-Rules). */
+  rule: string;
   channel: string;
   author: string;
   ago: string;

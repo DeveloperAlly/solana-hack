@@ -7,7 +7,6 @@ import type { BrandBuildData, KitSection } from './types';
 const missing = (id: string, num: number, title: string): KitSection => ({ id, num, title, status: 'missing' });
 
 export const brandBuild: BrandBuildData = {
-  brand: 'aDNA',
   intro: '17 sections. Today JamJam drafts 6 (origin, purpose, positioning, audience, voice, messaging); the other 11 are coming soon. Every fact shows where it came from. Drafted content waits for your confirmation.',
   kit: { version: 'v[n]', approved: '[date]', approver: '[approver]', hash: '[sha256 of kit v[n]]' },
   sections: [

@@ -69,8 +69,10 @@ describe('Inbox (n-inb1–n-inb3)', () => {
     expect(screen.getByText('[Name], [role]: no reply needed.')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Draft all (4)' }));
     expect(screen.getByText(/Nothing sends without you/)).toBeInTheDocument();
-    await userEvent.click(screen.getAllByRole('link', { name: 'Review draft reply' })[0]);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Review draft reply' })[0]);
     expect(screen.getByRole('heading', { level: 1, name: 'Inbox' })).toBeInTheDocument();
+    // The thread for that item is the one opened.
+    expect(screen.getByRole('heading', { level: 2, name: '@[journalist]' })).toBeInTheDocument();
   });
 
   it('Connect: Reconnect fixes the broken source and clears the error; Settings disconnects', async () => {

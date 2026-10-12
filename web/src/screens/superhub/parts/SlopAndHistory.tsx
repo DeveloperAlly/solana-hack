@@ -27,7 +27,7 @@ export function SlopAndHistory({ review, data }: SlopAndHistoryProps) {
       <Card as="section" labelledBy="draft-history" header={<Heading level={2} size="lg" id="draft-history">History</Heading>}>
         <Stack as="ul" gap={0}>
           {[...review.versions].reverse().map((v) => (
-            <HubItemRow key={v.id} as="li" actions={v.id === original?.id ? <Text variant="small" tone="secondary">Original</Text> : <Button variant="secondary" aria-label={`Undo ${v.label}`} onClick={() => review.undo(v.id)}>Undo</Button>}>
+            <HubItemRow key={v.id} as="li" actions={v.id === original?.id ? <Text variant="small" tone="secondary">Original</Text> : <Button variant="secondary" aria-label={`Undo ${v.label}`} disabled={review.locked} onClick={() => review.undo(v.id)}>Undo</Button>}>
               <Text variant="small">{v.label}</Text>
             </HubItemRow>
           ))}
