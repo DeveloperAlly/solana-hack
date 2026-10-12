@@ -445,7 +445,7 @@ Where JamJam wins, provided #34 ships: coverage plus confirm-mode with the quote
 
 ## 11. Addendum: delivery plan, component evaluation and evaluation harness (2026-10-12, 18:30 Melbourne)
 
-> **Status: proposed.** This turns the review above into a delivery plan: the hackathon build, the full product in phases, every component evaluated for the best output, and the harness that measures it. It draws on five research passes run on 2026-10-12 (voice, evaluation, ingestion, verify and payouts, platform), all from primary sources. Nothing here is decided until the owner approves it; the live, editable copy is the [delivery plan doc](https://claude.ai/code/artifact/caff9791-c59c-4dc5-825f-bfaf2bf006db).
+> **Status: proposed.** This turns the review above into a delivery plan: the hackathon build, the full product in phases, every component evaluated for the best output, the harness that measures it, and how providers, routers, settings and reusable modules fit. It draws on five research passes run on 2026-10-12 (voice, evaluation, ingestion, verify and payouts, platform), all from primary sources. Nothing here is decided until the owner approves it; the live, editable copy is the [delivery plan doc](https://claude.ai/code/artifact/caff9791-c59c-4dc5-825f-bfaf2bf006db).
 
 Draft for review before any work starts. It separates the hackathon build (to Oct 13, 5:59pm Melbourne) from the full product, and evaluates every component of the system for the best output, because output quality is where JamJam's advantage lives.
 
@@ -454,12 +454,13 @@ Draft for review before any work starts. It separates the hackathon build (to Oc
 Nothing starts until these are answered.
 
 1. **Approve this plan** as the basis for updating #38 and opening the product master issue.
-2. **Models for brand data.** Free models are fine for development and CI but only one free text model offers zero data retention, so brand content should run on paid models with zero retention: Claude Haiku 5.5 ($0.10 / $0.50 per million tokens) for extraction, judging and polish, and Sonnet 5.5 ($2 / $10) for drafting in the brand's voice. At 30 posts a brand a month that is about $7 a month at 10 brands and $73 at 100. Approve, or keep everything on Haiku (about $0.75 at 10 brands).
-3. **Runtime claims checker.** The Worker can't host the small checker models, so the default is an LLM judge from a different model family, calibrated on fixtures. The alternative is a small CPU host for the checker, whose cost isn't verified yet.
-4. **Your labelling time.** About 2 hours for gold facts, 100–200 judge labels per dimension, and a 40-pair blind voice test. Without these the judge can't be trusted and the voice claim can't be made.
-5. **Repo stays public** (CI scoring is free on a public repo; a private repo gets a minutes quota).
-6. **LinkedIn Company Page access.** Apply for the vetted Community Management API now if Company Page publishing is wanted; it needs a legal entity and a screencast.
-7. **Still open from the competitor review:** N1–N14, naming Pressmaster and Encypher on slide 9, and merging #28 and #30.
+2. **Models for brand data.** Free models are fine for development and CI but only one free text model offers zero data retention, so brand content runs on your workstation or on paid models with zero retention: Claude Haiku 5.5 ($0.10 / $0.50 per million tokens) for extraction, judging and polish, and Sonnet 5.5 ($2 / $10) for drafting in the brand's voice. At 30 posts a brand a month that is about $7 a month at 10 brands and $73 at 100, paid by each brand once it brings its own key. Approve, or keep everything on Haiku (about $0.75 at 10 brands).
+3. **Your workstation as a provider.** Issue JamJam a service identity on the DualA4000 gateway and wire its writing route to the orchestrator (tracked in DualA4000-setup, not here).
+4. **Runtime claims checker.** The Worker can't host the small checker models, so the default is an LLM judge from a different model family, calibrated on fixtures. The alternatives are running the checker on your workstation or a small CPU host whose cost isn't verified.
+5. **Your labelling time.** About 2 hours for gold facts, 100–200 judge labels per dimension, and a 40-pair blind voice test. Without these the judge can't be trusted and the voice claim can't be made.
+6. **Repo stays public** (CI scoring is free on a public repo; a private repo gets a minutes quota).
+7. **LinkedIn Company Page access.** Apply for the vetted Community Management API now if Company Page publishing is wanted; it needs a legal entity and a screencast.
+8. **Still open from the competitor review:** N1–N14, naming Pressmaster and Encypher on slide 9, and merging #28 and #30.
 
 #### Where each part lives once approved
 
@@ -472,7 +473,8 @@ Updates to what exists; no new docs.
 | Voice findings | Architecture §6 (Voices and polish) |
 | Ingestion and extraction findings | Architecture §5 (intake) |
 | Component evaluation and harness | A new evaluation section in the architecture doc; fixtures and the CI job as code beside the existing Playwright checks |
-| Model, platform, billing and publishing choices | Backend map |
+| Providers, routers, packaging, model, billing and publishing choices | Backend map |
+| Settings (AI, Connections, Plan) and key storage | Backend map Settings rows and component inventory D52, D54, D55; mission Q4 (where your own keys are stored) answered: encrypted per brand |
 | Verify and payout design | Architecture §7 (proof layer) |
 | Current state | STATE.md "Next" points at #38 and the product issue |
 
@@ -480,7 +482,7 @@ Updates to what exists; no new docs.
 
 Every component reads from or writes to one evidence store, and nothing reaches Solana unless a person approved it. The layers follow the accepted architecture (§2 pipeline, §7 proof layer) and the backend map; the workflow layer is slice #32.
 
-Five layers, top to bottom: **surfaces** (Build, Create, Ledger, Verify, the brand and ambassador views); **workflows** (durable runs for ingest, kit, draft, publish, register and pay); **intelligence** (the agents behind one LLM gateway: extraction, coverage, kit drafting, voice, slop, claims, judge); **data** (the evidence store every component reads and writes: sources, facts with quotes, kits, posts, approvals, learned rules); **proof and money** (SAS attestations signed by the Registrar, Verify matching, USDC payouts signed by the brand's own wallet). The interactive map is in the [delivery plan doc](https://claude.ai/code/artifact/caff9791-c59c-4dc5-825f-bfaf2bf006db).
+Five layers, top to bottom: **surfaces** (Build, Create, Ledger, Verify, Settings, the brand and ambassador views); **workflows** (durable runs for ingest, kit, draft, publish, register and pay); **intelligence** (the agents behind one provider client: extraction, coverage, kit drafting, voice, slop, claims, judge); **data** (the evidence store every component reads and writes: sources, facts with quotes, kits, posts, approvals, learned rules); **proof and money** (SAS attestations signed by the Registrar, Verify matching, USDC payouts signed by the brand's own wallet). The interactive map is in the [delivery plan doc](https://claude.ai/code/artifact/caff9791-c59c-4dc5-825f-bfaf2bf006db).
 
 Read top to bottom: a person acts in a surface, which starts a durable run; runs call agents through one LLM gateway; agents read and write evidence; only approved records are hashed and attested.
 
@@ -531,8 +533,37 @@ Each component below has one job, a state on main today (commit 81ade1e), the op
 | Component | On main today | Best-output option (alternatives considered) | Measured by |
 | --- | --- | --- | --- |
 | **Payouts** (Y3) | Not built | The server builds a USDC `transferChecked`, the brand's own wallet signs, and the server confirms that mint, destination, amount and memo match the database row before marking it paid. Rejected for the demo: delegated budgets (JamJam would hold a hot key) | 100% of tampered transactions rejected in tests; paid only after on-chain confirmation |
-| **Model gateway and pool** (#39) | One gateway, `openrouter/auto` (`llm.ts`) | A ranked pool per task type (extract, draft, judge, polish) with failover; the model for each task chosen by harness score, not by name | Forced 429 answered by the next model; a model swap ships only after the harness passes |
+| **Model gateway and pool** (#39) | One gateway, `openrouter/auto` (`llm.ts`) | A task-to-model map (extract, draft, judge, polish) chosen by harness score, with providers tried in order: the brand's own key, then your workstation (for your own brands), then JamJam's OpenRouter account using OpenRouter's built-in fallback list, which moves on after any error and bills the model that answered. This replaces most of the hand-built pool in #39. Routers are harness candidates, not infrastructure (see Reuse, providers and packaging) | Forced 429 answered by the next model; a model swap ships only after the harness passes |
 | **Workflow engine** (#32) | Request-scoped calls | Durable runs with step retries and saved progress | A run survives a forced step failure; progress survives reload |
+
+#### Reuse, providers and packaging
+
+Build only what nothing else does well; reuse or plug in everything else.
+
+**Your workstation is a model provider.** The DualA4000 platform already runs an authenticated gateway with an OpenAI-compatible `/v1/chat/completions` route, separate service identities behind private HTTPS, Ministral 3 14B on one A4000, a prompt library, and an owner-scored writing benchmark (#53). JamJam calls it like any other provider: no per-call cost, and brand data stays on your machine; OpenRouter takes over when the box is busy or offline. It also changes the ladder: the shared anti-slop writer and per-brand adapters can be trained on your box (QLoRA on a 7–14B model should fit a 16 GB A4000; to be measured), so those rungs need no paid GPU time. The #53 benchmark is reused for JamJam's blind voice tests rather than building a second one. Limits: one request at a time today; JamJam needs its own service identity; the writing route must be wired to the orchestrator first (its README says it is fail-closed until then).
+
+**Routers are candidates, not infrastructure.** JamJam's tasks are fixed and every output passes gates, so the router is the task-to-model map chosen by harness scores. Off-the-shelf routers are scored in the harness like any model:
+
+| Router | What it does | Fit |
+| --- | --- | --- |
+| Jev Router on OpenRouter (`typesafe/jev-router`) | Picks a model and reasoning effort per request from task difficulty and a cost tier; candidate models can be restricted | Harness candidate per task. Its page doesn't state structured-output or zero-retention support, so it stays off brand data until confirmed |
+| NVIDIA LLM Router v2 | Classifies intent with a small model and returns the recommended model name only; intent mode needs a 16 GB GPU | Rejected: experimental, deprecated in favour of NeMo Switchyard, and would occupy a whole A4000 |
+| OpenRouter fallback list (`models`) | Tries models in order on any error, including rate limits; bills the model that answered | Adopted for failover |
+
+**Packaged as reusable modules.** Today the logic sits inside the Worker files (`llm.ts`, `ingest.ts`, `kit.ts`, `posts.ts`). Each component becomes a package in the repo with a typed contract and no Cloudflare or Supabase code inside; the Worker only wires them together. That keeps them testable in the harness and reusable in your other projects (the slop scorer and voice evaluation also serve your personal-brand writing on the workstation).
+
+| Module | Contract | Reuses |
+| --- | --- | --- |
+| Provider client | chat(task, messages, schema) → result, model used, cost | OpenRouter fallbacks; OpenAI-compatible endpoints (your gateway, the brand's key, Workers AI) |
+| Normaliser `norm_v1` | text → normalised text, hash | Unicode NFKC |
+| Evidence extraction | sources → facts with exact quotes and offsets | LangExtract's alignment method |
+| Slop scorer | text, brand baseline → score, flagged spans | EQ-Bench slop-score (MIT) |
+| Claims checker | draft, facts → claims with verdicts | MiniCheck and HHEM in CI; LLM judge at runtime |
+| Voice | brand posts → spec; brief → retrieved exemplars | pgvector |
+| Eval harness | fixtures, component → scores, gate result | promptfoo (MIT) |
+| Registrar client | record → attestation address, tx | `@solana/attestation` |
+| Payout builder | approved payout → unsigned tx; tx → confirmed or rejected | `@solana-program/token` |
+| Verify matcher | pasted text → label, diff, matched record | pg\_trgm |
 
 ### The voice question: prompting, retrieval or training a model
 
@@ -573,7 +604,7 @@ Start with retrieval plus a learned spec, not a fine-tuned model. Fine-tuning on
 - training-consent flags per brand;
 - 20–30 held-out approved posts per brand as its test set.
 
-**Free-tier note:** OpenRouter free models allow 50 requests a day, or 1,000 a day after buying $10 of credits once ([limits](https://openrouter.ai/docs/api_reference/limits)). Best-of-3 plus a judge is about 5 calls a post, so the $10 is required for real use.
+**Who pays for model calls:** during the proof of concept JamJam's own OpenRouter account and your workstation carry the calls. Free models allow 50 requests a day, or 1,000 after buying $10 of credits once, and best-of-3 plus a judge is about 5 calls a post, so the $10 is needed even then ([limits](https://openrouter.ai/docs/api_reference/limits)). After the proof of concept each brand brings its own OpenRouter key through a one-button Connect flow in Settings › AI (OpenRouter's [OAuth PKCE flow](https://openrouter.ai/docs/guides/overview/auth/oauth) returns the user's key to JamJam with no copy-paste), so each brand's usage and credits are its own.
 
 Lands in the repo as an update to architecture §6 (Voices and polish), with the 35 sources cited there. No new doc.
 
@@ -660,6 +691,7 @@ Goal: a brand goes from its URL and documents to an approved, attested kit in un
 | Data | Evidence store: sources, chunks, facts with quotes, field status, answers, kit versions with fact ids per sentence | Every kit sentence resolves to a fact or an answer |
 | Evals | F1 to F3 built and in CI | Gates run on every prompt PR |
 | Infra | Versioned prompts in Postgres keyed by hash; traces to a free observability tier; shared normaliser `norm_v1` | Each kit links to the exact prompts that drafted it |
+| Settings › AI | Connect with OpenRouter (OAuth, one button; paste a key as fallback); model sources in order: the brand's own key, JamJam's default, any OpenAI-compatible endpoint (how your workstation plugs in); keys encrypted at rest with AES-GCM under a per-brand key derived from a versioned master secret held only in the Worker, never returned to the browser (last four characters and a Test button shown); calls and estimated spend this month (D54) | A new brand connects its own key in under a minute; a stored key can't be read back through any API; the test button reports a bad key |
 
 #### Phase 2: Content creation nailed (Run R1–R3)
 
@@ -686,6 +718,7 @@ Goal: approved posts go out from JamJam and every one is verifiable.
 | Integrations | Order by cost and access: Bluesky (free, open), LinkedIn as a member (self-serve), X (pay per use; keep links out of post bodies, where the price jumps), Threads (app review), LinkedIn Company Pages (vetted access, legal entity) | Each live with its own success-rate check |
 | Proof | Post schema on SAS; Verify cascade with diff and "claims changed" flag; retraction by close plus record | F7 gates pass |
 | Security | OAuth tokens encrypted at rest per brand; database grants tightened behind the Worker; deny tests | Security tests in CI |
+| Settings › Connections | Connect and remove each publishing account with its status; copy-and-paste-back fallback per channel (D52); OAuth tokens encrypted at rest the same way as model keys | Each channel connects, publishes and disconnects cleanly; an expired token shows as expired before a publish fails |
 
 #### Phase 4: Pay (Y1–Y3)
 
@@ -696,6 +729,7 @@ Goal: a brand pays ambassadors for approved work from its own wallet, with a rec
 | UI | Campaigns with caps; ambassador seats; disclosure inserted automatically; payout approval separate from content approval (ADR-006) | Disclosure present on 100% of ambassador posts |
 | Workflows | Wallet link by signed message; server-built USDC transfer signed by the brand's wallet; server confirmation against the record | F8 gates pass |
 | Later | Capped budgets by delegation (needs a custody and compliance decision first) | Decision recorded |
+| Settings › Connections | Brand payout wallet, owner only, linked by signed message (ADR-006) | Only an owner can set or change the wallet; a change is recorded |
 
 #### Phase 5: Commercial and scale
 
@@ -705,6 +739,7 @@ Goal: a brand pays ambassadors for approved work from its own wallet, with a rec
 | Models | One shared anti-slop writer model trained on pooled approved and rejected drafts (with consent); per-brand adapters piloted for brands with deep histories, A/B against retrieval | Pilot beats retrieval on approval without edit |
 | Evals | Brand-style reranker trained on approve and reject labels replaces the generic style score | Reranker beats the judge on owner agreement |
 | Infra | Move to paid Workers tier before the free CPU-per-step limit binds; observability tier sized to volume | No run fails on platform limits |
+| Settings › Plan | Plan, seats (partners, agencies, ambassadors) and billing summary (D55) | A brand can upgrade, add a seat and see its bill without contacting you |
 
 ### Sources
 
@@ -719,5 +754,7 @@ Researched 2026-10-12 from primary sources. Figures not confirmed at source are 
 **Platform, models and publishing:** [OpenRouter limits](https://openrouter.ai/docs/api-reference/limits) · [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing) · [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) · [LinkedIn posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api) · [Threads API](https://developers.facebook.com/docs/threads/overview)
 
 **Proof and payouts:** [SAS close attestation](https://attest.solana.com/docs/instructions/close-attestation) · [SAS program source](https://github.com/solana-foundation/solana-attestation-service) · [Circle devnet USDC](https://developers.circle.com/stablecoins/quickstart-transfer-10-usdc-on-solana) · [Solana token transfers](https://solana.com/docs/tokens/basics/transfer-tokens) · [Sign in with Solana](https://solana.com/docs/frontend/messages-and-auth) · [pg\_trgm](https://www.postgresql.org/docs/current/pgtrgm.html) · [RETSim](https://proceedings.iclr.cc/paper_files/paper/2024/file/194d93e09eabcb9e2837de07d0be48ce-Paper-Conference.pdf)
+
+**Providers, routing and settings:** [Jev Router](https://openrouter.ai/docs/guides/routing/routers/jev-router) · [NVIDIA LLM Router](https://github.com/NVIDIA-AI-Blueprints/llm-router) · [OpenRouter model fallbacks](https://openrouter.ai/docs/guides/routing/model-fallbacks) · [OpenRouter OAuth PKCE](https://openrouter.ai/docs/guides/overview/auth/oauth) · [DualA4000 gateway](https://github.com/DeveloperAlly/DualA4000-setup/blob/main/gateway/README.md) (private) · [DualA4000 writing-model preflight](https://github.com/DeveloperAlly/DualA4000-setup/blob/main/research/2026-09-24-personal-brand-writing-model-preflight.md) (private)
 
 Every figure above is cited inline; these findings fold into the architecture sections listed under "Where each part lives" once approved.
