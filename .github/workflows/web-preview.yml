@@ -31,7 +31,10 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix worker # the Worker bundle imports its own deps (Solana SDK)
       # No Supabase settings: the preview build has no sign-in and the gallery makes no API calls.
+      # JAMJAM_BUILD_ID stamps this commit into index.html, so the gallery check can tell it is served (vite.config.ts).
       - run: npm run build
+        env:
+          JAMJAM_BUILD_ID: ${{ github.sha }}
       # wrangler.preview.jsonc: Worker jamjam-preview, workers_dev only, no routes, no custom domain, no secrets.
       - name: Deploy to Cloudflare (jamjam-preview, workers.dev)
         id: deploy
@@ -52,6 +55,8 @@ jobs:
       - name: Check the preview gallery
         env:
           BASE_URL: ${{ steps.deploy.outputs.url }}
+          # The checks start once the preview serves this commit's build and its assets (check-gallery waitForBuild).
+          EXPECT_BUILD: ${{ github.sha }}
         run: node scripts/check-gallery.mjs
       # jamjam.tech is unchanged: the live site's own deployed check still passes.
       - name: Check jamjam.tech is unchanged

@@ -1,8 +1,21 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import type { Plugin } from 'vite';
+
+/**
+ * Stamps the build id into index.html (<meta name="jamjam-build">): the commit CI builds (JAMJAM_BUILD_ID), else
+ * "local". check-gallery reads it to know the deployed preview is serving the commit under test before it checks.
+ */
+function buildId(): Plugin {
+  const id = process.env.JAMJAM_BUILD_ID || 'local';
+  return {
+    name: 'jamjam-build-id',
+    transformIndexHtml: () => [{ tag: 'meta', attrs: { name: 'jamjam-build', content: id }, injectTo: 'head' }],
+  };
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), buildId()],
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

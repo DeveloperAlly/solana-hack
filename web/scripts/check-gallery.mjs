@@ -40,23 +40,34 @@ async function waitFor(url, ms = 30000) {
 }
 
 /**
- * A fresh deploy (BASE_URL) can serve the new index before every edge has its new hashed assets, so the first loads
- * may render nothing for a few seconds (preview run on 7af126d: "waiting for locator('main')"). Wait until the
- * gallery index renders, for up to 90 s, before checking anything; a build that never renders still fails here.
+ * With EXPECT_BUILD set (the preview workflow passes the commit it built), wait for a positive signal before checking
+ * a deployed URL: the served index carries that build id (<meta name="jamjam-build">, stamped by vite.config.ts) and
+ * every script and stylesheet it references is served. Then the checks run once. The preview run on 7af126d started
+ * checking 24 s after wrangler printed "Deployed jamjam-preview triggers" and its first page never rendered
+ * (https://github.com/DeveloperAlly/solana-hack/actions/runs/38315349588, step "Check the preview gallery":
+ * "waiting for locator('main').first() to be visible"); the same deployed build passed every check later. That run had
+ * no way to tell which build it was served, so this makes it explicit instead of assuming.
  */
-async function waitForRendered(page, path, ms = 90000) {
+async function waitForBuild(expected, ms = 120000) {
   const end = Date.now() + ms;
-  let last;
+  let seen = 'nothing';
   while (Date.now() < end) {
     try {
-      await load(page, path);
-      return;
+      const html = await (await fetch(`${base}/screens`, { cache: 'no-store' })).text();
+      seen = /<meta name="jamjam-build" content="([^"]*)"/.exec(html)?.[1] ?? 'no build id';
+      if (seen === expected) {
+        const assets = [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((m) => m[1]);
+        const missing = [];
+        for (const a of assets) if (!(await fetch(base + a, { cache: 'no-store' })).ok) missing.push(a);
+        if (!missing.length) return log(`deployed build ${expected} is served with its ${assets.length} assets`);
+        seen = `${expected}, assets not served yet: ${missing.join(', ')}`;
+      }
     } catch (e) {
-      last = e;
-      await new Promise((r) => setTimeout(r, 5000));
+      seen = String(e);
     }
+    await new Promise((r) => setTimeout(r, 2000));
   }
-  throw new Error(`${base}${path} never rendered: ${last?.message ?? last}`);
+  throw new Error(`${base} never served build ${expected} (last seen: ${seen})`);
 }
 
 async function load(page, path) {
@@ -81,6 +92,7 @@ try {
     await waitFor(base + '/');
   }
   log(`check-gallery: ${base}, themes ${themes.join(', ')}`);
+  if (external && process.env.EXPECT_BUILD) await waitForBuild(process.env.EXPECT_BUILD);
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   // The gallery makes no network calls of its own; any /api request is a failure.
@@ -91,7 +103,7 @@ try {
 
   // Discover screens from the index, then states from each screen's switcher.
   const page = await context.newPage();
-  await (external ? waitForRendered(page, '/screens') : load(page, '/screens'));
+  await load(page, '/screens');
   const screens = [...new Set(await page.locator('main a[href^="/screens/"]').evaluateAll((as) => as.map((a) => new URL(a.href).pathname)))];
   if (!screens.length) throw new Error('no screens linked from /screens');
   const targets = ['/screens'];
