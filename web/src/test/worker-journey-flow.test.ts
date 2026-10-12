@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../worker/env';
+import { db as engineDb, fakeDbResponse, fakeStep, seedTables } from './engine-harness';
+import { runWorkflow } from '../../worker/engine/runner';
+import { localDeps } from '../../worker/engine/executor';
 
 // The whole first-run journey, J0 to J7, through the real router in one test: the same calls, in the same order, as
 // web/scripts/journey-e2e.mjs makes against the live site. Supabase (Auth and PostgREST), the model, the website and
@@ -35,7 +38,7 @@ let tables: Record<string, Row[]>;
 let nextId = 0;
 const uuid = () => `00000000-0000-4000-8000-${String(++nextId).padStart(12, '0')}`;
 const users: Record<string, Row> = { anon: { id: 'a-1', is_anonymous: true }, perm: { id: 'p-1', email: 'owner@example.com', is_anonymous: false } };
-const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k', SUPABASE_PUBLISHABLE_KEY: 'pk', REGISTRAR_KEY: '[1]', RPC_URL: 'https://rpc.test', OPENROUTER_API_KEY: 'k', PUBLIC_LIMITER: { limit: async () => ({ success: true }) } } as unknown as Env;
+const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k', SUPABASE_PUBLISHABLE_KEY: 'pk', REGISTRAR_KEY: '[1]', RPC_URL: 'https://rpc.test', OPENROUTER_API_KEY: 'k', PUBLIC_LIMITER: { limit: async () => ({ success: true }) } , RUN_WORKFLOW: { create: async (o: { id: string }) => { await runWorkflow(env, o.id, fakeStep().api, localDeps); return { id: o.id }; }, get: async () => ({ status: async () => ({ status: 'complete' }) }) } } as unknown as Env;
 
 function matches(row: Row, q: URLSearchParams) {
   for (const [k, v] of q) {
@@ -96,24 +99,37 @@ function model(system: string, user: string): unknown {
   }
   if (system.includes('You write one social post')) return { body: POST_BODY, voiceFit: 82, platform: 75, notes: [] };
   if (system.includes('You check one social post')) return { unsupported: [], sexual: false, minors: false, explicitLanguage: false };
-  if (system.includes('You map the claims')) return { claims: [{ text: 'Acme builds bridges for small towns', opinion: false, facts: [1] }, { text: 'Talk to us', opinion: true, facts: [] }] };
+  if (system.includes('You map the claims')) return { claims: [{ text: 'Acme builds bridges for small towns', opinion: false, facts: [Number(/^\[(\d+)\] .*Acme builds bridges for small towns\./m.exec(user)?.[1] ?? 1)] }, { text: 'Talk to us', opinion: true, facts: [] }] };
   throw new Error(`unexpected model call: ${system.slice(0, 60)}`);
 }
 
-beforeEach(() => {
-  tables = {};
+beforeEach(async () => {
+  await seedTables({ brands: [] });
+  tables = engineDb.tables;
   nextId = 0;
   chain.attestations.clear();
   vi.stubGlobal('fetch', vi.fn(async (url: string | URL, init?: RequestInit) => {
     const u = String(url);
     if (u.startsWith('https://openrouter.ai')) {
-      const [system, user] = (JSON.parse(String(init!.body)).messages as { content: string }[]).map((message) => message.content);
-      return new Response(JSON.stringify({ model: 'openrouter/free', choices: [{ message: { content: JSON.stringify(model(system, user)) } }] }));
+      const request = JSON.parse(String(init!.body));
+      const [system, user] = (request.messages as { content: string }[]).map((message) => message.content);
+      const schema = request.response_format?.json_schema?.name;
+      let answer: unknown;
+      if (schema === 'extracted_facts') answer = { facts: FACTS.map((f) => ({ ...f, slot: 'none', value: '' })) };
+      else if (schema === 'support_verdicts') answer = { verdicts: JSON.parse(user).map((f: { id: string }) => ({ id: f.id, supported: true })) };
+      else if (schema === 'draft_candidate') answer = { body: POST_BODY, claims: POST_BODY.match(/[^.!?]+[.!?]/g)!.map((text) => ({ text: text.trim(), fact_ids: tables.evidence.filter((f) => f.review_status === 'approved' && f.quote).map((f) => f.id) })) };
+      else if (schema === 'review_findings') {
+        const sentences = JSON.parse(user).sentences ?? [];
+        answer = { claims: sentences.map((text: string) => ({ text, fact_ids: tables.evidence.filter((f) => f.review_status === 'approved' && f.quote).map((f) => f.id), supported: true })), issues: [], tone: ['warmth','energy','humour'].map((dimension) => ({ dimension, observed: 'on' })), sexual: false, minors: false, explicitLanguage: false };
+      }
+      else answer = model(system, user);
+      return new Response(JSON.stringify({ model: request.models?.[0] ?? 'openrouter/free', choices: [{ message: { content: JSON.stringify(answer) } }] }));
     }
     if (u === 'https://db.test/auth/v1/user') {
       const t = new Headers(init?.headers).get('authorization')?.slice(7) ?? '';
       return users[t] ? new Response(JSON.stringify(users[t])) : new Response('{}', { status: 401 });
     }
+    if (u.includes('/rest/v1/rpc/')) return fakeDbResponse(u, init);
     if (u.startsWith('https://db.test')) return new Response(JSON.stringify(fakeDb(u, init)));
     if (u.endsWith('/robots.txt')) return new Response('User-agent: *\nAllow: /\n', { headers: { 'content-type': 'text/plain' } });
     return new Response(PAGE, { headers: { 'content-type': 'text/html' } });
