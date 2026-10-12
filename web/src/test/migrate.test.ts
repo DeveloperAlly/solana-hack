@@ -10,10 +10,13 @@ const URL_OK = `https://${REF}.supabase.co`;
 // The names migrations 001-008 carry on the live project (Supabase list_migrations, 2026-10-13).
 const LIVE = ['spine_001', 'posts_002', 'posts_registering_003', 'posts_rev_004', 'posts_registration_times_005', 'posts_last_valid_block_height_006', 'kits_registered_at_007', 'sources_source_text_008'].map((name, i) => ({ version: `2026100800000${i}`, name }));
 
+// spec/db as it stands with 009 and 010: numbered 001 to 010 without gaps.
+const SPEC = ['001_spine.sql', '002_posts.sql', '003_posts_registering.sql', '004_posts_rev.sql', '005_posts_registration_times.sql', '006_posts_last_valid_block_height.sql', '007_kits_registered_at.sql', '008_sources_source_text.sql', '009_evidence_trust.sql', '010_workflow_engine.sql'];
+
 describe('migration runner', () => {
   it('names files as the live project does and plans only what is missing, in order', () => {
-    const files = migrationFiles(['010_workflow_engine.sql', '009_evidence_trust.sql', '001_spine.sql', 'README.md', '008_sources_source_text.sql']);
-    expect(files.map((f) => f.name)).toEqual(['spine_001', 'sources_source_text_008', 'evidence_trust_009', 'workflow_engine_010']);
+    const files = migrationFiles([...SPEC].reverse().concat('README.md'));
+    expect(files.map((f) => f.name)).toEqual(LIVE.map((m) => m.name).concat('evidence_trust_009', 'workflow_engine_010'));
     expect(planMigrations(files, LIVE).map((f) => f.file)).toEqual(['009_evidence_trust.sql', '010_workflow_engine.sql']);
     expect(planMigrations(files, [...LIVE, { name: 'evidence_trust_009' }, { name: 'workflow_engine_010' }])).toEqual([]);
   });
@@ -23,9 +26,13 @@ describe('migration runner', () => {
     expect(migrationFiles(['009_evidence_trust.sql', 'README.md']).map((f) => f.file)).toEqual(['009_evidence_trust.sql']);
   });
   it('refuses to apply out of order or with a duplicated number', () => {
-    const files = migrationFiles(['008_sources_source_text.sql', '009_evidence_trust.sql', '010_workflow_engine.sql']);
+    const files = migrationFiles(SPEC);
     expect(() => planMigrations(files, [...LIVE, { name: 'workflow_engine_010' }])).toThrow(/009_evidence_trust\.sql is missing but a later one \(010\)/);
     expect(() => planMigrations(migrationFiles(['009_a.sql', '009_b.sql']), [])).toThrow(/share number 009/);
+  });
+  it('refuses a gap in the numbering before applying anything (PR #87 review)', () => {
+    const withGap = migrationFiles(SPEC.filter((f) => !f.startsWith('010')).concat('011_next.sql'));
+    expect(() => planMigrations(withGap, LIVE)).toThrow(/expected 010, found 011_next\.sql/);
   });
   it('accepts only an exact project URL', () => {
     expect(projectRef(URL_OK)).toBe(REF);
@@ -33,7 +40,7 @@ describe('migration runner', () => {
   });
   it('applies each missing file once, in order, and stops at the first failure', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'mig-'));
-    for (const f of ['008_sources_source_text.sql', '009_evidence_trust.sql', '010_workflow_engine.sql']) writeFileSync(join(dir, f), `-- ${f}\nselect 1;`);
+    for (const f of SPEC) writeFileSync(join(dir, f), `-- ${f}\nselect 1;`);
     const posted: { name: string; query: string }[] = [];
     const ok = vi.fn(async (url: string, init?: RequestInit) => {
       expect(url.startsWith(`https://api.supabase.com/v1/projects/${REF}/database/migrations`)).toBe(true);

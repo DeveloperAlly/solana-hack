@@ -55,6 +55,10 @@ export function planMigrations(files, applied) {
   const numbers = files.map((f) => f.number);
   const dup = numbers.find((n, i) => numbers.indexOf(n) !== i);
   if (dup) throw new Error(`two files in spec/db share number ${dup}`);
+  // Numbered 001, 002, ... with no gap, checked here at run time rather than only in a test, so a missing prerequisite
+  // stops the deploy before anything is applied (PR #87 review).
+  const gap = files.findIndex((f, i) => Number(f.number) !== i + 1);
+  if (gap !== -1) throw new Error(`spec/db is not numbered without gaps: expected ${String(gap + 1).padStart(3, '0')}, found ${files[gap].file}`);
   return todo;
 }
 
