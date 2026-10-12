@@ -51,6 +51,8 @@ supersedes: [archive/prd_story_studio, archive/roadmap_story_studio, archive/inf
 - **Timing:** JamJam's own kit v1 is due by Oct 9, leaving time to post, register and run a quest before the deadline.
 
 ## 5. Product map (decided structure; tags drive the build)
+> **Superseded as the component list (2026-10-12):** every page below, plus everything decided since, is in the [backlog](../../how/backlog/backlog.md) with its status on main. This table stays as the 2026-10-06 record.
+
 Navigation: **Brand / Create / Grow / Inbox / Analytics / Ledger-Verify**.
 
 | Area | Page | What it does | Tag |
