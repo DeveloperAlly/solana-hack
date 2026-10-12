@@ -57,7 +57,7 @@ flowchart TD
 
 ## 2a. System architecture: six stages on one intelligence system [proposed 2026-10-13]
 
-**Owner's definition (2026-10-13, working session):** the complete system is six stages: (1) build your brand and voice, using the intelligence system; (2) create your content, with an intelligence system made for your brand and voice; (3) distribute everywhere, to all the platforms; (4) verify anywhere, through the ledger; (5) grow your reach (ambassadors, influencers, campaigns), also on the intelligence system; (6) learn from what works (analytics and self-learning), also an intelligence system. Her rulings: "the spec should account for this; doesn't mean it gets built now; features get built by demand or market need", and the architecture must be "fully composable, scalable and maintainable". The README already opens with the six steps ([README, The system](../../../README.md#the-system)). The decision to organise the spec this way is [ADR-013](../decisions/adr_013_six_stages_one_intelligence_system.md) (proposed).
+**Owner's definition (2026-10-13, working session; [issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90)):** the complete system is six stages: (1) build your brand and voice, using the intelligence system; (2) create your content, with an intelligence system made for your brand and voice; (3) distribute everywhere, to all the platforms; (4) verify anywhere, through the ledger; (5) grow your reach (ambassadors, influencers, campaigns), also on the intelligence system; (6) learn from what works (analytics and self-learning), also an intelligence system. Her rulings: "the spec should account for this; doesn't mean it gets built now; features get built by demand or market need", and the architecture must be "fully composable, scalable and maintainable". The README already opens with the six steps ([README, The system](../../../README.md#the-system)). The decision to organise the spec this way is [ADR-013](../decisions/adr_013_six_stages_one_intelligence_system.md) (proposed).
 
 **What this section fixes.** Before it, the parts of the intelligence system were specified as separate features in separate places: the evidence store (§3, backlog B3), the voice ladder (§6.2), learned rules (§6.1, T1b), the validation loop (§2 stage 9, §12.3 rule 6, B16), analytics (backlog N1 to N4) and the evaluators (§6.1, §13). Each stage reached into its own part directly; in the code, drafting reads kit sections itself and the claims check reads all evidence in batches (`voiceContext`, `allEvidence` and `policyCheck` in [`posts.ts`](../../../web/worker/posts.ts)). Distribution stopped at five platforms (§6.1 Publishing row; [backend map §10.5](./backend_map.md#105-publishing-order-p2-p3-p3a)). This section makes the intelligence system one named engine that every stage reads from and writes to, and makes distribution an adapter registry that accounts for every platform. It renames nothing that already exists: every part below keeps its backlog ID.
 
@@ -129,7 +129,7 @@ One engine per brand. It holds everything JamJam knows about the brand and every
 
 1. **Human approval on everything.** Nothing posts, replies, sends or pays without a person approving it ([ADR-003](../decisions/adr_003_superhub_business_model.md) principle 1).
 2. **Nothing grades itself.** A generator's output is judged only by a check it cannot influence: code, or a model from a different family with fresh context (§6.1; backlog G4; §13.3).
-3. **Only quoted facts are evidence.** A fact enters memory only when its quote is on its source, and only allow-listed facts reach drafting, the kit, the claims gate or registration (§1 principle 3; [ADR-011](../decisions/adr_011_evidence_trust.md)).
+3. **Only evidenced facts count.** A fact from a source enters memory only when its quote is on that source; an owner answer from the guided interview enters as dated owner evidence (`owner_answer`, no quote) with the owner as its source. Only allow-listed facts of either kind reach drafting, the kit, the claims gate or registration (§1 principle 3; [ADR-011](../decisions/adr_011_evidence_trust.md)).
 4. **The owner approves every learned change.** Learned rules are shown to the brand to keep or delete (T1b); kit updates go back through the gates and produce a new kit version (§12.3 rule 6); no record leaves UNVERIFIED unless the owner promotes it (backlog §13).
 5. **One brand's memory never shapes another brand's output.** Retrieval and learned rules are scoped to one brand. The only pooled use is the later global anti-slop and preference pass, and only with each brand's training consent (§6.2).
 
@@ -168,13 +168,19 @@ interface DistributionAdapter {
           scopes: string[]; access: 'self_serve' | 'app_review' | 'vetted' | 'unverified'; tokenLifetime?: string };
   cost: { perPost?: number; perPostWithLink?: number; currency: 'USD' } | null;
   disclosure: { aiFlag?: string; paidPartnershipFlag?: string; readsC2pa: boolean | 'unverified' };
+  // Connection lifecycle lives inside the adapter, not in stage code.
+  connect(brandId: string, redirect: string): Promise<{ authUrl: string } | { credentials: Credentials }>;
+  completeConnect?(brandId: string, callback: Record<string, string>): Promise<Credentials>;   // OAuth callback
+  refresh?(creds: Credentials): Promise<Credentials>;
+  disconnect(creds: Credentials): Promise<void>;   // revokes at the platform where it allows, then deletes stored tokens
   check(post: ApprovedPost): Violation[];          // format limits, from the channel spec (K3)
-  publish(post: ApprovedPost, creds: Credentials): Promise<{ platformPostId: string; url: string; publishedHash: string }>;
+  publish(post: ApprovedPost, creds: Credentials): Promise<{ platformPostId: string; url: string }>;
+  readBack(platformPostId: string, creds: Credentials): Promise<{ text: string; url: string; removed: boolean }>;  // what the platform actually stores
   readMetrics?(platformPostId: string, creds: Credentials): Promise<MetricSnapshot[]>;   // optional
 }
 ```
 
-Rules: the published text must hash to the approved hash 100% of the time (§6.1 Publishing row); disclosure flags are pre-filled from the asset's generation record (backlog P5); tokens are encrypted at rest per brand (backlog X11, G-SECRETS); a platform's cost is shown before posting (backlog P2, G-X-COST); a failed publish alerts (P5a).
+Rules: the registry, not the adapter, hashes the text returned by `readBack` and compares it with the approved hash, so the match is never self-reported; it must match 100% of the time (§6.1 Publishing row), and the manual adapter's read-back is the pasted link fetched by the registry; disclosure flags are pre-filled from the asset's generation record (backlog P5); tokens are encrypted at rest per brand (backlog X11, G-SECRETS); a platform's cost is shown before posting (backlog P2, G-X-COST); a failed publish alerts (P5a).
 
 **Every platform is accounted for in the spec; which are built is decided by demand.** The table carries only what the repo's research already says; anything else is marked UNVERIFIED and is checked against the platform's own docs before its row is built.
 
