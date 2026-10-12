@@ -68,7 +68,7 @@ describe('model rate limits in a run', () => {
     // A failed run holds nothing: the next admission counts no reservation for it.
     const { admit } = await import('../../worker/engine/api');
     db.tables.engine_config.push({ key: 'metered_call_budget', value: { permanent: 1 } });
-    db.tables.run_steps = [];
+    db.tables.metered_usage = []; // the calls it made are the meter's; what matters here is that it reserves nothing
     db.tables.workflow_defs.find((d) => d.id === 'ingest_url')!.status = 'active';
     await expect(admit({ ...env, RUN_WORKFLOW: { create: async () => ({ id: 'x' }), get: async () => ({ status: async () => ({ status: 'complete' }) }) } } as never, { brand: db.tables.brands[0] as never, kind: 'ingest_url', actor: { id: 'u' } })).resolves.toMatchObject({ kind: 'ingest_url' });
   });

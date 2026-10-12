@@ -6,7 +6,7 @@ import { db } from '../db';
 import { HttpError, safeError, type Env } from '../env';
 import { runStep, resolve, WRITES, type RunState, type StepContext } from './steps';
 import { loadTaskModels, type TaskModels } from '../models';
-import { MeteredFailure } from '../metering';
+import { BudgetExhausted, MeteredFailure } from '../metering';
 import { meteredCalls } from './guards';
 import type { Progress, RetrySpec, RunRow, StepProgress, StepSpec, StepTrace, WorkflowSpec } from './types';
 
@@ -168,6 +168,16 @@ function load(env: Env, runId: string, step: StepApi, deps: RunnerDeps) {
   });
 }
 
+/** Consumes metered calls for one attempt; a 429 from the meter is BudgetExhausted (a 4xx, so it is not retried). */
+async function consumeMetered(env: Env, runId: string, n: number) {
+  try {
+    await db.rpc<number | null>(env, 'consume_metered', { p_run: runId, p_n: n });
+  } catch (e) {
+    if (e instanceof HttpError && e.status === 429) throw new BudgetExhausted(e.message);
+    throw e;
+  }
+}
+
 /**
  * One stage, retried by the executor per its policy. If it still fails on the model's rate limit after its retries
  * (several minutes of backoff), the run pauses until 00:00 UTC, when the daily free allowance resets, then tries the
@@ -203,6 +213,10 @@ async function attempt(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepConte
     step.do(stepName, config, async (sctx) => {
       const t0 = Date.now();
       try {
+        // The meter is the authority for the budget: every attempt at a metered step consumes its calls first
+        // (spec/db/011 consume_metered); a refusal ends the run without a retry (metering.ts BudgetExhausted).
+        const n = meteredCalls(inner);
+        if (n > 0) await consumeMetered(env, ctx.run.id, n);
         const r = await runStep(inner, ctx, item);
         const live = await record(env, ctx.run.id, { step: traceId, attempt: sctx.attempt, type: inner.type, outcome: 'ok', duration_ms: Date.now() - t0, metered_calls: meteredCalls(inner), ...r.trace }, last ? { progress: progressAt(spec, i + 1) } : {});
         if (!live) throw deps.nonRetryable(encodeError(409, 'superseded', 'run superseded'));
@@ -215,7 +229,7 @@ async function attempt(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepConte
         // A failure after money was spent (metering.ts MeteredFailure: a refused model reply, a paid read that returned
         // nothing usable) keeps its cost and the call's trace on the error record, so spend and admission count it.
         const made = e instanceof MeteredFailure ? { ...(e.trace ?? {}), cost_usd: e.cost } : {};
-        await record(env, ctx.run.id, { ...made, metered_calls: meteredCalls(inner), step: traceId, attempt: sctx.attempt, type: inner.type, outcome: 'error', duration_ms: Date.now() - t0, error: d.message.slice(0, 300) }, { progress: progressAt(spec, i, 'running', waiting) }).catch(() => undefined);
+        await record(env, ctx.run.id, { ...made, metered_calls: e instanceof BudgetExhausted ? 0 : meteredCalls(inner), step: traceId, attempt: sctx.attempt, type: inner.type, outcome: 'error', duration_ms: Date.now() - t0, error: d.message.slice(0, 300) }, { progress: progressAt(spec, i, 'running', waiting) }).catch(() => undefined);
         throw err;
       }
     });
