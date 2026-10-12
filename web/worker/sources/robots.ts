@@ -28,7 +28,7 @@ export function parseRobots(body: string, token = BOT_TOKEN): Rule[] {
     } else if ((key === 'allow' || key === 'disallow') && cur) {
       lastWasAgent = false;
       // An empty Disallow allows everything, so it adds no rule.
-      if (value) cur.rules.push({ allow: key === 'allow', path: value });
+      if (value) cur.rules.push({ allow: key === 'allow', path: normalisePath(value) });
     } else {
       lastWasAgent = false;
     }
@@ -36,6 +36,22 @@ export function parseRobots(body: string, token = BOT_TOKEN): Rule[] {
   const mine = groups.filter((g) => g.agents.some((a) => a !== '*' && token.startsWith(a.split('/')[0])));
   const chosen = mine.length ? mine : groups.filter((g) => g.agents.includes('*'));
   return chosen.flatMap((g) => g.rules);
+}
+
+/**
+ * The form RFC 9309 §2.2.2 compares in (https://www.rfc-editor.org/rfc/rfc9309.html#section-2.2.2): a percent-encoded
+ * octet is decoded when it is an unreserved character (RFC 3986 §2.3: ALPHA, DIGIT, "-", ".", "_", "~"), so
+ * /%62%61%7A matches /baz; any other encoded octet stays encoded, with upper-case hex; characters outside ASCII are
+ * percent-encoded as UTF-8 (/foo/bar/ツ becomes /foo/bar/%E3%83%84). Applied to rule paths and request paths alike.
+ * "*" and "$" in a rule are pattern characters and are left as they are.
+ */
+export function normalisePath(p: string): string {
+  return p
+    .replace(/%([0-9a-fA-F]{2})/g, (_m, hex: string) => {
+      const ch = String.fromCharCode(parseInt(hex, 16));
+      return /^[A-Za-z0-9\-._~]$/.test(ch) ? ch : `%${hex.toUpperCase()}`;
+    })
+    .replace(/[^\x00-\x7F]+/gu, (run) => encodeURIComponent(run));
 }
 
 function ruleMatches(rulePath: string, path: string) {
@@ -46,9 +62,10 @@ function ruleMatches(rulePath: string, path: string) {
 
 /** True when the rules allow this path (path plus query, as in the URL). */
 export function allowedBy(rules: Rule[], pathAndQuery: string): boolean {
+  const path = normalisePath(pathAndQuery);
   let best: Rule | null = null;
   for (const r of rules) {
-    if (!ruleMatches(r.path, pathAndQuery)) continue;
+    if (!ruleMatches(r.path, path)) continue;
     if (!best || r.path.length > best.path.length || (r.path.length === best.path.length && r.allow)) best = r;
   }
   return best ? best.allow : true;

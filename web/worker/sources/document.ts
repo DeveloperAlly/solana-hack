@@ -27,17 +27,29 @@ export interface DocumentInput { name: string; bytes: ArrayBuffer | Uint8Array; 
 const ext = (name: string) => name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? '';
 
 /**
- * The readable part of a conversion and its page count. The output layout is UNVERIFIED: Cloudflare's docs define
- * `data` only as "the content of the converted document" and show no PDF output
- * (https://developers.cloudflare.com/workers-ai/features/markdown-conversion/usage/binding/). The converter is
- * expected to add a metadata block and per-page headings, so both are handled when present and optional when not:
- * metadata letters (title, producer, dates) must not make a scan look like it has text. To confirm on a live call.
+ * The readable part of a conversion and its page count. For a PDF the converter wraps the text in a fixed layout,
+ * shown in Cloudflare's own example output (https://developers.cloudflare.com/changelog/post/2025-03-20-markdown-conversion/):
+ *   "# <file name>\n## Metadata\n- Key=Value ...\n\n## Contents\n### Page 1\n..."
+ * Only that exact wrapper is removed: the first line must be "# " plus the file name, the next "## Metadata", every
+ * line up to the first "## Contents" must be a "- " metadata entry, and page headings are removed only as
+ * "### Page 1", "### Page 2", ... in order. A document's own "Contents" or "Page" heading anywhere else is kept
+ * (PR #67 review), and output without the wrapper (DOCX, XLSX, or a changed layout) is kept whole as one page.
+ * Metadata letters (title, producer) must not make a scan look like it has text, which is why the wrapper is removed.
  */
-export function readableText(markdown: string): { body: string; pages: number } {
-  const contents = markdown.split(/^#{1,6}\s*Contents\s*$/m);
-  const body = contents.length > 1 ? contents.slice(1).join('\n') : markdown.replace(/^#{1,6}\s*Metadata\s*$[\s\S]*?(?=^#{1,6}\s)/m, '');
-  const pageHeads = body.match(/^#{1,6}\s*Page\s+\d+\s*$/gim) ?? [];
-  return { body: body.replace(/^#{1,6}\s*Page\s+\d+\s*$/gim, '').trim(), pages: pageHeads.length || 1 };
+export function readableText(markdown: string, name: string): { body: string; pages: number; wrapped: boolean } {
+  const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
+  const whole = { body: markdown.trim(), pages: 1, wrapped: false };
+  if (lines[0]?.trim() !== `# ${name}` || lines[1]?.trim() !== '## Metadata') return whole;
+  let i = 2;
+  for (; i < lines.length && lines[i].trim() !== '## Contents'; i++) if (lines[i].trim() && !lines[i].startsWith('- ')) return whole;
+  if (i >= lines.length) return whole;
+  let pages = 0;
+  const body: string[] = [];
+  for (const line of lines.slice(i + 1)) {
+    if (line.trim() === `### Page ${pages + 1}`) { pages++; continue; }
+    body.push(line);
+  }
+  return { body: body.join('\n').trim(), pages: pages || 1, wrapped: true };
 }
 
 export async function readDocument(env: SourceEnv, input: DocumentInput): Promise<SourceResult> {
@@ -67,7 +79,8 @@ export async function readDocument(env: SourceEnv, input: DocumentInput): Promis
     return fail('unreadable', `We could not read this ${type.label} just now; try again, or paste the key points.`);
   }
   if (!out || out.format === 'error' || typeof out.data !== 'string') return fail('unreadable', `We could not read this ${type.label}; export it again, or paste the key points.`);
-  const { body, pages } = readableText(out.data);
+  // The converter echoes the input name (ConversionResult.name, binding docs above).
+  const { body, pages } = readableText(out.data, out.name || name);
   const letters = letterCount(body);
   if (ext(name) === 'pdf' && (letters < MIN_LETTERS || letters / pages < MIN_LETTERS_PER_PAGE)) {
     return fail('needs_ocr', 'This file has no readable text (it looks like a scan). Export it with text, or paste the key points.', pages);

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readSite, siteUrl, SITE_DEFAULTS } from '../../worker/sources/site';
-import { allowedBy, parseRobots } from '../../worker/sources/robots';
+import { allowedBy, normalisePath, parseRobots } from '../../worker/sources/robots';
 
 // Site adapter (issue #33). Exa, the site and the page renderer are mocked; each test sets what they answer.
 type Handler = (url: string, init?: RequestInit) => Response | Promise<Response>;
@@ -118,6 +118,39 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     expect(await readSite({}, 'https://x.test/')).toMatchObject({ ok: false, code: 'robots_disallowed', reason: expect.stringContaining('could not read') });
     stub({ robots: () => new Response('', { status: 404 }), page: () => html('X', LONG) });
     expect(await readSite({}, 'https://x.test/')).toMatchObject({ ok: true });
+  });
+  it('compares percent-encoded paths as RFC 9309 §2.2.2 requires (PR #67 review)', () => {
+    // RFC 9309 Figure 4 rows.
+    expect(normalisePath('/foo/bar/%62%61%7A')).toBe('/foo/bar/baz');
+    expect(normalisePath('/foo/bar/\u30C4')).toBe('/foo/bar/%E3%83%84');
+    expect(normalisePath('/foo/bar/%e3%83%84')).toBe('/foo/bar/%E3%83%84');
+    expect(normalisePath('/foo/bar?baz=https%3A%2F%2Ffoo.bar')).toBe('/foo/bar?baz=https%3A%2F%2Ffoo.bar');
+    const rules = parseRobots('User-agent: *\nDisallow: /private\nDisallow: /caf%C3%A9\n');
+    expect(allowedBy(rules, '/%70rivate')).toBe(false);
+    expect(allowedBy(rules, '/caf\u00E9/menu')).toBe(false);
+    expect(allowedBy(rules, '/public')).toBe(true);
+  });
+  it('checks robots.txt of each origin a page comes from, including an apex-to-www redirect (PR #67 review)', async () => {
+    const calls = stub({
+      robots: (u) => new Response(u.startsWith('https://www.jamjam.tech') ? 'User-agent: *\nDisallow: /team\n' : ''),
+      exa: () => exaReply([{ url: 'https://www.jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://www.jamjam.tech/team', title: 'Team', text: 'people' }, { url: 'https://www.jamjam.tech/about', title: 'About', text: 'about' }]),
+    });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/', { website: 'jamjam.tech' });
+    expect(r).toMatchObject({ ok: true, kind: 'site', trust: 'owned' });
+    expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://www.jamjam.tech/', 'https://www.jamjam.tech/about']);
+    expect(calls.filter((c) => c.url.endsWith('/robots.txt')).map((c) => c.url)).toEqual(['https://jamjam.tech/robots.txt', 'https://www.jamjam.tech/robots.txt']);
+  });
+  it('never merges two unrelated third-party sites, and refuses a redirect into a disallowed origin', async () => {
+    stub({ exa: () => exaReply([{ url: 'https://news.test/a', title: 'News', text: LONG }, { url: 'https://other.test/b', title: 'Other', text: 'x' }]) });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://news.test/a', { website: 'jamjam.tech' });
+    expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://news.test/a']);
+    stub({
+      robots: (u) => new Response(u.startsWith('https://blocked.test') ? 'User-agent: *\nDisallow: /\n' : ''),
+      page: () => Object.defineProperty(html('B', LONG), 'url', { value: 'https://blocked.test/' }),
+    });
+    const f = await readSite({}, 'https://open.test/go');
+    expect(f).toMatchObject({ ok: false, code: 'unreadable' });
+    expect(f.meta.notes.join(' ')).toMatch(/robots\.txt does not let us read/);
   });
   it('applies our own group over *, the longest match, allow on a tie, * and $', () => {
     const rules = parseRobots('User-agent: *\nDisallow: /\n\nUser-agent: JamJamBot\nDisallow: /admin\nAllow: /admin/public$\nDisallow: /*.pdf$\n');

@@ -1,6 +1,6 @@
 import { readPage } from '../ingest';
 import { factTrust, urlKind } from './registry';
-import { fetchRobots, robotsAllows, USER_AGENT } from './robots';
+import { fetchRobots, robotsAllows, USER_AGENT, type RobotsCheck } from './robots';
 import { clock, type SourceEnv, type SourcePage, type SourceResult } from './types';
 
 /**
@@ -40,6 +40,9 @@ const EXA_PER_PAGE = 0.001;
 
 interface ExaPage { url?: string; title?: string | null; text?: string | null; subpages?: ExaPage[] }
 interface ExaResponse { results?: ExaPage[]; statuses?: { id?: string; status?: string; error?: { tag?: string; httpStatusCode?: number } }[]; costDollars?: { total?: number } }
+
+/** Host without a leading "www.", so an apex-to-www redirect stays on the same site. */
+const hostKey = (u: URL) => u.hostname.toLowerCase().replace(/^www\./, '');
 
 /** A web address as the adapter reads it: http(s) only, default ports only (same rules as ingest.ts readPage). */
 export function siteUrl(raw: string): URL | null {
@@ -91,7 +94,7 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS): Promis
 // https://developers.cloudflare.com/browser-rendering/rest-api/markdown-endpoint/). The Workers Free plan lists Quick
 // Actions limits of 1 request every 10 seconds and 10 browser minutes a day
 // (https://developers.cloudflare.com/browser-rendering/limits/), so it is a last resort, used only when configured.
-async function viaRendered(env: SourceEnv, url: URL): Promise<{ text: string } | { error: string }> {
+async function viaRendered(env: SourceEnv, url: URL): Promise<{ text: string; finalUrl?: string } | { error: string }> {
   if (!env.CF_ACCOUNT_ID || !env.CF_BROWSER_TOKEN) return { error: 'rendered Markdown is not configured' };
   try {
     const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(env.CF_ACCOUNT_ID)}/browser-rendering/markdown`, {
@@ -101,9 +104,10 @@ async function viaRendered(env: SourceEnv, url: URL): Promise<{ text: string } |
       signal: AbortSignal.timeout(60_000),
     });
     if (!res.ok) return { error: res.status === 429 ? 'the page renderer is at its limit for now' : `the page renderer answered HTTP ${res.status}` };
-    const data = (await res.json()) as { success?: boolean; result?: string };
+    // meta.finalUrl is the address the browser ended on after redirects (API reference above).
+    const data = (await res.json()) as { success?: boolean; result?: string; meta?: { finalUrl?: string } };
     const text = data.success ? (data.result ?? '').trim() : '';
-    return text.length >= 40 ? { text } : { error: 'the rendered page has almost no readable text' };
+    return text.length >= 40 ? { text, finalUrl: data.meta?.finalUrl } : { error: 'the rendered page has almost no readable text' };
   } catch {
     return { error: 'the page renderer did not answer in time' };
   }
@@ -123,23 +127,44 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
       : 'This site\'s robots.txt asks crawlers not to read this page, so we did not. Paste the key text from your site instead.';
     return { ok: false, kind: kindOf(url.toString()), code: 'robots_disallowed', reason, url: url.toString(), meta: c.meta(0, 0) };
   }
-  // The kind (and so the trust) is decided on the first page's final URL; pages of another kind are dropped, so one
-  // result never mixes owned and third-party text.
-  const ok = (all: SourcePage[], cost: number, via: string): SourceResult => {
-    const kind = kindOf(all[0].url);
-    const pages = all.filter((p) => kindOf(p.url) === kind);
-    if (pages.length < all.length) c.notes.push(`${all.length - pages.length} page(s) skipped: not on the same site as the first page`);
+  // robots.txt is read once per origin a page actually comes from: Exa subpages and redirects (apex to www included)
+  // can land on another origin, whose own rules apply to it (PR #67 review).
+  const robotsByOrigin = new Map<string, Promise<RobotsCheck>>([[url.origin, Promise.resolve(robots)]]);
+  const allowedHere = async (u: URL) => {
+    if (!robotsByOrigin.has(u.origin)) robotsByOrigin.set(u.origin, fetchRobots(u.origin));
+    return robotsAllows(await robotsByOrigin.get(u.origin)!, u);
+  };
+  // Every page is checked on its own final URL: robots.txt for its origin, then its kind. The first admitted page sets
+  // the kind (and so the trust); a later page is kept only if it has the same kind and, for a third-party page, the
+  // same host, so one result never mixes owned and third-party text or two unrelated sites. Ownership is never
+  // inherited from the address that was asked for.
+  const admit = async (all: SourcePage[]) => {
+    const kept: SourcePage[] = [];
+    let blocked = 0;
+    let offsite = 0;
+    for (const p of all) {
+      const u = siteUrl(p.url);
+      if (!u || !(await allowedHere(u))) { blocked++; continue; }
+      const first = kept[0] && new URL(kept[0].url);
+      if (first && (kindOf(p.url) !== kindOf(kept[0].url) || (kindOf(p.url) === 'page' && hostKey(u) !== hostKey(first)))) { offsite++; continue; }
+      kept.push(p);
+    }
+    if (blocked) c.notes.push(`${blocked} page(s) skipped: robots.txt disallows them`);
+    if (offsite) c.notes.push(`${offsite} page(s) skipped: not on the same site as the first page`);
+    return kept;
+  };
+  const ok = (pages: SourcePage[], cost: number, via: string): SourceResult => {
+    const kind = kindOf(pages[0].url);
     return { ok: true, kind, trust: factTrust(kind).trust, url: pages[0].url, title: pages[0].title, text: pages.map((p) => p.text).join('\n\n'), pages, meta: c.meta(pages.length, cost, via) };
   };
 
-  // 1. Exa: one call for the home page and its key subpages. Subpages robots.txt disallows are dropped.
+  // 1. Exa: one call for the home page and its key subpages.
   let cost = 0;
   if (env.EXA_API_KEY) {
     const exa = await viaExa(env.EXA_API_KEY, url, opts);
     if ('pages' in exa) {
       cost = exa.cost;
-      const allowed = exa.pages.filter((p) => { const u = siteUrl(p.url); return !!u && (u.origin !== url.origin || robotsAllows(robots, u)); });
-      if (allowed.length < exa.pages.length) c.notes.push(`${exa.pages.length - allowed.length} subpage(s) skipped: robots.txt disallows them`);
+      const allowed = await admit(exa.pages);
       if (allowed.length) return ok(allowed, cost, 'exa');
     } else {
       c.notes.push(`${exa.error}; read the home page directly instead`);
@@ -151,8 +176,12 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   // 2. Plain fetch of the home page (the existing reader).
   let fetchError = '';
   try {
+    // readPage follows redirects (ingest.ts). If the final page's origin disallows it, its text is not used.
     const page = await readPage(url.toString());
-    return ok([{ url: page.url, title: page.title, text: page.text }], cost, 'fetch');
+    const kept = await admit([{ url: page.url, title: page.title, text: page.text }]);
+    if (kept.length) return ok(kept, cost, 'fetch');
+    fetchError = 'the page redirected to an address its robots.txt does not let us read';
+    c.notes.push(`direct read refused: ${fetchError}`);
   } catch (e) {
     fetchError = e instanceof Error ? e.message : 'reading the page failed';
     c.notes.push(`direct read failed: ${fetchError}`);
@@ -160,8 +189,14 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
 
   // 3. Rendered Markdown, for sites that only show text after their scripts run.
   const rendered = await viaRendered(env, url);
-  if ('text' in rendered) return ok([{ url: url.toString(), title: url.hostname, text: rendered.text }], cost, 'rendered');
-  c.notes.push(rendered.error);
+  if ('text' in rendered) {
+    const final = siteUrl(rendered.finalUrl ?? '') ?? url;
+    const kept = await admit([{ url: final.toString(), title: final.hostname, text: rendered.text }]);
+    if (kept.length) return ok(kept, cost, 'rendered');
+    c.notes.push('rendered page refused: it ended on an address its robots.txt does not let us read');
+  } else {
+    c.notes.push(rendered.error);
+  }
 
   // 4. Nothing worked: ask for the text instead.
   return { ok: false, kind: kindOf(url.toString()), code: 'unreadable', reason: `We could not read ${url.hostname} (${fetchError}). Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0, cost) };

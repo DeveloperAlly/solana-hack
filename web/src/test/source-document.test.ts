@@ -24,7 +24,8 @@ describe('document adapter', () => {
   });
   it('returns needs_ocr when only a few letters per page come through', async () => {
     const pages = Array.from({ length: 10 }, (_, i) => `### Page ${i + 1}\nPage ${i + 1} of 10 Confidential`).join('\n');
-    const r = await readDocument({ AI: ai({ name: 's.pdf', format: 'markdown', data: pages }) }, { name: 's.pdf', bytes });
+    const data = `# s.pdf\n## Metadata\n- Producer=Scanner\n\n## Contents\n${pages}`;
+    const r = await readDocument({ AI: ai({ name: 's.pdf', format: 'markdown', data }) }, { name: 's.pdf', bytes });
     expect(r).toMatchObject({ ok: false, code: 'needs_ocr' });
   });
   it('reads DOCX and XLSX with their MIME types', async () => {
@@ -49,6 +50,22 @@ describe('document adapter', () => {
     expect(await readDocument({ AI: ai({ name: 'a.pdf', format: 'error', error: 'bad file' }) }, { name: 'a.pdf', bytes })).toMatchObject({ ok: false, code: 'unreadable' });
   });
   it('reads output with no metadata or page headings as one page', () => {
-    expect(readableText(prose)).toEqual({ body: prose, pages: 1 });
+    expect(readableText(prose, 'a.docx')).toEqual({ body: prose, pages: 1, wrapped: false });
+  });
+  it('strips Cloudflare\'s documented PDF wrapper (changelog 2025-03-20 example) and counts its pages', () => {
+    const data = '# somatosensory.pdf\n## Metadata\n- PDFFormatVersion=1.4\n- Producer=Prince 20150210 (www.princexml.com)\n- Title=Anatomy of the Somatosensory System\n\n## Contents\n### Page 1\nThis is a sample document.\n### Page 2\nMore.';
+    expect(readableText(data, 'somatosensory.pdf')).toEqual({ body: 'This is a sample document.\nMore.', pages: 2, wrapped: true });
+  });
+  it('keeps a document\'s own Contents and Page headings (PR #67 review)', () => {
+    const docx = `# Brand brief\nIntro: ${prose}\n## Contents\n- Purpose\n## Page 2 notes`;
+    expect(readableText(docx, 'brief.docx')).toEqual({ body: docx, pages: 1, wrapped: false });
+    // Inside the wrapper, only the converter's own in-order page headings are removed.
+    const pdf = `# a.pdf\n## Metadata\n- Title=x\n\n## Contents\n### Page 1\nIntro\n## Contents\n### Page 7\nkept\n### Page 2\nend`;
+    expect(readableText(pdf, 'a.pdf')).toEqual({ body: 'Intro\n## Contents\n### Page 7\nkept\nend', pages: 2, wrapped: true });
+  });
+  it('a DOCX whose text has a Contents heading keeps everything before it', async () => {
+    const data = `# Brand brief\n${prose}\n## Contents\n- Purpose`;
+    const r = await readDocument({ AI: ai({ name: 'brief.docx', format: 'markdown', data }) }, { name: 'brief.docx', bytes });
+    expect(r.ok && r.text).toContain(prose);
   });
 });
