@@ -20,11 +20,10 @@
  */
 import { Button, Stack } from '../../ui/primitives';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { AmbShell } from '../../ui/domain/AmbShell';
-import { HubColumns } from '../../ui/domain/HubColumns';
+import { Columns } from '../../ui/layouts/Columns';
 import { AmbOnBrandMeter } from '../../ui/domain/AmbOnBrandMeter';
 import { AmbChecksList } from '../../ui/domain/AmbChecksList';
-import { AmbSheet } from '../../ui/domain/AmbSheet';
+import { Sheet } from '../../ui/composites/Sheet';
 import { useDisclosure } from '../../ui/hooks/useDisclosure';
 import { ChecksPanel } from './parts/ChecksPanel';
 import { DraftPanel } from './parts/DraftPanel';
@@ -32,6 +31,7 @@ import { GenerateControls } from './parts/GenerateControls';
 import { PageTitle } from './parts/PageTitle';
 import { AngleField } from './parts/AngleField';
 import { DraftActions } from './parts/DraftActions';
+import { AmbassadorFrame } from './parts/AmbassadorFrame';
 import { useAmbassadorFlow } from './useAmbassadorFlow';
 import { useDraft } from './useDraft';
 import type { Device, GenerateData } from './types';
@@ -54,24 +54,26 @@ export function AmbGenerate({ data, device, state = 'success' }: AmbGenerateProp
 
   if (device === 'desktop') {
     return (
-      <AmbShell {...flow.shell} account={data.account}>
+      <AmbassadorFrame flow={flow} account={data.account}>
         <Stack gap={5}>
           <PageTitle title="Write your piece" context={`${draft.formatLabel} · ${data.pieceLabel}`} back={{ href: flow.back('generate'), label: draft.campaign.title }} />
-          <HubColumns
+          <Columns
+            startWidth="fluid"
+            gap={6}
             start={<GenerateControls draft={draft} formats={data.formats} />}
             end={<ChecksPanel draft={draft} threshold={data.threshold} generating={generating} actions={actions('stack', 'Continue to publish')} />}
           >
             {editor}
-          </HubColumns>
+          </Columns>
         </Stack>
-      </AmbShell>
+      </AmbassadorFrame>
     );
   }
 
   const flagCount = `${draft.checks.length} ${draft.checks.length === 1 ? 'flag' : 'flags'}`;
   return (
-    <AmbShell
-      {...flow.shell}
+    <AmbassadorFrame
+      flow={flow}
       account={data.account}
       back={{ href: flow.back('generate'), label: 'Back to the campaign' }}
       title={draft.formatLabel}
@@ -81,9 +83,9 @@ export function AmbGenerate({ data, device, state = 'success' }: AmbGenerateProp
       <PageTitle title="Write your piece" context={data.pieceLabel} />
       <AngleField draft={draft} multiline={false} />
       {editor}
-      <AmbSheet open={flags.open} onClose={flags.hide} title="Flags">
+      <Sheet open={flags.open} onClose={flags.hide} title="Flags">
         <AmbChecksList compact checks={draft.checks} onFix={draft.fix} disabled={generating} />
-      </AmbSheet>
-    </AmbShell>
+      </Sheet>
+    </AmbassadorFrame>
   );
 }

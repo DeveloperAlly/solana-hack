@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Button, Stack, Text } from '../../../ui/primitives';
-import { AmbInlineForm } from '../../../ui/domain/AmbInlineForm';
+import { InlineForm } from '../../../ui/composites/InlineForm';
 import type { JoinState, JoinStep } from '../useJoin';
 import { validateCode, validateEmail } from '../validators';
 
@@ -15,7 +15,11 @@ export function JoinPanel({ join, emailPlaceholder }: JoinPanelProps) {
   const views: Record<JoinStep, ReactNode> = {
     start: <Button onClick={join.open} fullWidth>Join and start writing</Button>,
     email: (
-      <AmbInlineForm label="Sign in with email to join" type="email" placeholder={emailPlaceholder} submitLabel="Email me a code" validate={validateEmail} onSubmit={join.sendCode} />
+      <InlineForm
+        fields={[{ name: 'email', label: 'Sign in with email to join', type: 'email', placeholder: emailPlaceholder, autoComplete: 'email', validate: validateEmail }]}
+        submitLabel="Email me a code"
+        onSubmit={(v) => join.sendCode(v.email)}
+      />
     ),
     code: (
       <Stack gap={3}>
@@ -23,7 +27,11 @@ export function JoinPanel({ join, emailPlaceholder }: JoinPanelProps) {
           We sent a code to {join.email}.{' '}
           <Button variant="secondary" onClick={join.changeEmail}>Change email</Button>
         </Text>
-        <AmbInlineForm label="6-digit code" type="text" submitLabel="Join and start writing" validate={validateCode} onSubmit={join.verify} />
+        <InlineForm
+          fields={[{ name: 'code', label: '6-digit code', inputMode: 'numeric', autoComplete: 'one-time-code', validate: validateCode }]}
+          submitLabel="Join and start writing"
+          onSubmit={join.verify}
+        />
       </Stack>
     ),
   };

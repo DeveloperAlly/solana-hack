@@ -1,7 +1,7 @@
 import { Button, Grid, Link, Stack, Text } from '../../../ui/primitives';
 import { Card } from '../../../ui/composites/Card';
 import { KeyValueList } from '../../../ui/composites/KeyValueList';
-import { campaignProgress, nextPieceLabel } from '../copy';
+import { balanceFor, campaignProgress, nextPieceLabel } from '../copy';
 import type { StatusViewProps } from './statusView';
 
 /**
@@ -19,7 +19,7 @@ export function PaidView({ data, flow, onReceipt }: StatusViewProps) {
   const { next } = progress;
   // Starting the next piece picks it on Generate, with that piece's default draft.
   const write = next && (
-    <Button href={flow.paths.generate} onClick={() => flow.remember({ piece: next, draft: undefined, review: undefined })}>{nextPieceLabel(next, desktop)}</Button>
+    <Button href={flow.paths.generate} onClick={() => flow.remember({ piece: next, draft: undefined, angle: undefined, review: undefined })}>{nextPieceLabel(next, desktop)}</Button>
   );
   if (!desktop) {
     return <Card variant="subtle" as="div"><Text variant="small">{progress.text}</Text>{write}</Card>;
@@ -39,7 +39,7 @@ export function PaidView({ data, flow, onReceipt }: StatusViewProps) {
       <Grid min="sm" gap={4}>
         <Card variant="subtle" as="div">
           <Text variant="small" tone="secondary">Your balance</Text>
-          <Text as="strong" variant="body">{paid.balance}</Text>
+          <Text as="strong" variant="body">{balanceFor(data)}</Text>
         </Card>
         <Card variant="subtle" as="div">
           <Text variant="small" tone="secondary">This campaign</Text>

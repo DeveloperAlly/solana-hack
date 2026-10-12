@@ -15,16 +15,15 @@
  * States: success (the list), empty (Amb-1b: notify-me per brand; earnings stay visible, note n-a1b).
  * Interactions: channel filter, sort (ending soonest, highest payout), View → detail, Notify me toggles.
  */
-import { Stack, Text } from '../../ui/primitives';
-import { AmbSelect } from '../../ui/domain/AmbSelect';
+import { Select, Stack, Text } from '../../ui/primitives';
 import { EmptyState } from '../../ui/composites/EmptyState';
 import { ToggleGroup } from '../../ui/composites/ToggleGroup';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { AmbShell } from '../../ui/domain/AmbShell';
 import { AmbCampaignCard } from '../../ui/domain/AmbCampaignCard';
 import { CampaignAction } from './parts/CampaignAction';
 import { NotifyList } from './parts/NotifyList';
 import { PageTitle } from './parts/PageTitle';
+import { AmbassadorFrame } from './parts/AmbassadorFrame';
 import { useAmbassadorFlow } from './useAmbassadorFlow';
 import { campaignSorts, channelFilters, channelNames, useCampaignList } from './useCampaignList';
 import type { CampaignsData, CampaignSummary, Device } from './types';
@@ -42,10 +41,10 @@ export function AmbCampaigns({ data, device, state = 'success' }: AmbCampaignsPr
   const list = useCampaignList(data.campaigns);
   const desktop = device === 'desktop';
   const empty = state === 'empty' || data.campaigns.length === 0;
-  const sort = <AmbSelect layout="inline" label="Sort" options={campaignSorts} value={list.sort} onChange={list.setSort} />;
+  const sort = <Select layout="inline" label="Sort" options={campaignSorts} value={list.sort} onValueChange={list.setSort} />;
 
   return (
-    <AmbShell {...flow.shell} account={data.account} active="campaigns" tabs>
+    <AmbassadorFrame flow={flow} account={data.account} active="campaigns" tabs>
       <Stack gap={6}>
         <PageTitle title="Open campaigns" aside={desktop && !empty ? sort : undefined}>
           {desktop && !empty && <Text tone="secondary">Write for a brand, publish in your own name, get paid in USDC when your post is verified.</Text>}
@@ -88,6 +87,6 @@ export function AmbCampaigns({ data, device, state = 'success' }: AmbCampaignsPr
           </Stack>
         )}
       </Stack>
-    </AmbShell>
+    </AmbassadorFrame>
   );
 }

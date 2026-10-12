@@ -1,11 +1,11 @@
 // Shared data shapes for the Ambassador page (issue #53). Fixtures, screens and the data contracts import from here.
 // Sources: wireframe canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn (page "Ambassador", boards Amb-* and M-*);
 // backend map rows "Amb-1, Amb-1b, M-1" to "Amb-5a, 5b, 5c, 5d, M-5" (.agentic/what/context/backend_map.md §4).
-import type { AmbBudget } from '../../ui/domain/AmbBudgetBar';
+import type { Budget } from '../../ui/domain/BudgetBar';
 import type { AmbCheck } from '../../ui/domain/AmbChecksList';
-import type { AmbTimelineStep } from '../../ui/domain/AmbStatusTimeline';
+import type { TimelineStep } from '../../ui/composites/StatusTimeline';
 
-export type { AmbBudget, AmbCheck, AmbTimelineStep };
+export type { Budget, AmbCheck, TimelineStep };
 
 /** Desktop (Amb-*) or mobile (M-*) artboard. One screen component renders both. */
 export type Device = 'desktop' | 'mobile';
@@ -82,7 +82,7 @@ export interface CampaignDetailData {
   formats: PieceFormat[];
   formatsNote: string;
   rules: string[];
-  budget: AmbBudget;
+  budget: Budget;
   howPaid: string;
   joinEmail: string;
 }
@@ -167,7 +167,8 @@ export interface Recovery {
   title: string;
   body: string;
   actionLabel: string;
-  /** A flow step to open; absent for "Ask aDNA to review", which sends a request instead. */
+  /** Text may hold "{brand}", filled with the campaign's brand (copy.ts withBrand). */
+  /** A flow step to open; absent for "Ask {brand} to review", which sends a request instead. */
   to?: 'publish' | 'generate';
   primary?: boolean;
   /** Shown once the request is sent. */
@@ -175,7 +176,8 @@ export interface Recovery {
 }
 
 export interface PostStatusData {
-  account: Account | null;
+  /** The ambassador and the balance before this payout (canvas chip "15 USDC"); every later balance is computed (copy.ts). */
+  ambassador: { name: string; startingBalance: number; unit: string };
   /** Defaults until the flow hands over the real campaign, piece, route and link (canvas Amb-5*). */
   campaign: CampaignRef;
   piece: PieceFormat;
@@ -191,9 +193,8 @@ export interface PostStatusData {
     /** Receipt link, bracketed until wired (canvas note n-a5b). */
     receiptLink: string;
     postLink: string;
-    balance: string;
   };
   /** Title and reasons per channel: a LinkedIn post and a blog page fail in different ways. */
   failure?: { chip: string; title: Record<Channel, string>; reasons: Record<Channel, string[]>; held: string; recoveries: Recovery[] };
-  budget?: { chip: string; budget: AmbBudget; caption: string; optInLabel: string; optedInLabel: string };
+  budget?: { chip: string; budget: Budget };
 }

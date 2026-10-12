@@ -196,7 +196,14 @@ export const publishData: PublishData = {
 };
 
 /** Shared by the status boards: who, what and how it was published (boards Amb-5a to Amb-5c). */
-const statusBase = { account: mai, campaign: adnaRef, piece: linkedinPost, formats: adnaFormats, route: 'on-behalf' as const };
+// The balance before this payout is the canvas chip "Mai T. · 15 USDC"; Amb-5b's 25 USDC is computed from it (copy.ts).
+const statusBase = {
+  ambassador: { name: mai.name, startingBalance: 15, unit: 'USDC' },
+  campaign: adnaRef,
+  piece: linkedinPost,
+  formats: adnaFormats,
+  route: 'on-behalf' as const,
+};
 
 /** Board Amb-5a-Verifying (loading). */
 export const statusVerifying: PostStatusData = { ...statusBase, outcome: 'verifying', times: { published: '16:21' } };
@@ -204,13 +211,11 @@ export const statusVerifying: PostStatusData = { ...statusBase, outcome: 'verify
 /** Board Amb-5b-Paid (success); board M-5-Status draws the same post. Balance after payout: 25 USDC. */
 export const statusPaid: PostStatusData = {
   ...statusBase,
-  account: { ...mai, balance: '25 USDC' },
   outcome: 'paid',
   times: { published: '16:21', verified: '16:22', approved: '17:05', paid: '17:05' },
   paid: {
     receiptLink: '[onchain receipt link]',
     postLink: '[LinkedIn post link]',
-    balance: '25 USDC',
   },
 };
 
@@ -235,7 +240,7 @@ export const statusFailed: PostStatusData = {
     recoveries: [
       { id: 'link', title: 'Wrong link?', body: 'Paste the URL of the post you made from your draft.', actionLabel: 'Paste a different URL', to: 'publish' },
       { id: 'edit', title: 'Edited too much?', body: 'Edit in JamJam so the on-brand check passes, then repost.', actionLabel: 'Re-edit and repost', to: 'generate', primary: true },
-      { id: 'review', title: "Think it's right?", body: 'Send it to aDNA to review by hand.', actionLabel: 'Ask aDNA to review', doneLabel: 'Sent to aDNA for review' },
+      { id: 'review', title: "Think it's right?", body: 'Send it to {brand} to review by hand.', actionLabel: 'Ask {brand} to review', doneLabel: 'Sent to {brand} for review' },
     ],
   },
 };
@@ -251,8 +256,5 @@ export const statusBudget: PostStatusData = {
   budget: {
     chip: 'Budget reached',
     budget: { spent: 500, cap: 500, unit: 'USDC' },
-    caption: '500 of 500 USDC paid out',
-    optInLabel: 'Pay me if aDNA adds budget',
-    optedInLabel: "You'll be paid if aDNA adds budget",
   },
 };

@@ -24,9 +24,8 @@
 import { Button, Stack } from '../../ui/primitives';
 import { KeyValueList } from '../../ui/composites/KeyValueList';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { AmbShell } from '../../ui/domain/AmbShell';
-import { AmbSheet } from '../../ui/domain/AmbSheet';
-import { AmbStatusTimeline } from '../../ui/domain/AmbStatusTimeline';
+import { Sheet } from '../../ui/composites/Sheet';
+import { StatusTimeline } from '../../ui/composites/StatusTimeline';
 import { useDisclosure } from '../../ui/hooks/useDisclosure';
 import { BudgetView } from './parts/BudgetView';
 import { FailedView } from './parts/FailedView';
@@ -34,7 +33,8 @@ import { PageTitle } from './parts/PageTitle';
 import { PaidView } from './parts/PaidView';
 import { VerifyingView } from './parts/VerifyingView';
 import type { StatusViewProps } from './parts/statusView';
-import { receiptRows, statusContext, statusSteps, statusTitle } from './copy';
+import { balanceFor, receiptRows, statusContext, statusSteps, statusTitle } from './copy';
+import { AmbassadorFrame } from './parts/AmbassadorFrame';
 import { useAmbassadorFlow } from './useAmbassadorFlow';
 import type { Device, PostOutcome, PostStatusData } from './types';
 
@@ -67,17 +67,17 @@ export function AmbStatus({ data: fixture, device }: AmbStatusProps) {
   );
 
   return (
-    <AmbShell {...flow.shell} account={data.account} active={data.outcome === 'paid' ? 'posts' : undefined} tabs>
+    <AmbassadorFrame flow={flow} account={{ name: data.ambassador.name, balance: balanceFor(data) }} active={data.outcome === 'paid' ? 'posts' : undefined} tabs>
       <Stack gap={6}>
         <PageTitle title={statusTitle(data)} context={statusContext(data)} />
-        <AmbStatusTimeline steps={steps} orientation={mobile ? 'vertical' : 'horizontal'} />
+        <StatusTimeline steps={steps} orientation={mobile ? 'vertical' : 'horizontal'} label="Post status" />
         <View data={data} flow={flow} onReceipt={receipt.show} />
       </Stack>
       {data.paid && (
-        <AmbSheet open={receipt.open} onClose={receipt.hide} title="Receipt">
+        <Sheet open={receipt.open} onClose={receipt.hide} title="Receipt">
           <KeyValueList label="Receipt" items={receiptRows(data)} />
-        </AmbSheet>
+        </Sheet>
       )}
-    </AmbShell>
+    </AmbassadorFrame>
   );
 }

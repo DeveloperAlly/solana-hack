@@ -1,7 +1,7 @@
 // Text the Ambassador screens build from the flow's choices (campaign, piece, route), so no screen shows a fixture
 // string where the user chose something else. Wording follows the canvas boards Amb-3 to Amb-5d
 // (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn; issue #53).
-import type { AmbTimelineStep } from '../../ui/domain/AmbStatusTimeline';
+import type { TimelineStep } from '../../ui/composites/StatusTimeline';
 import type { DraftReview, PieceFormat, PostOutcome, PostStatusData } from './types';
 
 /** "LinkedIn post · 10 USDC", with "(done)" for a piece already written (canvas Amb-3 format select). */
@@ -33,7 +33,7 @@ export const statusContext = (d: PostStatusData) =>
   [d.campaign.title, d.piece.name, d.outcome === 'paid' ? undefined : d.piece.payout].filter(Boolean).join(' · ');
 
 /** First step: "Published" when JamJam posted it, "Submitted · URL pasted" when the ambassador sent a link. */
-function firstStep(d: PostStatusData): AmbTimelineStep {
+function firstStep(d: PostStatusData): TimelineStep {
   if (d.route === 'on-behalf') return { label: 'Published', state: 'done', note: d.times.published };
   return { label: 'Submitted', state: 'done', note: [d.times.published, 'URL pasted'].filter(Boolean).join(' · ') };
 }
@@ -41,7 +41,7 @@ function firstStep(d: PostStatusData): AmbTimelineStep {
 const verifiedHow = (d: PostStatusData) => (d.route === 'on-behalf' ? 'posted from your account' : 'matches your draft');
 const join = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(' · ');
 
-const stepBuilders: Record<PostOutcome, (d: PostStatusData) => AmbTimelineStep[]> = {
+const stepBuilders: Record<PostOutcome, (d: PostStatusData) => TimelineStep[]> = {
   verifying: (d) => [
     firstStep(d),
     { label: 'Verifying…', state: 'current', note: 'Usually under a minute' },
@@ -91,3 +91,22 @@ export function campaignProgress(d: PostStatusData): { text: string; next?: Piec
 
 /** The next-piece button: "Write another piece" on desktop, "Write the tutorial (50 USDC)" on mobile (canvas Amb-5b, M-5). */
 export const nextPieceLabel = (next: PieceFormat, desktop: boolean) => (desktop ? 'Write another piece' : `Write the ${next.noun} (${next.payout})`);
+
+/** The number in a payout ("10 USDC" → 10). */
+export const payoutAmount = (p: PieceFormat) => Number.parseFloat(p.payout);
+
+/**
+ * The ambassador's balance on a status board: the balance before this submission plus the piece's payout once it is
+ * paid. The account chip and "Your balance" both read this.
+ */
+export function balanceFor(d: PostStatusData): string {
+  const paid = d.outcome === 'paid' ? payoutAmount(d.piece) : 0;
+  return `${d.ambassador.startingBalance + paid} ${d.ambassador.unit}`;
+}
+
+/** Fills "{brand}" in recovery copy with the campaign's brand. */
+export const withBrand = (text: string, brand: string) => text.replaceAll('{brand}', brand);
+
+/** Amb-5d: "500 of 500 USDC paid out" and the opt-in labels, for this campaign's budget and brand. */
+export const budgetCaption = (b: { spent: number; cap: number; unit: string }) => `${b.spent} of ${b.cap} ${b.unit} paid out`;
+export const optInLabels = (brand: string) => ({ off: `Pay me if ${brand} adds budget`, on: `You'll be paid if ${brand} adds budget` });

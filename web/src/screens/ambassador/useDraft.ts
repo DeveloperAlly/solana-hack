@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { uniqueId } from '../../lib/id';
 import { applyFix, draftChecks, gateFor, isOpen, scoreFor } from './draftRules';
 import { pieceLabel } from './copy';
 import { ambSession } from './session';
@@ -14,13 +15,12 @@ export { applyFix, isOpen, scoreFor };
 export function useDraft(data: GenerateData, { generating = false }: { generating?: boolean } = {}) {
   // Start from what this tab already chose (a draft edited earlier, the piece picked); the fixture is only the default.
   const [text, setText] = useState(() => ambSession.get().draft ?? data.draft);
-  const [angle, setAngle] = useState(data.angle);
+  const [angle, setAngle] = useState(() => ambSession.get().angle ?? data.angle);
   const [format, setFormat] = useState(() => ambSession.get().piece?.id ?? data.format);
   const campaign = ambSession.get().campaign ?? data.campaign;
   const piece = data.formats.find((f) => f.id === format) ?? data.formats[0];
-  // Earlier versions, newest first. Ids come from a counter that only goes up, so they never repeat after an undo.
-  const [history, setHistory] = useState<{ id: number; text: string }[]>([]);
-  const nextId = useRef(1);
+  // Earlier versions, newest first. Ids come from the shared uniqueId, so they never repeat after an undo.
+  const [history, setHistory] = useState<{ id: string; text: string }[]>([]);
   const [note, setNote] = useState(data.generatedNote);
 
   const open = useMemo(() => data.checks.filter((c) => isOpen(c, text)), [data.checks, text]);
@@ -30,13 +30,13 @@ export function useDraft(data: GenerateData, { generating = false }: { generatin
   const gate = gateFor(checks, generating);
   const disclosed = !open.some((c) => c.rule.kind === 'missing');
 
-  // Hand the piece, the draft and its review to Publish and Status (session.ts), on every change.
+  // Hand the piece, the draft, the angle and the review to later screens (session.ts), on every change.
   useEffect(() => {
-    ambSession.update({ piece, draft: text, review: { score, openFlags: open.length, disclosed } });
-  }, [piece, text, score, open.length, disclosed]);
+    ambSession.update({ piece, draft: text, angle, review: { score, openFlags: open.length, disclosed } });
+  }, [piece, text, angle, score, open.length, disclosed]);
 
   function snapshot(next: string, why: string) {
-    const id = nextId.current++;
+    const id = uniqueId('version');
     setHistory((h) => [{ id, text }, ...h]);
     setText(next);
     setNote(why);
@@ -73,7 +73,7 @@ export function useDraft(data: GenerateData, { generating = false }: { generatin
       setHistory((h) => h.slice(1));
       setNote('Undone · edits saved');
     },
-    restore: (id: number) => {
+    restore: (id: string) => {
       const version = history.find((h) => h.id === id);
       if (version) snapshot(version.text, 'Restored from History · edits saved');
     },

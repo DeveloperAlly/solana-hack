@@ -1,6 +1,5 @@
-.root { display: flex; flex-direction: column; gap: var(--wl-space-2); color: var(--wl-text-primary); }
-.summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--wl-space-2-5); }
-.bar .summary { align-items: center; }
+/* The preset's summary line; the bar, threshold marker and hint come from P25 Meter. */
+.summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--wl-space-2-5); width: 100%; color: var(--wl-text-primary); }
+.bar { align-items: center; }
 .big { font-family: var(--wl-font-display); font-size: var(--wl-font-size-3xl); line-height: var(--wl-font-lineHeight-heading); }
 .action { margin-left: auto; }
-.hint { margin: 0; font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }

@@ -1,7 +1,7 @@
 // Ambassador page (issue #53): both flows click through campaigns → detail → generate → publish → status on the gallery
 // routes, and each screen's main interactions work on fixtures with no network call.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { GalleryScreen } from '../../gallery/Gallery';
@@ -581,5 +581,46 @@ describe('Codex review round 3 on PR #78', () => {
   it('a failed LinkedIn post keeps the canvas reasons', async () => {
     at('/screens/Amb-5c-VerifyFailed');
     expect(await screen.findByText(/different LinkedIn account/)).toBeInTheDocument();
+  });
+});
+
+describe('Codex review round 4 on PR #78: status values derive from the session', () => {
+  it('the angle is kept with the draft and reopens on another screen', async () => {
+    const u = user();
+    const first = at('/screens/Amb-3-Generate');
+    await h1('Write your piece');
+    const angle = screen.getByLabelText('Your angle');
+    await u.clear(angle);
+    await u.type(angle, 'My own angle');
+    expect(ambSession.get().angle).toBe('My own angle');
+    first.unmount();
+    at('/screens/M-3-Generate');
+    expect(await screen.findByLabelText('Your angle')).toHaveValue('My own angle');
+  });
+
+  it('balances are the starting balance plus the paid piece, in the chip and in Your balance', async () => {
+    at('/screens/Amb-5b-Paid');
+    await h1('Paid 10 USDC');
+    expect(screen.getByText('Mai T. · 25 USDC')).toBeInTheDocument();
+    expect(screen.getAllByText('25 USDC').length).toBeGreaterThan(0);
+    cleanup();
+    ambSession.update({ piece: adnaFormats[2] });
+    at('/screens/Amb-5b-Paid');
+    await h1('Paid 50 USDC');
+    expect(screen.getByText('Mai T. · 65 USDC')).toBeInTheDocument();
+    expect(screen.getByText('65 USDC')).toBeInTheDocument();
+    cleanup();
+    at('/screens/Amb-5a-Verifying');
+    await h1('Checking your post');
+    expect(screen.getByText('Mai T. · 15 USDC')).toBeInTheDocument();
+  });
+
+  it('recovery and budget copy name the campaign brand', async () => {
+    ambSession.update({ campaign: { title: 'GamersLab season', brand: 'GamersLab' } });
+    at('/screens/Amb-5c-VerifyFailed');
+    expect(await screen.findByRole('button', { name: 'Ask GamersLab to review' })).toBeInTheDocument();
+    cleanup();
+    at('/screens/Amb-5d-BudgetReached');
+    expect(await screen.findByRole('button', { name: 'Pay me if GamersLab adds budget' })).toBeInTheDocument();
   });
 });

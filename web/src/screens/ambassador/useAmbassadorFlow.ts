@@ -1,8 +1,7 @@
-import { createElement, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useScreenHref } from '../../gallery/screenPath';
-import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
-import type { AmbNavItem } from '../../ui/domain/AmbShell';
+import type { FrameNavItem } from '../../ui/layouts/AppFrame';
 import { ambRoutes, ambSteps, pageRoutes, verifyMatch, type AmbRouteKey, type AmbStep, type ScreenTarget } from './routes';
 import { ambSession, useAmbSession } from './session';
 import type { Device } from './types';
@@ -26,7 +25,7 @@ export function useAmbassadorFlow(device: Device) {
     const paths = Object.fromEntries(Object.entries(targets).map(([k, t]) => [k, href(t)])) as Paths;
     const at = (step: AmbStep, offset: number) => paths[ambSteps[Math.min(ambSteps.length - 1, Math.max(0, ambSteps.indexOf(step) + offset))]];
     // Canvas nav: "My posts" and "Earnings" both open the paid status board (Amb-5b, M-5).
-    const nav: AmbNavItem[] = [
+    const nav: FrameNavItem[] = [
       { id: 'campaigns', label: 'Campaigns', href: paths.campaigns },
       { id: 'posts', label: 'My posts', href: paths.paid },
       { id: 'earnings', label: 'Earnings', href: paths.paid },
@@ -44,8 +43,8 @@ export function useAmbassadorFlow(device: Device) {
         const path = paths[to];
         if (path) navigate(path);
       },
-      /** Props every screen passes to AmbShell. */
-      shell: { device, nav, homeHref: pageRoutes.home, signInHref: pageRoutes.signIn, flag: createElement(ComingSoonFlag, { tag: 'STRETCH' }) },
+      /** Campaigns, My posts, Earnings (AmbassadorFrame). */
+      nav,
     };
   }, [device, navigate, screenHref, session]);
 }

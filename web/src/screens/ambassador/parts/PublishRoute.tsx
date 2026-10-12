@@ -1,4 +1,4 @@
-import { AmbInlineForm } from '../../../ui/domain/AmbInlineForm';
+import { InlineForm } from '../../../ui/composites/InlineForm';
 import { AmbPublishRouteCard } from '../../../ui/domain/AmbPublishRouteCard';
 import { validateLinkedInPostUrl, validatePageUrl } from '../validators';
 import type { PublishRoute as Route, PublishRouteId } from '../types';
@@ -29,7 +29,12 @@ export function PublishRoute({ route, mobile, connectedAs, settingsHref, selecte
   return (
     <AmbPublishRouteCard title={route.title} badge={mobile || !selected ? undefined : route.badge} description={mobile ? route.mobileDescription ?? route.description : route.description} selected={selected}>
       {route.field && validate ? (
-        <AmbInlineForm label={route.field.label} type="url" placeholder={route.field.placeholder} submitLabel={route.submitLabel} variant="secondary" validate={validate} onSubmit={onSubmit} />
+        <InlineForm
+          fields={[{ name: 'url', label: route.field.label, type: 'url', placeholder: route.field.placeholder, validate }]}
+          submitLabel={route.submitLabel}
+          submitVariant="secondary"
+          onSubmit={(v) => onSubmit(v.url)}
+        />
       ) : (
         <PostForMe connectedAs={connectedAs} settingsHref={settingsHref} submitLabel={route.submitLabel} onSubmit={() => onSubmit()} />
       )}

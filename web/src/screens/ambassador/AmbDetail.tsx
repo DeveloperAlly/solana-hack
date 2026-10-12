@@ -20,13 +20,13 @@ import { Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { DataTable } from '../../ui/composites/DataTable';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { AmbShell } from '../../ui/domain/AmbShell';
-import { HubColumns } from '../../ui/domain/HubColumns';
-import { AmbBudgetBar } from '../../ui/domain/AmbBudgetBar';
-import { AmbCollapsibleText } from '../../ui/domain/AmbCollapsibleText';
+import { Columns } from '../../ui/layouts/Columns';
+import { BudgetBar } from '../../ui/domain/BudgetBar';
+import { CollapsibleText } from '../../ui/composites/CollapsibleText';
 import { InfoCard } from './parts/InfoCard';
 import { JoinPanel } from './parts/JoinPanel';
 import { PageTitle } from './parts/PageTitle';
+import { AmbassadorFrame } from './parts/AmbassadorFrame';
 import { useAmbassadorFlow } from './useAmbassadorFlow';
 import { useJoin } from './useJoin';
 import type { CampaignDetailData, Device, PieceFormat } from './types';
@@ -58,7 +58,7 @@ export function AmbDetail({ data, device }: AmbDetailProps) {
 
   const main = (
     <Stack gap={5}>
-      <InfoCard title="Brief"><AmbCollapsibleText text={data.brief} collapsible={!desktop} /></InfoCard>
+      <InfoCard title="Brief"><CollapsibleText text={data.brief} collapsible={!desktop} /></InfoCard>
       <InfoCard title="What you can make">
         <DataTable<PieceFormat> caption="Formats and payouts" hideCaption columns={formatColumns} rows={data.formats} rowKey={(r) => r.id} />
         <Text variant="small" tone="secondary">{data.formatsNote}</Text>
@@ -68,10 +68,10 @@ export function AmbDetail({ data, device }: AmbDetailProps) {
       </InfoCard>
     </Stack>
   );
-  const budget = <InfoCard title="Budget"><AmbBudgetBar budget={data.budget} /></InfoCard>;
+  const budget = <InfoCard title="Budget"><BudgetBar budget={data.budget} /></InfoCard>;
 
   return (
-    <AmbShell {...flow.shell} account={data.account} active="campaigns" back={{ href: flow.paths.campaigns, label: 'Back to campaigns' }} title={campaign.title} footer={desktop ? undefined : joinPanel}>
+    <AmbassadorFrame flow={flow} account={data.account} active="campaigns" back={{ href: flow.paths.campaigns, label: 'Back to campaigns' }} title={campaign.title} footer={desktop ? undefined : joinPanel}>
       <Stack gap={6}>
         <PageTitle
           title={campaign.title}
@@ -80,7 +80,7 @@ export function AmbDetail({ data, device }: AmbDetailProps) {
           chips={[campaign.timeLeft, campaign.slots, desktop ? data.reviewNote : undefined].filter((c): c is string => Boolean(c))}
         />
         {desktop ? (
-          <HubColumns
+          <Columns
             end={
               <>
                 {budget}
@@ -90,11 +90,11 @@ export function AmbDetail({ data, device }: AmbDetailProps) {
             }
           >
             {main}
-          </HubColumns>
+          </Columns>
         ) : (
           <Stack gap={5}>{main}{budget}</Stack>
         )}
       </Stack>
-    </AmbShell>
+    </AmbassadorFrame>
   );
 }

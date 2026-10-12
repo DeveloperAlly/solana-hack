@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Badge } from '../primitives/Badge';
-import { AmbBar } from './AmbBar';
+import { ProgressBar } from '../composites/ProgressBar';
 import type { AmbCampaignFields } from './AmbCampaignCard';
 import styles from './AmbCampaignCard.module.css';
 
@@ -25,7 +25,7 @@ export function AmbCampaignRowBody({ brandLine, title, channelsLabel, payout, pa
         <p className={budgetReached ? styles.sub : styles.strong}>{budgetReached ? 'Closed to new posts' : slots}</p>
         {budgetUsedPct !== undefined && (
           <>
-            <AmbBar size="sm" segments={[{ pct: budgetUsedPct, tone: 'primary' }]} />
+            <ProgressBar decorative size="sm" label="Budget used" segments={[{ value: budgetUsedPct, label: 'Used' }]} />
             <p className={styles.sub}>budget {budgetUsedPct}% used</p>
           </>
         )}

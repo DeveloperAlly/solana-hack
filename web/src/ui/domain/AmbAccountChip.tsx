@@ -1,6 +1,11 @@
 import { Badge } from '../primitives/Badge';
 import { Link } from '../primitives/Link';
-import type { AmbAccount } from './AmbShell';
+
+/** The ambassador's name and balance ("Mai T. · 15 USDC"). */
+export interface AmbAccount {
+  name: string;
+  balance: string;
+}
 
 export interface AmbAccountChipProps {
   account: AmbAccount | null;
@@ -9,7 +14,7 @@ export interface AmbAccountChipProps {
   withName?: boolean;
 }
 
-/** The ambassador's balance chip in the shell; a Sign in link when signed out. Part of AmbShell. */
+/** The ambassador's balance chip in the frame's actions slot (AppFrame); a Sign in link when signed out. */
 export function AmbAccountChip({ account, signInHref, withName = true }: AmbAccountChipProps) {
   if (!account) return <Link href={signInHref}>Sign in</Link>;
   return <Badge>{withName ? `${account.name} · ${account.balance}` : account.balance}</Badge>;

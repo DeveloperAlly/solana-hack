@@ -1,10 +1,7 @@
 // Sample props for the Amb* workbench examples and tests: the canvas's own sample text (wireframe canvas
 // https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, page "Ambassador", boards Amb-1 to Amb-5d; issue #53).
-import type { AmbBudget } from './AmbBudgetBar';
 import type { AmbCampaignFields } from './AmbCampaignCard';
 import type { AmbCheck } from './AmbChecksList';
-import type { AmbNavItem } from './AmbShell';
-import type { AmbTimelineStep } from './AmbStatusTimeline';
 
 /** Board Amb-1-Campaigns, first card. */
 export const sampleCampaign: AmbCampaignFields = {
@@ -29,8 +26,6 @@ export const sampleClosedCampaign: AmbCampaignFields = {
   budgetReached: true,
 };
 
-/** Board Amb-2-Detail: "305 of 500 USDC left". */
-export const sampleBudget: AmbBudget = { spent: 135, committed: 60, cap: 500, unit: 'USDC' };
 
 /** Board Amb-3-Generate flags. */
 export const sampleChecks: AmbCheck[] = [
@@ -41,26 +36,3 @@ export const sampleChecks: AmbCheck[] = [
 
 /** Board Amb-3-Generate draft, lines 4 and 5. */
 export const sampleDraft = "It will 10x your team's output.\n\nStop pasting a memory dump into every new session.";
-
-/** Board Amb-5a-Verifying timeline. */
-export const sampleSteps: AmbTimelineStep[] = [
-  { label: 'Published', state: 'done', note: '16:21' },
-  { label: 'Verifying…', state: 'current', note: 'Usually under a minute' },
-  { label: 'Approved', state: 'todo', note: 'aDNA reviews within 48 h' },
-  { label: 'Paid', state: 'todo', note: '10 USDC' },
-];
-
-/** Board Amb-5c-VerifyFailed timeline. */
-export const sampleFailedSteps: AmbTimelineStep[] = [
-  { label: 'Submitted', state: 'done', note: '16:40 · URL pasted' },
-  { label: 'Not verified', state: 'failed', note: '16:41' },
-  { label: 'Approved', state: 'todo' },
-  { label: 'Paid', state: 'todo' },
-];
-
-/** Canvas nav: Campaigns, My posts, Earnings. Workbench anchors, so examples never leave /system. */
-export const sampleNav: AmbNavItem[] = [
-  { id: 'campaigns', label: 'Campaigns', href: '/system#campaigns' },
-  { id: 'posts', label: 'My posts', href: '/system#posts' },
-  { id: 'earnings', label: 'Earnings', href: '/system#earnings' },
-];

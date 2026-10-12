@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { WorkbenchExample } from '../../system/example';
 import { Button, Stack } from '../primitives';
 import { AmbCampaignCard } from './AmbCampaignCard';
-import { AmbNotifyButton } from './AmbNotifyButton';
+import { ToggleButton } from '../composites/ToggleButton';
 import { sampleCampaign, sampleClosedCampaign } from './ambSamples';
 
 function Demo() {
@@ -10,7 +10,7 @@ function Demo() {
   return (
     <Stack gap={4}>
       <AmbCampaignCard {...sampleCampaign} action={<Button href="/system#campaign">View</Button>} />
-      <AmbCampaignCard {...sampleClosedCampaign} action={<AmbNotifyButton brand="GamersLab" on={on} onToggle={() => setOn((v) => !v)} />} />
+      <AmbCampaignCard {...sampleClosedCampaign} action={<ToggleButton label="Notify me" pressedLabel="We'll email you" context="about GamersLab" pressed={on} onToggle={() => setOn((v) => !v)} />} />
       <AmbCampaignCard {...sampleCampaign} brandLine="aDNA" channelsLabel="LinkedIn, Blog" layout="stack" href="/system#campaign" />
       <AmbCampaignCard {...sampleClosedCampaign} brandLine="GamersLab" layout="stack" />
     </Stack>

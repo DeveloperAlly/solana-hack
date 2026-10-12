@@ -1,6 +1,7 @@
 // The one route map for the Ambassador page (issue #53). Screens never write paths; they read them from here through
-// useAmbassadorFlow. Each step opens its gallery route /screens/<Artboard> (issue #45, "Where it lives").
+// useAmbassadorFlow. Each step opens its gallery route for that artboard (issue #45, "Where it lives").
 // Canvas links followed: https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, boards Amb-1 to Amb-5d and M-1 to M-5.
+import type { ArtboardName } from '../../config/artboards';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import type { Device } from './types';
 
@@ -15,10 +16,11 @@ export type AmbRouteKey = AmbStep | AmbOutcomeStep;
 /** A gallery screen to open: its artboard and, when not the default, its state. Hrefs come from the gallery's
  * useScreenHref (src/gallery/screenPath.ts), which keeps the theme; this file never builds a path. */
 export interface ScreenTarget {
-  artboard: string;
+  /** A canvas board (config/artboards); a misspelled board fails typecheck. */
+  artboard: ArtboardName;
   state?: ScreenState;
 }
-const screen = (artboard: string, state?: ScreenState): ScreenTarget => ({ artboard, state });
+const screen = (artboard: ArtboardName, state?: ScreenState): ScreenTarget => ({ artboard, state });
 
 /** Every artboard this page registers, keyed for the registry. */
 export const ambArtboards = {
@@ -36,7 +38,7 @@ export const ambArtboards = {
   mGenerate: 'M-3-Generate',
   mPublish: 'M-4-Publish',
   mStatus: 'M-5-Status',
-} as const;
+} as const satisfies Record<string, ArtboardName>;
 
 const a = ambArtboards;
 

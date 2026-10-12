@@ -1,8 +1,0 @@
-/* Canvas ".bar": grey track, dark spent segment, mid-grey committed segment, ink threshold marker. */
-.bar { display: block; width: 100%; border-radius: var(--wl-radius-pill); overflow: hidden; }
-.sm { height: var(--wl-space-2); }
-.md { height: var(--wl-space-2-5); }
-.track { fill: var(--wl-border-subtle); }
-.primary { fill: var(--wl-data-series-1); }
-.secondary { fill: var(--wl-data-series-2); }
-.marker { fill: var(--wl-text-primary); }

@@ -19,10 +19,10 @@
 import { Grid, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { AmbShell } from '../../ui/domain/AmbShell';
 import { PageTitle } from './parts/PageTitle';
 import { PublishRoute } from './parts/PublishRoute';
 import { postPreview, reviewChips } from './copy';
+import { AmbassadorFrame } from './parts/AmbassadorFrame';
 import { useAmbassadorFlow } from './useAmbassadorFlow';
 import type { Device, PublishData } from './types';
 
@@ -55,7 +55,7 @@ export function AmbPublish({ data, device }: AmbPublishProps) {
     ));
 
   return (
-    <AmbShell {...flow.shell} account={data.account} back={{ href: flow.back('publish'), label: 'Back to editing' }} title="Publish">
+    <AmbassadorFrame flow={flow} account={data.account} back={{ href: flow.back('publish'), label: 'Back to editing' }} title="Publish">
       <Stack gap={6}>
         <PageTitle
           title={`Publish your ${piece.name}`}
@@ -73,6 +73,6 @@ export function AmbPublish({ data, device }: AmbPublishProps) {
         {desktop ? <Grid min="sm" gap={4}>{routes}</Grid> : <Stack gap={4}>{routes}</Stack>}
         {desktop && <Stack gap={1}>{data.notes.map((n) => <Text key={n} variant="small" tone="secondary">{n}</Text>)}</Stack>}
       </Stack>
-    </AmbShell>
+    </AmbassadorFrame>
   );
 }

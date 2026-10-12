@@ -1,5 +1,5 @@
 import { Button } from '../../../ui/primitives';
-import { AmbNotifyButton } from '../../../ui/domain/AmbNotifyButton';
+import { ToggleButton } from '../../../ui/composites/ToggleButton';
 import type { CampaignSummary } from '../types';
 
 export interface CampaignActionProps {
@@ -14,7 +14,7 @@ export interface CampaignActionProps {
  * bracketed film.fun card) shows View disabled; a budget-reached campaign offers Notify me instead (note n-a1).
  */
 export function CampaignAction({ campaign, detailHref, notified, onNotify }: CampaignActionProps) {
-  if (campaign.budgetReached) return <AmbNotifyButton brand={campaign.brand} on={notified} onToggle={onNotify} />;
+  if (campaign.budgetReached) return <ToggleButton label="Notify me" pressedLabel="We'll email you" context={`about ${campaign.brand}`} pressed={notified} onToggle={onNotify} />;
   if (!campaign.hasDetail) {
     return (
       <Button variant="secondary" disabled>

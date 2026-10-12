@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Badge, Button, Stack, Text } from '../../../ui/primitives';
 import { StatePanel } from '../../../ui/composites/StatePanel';
-import { AmbBudgetBar } from '../../../ui/domain/AmbBudgetBar';
-import { budgetBody, budgetTitle } from '../copy';
+import { BudgetBar } from '../../../ui/domain/BudgetBar';
+import { budgetBody, budgetCaption, budgetTitle, optInLabels } from '../copy';
 import type { StatusViewProps } from './statusView';
 
 /**
@@ -13,6 +13,7 @@ export function BudgetView({ data, flow }: StatusViewProps) {
   const [optedIn, setOptedIn] = useState(false);
   const { budget } = data;
   if (!budget) return null;
+  const labels = optInLabels(data.campaign.brand);
   return (
     <StatePanel
       kind="error"
@@ -20,13 +21,13 @@ export function BudgetView({ data, flow }: StatusViewProps) {
       body={
         <Stack gap={3}>
           <span><Badge tone="solid">{budget.chip}</Badge></span>
-          <AmbBudgetBar budget={budget.budget} caption={budget.caption} />
+          <BudgetBar budget={budget.budget} caption={budgetCaption(budget.budget)} />
           <Text>{budgetBody(data)}</Text>
         </Stack>
       }
       actions={
         <>
-          <Button aria-pressed={optedIn} onClick={() => setOptedIn((v) => !v)}>{optedIn ? budget.optedInLabel : budget.optInLabel}</Button>
+          <Button aria-pressed={optedIn} onClick={() => setOptedIn((v) => !v)}>{optedIn ? labels.on : labels.off}</Button>
           <Button href={flow.paths.campaigns} variant="secondary">See other campaigns</Button>
         </>
       }

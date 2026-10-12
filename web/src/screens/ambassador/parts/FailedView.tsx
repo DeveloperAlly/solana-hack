@@ -22,7 +22,7 @@ export function FailedView({ data, flow }: StatusViewProps) {
         }
       />
       <Grid min="sm" gap={4}>
-        {failure.recoveries.map((r) => <RecoveryCard key={r.id} recovery={r} href={r.to ? flow.paths[r.to] : undefined} />)}
+        {failure.recoveries.map((r) => <RecoveryCard key={r.id} recovery={r} brand={data.campaign.brand} href={r.to ? flow.paths[r.to] : undefined} />)}
       </Grid>
     </Stack>
   );

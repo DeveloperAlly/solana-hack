@@ -11,6 +11,8 @@ export interface AmbSession {
   campaign?: CampaignRef;
   piece?: PieceFormat;
   draft?: string;
+  /** The ambassador's angle, kept with the draft (Regenerate keeps it, canvas note n-a3). */
+  angle?: string;
   review?: DraftReview;
   route?: PublishRouteId;
   submittedUrl?: string;

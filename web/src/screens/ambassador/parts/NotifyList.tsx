@@ -1,5 +1,5 @@
 import { Stack, Text } from '../../../ui/primitives';
-import { AmbNotifyButton } from '../../../ui/domain/AmbNotifyButton';
+import { ToggleButton } from '../../../ui/composites/ToggleButton';
 
 export interface NotifyListProps {
   brands: string[];
@@ -15,7 +15,7 @@ export function NotifyList({ brands, notified, onToggle }: NotifyListProps) {
         <li key={b}>
           <Stack direction="row" gap={3} align="center" justify="between" wrap>
             <Text>{b}</Text>
-            <AmbNotifyButton brand={b} on={notified.has(b)} onToggle={() => onToggle(b)} />
+            <ToggleButton label="Notify me" pressedLabel="We'll email you" context={`about ${b}`} pressed={notified.has(b)} onToggle={() => onToggle(b)} />
           </Stack>
         </li>
       ))}
