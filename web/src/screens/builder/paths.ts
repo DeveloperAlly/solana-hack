@@ -1,65 +1,76 @@
-// Route paths for the Brand Builder page (issue #50). Every link between screens comes from here.
-// Screens open at their gallery route /screens/<Artboard> (issue #46); screens on other pages are linked the same way.
+// Screen-to-screen routing for the Brand Builder page (issue #50). Every link names a canvas artboard by key from this one
+// map and is resolved by the gallery's screenPath / useScreenHref (src/gallery/screenPath.ts), which keeps ?theme=.
+import { useCallback } from 'react';
+import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
+import { useScreenHref } from '../../gallery/screenPath';
 
-const screen = (artboard: string) => `/screens/${artboard}`;
-
-export const builderPaths = {
-  signIn: screen('Onboard-1-SignIn'),
-  domain: screen('Onboard-2-Domain'),
-  domainFailed: screen('Onboard-2b-DomainFailed'),
-  sources: screen('Onboard-3-Sources'),
-  profiling: screen('Onboard-3b-Profiling'),
-  ingestError: screen('Ingest-Error'),
-  basics: screen('BB-1-Basics'),
-  origin: screen('BB-2-Origin'),
-  goldenCircle: screen('BB-3-GoldenCircle'),
-  alternatives: screen('BB-4-Alternatives'),
-  audience: screen('BB-5-Audience'),
-  voice: screen('BB-6-Voice'),
-  gatePurpose: screen('BB-Gate1-Purpose'),
-  gatePositioning: screen('BB-Gate2-Positioning'),
-  gateVoice: screen('BB-Gate3-Voice'),
-  coverage: screen('Coverage-Map'),
-  published: screen('Onboard-6-Published'),
-  registerFailed: screen('Kit-RegisterFailed'),
-  kitExport: screen('Kit-Export'),
-  dashboard: screen('Dashboard'),
-  dashboardEmpty: screen('Dashboard-Empty'),
+export const boards = {
+  // This page's artboards.
+  signIn: 'Onboard-1-SignIn',
+  domain: 'Onboard-2-Domain',
+  domainFailed: 'Onboard-2b-DomainFailed',
+  sources: 'Onboard-3-Sources',
+  profiling: 'Onboard-3b-Profiling',
+  ingestError: 'Ingest-Error',
+  basics: 'BB-1-Basics',
+  origin: 'BB-2-Origin',
+  goldenCircle: 'BB-3-GoldenCircle',
+  alternatives: 'BB-4-Alternatives',
+  audience: 'BB-5-Audience',
+  voice: 'BB-6-Voice',
+  gatePurpose: 'BB-Gate1-Purpose',
+  gatePositioning: 'BB-Gate2-Positioning',
+  gateVoice: 'BB-Gate3-Voice',
+  coverage: 'Coverage-Map',
+  published: 'Onboard-6-Published',
+  registerFailed: 'Kit-RegisterFailed',
+  kitExport: 'Kit-Export',
+  dashboard: 'Dashboard',
+  dashboardEmpty: 'Dashboard-Empty',
+  // Artboards on other canvas pages that these screens link to (canvas hrefs).
+  main: 'Main',
+  hubHome: 'Hub-Home',
+  brandBuild: 'Brand-Build',
+  draftReview: 'Draft-Review',
+  verifyMatch: 'Verify-1-Match',
+  campaignBuilder: 'Campaign-Builder',
+  ledger: 'Ledger',
+  voices: 'Voice-Templates',
+  claims: 'Claims',
+  engageQueue: 'Engage-Queue',
+  partners: 'Partners',
+  leads: 'Leads',
+  influencer: 'Influencer-Setup',
 } as const;
 
-/** Screens on other canvas pages that Brand Builder screens link to (canvas hrefs). */
-export const otherPaths = {
-  main: screen('Main'),
-  hubHome: screen('Hub-Home'),
-  brandBuild: screen('Brand-Build'),
-  draftReview: screen('Draft-Review'),
-  verifyMatch: screen('Verify-1-Match'),
-  campaignBuilder: screen('Campaign-Builder'),
-  ledger: screen('Ledger'),
-  voices: screen('Voice-Templates'),
-  claims: screen('Claims'),
-  engageQueue: screen('Engage-Queue'),
-  partners: screen('Partners'),
-  leads: screen('Leads'),
-  influencer: screen('Influencer-Setup'),
-} as const;
+export type BoardKey = keyof typeof boards;
 
-export type BuilderPathKey = keyof typeof builderPaths;
+/** (board, state?) => href to that artboard that keeps the gallery theme. */
+export function useBoardHref(): (key: BoardKey, state?: ScreenState) => string {
+  const href = useScreenHref();
+  return useCallback((key: BoardKey, state?: ScreenState) => href(boards[key], state), [href]);
+}
+
+export interface SubnavItem {
+  id: string;
+  label: string;
+  board: BoardKey;
+}
 
 /** Hub sub-navigation drawn on Kit-Export (Brand) and Dashboard (Grow), canvas boards of the same names. */
-export const brandSubnav = [
-  { id: 'kit', label: 'Brand kit', href: otherPaths.brandBuild },
-  { id: 'voices', label: 'Voices', href: otherPaths.voices },
-  { id: 'claims', label: 'Claims', href: otherPaths.claims },
-  { id: 'verification', label: 'Verification', href: builderPaths.domain },
+export const brandSubnav: SubnavItem[] = [
+  { id: 'kit', label: 'Brand kit', board: 'brandBuild' },
+  { id: 'voices', label: 'Voices', board: 'voices' },
+  { id: 'claims', label: 'Claims', board: 'claims' },
+  { id: 'verification', label: 'Verification', board: 'domain' },
 ];
-export const growSubnav = [
-  { id: 'engagement', label: 'Engagement', href: otherPaths.engageQueue },
-  { id: 'ambassadors', label: 'Ambassadors', href: builderPaths.dashboard },
-  { id: 'partners', label: 'Partners', href: otherPaths.partners },
-  { id: 'leads', label: 'Leads (experimental)', href: otherPaths.leads },
-  { id: 'influencer', label: 'Influencer (experimental)', href: otherPaths.influencer },
+export const growSubnav: SubnavItem[] = [
+  { id: 'engagement', label: 'Engagement', board: 'engageQueue' },
+  { id: 'ambassadors', label: 'Ambassadors', board: 'dashboard' },
+  { id: 'partners', label: 'Partners', board: 'partners' },
+  { id: 'leads', label: 'Leads (experimental)', board: 'leads' },
+  { id: 'influencer', label: 'Influencer (experimental)', board: 'influencer' },
 ];
 
 /** Each approval gate's screen, for "approve the gates first" links. */
-export const gatePaths = { purpose: builderPaths.gatePurpose, positioning: builderPaths.gatePositioning, voice: builderPaths.gateVoice } as const;
+export const gateBoards = { purpose: 'gatePurpose', positioning: 'gatePositioning', voice: 'gateVoice' } as const satisfies Record<string, BoardKey>;

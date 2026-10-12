@@ -4,7 +4,7 @@ import { Badge, Link } from '../../ui/primitives';
 import { WizardLayout } from '../../ui/layouts/WizardLayout';
 import { BuilderShell } from '../../ui/domain/BuilderShell';
 import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
-import { otherPaths } from './paths';
+import { useBoardHref } from './paths';
 import { useBuilderFlow, type FlowKey } from './useBuilderFlow';
 import type { BuilderBrand } from './types';
 
@@ -30,12 +30,13 @@ export interface BuilderStepProps {
  */
 export function BuilderStep({ flow, brand, tag, title, intro, estimate, flag, footer, error, children }: BuilderStepProps) {
   const { steps, current, hrefFor } = useBuilderFlow(flow);
+  const to = useBoardHref();
   return (
     <BuilderShell
       context={brand ? `Build your brand: ${brand.name}` : 'Build your brand'}
-      homeHref={otherPaths.main}
+      homeHref={to('main')}
       flags={brand && !brand.verified && <Badge>Unverified</Badge>}
-      action={brand && <Link href={otherPaths.hubHome}>Save and finish later</Link>}
+      action={brand && <Link href={to('hubHome')}>Save and finish later</Link>}
     >
       <WizardLayout steps={steps} current={current} hrefFor={hrefFor} title={title} intro={intro} estimate={estimate} footer={footer} error={error} flag={<>{tag && <ComingSoonFlag tag={tag} />}{flag}</>}>
         {children}

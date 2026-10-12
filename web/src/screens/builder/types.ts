@@ -9,6 +9,7 @@ import type { RegistrationStatus } from '../../ui/domain/BuilderRegistrationResu
 import type { SourceRow } from '../../ui/domain/BuilderSourceList';
 import type { AmbassadorSubmission } from '../../ui/domain/BuilderApprovalItem';
 import type { StatTileProps } from '../../ui/composites/StatTile';
+import type { BoardKey } from './paths';
 
 export type { GateDecision, GateStatus } from '../../ui/domain/BuilderDecisionGate';
 export type { ChoiceCardOption, CoverageRow, DnsRecord, KitIncludeOption, Persona, SourceRow, AmbassadorSubmission };
@@ -189,6 +190,9 @@ export interface KitExportData {
   includes: KitIncludeOption[];
 }
 
+/** A submission awaiting approval; its link names a board, resolved to a theme-keeping href by the screen. */
+export type PendingSubmission = Omit<AmbassadorSubmission, 'link'> & { link: { label: string; board: BoardKey } };
+
 export interface CampaignRow {
   id: string;
   name: string;
@@ -207,7 +211,8 @@ export interface PayoutRow {
   piece: string;
   ambassador: string;
   paid: string;
-  receiptHref: string;
+  /** Receipt screen (the Ledger in the prototype). */
+  receiptBoard: BoardKey;
 }
 
 export interface DashboardData {
@@ -215,7 +220,7 @@ export interface DashboardData {
   title: string;
   meta: string;
   kpis: StatTileProps[];
-  pending: AmbassadorSubmission[];
+  pending: PendingSubmission[];
   campaigns: CampaignRow[];
   recent: PayoutRow[];
   kit: { summary: string; usage?: string };

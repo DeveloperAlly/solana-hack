@@ -21,12 +21,13 @@ import { BuilderCoverageBadge } from '../../ui/domain/BuilderCoverageBadge';
 import { BuilderCoverageMap } from '../../ui/domain/BuilderCoverageMap';
 import { BuilderStep } from './BuilderStep';
 import { BuilderStepFooter } from './BuilderStepFooter';
-import { gatePaths, otherPaths } from './paths';
+import { gateBoards, useBoardHref } from './paths';
 import { useBuilderFlow } from './useBuilderFlow';
 import type { CoverageData, GateId } from './types';
 
 export function CoverageMap({ data }: { data: CoverageData }) {
   const { back, next, gates, allGatesApproved } = useBuilderFlow('coverage');
+  const to = useBoardHref();
   const pending = (Object.keys(gates) as GateId[]).filter((g) => gates[g].status !== 'approved');
   return (
     <BuilderStep
@@ -38,7 +39,7 @@ export function CoverageMap({ data }: { data: CoverageData }) {
       footer={
         // INTEGRATION: POST /api/brands/:id/kit/approve (backend map §4, row "Onboard-6-Published, Kit-RegisterFailed").
         <BuilderStepFooter back={back} next={{ label: 'Approve kit v1', href: next, blockedReason: allGatesApproved ? null : 'Approve the three gates first.' }}>
-          <Button href={otherPaths.brandBuild} variant="secondary">Review sections first</Button>
+          <Button href={to('brandBuild')} variant="secondary">Review sections first</Button>
         </BuilderStepFooter>
       }
     >
@@ -60,7 +61,7 @@ export function CoverageMap({ data }: { data: CoverageData }) {
       </Grid>
       {pending.length > 0 && (
         <Alert tone="warning" title="Approve the three gates first">
-          Still open: {pending.map((g, i) => <span key={g}>{i > 0 && ', '}<Link href={gatePaths[g]}>{g}</Link></span>)}.
+          Still open: {pending.map((g, i) => <span key={g}>{i > 0 && ', '}<Link href={to(gateBoards[g])}>{g}</Link></span>)}.
         </Alert>
       )}
     </BuilderStep>

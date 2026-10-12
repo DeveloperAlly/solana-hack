@@ -19,7 +19,7 @@ import { BuilderFilePicker } from '../../ui/domain/BuilderFilePicker';
 import { BuilderProgressBar } from '../../ui/domain/BuilderProgressBar';
 import { BuilderSourceList, type SourceRow } from '../../ui/domain/BuilderSourceList';
 import { BuilderStep } from './BuilderStep';
-import { builderPaths } from './paths';
+import { useBoardHref } from './paths';
 import { useBuilderFlow } from './useBuilderFlow';
 import type { ProfilingData } from './types';
 
@@ -27,6 +27,7 @@ export function Onboard3bProfiling({ data }: { data: ProfilingData }) {
   const failedAtStart = data.rows.some((r) => r.tone === 'failed');
   const flowKey = failedAtStart ? 'ingestError' : 'profiling';
   const { next } = useBuilderFlow(flowKey);
+  const to = useBoardHref();
   const [rows, setRows] = useState(data.rows);
   const update = (id: string, patch: Partial<SourceRow>) => setRows((all) => all.map((r) => (r.id === id ? { ...r, ...patch, error: undefined } : r)));
   // INTEGRATION: POST /api/sources/:id/retry (backend map §4, row "Onboard-3b-Profiling, Ingest-Error").
@@ -47,7 +48,7 @@ export function Onboard3bProfiling({ data }: { data: ProfilingData }) {
           <Button href={next ?? ''}>{failedAtStart ? 'Continue without it' : 'Continue to the next question'}</Button>
         </Stack>
       </Card>
-      {!failedAtStart && <Text variant="small" tone="secondary">Prototype states: <Link href={builderPaths.ingestError}>a source fails</Link></Text>}
+      {!failedAtStart && <Text variant="small" tone="secondary">Prototype states: <Link href={to('ingestError')}>a source fails</Link></Text>}
     </BuilderStep>
   );
 }

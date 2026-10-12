@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { GalleryScreen } from '../../gallery/Gallery';
 import { resetBuilderFlow } from './useBuilderFlow';
-import { builderPaths } from './paths';
+import { screenPath } from '../../gallery/screenPath';
+import { boards } from './paths';
 
 // Brand Builder flows (issue #50), run through the gallery routes the screens are registered on.
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
@@ -29,7 +30,7 @@ beforeEach(() => resetBuilderFlow());
 
 describe('Brand Builder: onboarding and wizard, end to end', () => {
   it('signs in, skips the domain, runs intake 1–6 through the three gates, approves kit v1', { timeout: 30000 }, async () => {
-    at(builderPaths.signIn);
+    at(screenPath(boards.signIn));
     await userEvent.type(screen.getByLabelText('Work email'), '{Control>}a{/Control}you@jamjam.tech');
     await click('Send code');
     await userEvent.type(screen.getByLabelText('Enter the code we sent'), '12345678');
@@ -70,7 +71,7 @@ describe('Brand Builder: onboarding and wizard, end to end', () => {
   });
 
   it('Back links walk the wizard backwards and done steps link from the stepper', async () => {
-    at(builderPaths.voice);
+    at(screenPath(boards.voice));
     await click('Back', 'link');
     await h1("Who it's for");
     const progress = screen.getByRole('list', { name: /Step 5 of 6/ });
@@ -81,7 +82,7 @@ describe('Brand Builder: onboarding and wizard, end to end', () => {
 
 describe('Brand Builder: screen interactions', () => {
   it('sign-in checks the code on the client', async () => {
-    at(builderPaths.signIn);
+    at(screenPath(boards.signIn));
     await userEvent.type(screen.getByLabelText('Enter the code we sent'), '12345678');
     await click('Continue');
     expect(screen.getByRole('alert')).toHaveTextContent('Send a code to your email first.');
@@ -94,7 +95,7 @@ describe('Brand Builder: screen interactions', () => {
   });
 
   it('domain: Check now shows the failure, Check again continues to intake step 1', async () => {
-    at(builderPaths.domain);
+    at(screenPath(boards.domain));
     await click('Check now', 'link');
     await h1('Prove you own your domain');
     expect(screen.getByRole('alert')).toHaveTextContent("We couldn't find the record on jamjam.tech");
@@ -103,14 +104,14 @@ describe('Brand Builder: screen interactions', () => {
   });
 
   it('basics: an invalid link blocks Continue with an inline error', async () => {
-    at(`${builderPaths.basics}?state=error`);
+    at(screenPath(boards.basics, 'error'));
     expect(await screen.findByRole('alert')).toHaveTextContent('Not a web address: jamjam tech');
     await click('Continue: read my links');
     await h1('The basics');
   });
 
   it('sources: remove, add, and the empty state', async () => {
-    at(builderPaths.sources);
+    at(screenPath(boards.sources));
     await click('Remove jamjam.tech');
     expect(screen.queryByText('jamjam.tech')).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Add a link'), 'docs.jamjam.tech');
@@ -121,7 +122,7 @@ describe('Brand Builder: screen interactions', () => {
   });
 
   it('sources empty: nothing to read disables Read my sources', async () => {
-    at(`${builderPaths.sources}?state=empty`);
+    at(screenPath(boards.sources, 'empty'));
     expect(await screen.findByText(/Nothing to read yet/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Read my sources' })).toBeDisabled();
     await click('Skip, nothing to read', 'link');
@@ -129,7 +130,7 @@ describe('Brand Builder: screen interactions', () => {
   });
 
   it('ingest error: Retry puts the source back to reading', async () => {
-    at(builderPaths.ingestError);
+    at(screenPath(boards.ingestError));
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't open this page");
     await click('Retry');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
@@ -137,7 +138,7 @@ describe('Brand Builder: screen interactions', () => {
   });
 
   it('gate: Request changes needs a note; coverage stays blocked until every gate is approved', async () => {
-    at(builderPaths.gatePurpose);
+    at(screenPath(boards.gatePurpose));
     await click('Try another draft');
     expect(screen.getByLabelText('Purpose statement')).toHaveValue('[Another purpose draft from the same answers]');
     await click('Request changes');
@@ -149,7 +150,7 @@ describe('Brand Builder: screen interactions', () => {
   });
 
   it('coverage: Approve kit v1 is disabled while gates are open, with links to them', async () => {
-    at(builderPaths.coverage);
+    at(screenPath(boards.coverage));
     const approve = await screen.findByRole('button', { name: 'Approve kit v1' });
     expect(approve).toBeDisabled();
     expect(approve).toHaveAccessibleDescription('Approve the three gates first.');
@@ -160,7 +161,7 @@ describe('Brand Builder: screen interactions', () => {
   });
 
   it('registration failed: Retry goes back to the registered kit', async () => {
-    at(builderPaths.registerFailed);
+    at(screenPath(boards.registerFailed));
     await h1('Kit v1 is approved, but not registered yet');
     await click('Retry registration', 'link');
     await h1('JamJam kit v1 is ready');
@@ -169,7 +170,7 @@ describe('Brand Builder: screen interactions', () => {
   });
 
   it('options: nothing is chosen for the owner; Continue waits for a pick; a new set clears the pick', async () => {
-    at(builderPaths.alternatives);
+    at(screenPath(boards.alternatives));
     const blocked = await screen.findByRole('button', { name: 'Continue' });
     expect(blocked).toBeDisabled();
     expect(blocked).toHaveAccessibleDescription('Pick one of the three options first.');
@@ -183,14 +184,14 @@ describe('Brand Builder: screen interactions', () => {
   });
 
   it('options loading: Continue is disabled until drafting is done, and says why', async () => {
-    at(`${builderPaths.alternatives}?state=loading`);
+    at(screenPath(boards.alternatives, 'loading'));
     const blocked = await screen.findByRole('button', { name: 'Continue' });
     expect(blocked).toBeDisabled();
     expect(blocked).toHaveAccessibleDescription('Wait for the three options to finish drafting.');
   });
 
   it('dashboard: approve then pay; the empty variant offers one action per module', async () => {
-    at(builderPaths.dashboard);
+    at(screenPath(boards.dashboard));
     await h1('aDNA');
     expect(screen.getByText('Stretch')).toBeInTheDocument();
     const first = screen.getAllByRole('button', { name: 'Approve' })[0];
@@ -200,7 +201,7 @@ describe('Brand Builder: screen interactions', () => {
   });
 
   it('dashboard empty: modules say what will appear', async () => {
-    at(builderPaths.dashboardEmpty);
+    at(screenPath(boards.dashboardEmpty));
     expect(await screen.findByRole('heading', { name: 'No campaigns yet' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Nothing to review' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy your public page link' })).toBeInTheDocument();

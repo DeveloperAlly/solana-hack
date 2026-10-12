@@ -3,7 +3,7 @@ import { DataTable } from '../../ui/composites/DataTable';
 import { EmptyState } from '../../ui/composites/EmptyState';
 import { BuilderCopyButton } from '../../ui/domain/BuilderCopyButton';
 import { BuilderSection } from './BuilderSection';
-import { otherPaths } from './paths';
+import { useBoardHref } from './paths';
 import type { PayoutRow } from './types';
 
 export interface DashboardPayoutsProps {
@@ -14,6 +14,7 @@ export interface DashboardPayoutsProps {
 
 /** Dashboard "Recent approved ambassador posts" (canvas Dashboard, note n-dash.3: every payout has a receipt link), or its empty state. */
 export function DashboardPayouts({ rows, brandName, publicPageUrl }: DashboardPayoutsProps) {
+  const to = useBoardHref();
   if (!rows.length) {
     return (
       <EmptyState
@@ -24,7 +25,7 @@ export function DashboardPayouts({ rows, brandName, publicPageUrl }: DashboardPa
     );
   }
   return (
-    <BuilderSection title="Recent approved ambassador posts" action={<Link href={otherPaths.ledger}>Full ledger</Link>}>
+    <BuilderSection title="Recent approved ambassador posts" action={<Link href={to('ledger')}>Full ledger</Link>}>
       <DataTable
         caption="Payouts, with receipts"
         hideCaption
@@ -35,7 +36,7 @@ export function DashboardPayouts({ rows, brandName, publicPageUrl }: DashboardPa
           { key: 'piece', header: 'Piece', rowHeader: true },
           { key: 'ambassador', header: 'Ambassador' },
           { key: 'paid', header: 'Paid', align: 'end' },
-          { key: 'receipt', header: 'Receipt', cell: (r) => <Link href={r.receiptHref} aria-label={`View receipt for ${r.piece}`}>View</Link> },
+          { key: 'receipt', header: 'Receipt', cell: (r) => <Link href={to(r.receiptBoard)} aria-label={`View receipt for ${r.piece}`}>View</Link> },
         ]}
       />
     </BuilderSection>

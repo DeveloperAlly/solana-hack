@@ -23,16 +23,17 @@ import { Card } from '../../ui/composites/Card';
 import { BuilderRegistrationResult } from '../../ui/domain/BuilderRegistrationResult';
 import { BuilderStep } from './BuilderStep';
 import { BuilderStepFooter } from './BuilderStepFooter';
-import { builderPaths, otherPaths } from './paths';
+import { useBoardHref, type BoardKey } from './paths';
 import type { PublishedData } from './types';
 
-const nextSteps = [
-  { href: otherPaths.draftReview, title: 'Write your first post', body: 'Drafted in your voice, checked, then you approve.' },
-  { href: otherPaths.brandBuild, title: 'Fill the gaps', body: 'Missing sections, any time.' },
-  { href: builderPaths.kitExport, title: 'Download the kit', body: 'As an aDNA folder.' },
+const nextSteps: { board: BoardKey; title: string; body: string }[] = [
+  { board: 'draftReview', title: 'Write your first post', body: 'Drafted in your voice, checked, then you approve.' },
+  { board: 'brandBuild', title: 'Fill the gaps', body: 'Missing sections, any time.' },
+  { board: 'kitExport', title: 'Download the kit', body: 'As an aDNA folder.' },
 ];
 
 export function Onboard6Published({ data }: { data: PublishedData }) {
+  const to = useBoardHref();
   const registered = data.status === 'registered';
   const record = [
     { label: 'Version', value: data.version },
@@ -40,7 +41,7 @@ export function Onboard6Published({ data }: { data: PublishedData }) {
     ...(registered ? [{ label: 'Approved by', value: data.approvedBy }, { label: 'Sections', value: data.sections }] : []),
     {
       label: 'Registered on Solana',
-      value: registered ? <><Text as="span" variant="mono">{data.tx}</Text> · <Link href={otherPaths.verifyMatch}>View on explorer</Link></> : `Not yet · last try ${data.lastTry}`,
+      value: registered ? <><Text as="span" variant="mono">{data.tx}</Text> · <Link href={to('verifyMatch')}>View on explorer</Link></> : `Not yet · last try ${data.lastTry}`,
     },
   ];
   return (
@@ -49,14 +50,14 @@ export function Onboard6Published({ data }: { data: PublishedData }) {
       brand={data.brand}
       title={registered ? `${data.brand.name} kit ${data.version} is ready` : `Kit ${data.version} is approved, but not registered yet`}
       flag={<Badge tone="solid">Approved</Badge>}
-      footer={!registered && <BuilderStepFooter><Button href={otherPaths.draftReview} variant="secondary">Continue without registering</Button></BuilderStepFooter>}
+      footer={!registered && <BuilderStepFooter><Button href={to('draftReview')} variant="secondary">Continue without registering</Button></BuilderStepFooter>}
     >
       <BuilderRegistrationResult
         status={data.status}
         items={record}
         reason={data.reason}
         errorDetails={data.errorDetails}
-        retryHref={builderPaths.published}
+        retryHref={to('published')}
         note={registered ? 'Only the hash, version and approver are written onchain. The kit itself stays private to your workspace.' : undefined}
       />
       {registered && (
@@ -64,10 +65,10 @@ export function Onboard6Published({ data }: { data: PublishedData }) {
           <Heading level={2} size="xl">Next</Heading>
           <Grid min="sm" gap={4}>
             {nextSteps.map((s) => (
-              <Card key={s.href} href={s.href}><strong>{s.title}</strong><Text as="span" variant="small" tone="secondary">{s.body}</Text></Card>
+              <Card key={s.board} href={to(s.board)}><strong>{s.title}</strong><Text as="span" variant="small" tone="secondary">{s.body}</Text></Card>
             ))}
           </Grid>
-          <Text variant="small" tone="secondary">Prototype states: <Link href={builderPaths.registerFailed}>registration fails</Link></Text>
+          <Text variant="small" tone="secondary">Prototype states: <Link href={to('registerFailed')}>registration fails</Link></Text>
         </>
       )}
     </BuilderStep>

@@ -2,7 +2,6 @@
 // board Dashboard (note n-dash; every figure below is the canvas's, bracketed where the canvas brackets it); issue #50;
 // backend map §4, row "Dashboard (and its empty state)". Receipt and post links point at the Ledger screen in the prototype.
 import type { DashboardData } from './types';
-import { otherPaths } from './paths';
 
 export const dashboardData: DashboardData = {
   brandId: 'adna',
@@ -18,19 +17,19 @@ export const dashboardData: DashboardData = {
     {
       id: 's1', kind: 'LinkedIn post', author: 'Mai T.', amount: '10 USDC',
       excerpt: 'My coding agent lost a full day of work last week. Not the code. The context…',
-      checks: ['On-brand 91%', 'Verified on LinkedIn'], link: { label: 'Open post', href: otherPaths.ledger },
+      checks: ['On-brand 91%', 'Verified on LinkedIn'], link: { label: 'Open post', board: 'ledger' },
     },
     {
       id: 's2', kind: 'Tutorial', author: 'Dev R.', amount: '50 USDC',
       excerpt: 'Set up shared project context for your agents',
-      checks: ['On-brand 84%', 'Page matches draft 96%'], link: { label: 'Open page', href: otherPaths.ledger },
+      checks: ['On-brand 84%', 'Page matches draft 96%'], link: { label: 'Open page', board: 'ledger' },
     },
   ],
   campaigns: [{ id: 'launch', name: 'aDNA launch week', channels: 'LinkedIn · Blog', ends: '12 Oct (6 days)', spent: 135, committed: 60, cap: 500, paid: '13 paid', pending: '2 pending' }],
   recent: [
-    { id: 'r1', date: '5 Oct', piece: 'Blog post · "[Partner] now supports aDNA"', ambassador: '[ambassador]', paid: '2.00', receiptHref: otherPaths.ledger },
-    { id: 'r2', date: '5 Oct', piece: 'Docs page · "Using aDNA with [tool]"', ambassador: '[ambassador]', paid: '5.00', receiptHref: otherPaths.ledger },
-    { id: 'r3', date: '4 Oct', piece: 'Blog post · integration launch', ambassador: '[ambassador]', paid: '2.00', receiptHref: otherPaths.ledger },
+    { id: 'r1', date: '5 Oct', piece: 'Blog post · "[Partner] now supports aDNA"', ambassador: '[ambassador]', paid: '2.00', receiptBoard: 'ledger' },
+    { id: 'r2', date: '5 Oct', piece: 'Docs page · "Using aDNA with [tool]"', ambassador: '[ambassador]', paid: '5.00', receiptBoard: 'ledger' },
+    { id: 'r3', date: '4 Oct', piece: 'Blog post · integration launch', ambassador: '[ambassador]', paid: '2.00', receiptBoard: 'ledger' },
   ],
   kit: { summary: 'Plain, precise, builder to builder. 3 pillars · 4 glossary terms · 3 banned claims.', usage: 'Approved 28 Sep · used in 32 pieces' },
   publicPageUrl: '[aDNA public page URL]',

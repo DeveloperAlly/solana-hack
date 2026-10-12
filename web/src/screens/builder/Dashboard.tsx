@@ -26,10 +26,11 @@ import { BuilderHubPage } from './BuilderHubPage';
 import { BuilderSection } from './BuilderSection';
 import { DashboardCampaigns } from './DashboardCampaigns';
 import { DashboardPayouts } from './DashboardPayouts';
-import { growSubnav, otherPaths } from './paths';
+import { growSubnav, useBoardHref } from './paths';
 import type { DashboardData } from './types';
 
 export function Dashboard({ data }: { data: DashboardData }) {
+  const to = useBoardHref();
   return (
     <BuilderHubPage
       brandId={data.brandId}
@@ -37,7 +38,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
       title={data.title}
       tag="STRETCH"
       intro={data.meta}
-      action={data.campaigns.length > 0 && <Button href={otherPaths.campaignBuilder}>New campaign</Button>}
+      action={data.campaigns.length > 0 && <Button href={to('campaignBuilder')}>New campaign</Button>}
     >
       <Grid min="sm" gap={4}>
         {data.kpis.map((k) => <StatTile key={`${k.label}:${k.value}`} {...k} />)}
@@ -45,7 +46,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
       {data.pending.length ? (
         <Card as="div">
           <BuilderSection title="Pending approvals">
-            <ul className="wl-list">{data.pending.map((p) => <BuilderApprovalItem key={p.id} item={p} />)}</ul>
+            <ul className="wl-list">{data.pending.map((p) => <BuilderApprovalItem key={p.id} item={{ ...p, link: { label: p.link.label, href: to(p.link.board) } }} />)}</ul>
           </BuilderSection>
         </Card>
       ) : (
@@ -58,7 +59,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
           <BuilderSection title="Kit v1">
             <Text variant="small">{data.kit.summary}</Text>
             {data.kit.usage && <Text variant="small" tone="secondary">{data.kit.usage}</Text>}
-            <div><Button href={otherPaths.brandBuild} variant="secondary">Edit kit (creates v2)</Button></div>
+            <div><Button href={to('brandBuild')} variant="secondary">Edit kit (creates v2)</Button></div>
           </BuilderSection>
         </Card>
       </Grid>
