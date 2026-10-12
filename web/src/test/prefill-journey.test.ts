@@ -117,6 +117,16 @@ const user = { id: 'u' };
 
 describe('the routes return #75\'s shapes when wired to the prefill module', () => {
   beforeEach(async () => { await read(SITE); });
+  it('serves the existing Journey projections directly in brand state', async () => {
+    const response = await call('GET', `/brands/${BRAND}`);
+    const current = await state();
+    expect(response.body.journey).toEqual({
+      read: readData(current),
+      confirm: confirmData(current),
+      gapsVoice: gapsData(current, new Date().toISOString().slice(0, 10)),
+    });
+  });
+
 
   it('ReadData: sources with their state and fact counts, facts with quote and page, coverage', async () => {
     const r: ReadData = readData(await state());
