@@ -32,7 +32,8 @@ describe('migration runner', () => {
   });
   it('marks a file applied only when its full name is recorded (PR #87 review)', () => {
     const files = migrationFiles(SPEC);
-    expect(() => planMigrations(files, [...LIVE, { name: 'evidence_trust_009' }, { name: 'hotfix_010' }])).toThrow(/010 is recorded as hotfix_010, not workflow_engine_010/);
+    expect(() => planMigrations(files, [...LIVE, { name: 'evidence_trust_009' }, { name: 'hotfix_010' }])).toThrow(/010 is recorded as hotfix_010, expected only workflow_engine_010/);
+    expect(() => planMigrations(files, [...LIVE, { name: 'evidence_trust_009' }, { name: 'workflow_engine_010' }, { name: 'hotfix_010' }])).toThrow(/010 is recorded as workflow_engine_010, hotfix_010/);
   });
   it('refuses a gap in the numbering before applying anything (PR #87 review)', () => {
     const withGap = migrationFiles(SPEC.filter((f) => !f.startsWith('010')).concat('011_next.sql'));

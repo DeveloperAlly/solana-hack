@@ -55,8 +55,10 @@ export function planMigrations(files, applied) {
   const done = new Set();
   for (const f of files) {
     const names = recorded.get(f.number) ?? [];
-    if (names.includes(f.name)) done.add(f.number);
-    else if (names.length) throw new Error(`migration ${f.number} is recorded as ${names.join(', ')}, not ${f.name}; resolve by hand`);
+    // Applied means recorded exactly once, under exactly the expected name; anything else under the number, alone or
+    // beside the expected name, is a conflict (PR #87 review).
+    if (names.length === 1 && names[0] === f.name) done.add(f.number);
+    else if (names.length) throw new Error(`migration ${f.number} is recorded as ${names.join(', ')}, expected only ${f.name}; resolve by hand`);
   }
   const todo = files.filter((f) => !done.has(f.number));
   const highestDone = [...recorded.keys()].sort().at(-1);
