@@ -55,7 +55,7 @@ Total: 459 words, about 2:52 at 160 words a minute.
 - Later: USDC tips; voice licensing; stablecoin plans
 
 **8. Go to market** (1:46–2:01)
-- Launch in crypto, where proof matters most: impersonation +1,400%
+- Launch in web3, where proof matters most: impersonation +1,400%
 - Then every founder who is their own brand
 - They pay $20–49 a month for one AI writing tool and stitch 3–4 tools
 - Customer zero: me (JamJam, aDNA)
@@ -115,7 +115,7 @@ Today your kit and posts are on Solana, with email sign-in. Next: verified accou
 
 **8. Go to market** · 1:46–2:01 · 39 words
 
-We launch in crypto, where proving it's really you matters most: impersonation there is up fourteen hundred percent. Then every founder who is their own brand. They already stitch together three or four paid tools. Customer zero is me.
+We launch in web3, where proving it's really you matters most: impersonation there is up fourteen hundred percent. Then every founder who is their own brand. They already stitch together three or four paid tools. Customer zero is me.
 
 **9. Competition** · 2:01–2:13 · 32 words
 
