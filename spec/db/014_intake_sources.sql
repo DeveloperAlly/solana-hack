@@ -2,7 +2,7 @@
 -- candidates for the positioning step with their set replaced atomically by each run, and the find_competitors
 -- definition. Next free number
 -- after 011 (fact extraction, PR #91), 012 (issue #34) and 013 (Create); depends on 010 (workflow_defs) and 011.
--- Documents, social exports and web search need no schema change: they are sources whose text is stored in
+-- Documents, social exports and web search add no columns: they are sources whose text is stored in
 -- sources.source_text (008) with their kind (009), and a source without an address keeps url '' and is named by its
 -- title, as pasted text is (web/worker/engine/readers.ts READER_INPUTS.paste).
 -- Must be applied before the Worker that calls these functions is deployed: a web search (extract_facts with reader
