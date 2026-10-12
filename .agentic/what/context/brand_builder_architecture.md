@@ -174,7 +174,7 @@ Moved here from the 2026-10-12 delivery plan so the repo holds it. Each componen
 
 ### 6.2 Voice: template first, then a ladder [proposed 2026-10-12]
 
-**Owner ruling (2026-10-12):** the proof of concept starts from voice templates (research 06: 12 templates on 9 dimensions, claims strictness used as a gate). Existing open-source template sets are adopted where their licence and format fit; templates are authored only where none do. Each rung below is added when the evaluation harness (§13) shows it beats the rung before. The evidence for the rungs follows.
+**Owner ruling (2026-10-12):** the proof of concept starts from voice templates (research 06: 12 templates on 9 dimensions, claims strictness used as a gate). Existing open-source template sets are adopted where their licence and format fit; templates are authored only where none do. Each rung below is added when the evaluation harness (§13) shows it beats the rung before. Which open-source template sets are adopted, and which templates are authored, is in [research 06](./research/06_voice_templates.md) ("Reusable template sources"): templates must carry sample lines, because zero-shot style matching scored 3 to 7% in one 2025 study. The evidence for the rungs follows.
 
 Above the template rung, the next step is retrieval plus a learned spec, not a fine-tuned model. Fine-tuning only beats retrieval once a brand has deep data, which JamJam's brands (10–200 posts) don't have yet. Collect the training data from day one so tuning is possible later. Evidence: on the LaMP benchmark, retrieving the user's own items lifted results 14.92% against 1.07% for a per-user LoRA when users had little data ([Salemi & Zamani](https://arxiv.org/html/2409.09510v1)).
 
