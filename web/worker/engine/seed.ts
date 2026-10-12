@@ -2,6 +2,7 @@
 // the runtime source (workflow_defs, prompt_versions); this file exists so tests can check the migration's seed and
 // run the same definition. worker-engine.test.ts fails if the two drift apart.
 import type { WorkflowSpec } from './types';
+import { TASK_MODELS_KEY, type TaskModels } from '../models';
 
 /** The extraction prompt that ingest used inline in api.ts before the engine, with its three values as variables. */
 export const EXTRACT_FACTS_PROMPT = 'You extract facts about the brand "{{brand_name}}" from a web page. Each fact needs an exact quote copied character for character from the page text, at most {{max_quote}} characters. Sections: {{sections}}. Reply with JSON only: {"facts": [{"section": string, "claim": string, "quote": string}]}. At most 12 facts. No facts that the page does not state.';
@@ -104,5 +105,21 @@ export const SEED_PROMPTS = [
   { key: 'extract.facts', version: 1, body: EXTRACT_CHUNK_PROMPT },
   { key: 'extract.check_support', version: 1, body: CHECK_SUPPORT_PROMPT },
 ];
-/** The definitions and prompts each migration seeds; worker-engine and worker-extract tests check them against the SQL. */
-export const SEEDED_BY = { '010_workflow_engine.sql': { defs: [INGEST_URL], prompts: ['ingest.extract_facts'] }, '011_fact_extraction.sql': { defs: [EXTRACT_FACTS], prompts: ['extract.facts', 'extract.check_support'] } };
+/**
+ * Models for extract_facts' two model tasks (engine_config 'task_models', web/worker/models.ts). The four free models
+ * OpenRouter listed with `structured_outputs` in supported_parameters on 2026-10-12 (https://openrouter.ai/api/v1/models,
+ * read 15:03 UTC; both tasks send a strict schema), split so the support judge shares no family with the extractor
+ * (architecture §13.3): NVIDIA Nemotron 3 Super (hugging_face_id nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8) and
+ * Apodex 1.1 Mini extract; Dots Studio's Dots 3 Note and Liquid AI's LFM2.5 2.6B (hugging_face_id LiquidAI/LFM2.5-2.6B)
+ * judge. The extractor reads 2-4k-token chunks, so it gets the larger models; the judge reads one claim and one passage
+ * at a time.
+ */
+export const EXTRACT_MODELS: TaskModels = {
+  'extract.facts': ['nvidia/nemotron-3-super-120b-a12b:free', 'apodex/apodex-1.1-mini:free'],
+  'extract.check_support': ['dots-studio/dots-3-note-preview:free', 'liquid/lfm-2.5-2.6b:free'],
+};
+/** engine_config rows the migrations seed (key, value); 011 merges its tasks into the shared task_models row. */
+export const SEED_CONFIG = [{ key: TASK_MODELS_KEY, value: EXTRACT_MODELS }];
+
+/** The definitions, prompts and config each migration seeds; worker-engine and worker-extract tests check them against the SQL. */
+export const SEEDED_BY = { '010_workflow_engine.sql': { defs: [INGEST_URL], prompts: ['ingest.extract_facts'], config: [] }, '011_fact_extraction.sql': { defs: [EXTRACT_FACTS], prompts: ['extract.facts', 'extract.check_support'], config: SEED_CONFIG } };

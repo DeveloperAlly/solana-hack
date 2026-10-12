@@ -12,14 +12,25 @@ export interface ChatOptions {
    * Enforcement still varies by provider, so callers must check the reply (schema.ts schemaError).
    */
   schema?: NamedSchema;
+  /**
+   * Named free models to use instead of the default, in priority order, sent as OpenRouter's `models` list: if the first
+   * errors (down, rate limited, refused), OpenRouter tries the next, and the reply's `model` names the one that answered
+   * (https://openrouter.ai/docs/guides/routing/model-fallbacks). Used where the caller must control the model family
+   * (models.ts: per-task lists and the judge's family rule). Free models only (ADR-010 decision 6): every id must be a
+   * `:free` variant, or the call is refused before it is sent.
+   */
+  models?: string[];
 }
+
+/** A free model variant id (OpenRouter's `:free` suffix: https://openrouter.ai/docs/guides/routing/routers/free-router). */
+export const isFreeModel = (id: string) => /^[a-z0-9][\w.-]*\/[\w.:-]+:free$/i.test(id);
 
 export interface ChatResult { text: string; model: string; usage?: { promptTokens?: number; completionTokens?: number } }
 
 /** The request body for one call (exported for tests, which check the exact shape sent). */
 export function chatBody(model: string, system: string, user: string, opts: ChatOptions = {}) {
   return {
-    model,
+    ...(opts.models ? { models: opts.models } : { model }),
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     ...(opts.schema
       ? { response_format: { type: 'json_schema', json_schema: { name: opts.schema.name, strict: true, schema: opts.schema.schema } }, provider: { require_parameters: true } }
@@ -38,6 +49,7 @@ export const NO_PROVIDER = 'no free AI model that supports this request is avail
 export async function chat(env: Env, system: string, user: string, opts: ChatOptions = {}): Promise<ChatResult> {
   if (!env.OPENROUTER_API_KEY) throw new HttpError(503, 'the AI model is not configured');
   const model = env.OPENROUTER_MODEL || 'openrouter/free';
+  if (opts.models && (!opts.models.length || !opts.models.every(isFreeModel))) throw new HttpError(500, 'only named free models may be requested');
   let last = 0;
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -61,9 +73,9 @@ export async function chat(env: Env, system: string, user: string, opts: ChatOpt
       throw new HttpError(502, 'the AI model returned an error');
     }
     const text = data.choices?.[0]?.message?.content ?? '';
-    console.log('llm call', { model: data.model ?? model, chars: text.length, schema: opts.schema?.name });
+    console.log('llm call', { model: data.model ?? (opts.models ? '' : model), chars: text.length, schema: opts.schema?.name });
     const usage = data.usage ? { promptTokens: data.usage.prompt_tokens, completionTokens: data.usage.completion_tokens } : undefined;
-    return { text, model: data.model ?? model, ...(usage ? { usage } : {}) };
+    return { text, model: data.model ?? (opts.models ? '' : model), ...(usage ? { usage } : {}) };
   }
   console.error('llm retries exhausted', { status: last });
   // A 503 with a required schema means no provider honours the request: not a rate limit, so the run must not pause

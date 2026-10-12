@@ -10,6 +10,7 @@ import { stableId } from '../ids';
 import { readPage } from '../ingest';
 import { isSection, SECTIONS } from '../kit';
 import { chat, parseJson } from '../llm';
+import { sameModel, type TaskModels } from '../models';
 import { MAX_QUOTE, normalisePage, quoteOnPage } from '../quote';
 import { schemaError, type NamedSchema } from '../schema';
 import { capText, readSource } from './readers';
@@ -21,7 +22,13 @@ export { capText } from './readers';
 
 export interface StepContext { env: Env; run: RunRow; state: RunState }
 /** What a run has so far: its input and the output of every finished step, by step id. */
-export interface RunState { input: Record<string, unknown>; steps: Record<string, unknown>; prompts: Record<string, number> }
+export interface RunState {
+  input: Record<string, unknown>;
+  steps: Record<string, unknown>;
+  prompts: Record<string, number>;
+  /** Models per task (prompt key), fixed when the run loads (models.ts); a task without an entry uses the gateway default. */
+  models?: TaskModels;
+}
 export type StepResult = { output: unknown; trace: Partial<StepTrace> };
 
 /** Constants a definition may reference as $const.NAME. */
@@ -135,8 +142,15 @@ export async function runStep(spec: Exclude<StepSpec, { type: 'map' }>, ctx: Ste
       const schema = spec.schema === undefined ? undefined : SCHEMAS[spec.schema];
       if (spec.schema !== undefined && !schema) throw new HttpError(500, `unknown reply schema ${spec.schema}`);
       // Token counts are recorded when OpenRouter reports usage, null otherwise; never guessed.
-      const r = await chat(ctx.env, system, user, schema ? { schema } : {});
-      const trace = { prompt_key: p.key, prompt_version: p.version, prompt_hash: p.hash, model: r.model, tokens_in: r.usage?.promptTokens ?? null, tokens_out: r.usage?.completionTokens ?? null };
+      const task = state.models?.[spec.prompt];
+      const r = await chat(ctx.env, system, user, { ...(schema ? { schema } : {}), ...(task ? { models: task } : {}) });
+      const trace = { prompt_key: p.key, prompt_version: p.version, prompt_hash: p.hash, model: r.model || null, tokens_in: r.usage?.promptTokens ?? null, tokens_out: r.usage?.completionTokens ?? null };
+      // A configured task uses only a reply from one of its own models, so the family rule (models.ts) holds for the
+      // model that actually answered. Anything else is refused (5xx, so the step is retried) and recorded as such.
+      if (task && !task.some((m) => sameModel(m, r.model))) {
+        console.error('llm reply from an unlisted model', { task: spec.prompt, model: r.model });
+        throw new HttpError(502, `the reply came from ${r.model || 'an unnamed model'}, which is not configured for ${spec.prompt}`);
+      }
       if (!schema) return { output: spec.json ? parseJson<unknown>(r.text) : { text: r.text }, trace };
       // A schema-bound reply is used only if it conforms in full; otherwise the step fails (5xx, so it is retried) and
       // nothing from that reply is kept. The log names the schema and the path that failed, never the content.

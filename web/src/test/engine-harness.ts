@@ -4,7 +4,7 @@
 import type { Env } from '../../worker/env';
 import { sha256Hex } from '../../worker/env';
 import type { StepApi } from '../../worker/engine/runner';
-import { SEED_DEFS, SEED_PROMPTS } from '../../worker/engine/seed';
+import { SEED_CONFIG, SEED_DEFS, SEED_PROMPTS } from '../../worker/engine/seed';
 
 export type Row = Record<string, unknown>;
 /** Brand ids are UUIDs (api.ts ownBrand). */
@@ -80,7 +80,7 @@ export async function seedTables(extra: Record<string, Row[]> = {}) {
   db.calls = [];
   db.tables = {
     brands: [{ id: BRAND, owner_id: 'u', name: 'JamJam', type: 'company' }],
-    sources: [], evidence: [], runs: [], run_steps: [], engine_config: [], fact_conflicts: [],
+    sources: [], evidence: [], runs: [], run_steps: [], engine_config: SEED_CONFIG.map((c) => structuredClone(c)), fact_conflicts: [],
     workflow_defs: SEED_DEFS.map((spec) => ({ id: spec.id, version: spec.version, spec, status: 'active' })),
     prompt_versions: await Promise.all(SEED_PROMPTS.map(async (p) => ({ ...p, status: 'active', hash: 'sha256:' + (await sha256Hex(p.body)) }))),
     ...extra,
