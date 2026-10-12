@@ -14,7 +14,7 @@
  * waits for drafting and a pick. The pick is kept in the flow and Gate 2 drafts from it. "Show three different options" moves to the next set.
  */
 import { useState } from 'react';
-import { Button, Text } from '../../ui/primitives';
+import { Button, Stack, Text } from '../../ui/primitives';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import { BuilderChoiceCards } from '../../ui/domain/BuilderChoiceCards';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
@@ -62,7 +62,7 @@ export function BB4Alternatives({ data, state = 'success' }: { data: Alternative
         ) : (
           <BuilderChoiceCards legend="Positioning options" options={options} value={selected} onChange={choosePositioning} />
         )}
-        <div><Button variant="secondary" onClick={moreOptions} disabled={state === 'loading'}>Show three different options</Button></div>
+        <Stack direction="row"><Button variant="secondary" onClick={moreOptions} disabled={state === 'loading'}>Show three different options</Button></Stack>
       </BuilderSection>
     </BuilderStep>
   );

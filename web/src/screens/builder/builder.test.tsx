@@ -42,17 +42,25 @@ describe('Brand Builder: onboarding and wizard, end to end', () => {
     await h1('The basics');
     expect(screen.getByText('Unverified')).toBeInTheDocument();
     expect(screen.getByText('Fallback')).toBeInTheDocument();
+    const links = screen.getByLabelText(/^Links/);
+    await userEvent.clear(links);
+    await userEvent.type(links, 'jamjam.tech{Enter}docs.jamjam.tech');
     await click('Continue: read my links');
     await h1('What should we read?');
+    expect(screen.getByText('docs.jamjam.tech')).toBeInTheDocument();
+    expect(screen.queryByText('[2023 press or docs links]')).not.toBeInTheDocument();
     await click('Read my sources', 'link');
     await h1('Reading your sources');
+    expect(screen.getByText('docs.jamjam.tech')).toBeInTheDocument();
     await click('Continue to the next question', 'link');
     await h1('How it started');
     await click('Continue', 'link');
     await h1('What, how and why');
     await click('Draft my purpose', 'link');
     await h1('Approve your purpose');
-    await approveAndContinue('purpose');
+    await click('Approve purpose');
+    expect(screen.getByText(/Decision recorded: you@jamjam\.tech/)).toBeInTheDocument();
+    await click('Continue', 'link');
     await h1('Alternatives and your edge');
     await userEvent.click(screen.getByRole('radio', { name: /Option B/ }));
     await click('Continue with option B', 'link');
@@ -70,6 +78,7 @@ describe('Brand Builder: onboarding and wizard, end to end', () => {
     await h1('What we found, and what we still need');
     await click('Approve kit v1', 'link');
     await h1('JamJam kit v1 is ready');
+    expect(screen.getByText(/you@jamjam\.tech, \[date, time\]/)).toBeInTheDocument();
   });
 
   it('Back links walk the wizard backwards and done steps link from the stepper', async () => {
@@ -114,6 +123,31 @@ describe('Brand Builder: screen interactions', () => {
     await click('Continue: read my links');
     await h1('What should we read?');
     expect(screen.queryByText('Unverified')).not.toBeInTheDocument();
+    expect(screen.getByText('brand.example')).toBeInTheDocument();
+  });
+
+  it('domain: editing the domain after verifying resets verification', async () => {
+    at(screenPath(boards.domainFailed));
+    await click('Check again', 'link');
+    await h1('The basics');
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument();
+    await click('Back', 'link');
+    await h1('Prove you own your domain');
+    await userEvent.type(screen.getByLabelText('Domain'), 'x');
+    expect(within(screen.getByRole('banner')).getByText('Unverified')).toBeInTheDocument();
+  });
+
+  it('domain: the developer email is built from the current domain, record and causes', async () => {
+    at(screenPath(boards.domain));
+    await userEvent.clear(await screen.findByLabelText('Domain'));
+    await userEvent.type(screen.getByLabelText('Domain'), 'acme.example');
+    await click('Check now', 'link');
+    const mail = decodeURIComponent((await screen.findByRole('link', { name: 'Email these steps to my developer' })).getAttribute('href') ?? '');
+    expect(mail).toContain('subject=DNS record for acme.example');
+    expect(mail).toContain('Please add this DNS record for acme.example:');
+    expect(mail).toContain('Value: jamjam-verify=[unique value]');
+    expect(mail).toContain('- DNS not updated yet? Try again in a few minutes.');
+    expect(screen.getByRole('heading', { name: "We couldn't find the record on acme.example" })).toBeInTheDocument();
   });
 
   it('kit: the registration links to the explorer externally; Kit-Export marks its tab current', async () => {
@@ -149,6 +183,17 @@ describe('Brand Builder: screen interactions', () => {
     expect(screen.getByText('docs.jamjam.tech')).toBeInTheDocument();
     await click('Connect for publishing: X');
     expect(screen.getByText('Connected for publishing')).toBeInTheDocument();
+  });
+
+  it('sources: the same link added twice gets two rows, and removing one keeps the other', async () => {
+    at(screenPath(boards.sources));
+    for (let i = 0; i < 2; i++) {
+      await userEvent.type(await screen.findByLabelText('Add a link'), 'docs.jamjam.tech');
+      await click('Add link');
+    }
+    expect(screen.getAllByText('docs.jamjam.tech')).toHaveLength(2);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Remove docs.jamjam.tech' })[0]);
+    expect(screen.getAllByText('docs.jamjam.tech')).toHaveLength(1);
   });
 
   it('sources empty: nothing to read disables Read my sources', async () => {
@@ -190,6 +235,14 @@ describe('Brand Builder: screen interactions', () => {
     await h1('Approve your purpose');
   });
 
+  it('registration failed: says drafting needs a registered kit; the other way out is the gaps, never drafting', async () => {
+    at(screenPath(boards.registerFailed));
+    await h1('Kit v1 is approved, but not registered yet');
+    expect(screen.getByRole('alert')).toHaveTextContent('Drafting posts needs a registered kit, so retry registration.');
+    expect(screen.queryByRole('link', { name: /Continue without registering/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Fill the gaps while you wait' })).toHaveAttribute('href', '/screens/Brand-Build');
+  });
+
   it('registration failed: Retry goes back to the registered kit', async () => {
     at(screenPath(boards.registerFailed));
     await h1('Kit v1 is approved, but not registered yet');
@@ -228,6 +281,26 @@ describe('Brand Builder: screen interactions', () => {
     await userEvent.click(first);
     await userEvent.click(screen.getAllByRole('button', { name: 'Pay (owner only)' })[0]);
     expect(screen.getAllByRole('status').some((s) => s.textContent === 'Paid')).toBe(true);
+  });
+
+  it('hub: the brand switcher changes the brand the screens show', async () => {
+    at(screenPath(boards.dashboard));
+    await h1('aDNA');
+    await userEvent.click(screen.getByRole('button', { name: 'aDNA, switch brand' }));
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /JamJam/ }));
+    await h1('JamJam');
+    expect(screen.getByRole('heading', { name: 'No campaigns yet' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+  });
+
+  it('kit export: switching brand changes the kit file name and contents', async () => {
+    at(screenPath(boards.kitExport));
+    await h1('Download your kit');
+    expect(screen.getByText('[sha256 of aDNA kit v[n]]')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'aDNA, switch brand' }));
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /film\.fun/ }));
+    expect(await screen.findByText('[sha256 of film.fun kit v[n]]')).toBeInTheDocument();
+    expect(screen.getByText(/^filmfun-kit-v\[n\]\//)).toBeInTheDocument();
   });
 
   it('dashboard empty: modules say what will appear', async () => {

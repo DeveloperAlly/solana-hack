@@ -72,8 +72,26 @@ export interface BrandEntry {
   verified?: boolean;
 }
 
+/**
+ * Merges an edit into the brand entry. A changed domain always resets verification (it must be checked again), unless
+ * the same edit sets verified itself; this is the only place brand entries change, so no screen can skip it.
+ */
+export function applyBrandEntry(prev: BrandEntry, entry: BrandEntry): BrandEntry {
+  const next = { ...prev, ...entry };
+  if (entry.domain !== undefined && entry.domain !== prev.domain && entry.verified === undefined) next.verified = false;
+  return next;
+}
+
 export interface FlowState {
   brand: BrandEntry;
+  /** The signed-in email (sign-in), recorded as the approver on gates and the kit. */
+  email?: string;
+  /** Links entered on Basics, one per line. */
+  links?: string;
+  /** Sources chosen on the Sources step, in order. */
+  sources?: string[];
+  /** The brand chosen in the hub brand switcher. */
+  hubBrand?: string;
   gates: Record<GateId, GateDecision>;
   positioningOption: string;
   voice: VoicePick;
@@ -101,7 +119,9 @@ function subscribe(l: () => void) {
 
 /** Clears the flow (tests, and "start again"). */
 export function resetBuilderFlow() {
-  set(initial);
+  // Replaced whole, not merged: optional fields (email, links, sources, hub brand) must not survive a reset.
+  state = initial;
+  listeners.forEach((l) => l());
 }
 
 export function useBuilderFlow(key: FlowKey) {
@@ -119,8 +139,15 @@ export function useBuilderFlow(key: FlowKey) {
     skip: href(c.skip),
     ...flow,
     /** The brand as entered in this flow, over the fixture brand: name and verified status (Unverified flag). */
-    brandFor: (fixture: BuilderBrand): BuilderBrand => ({ ...fixture, name: flow.brand.brandName ?? fixture.name, verified: flow.brand.verified ?? fixture.verified }),
-    enterBrand: (entry: BrandEntry) => set({ brand: { ...flow.brand, ...entry } }),
+    brandFor: (fixture: BuilderBrand): BuilderBrand => ({
+      name: flow.brand.brandName ?? fixture.name,
+      verified: flow.brand.verified ?? fixture.verified,
+      approver: flow.email ?? fixture.approver,
+    }),
+    enterBrand: (entry: BrandEntry) => set({ brand: applyBrandEntry(flow.brand, entry) }),
+    signIn: (email: string) => set({ email }),
+    enterLinks: (links: string) => set({ links }),
+    chooseSources: (sources: string[]) => set({ sources }),
     allGatesApproved: Object.values(flow.gates).every((g) => g.status === 'approved'),
     decide: (gate: GateId, decision: GateDecision) => set({ gates: { ...flow.gates, [gate]: decision } }),
     choosePositioning: (option: string) => set({ positioningOption: option }),
@@ -130,3 +157,9 @@ export function useBuilderFlow(key: FlowKey) {
 }
 
 export type BuilderFlow = ReturnType<typeof useBuilderFlow>;
+
+/** The hub brand switcher's selection (Kit-Export, Dashboard): [current brand id, choose]. Falls back to the screen's default. */
+export function useHubBrand(defaultId: string): [string, (id: string) => void] {
+  const flow = useSyncExternalStore(subscribe, () => state);
+  return [flow.hubBrand ?? defaultId, (hubBrand: string) => set({ hubBrand })];
+}

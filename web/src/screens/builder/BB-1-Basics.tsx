@@ -33,15 +33,19 @@ const linkError = (text: string) => {
 
 export function BB1Basics({ data, state = 'success' }: { data: BasicsData; state?: ScreenState }) {
   const navigate = useNavigate();
-  const { back, next, skip, brandFor, enterBrand } = useBuilderFlow('basics');
+  const flow = useBuilderFlow('basics');
+  const { back, next, skip, brandFor, enterBrand } = flow;
   const [type, setType] = useState(data.type);
-  const [links, setLinks] = useState(data.links);
+  // Links entered before win; else the fixture links, led by the domain entered on Onboard-2.
+  const [links, setLinks] = useState(() => flow.links ?? [flow.brand.domain ?? data.links.split('\n')[0], ...data.links.split('\n').slice(1)].join('\n'));
   const [error, setError] = useState(state === 'error' ? linkError(data.links) : null);
   function submit() {
     const e = linkError(links);
     setError(e);
+    if (e) return;
     // INTEGRATION: POST /api/brands with these fields (backend map §4, row "BB-1-Basics").
-    if (!e && next) navigate(next);
+    flow.enterLinks(links);
+    if (next) navigate(next);
   }
   return (
     <BuilderStep

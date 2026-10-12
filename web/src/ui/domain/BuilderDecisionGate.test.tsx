@@ -6,6 +6,17 @@ import { expectNoAxeViolations } from '../../test/axe';
 import { example } from './BuilderDecisionGate.example';
 
 describe('BuilderDecisionGate', () => {
+  it('Cancel clears the whole request-changes form, note and error', async () => {
+    renderWithRouter(example.render());
+    await userEvent.click(screen.getByRole('button', { name: 'Request changes' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
+    await userEvent.type(screen.getByLabelText('What should change?'), 'Half a thought');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Request changes' }));
+    expect(screen.getByLabelText('What should change?')).toHaveValue('');
+    expect(screen.getByLabelText('What should change?')).not.toHaveAttribute('aria-invalid');
+  });
+
   it('requests changes with a required note, then approves with a recorded decision, with no axe violations', async () => {
     const { container } = renderWithRouter(example.render());
     await expectNoAxeViolations(container);

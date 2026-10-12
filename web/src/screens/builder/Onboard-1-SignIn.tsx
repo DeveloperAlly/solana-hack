@@ -9,7 +9,8 @@
  * | codeError   | supabase.auth.verifyOtp error (wrong or expired code)                          | no error shown       |
  *
  * States: success (ready), loading ("Sending…"), error (expired or used link, wrong code inline).
- * Continue runs the client check (6 to 10 digits) and moves to Onboard-2-Domain. The live /sign-in route is unchanged.
+ * Continue runs the client check (6 to 10 digits), records the email in the flow (the approver on gates and the kit) and
+ * moves to Onboard-2-Domain. The live /sign-in route is unchanged.
  */
 import { useNavigate } from 'react-router';
 import { Text } from '../../ui/primitives';
@@ -24,7 +25,7 @@ const phaseFor: Partial<Record<ScreenState, SignInPhase>> = { loading: 'sending'
 
 export function Onboard1SignIn({ data, state = 'success' }: { data: SignInData; state?: ScreenState }) {
   const navigate = useNavigate();
-  const { next } = useBuilderFlow('signIn');
+  const { next, signIn } = useBuilderFlow('signIn');
   return (
     <BuilderStep flow="signIn" title="Sign in with email" intro="We'll email you a sign-in link and a code; either works. Your account is set up automatically. Nothing to install, no passwords or keys to keep.">
       <Card as="div">
@@ -35,7 +36,7 @@ export function Onboard1SignIn({ data, state = 'success' }: { data: SignInData; 
           phase={phaseFor[state] ?? 'ready'}
           initialSentTo={state === 'error' ? data.email : undefined}
           initialCodeError={state === 'error' ? data.codeError : undefined}
-          onVerified={() => next && navigate(next)}
+          onVerified={(email) => { signIn(email); if (next) navigate(next); }}
         />
         <Text variant="small" tone="secondary">Already have a brand here? Signing in takes you to its hub.</Text>
       </Card>

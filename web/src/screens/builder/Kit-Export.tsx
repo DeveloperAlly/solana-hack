@@ -4,9 +4,8 @@
  *
  * | Field    | Source                                                                       | Empty                        |
  * |----------|------------------------------------------------------------------------------|------------------------------|
- * | brandId  | The active brand (brand switcher)                                            | never                        |
- * | versions | kit_versions, current first: label (version, approved date), hash (matches the | v1 only                      |
- * |          | onchain registration), file name "<brand>-kit-<version>.zip", aDNA folder tree |                              |
+ * | byBrand  | Per brand chosen in the switcher (flow): kit_versions, current first: label, hash (matches the onchain     | v1 only |
+ * |          | registration), file name "<brand>-kit-<version>.zip", and the files (sections, sources, decisions, templates) |         |
  * | includes | Client options: source list, decisions, missing sections as empty files      | n/a                          |
  *
  * States: success (ready), loading (preparing the zip), error (could not build it). THIN: one zip of Markdown; no import
@@ -16,20 +15,24 @@ import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { BuilderKitExport, type KitExportStatus } from '../../ui/domain/BuilderKitExport';
 import { BuilderHubPage } from './BuilderHubPage';
 import { brandSubnav } from './paths';
+import { useHubBrand } from './useBuilderFlow';
 import type { KitExportData } from './types';
 
 const statusFor: Partial<Record<ScreenState, KitExportStatus>> = { loading: 'preparing', error: 'failed' };
 
 export function KitExport({ data, state = 'success' }: { data: KitExportData; state?: ScreenState }) {
+  const [brandId, selectBrand] = useHubBrand(data.defaultBrandId);
+  const kit = data.byBrand[brandId] ?? data.byBrand[data.defaultBrandId];
   return (
     <BuilderHubPage
-      brandId={data.brandId}
+      brandId={brandId}
+      onSelectBrand={selectBrand}
       subnav={{ label: 'Brand', items: brandSubnav, current: 'kit' }}
       title="Download your kit"
       tag="HACKATHON (THIN)"
       intro="Your kit is yours. Take it as a folder of plain Markdown files you can read, edit or load into any AI tool."
     >
-      <BuilderKitExport key={state} versions={data.versions} includes={data.includes} status={statusFor[state] ?? 'ready'} />
+      <BuilderKitExport key={`${state}:${brandId}`} versions={kit.versions} includes={data.includes} status={statusFor[state] ?? 'ready'} />
     </BuilderHubPage>
   );
 }

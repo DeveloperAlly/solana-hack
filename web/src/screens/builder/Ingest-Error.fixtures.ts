@@ -7,9 +7,11 @@ import { jamjamBrand } from './shared.fixtures';
 export const ingestErrorData: ProfilingData = {
   brand: jamjamBrand,
   progress: 100,
-  rows: [
+  sources: [
     { id: 'site', name: 'jamjam.tech', status: 'Done · 2 facts found', tone: 'done' },
     { id: 'press', name: '[2023 press or docs links]', status: 'Failed', tone: 'failed', error: "Couldn't open this page: it returned an error or blocks automated reading." },
+  ],
+  stages: [
     { id: 'sort', name: 'Sorting facts into the 17 kit sections', status: 'Done', tone: 'done' },
   ],
 };

@@ -26,7 +26,7 @@ export interface BuilderGateStepProps {
  * flow so the decision is kept for Coverage-Map and kit approval (note n-g1.3: kit v1 needs all three).
  */
 export function BuilderGateStep({ flow, gate, brand, title, intro, draftLabel, draftMeta, whyLabel, backLabel, children }: BuilderGateStepProps) {
-  const { back, next, gates, decide } = useBuilderFlow(flow);
+  const { back, next, gates, decide, brandFor } = useBuilderFlow(flow);
   return (
     <BuilderStep flow={flow} brand={brand} tag="FALLBACK" title={title} intro={intro} flag={<Badge tone="solid">Gate {gateNumber[gate]} of 3</Badge>}>
       <BuilderDecisionGate
@@ -34,7 +34,7 @@ export function BuilderGateStep({ flow, gate, brand, title, intro, draftLabel, d
         draftLabel={draftLabel}
         draftMeta={draftMeta}
         whyLabel={whyLabel}
-        approver={brand.approver}
+        approver={brandFor(brand).approver}
         decision={gates[gate]}
         onDecide={(d) => decide(gate, d)}
         backHref={back ?? ''}

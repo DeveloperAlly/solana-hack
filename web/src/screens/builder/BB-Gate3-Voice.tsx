@@ -18,6 +18,7 @@ import { Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { CheckboxRow } from '../../ui/composites/CheckboxRow';
 import { DataTable } from '../../ui/composites/DataTable';
+import { BuilderLabelledCard } from './BuilderLabelledCard';
 import { BuilderGateStep } from './BuilderGateStep';
 import { useBuilderFlow } from './useBuilderFlow';
 import type { GateVoiceData } from './types';
@@ -37,10 +38,7 @@ export function BBGate3Voice({ data }: { data: GateVoiceData }) {
         rows={[{ id: 'voice' }]}
         rowKey={(r) => r.id}
       />
-      <Card variant="subtle" as="div">
-        <Text variant="small"><strong>Sample in this voice</strong></Text>
-        <Text>{data.sample}</Text>
-      </Card>
+      <BuilderLabelledCard label="Sample in this voice"><Text>{data.sample}</Text></BuilderLabelledCard>
       <Card as="div">
         <Stack role="group" aria-labelledby={claimsId} gap={1}>
           <Text variant="label" id={claimsId}>Claims gate ({data.strictness})</Text>

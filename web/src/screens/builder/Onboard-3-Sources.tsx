@@ -19,16 +19,24 @@ import { BuilderFilePicker } from '../../ui/domain/BuilderFilePicker';
 import { BuilderLinkAdder } from '../../ui/domain/BuilderLinkAdder';
 import { BuilderSourceList, type SourceRow } from '../../ui/domain/BuilderSourceList';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
+import { uniqueId } from '../../lib/id';
 import { BuilderStep } from './BuilderStep';
 import { BuilderStepFooter } from './BuilderStepFooter';
 import { useBuilderFlow } from './useBuilderFlow';
 import type { SourcesData } from './types';
 
-const row = (name: string, status: string): SourceRow => ({ id: `${status}:${name}`, name, status, tone: 'done' });
+
+// Row ids are unique per page load, so the same link added twice, or removed and re-added, never shares an id.
+const row = (name: string, status: string): SourceRow => ({ id: uniqueId('src'), name, status, tone: 'done' });
 
 export function Onboard3Sources({ data, state = 'success' }: { data: SourcesData; state?: ScreenState }) {
-  const { back, next, skip } = useBuilderFlow('sources');
-  const [links, setLinks] = useState(state === 'empty' ? [] : data.links);
+  const { back, next, skip, links: basicsLinks, chooseSources } = useBuilderFlow('sources');
+  // Links from Basics (the flow) come first; the fixture fills in when Basics was not filled.
+  const [links, setLinks] = useState(() => {
+    if (state === 'empty') return [];
+    const fromBasics = basicsLinks?.split('\n').map((l) => l.trim()).filter(Boolean);
+    return fromBasics ? fromBasics.map((l) => row(l, 'From step 1')) : data.links;
+  });
   const [connected, setConnected] = useState<string[]>([]);
   const remove = (id: string) => setLinks((l) => l.filter((r) => r.id !== id));
   const accounts = data.accounts.map((a) => (connected.includes(a.id) ? { ...a, status: 'Connected for publishing' } : a));
@@ -41,7 +49,7 @@ export function Onboard3Sources({ data, state = 'success' }: { data: SourcesData
       intro="Every fact we find keeps its source. Nothing is used until you confirm it."
       footer={
         // INTEGRATION: POST /api/brands/:id/ingest (backend map §4, row "Onboard-3b-Profiling, Ingest-Error").
-        <BuilderStepFooter back={back} skip={skip} skipLabel="Skip, nothing to read" next={{ label: 'Read my sources', href: next, blockedReason: links.length ? null : 'Add a link or a file first, or skip.' }} />
+        <BuilderStepFooter back={back} skip={skip} skipLabel="Skip, nothing to read" next={{ label: 'Read my sources', href: next, onClick: () => chooseSources(links.map((l) => l.name)), blockedReason: links.length ? null : 'Add a link or a file first, or skip.' }} />
       }
     >
       <Card as="section" header={<Heading level={2} size="lg">Links</Heading>}>

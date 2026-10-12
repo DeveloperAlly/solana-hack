@@ -7,7 +7,8 @@
  * |----------|-------------------------------------------------------------------------------------------|---------------------------|
  * | brand    | brands, profiles                                                                          | never                     |
  * | progress | jobs.progress over Realtime (IngestWorkflow, started by POST /api/brands/:id/ingest)       | 0                         |
- * | rows     | sources (status, error, facts found from evidence) and the job's later stages, over Realtime | never: the job lists its stages |
+ * | sources  | sources (status, error, facts found from evidence) over Realtime; names from the Sources step (flow) | the fixture names |
+ * | stages   | the job's later stages (sorting facts, working out questions) over Realtime                | never: the job lists its stages |
  *
  * States: loading (reading, one row at a time) on Onboard-3b; error (a source failed: Retry or Skip inline, others keep
  * going, upload instead) on Ingest-Error. The owner can carry on to intake step 2 while this runs (note n-ob3b.2).
@@ -24,11 +25,15 @@ import { useBuilderFlow } from './useBuilderFlow';
 import type { ProfilingData } from './types';
 
 export function Onboard3bProfiling({ data }: { data: ProfilingData }) {
-  const failedAtStart = data.rows.some((r) => r.tone === 'failed');
+  const failedAtStart = data.sources.some((r) => r.tone === 'failed');
   const flowKey = failedAtStart ? 'ingestError' : 'profiling';
-  const { next } = useBuilderFlow(flowKey);
+  const { next, sources: chosen } = useBuilderFlow(flowKey);
   const to = useBoardHref();
-  const [rows, setRows] = useState(data.rows);
+  // The sources chosen on the previous step (flow), each with the fixture status for its position (queued past the
+  // fixture's rows); else the fixture rows.
+  const queued: SourceRow = { id: '', name: '', status: 'Waiting', tone: 'waiting' };
+  const named = (chosen ?? data.sources.map((s) => s.name)).map((name, i) => ({ ...(data.sources[i] ?? queued), id: `source-${i}`, name }));
+  const [rows, setRows] = useState([...named, ...data.stages]);
   const update = (id: string, patch: Partial<SourceRow>) => setRows((all) => all.map((r) => (r.id === id ? { ...r, ...patch, error: undefined } : r)));
   // INTEGRATION: POST /api/sources/:id/retry (backend map §4, row "Onboard-3b-Profiling, Ingest-Error").
   const retry = (r: SourceRow) => update(r.id, { status: 'Reading…', tone: 'active' });

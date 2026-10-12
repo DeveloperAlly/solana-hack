@@ -4,6 +4,7 @@ import { Button } from '../primitives/Button';
 import { Field } from '../primitives/Field';
 import { Link } from '../primitives/Link';
 import { Text } from '../primitives/Text';
+import { useRequiredNote } from '../hooks/useRequiredNote';
 import styles from './BuilderApprovalItem.module.css';
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'paid';
@@ -34,16 +35,10 @@ const statusLabel: Record<ApprovalStatus, string> = { pending: 'Awaiting approva
  */
 export function BuilderApprovalItem({ item, defaultStatus = 'pending' }: BuilderApprovalItemProps) {
   const [status, setStatus] = useState<ApprovalStatus>(defaultStatus);
-  const [rejecting, setRejecting] = useState(false);
-  const [reason, setReason] = useState('');
-  const [reasonError, setReasonError] = useState<string | null>(null);
-
-  function reject() {
-    if (!reason.trim()) return setReasonError('Give a reason. The ambassador sees it.');
-    // INTEGRATION: POST /api/submissions/:id/reject (backend map §4, row "Dashboard (and its empty state)").
-    setStatus('rejected');
-    setRejecting(false);
-  }
+  const [rejectedFor, setRejectedFor] = useState('');
+  const rejecting = useRequiredNote('Give a reason. The ambassador sees it.');
+  // INTEGRATION: POST /api/submissions/:id/reject with the reason (backend map §4, row "Dashboard (and its empty state)").
+  const reject = () => rejecting.submit((reason) => { setRejectedFor(reason); setStatus('rejected'); });
 
   return (
     <li className={styles.item}>
@@ -54,19 +49,19 @@ export function BuilderApprovalItem({ item, defaultStatus = 'pending' }: Builder
           {item.checks.map((c) => <Badge key={c}>{c}</Badge>)}
           <Link href={item.link.href}>{item.link.label}</Link>
         </div>
-        <Text variant="small" role="status">{statusLabel[status]}{status === 'rejected' ? `: ${reason}` : ''}</Text>
-        {rejecting && (
+        <Text variant="small" role="status">{statusLabel[status]}{status === 'rejected' ? `: ${rejectedFor}` : ''}</Text>
+        {rejecting.open && (
           <div className={styles.row}>
-            <Field label={`Reason for rejecting ${item.author}'s ${item.kind}`} value={reason} onChange={(e: { target: { value: string } }) => setReason(e.target.value)} error={reasonError} />
+            <Field label={`Reason for rejecting ${item.author}'s ${item.kind}`} value={rejecting.text} onChange={(e: { target: { value: string } }) => rejecting.setText(e.target.value)} error={rejecting.error} />
             <Button onClick={reject}>Send rejection</Button>
-            <Button variant="secondary" onClick={() => setRejecting(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={rejecting.cancel}>Cancel</Button>
           </div>
         )}
       </div>
       <div className={styles.row}>
         {/* INTEGRATION: POST /api/submissions/:id/approve; POST /api/submissions/:id/pay (owner only, idempotent). */}
         <Button onClick={() => setStatus('approved')} disabled={status !== 'pending'}>Approve</Button>
-        <Button variant="secondary" onClick={() => setRejecting(true)} disabled={status !== 'pending' || rejecting}>Reject</Button>
+        <Button variant="secondary" onClick={rejecting.show} disabled={status !== 'pending' || rejecting.open}>Reject</Button>
         <Button variant="secondary" onClick={() => setStatus('paid')} disabled={status !== 'approved'}>Pay (owner only)</Button>
       </div>
     </li>

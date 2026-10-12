@@ -26,7 +26,9 @@ import { useBuilderFlow } from './useBuilderFlow';
 import type { CoverageData, GateId } from './types';
 
 export function CoverageMap({ data }: { data: CoverageData }) {
-  const { back, next, gates, allGatesApproved } = useBuilderFlow('coverage');
+  const { back, next, gates, allGatesApproved, brandFor } = useBuilderFlow('coverage');
+  const name = brandFor(data.brand).name;
+  const fill = (s: string) => s.replace('{brand}', name);
   const to = useBoardHref();
   const pending = (Object.keys(gates) as GateId[]).filter((g) => gates[g].status !== 'approved');
   return (
@@ -48,7 +50,7 @@ export function CoverageMap({ data }: { data: CoverageData }) {
         <BuilderCoverageBadge state="I" withDetail />
         <BuilderCoverageBadge state="M" withDetail />
       </Stack>
-      <BuilderCoverageMap caption={data.caption} brands={data.brands} rows={data.rows} />
+      <BuilderCoverageMap caption={fill(data.caption)} brands={data.brands.map(fill)} rows={data.rows} />
       <Grid min="md" gap={4}>
         <Card variant="subtle" as="div">
           <Heading level={2} size="lg">What the builder won&apos;t ask</Heading>

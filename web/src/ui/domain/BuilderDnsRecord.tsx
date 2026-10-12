@@ -15,6 +15,18 @@ export interface DnsRecord {
 
 export type DnsCheckStatus = 'waiting' | 'not-found';
 
+/**
+ * The words for a failed check, from the current domain, record and causes: the on-screen heading, and the subject and
+ * body of the "send these steps to my developer" email. One source, so the three never disagree.
+ */
+export function dnsCheckCopy(domain: string, record: DnsRecord, causes: string[]): { heading: string; subject: string; body: string } {
+  return {
+    heading: `We couldn't find the record on ${domain}`,
+    subject: `DNS record for ${domain}`,
+    body: [`Please add this DNS record for ${domain}:`, `Type: ${record.type}`, `Host: ${record.host}`, `Value: ${record.value}`, '', 'If it was added already, check:', ...causes.map((c) => `- ${c}`)].join('\n'),
+  };
+}
+
 export interface BuilderDnsRecordProps {
   record: DnsRecord;
   domain: string;
@@ -34,7 +46,7 @@ export function BuilderDnsRecord({ record, domain, status, causes = [], actions 
     return (
       <Card variant="emphasis" as="div">
         <div role="alert" className={styles.stack}>
-          <div className={styles.head}><Badge tone="solid">Not found</Badge><Heading level={2} size="lg">We couldn&apos;t find the record on {domain}</Heading></div>
+          <div className={styles.head}><Badge tone="solid">Not found</Badge><Heading level={2} size="lg">{dnsCheckCopy(domain, record, causes).heading}</Heading></div>
           <ul className={styles.causes}>{causes.map((c) => <li key={c}>{c}</li>)}</ul>
         </div>
         <div className={styles.actions}>{actions}</div>

@@ -1,10 +1,13 @@
 // Sample data for Dashboard (Grow > Ambassadors, brand aDNA). Source: canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn,
 // board Dashboard (note n-dash; every figure below is the canvas's, bracketed where the canvas brackets it); issue #50;
 // backend map §4, row "Dashboard (and its empty state)". Receipt and post links point at the Ledger screen in the prototype.
-import type { DashboardData } from './types';
+// Keyed by demo brand; switching brand in the hub shows that brand's (empty) dashboard.
+import type { DashboardData, DashboardScreenData } from './types';
+import { emptyDashboard } from './Dashboard-Empty.fixtures';
+import { perBrand } from './hubBrands.fixtures';
 
-export const dashboardData: DashboardData = {
-  brandId: 'adna',
+/** aDNA, the brand the canvas draws; the other demo brands have no campaigns yet. */
+const adnaDashboard: DashboardData = {
   title: 'aDNA',
   meta: 'adna.network verified · Kit v1 · aDNA launch week (500 USDC cap)',
   kpis: [
@@ -34,3 +37,5 @@ export const dashboardData: DashboardData = {
   kit: { summary: 'Plain, precise, builder to builder. 3 pillars · 4 glossary terms · 3 banned claims.', usage: 'Approved 28 Sep · used in 32 pieces' },
   publicPageUrl: '[aDNA public page URL]',
 };
+
+export const dashboardData: DashboardScreenData = { defaultBrandId: 'adna', byBrand: { ...perBrand(emptyDashboard), adna: adnaDashboard } };

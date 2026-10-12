@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { strFromU8, unzipSync } from 'fflate';
 import { renderWithRouter } from '../../test/render';
 import { expectNoAxeViolations } from '../../test/axe';
-import { example } from './BuilderKitExport.example';
+import { example, exampleVersions } from './BuilderKitExport.example';
 import { BuilderKitExport } from './BuilderKitExport';
-
-const versions = [{ label: 'v1', hash: '[sha256 of kit v1]', fileName: 'jamjam-kit-v1.zip', tree: 'jamjam-kit-v1/\n  MANIFEST.md' }];
 
 // jsdom has no object URLs; stub them and catch the anchor click so no navigation happens.
 let blobs: Blob[];
@@ -19,6 +18,20 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
+function readBlob(b: Blob): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(new Uint8Array(r.result as ArrayBuffer));
+    r.onerror = () => reject(r.error);
+    r.readAsArrayBuffer(b);
+  });
+}
+async function download(name: string) {
+  await userEvent.click(screen.getByRole('button', { name: 'Download .zip' }));
+  await screen.findByRole('heading', { name: `Saved ${name}` });
+  return unzipSync(await readBlob(blobs[blobs.length - 1]));
+}
+
 describe('BuilderKitExport', () => {
   it('switching version changes the hash, tree and file name', async () => {
     renderWithRouter(example.render());
@@ -29,23 +42,29 @@ describe('BuilderKitExport', () => {
     expect(screen.getByText(/^jamjam-kit-v1\//)).toBeInTheDocument();
   });
 
-  it('builds the zip for the chosen version and saves it: preparing, then saved, with no axe violations', async () => {
+  it('zips the chosen version with its files; the include options change the file list, tree and contents', async () => {
     const { container } = renderWithRouter(example.render());
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Missing sections as empty files' }));
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Version' }), 'v1 · [date]');
-    await userEvent.click(screen.getByRole('button', { name: 'Download .zip' }));
-    expect(await screen.findByRole('heading', { name: 'Saved jamjam-kit-v1.zip' })).toBeInTheDocument();
-    expect(blobs).toHaveLength(1);
+    let files = await download('jamjam-kit-v1.zip');
+    expect(Object.keys(files).sort()).toEqual(['jamjam-kit-v1/MANIFEST.md', 'jamjam-kit-v1/what/brand/02-purpose.md', 'jamjam-kit-v1/what/context/sources/jamjam-tech.md']);
+    expect(strFromU8(files['jamjam-kit-v1/what/brand/02-purpose.md'])).toBe('# Purpose\n\n[JamJam purpose, kit v1]\n');
     expect(blobs[0].type).toBe('application/zip');
-    expect(blobs[0].size).toBeGreaterThan(0);
     expect(downloads).toEqual(['jamjam-kit-v1.zip']);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:kit');
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Source list' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Missing sections as empty files' }));
+    expect(screen.queryByText(/jamjam-tech\.md/)).not.toBeInTheDocument();
+    expect(screen.getByText(/13-visual-kit\.md/)).toBeInTheDocument();
+    files = await download('jamjam-kit-v1.zip');
+    expect(Object.keys(files).sort()).toEqual(['jamjam-kit-v1/MANIFEST.md', 'jamjam-kit-v1/what/brand/02-purpose.md', 'jamjam-kit-v1/what/brand/13-visual-kit.md']);
+    expect(files['jamjam-kit-v1/what/brand/13-visual-kit.md']).toHaveLength(0);
     await expectNoAxeViolations(container);
   });
 
   it('shows the preparing state with Download disabled', () => {
-    renderWithRouter(<BuilderKitExport versions={versions} includes={[]} status="preparing" />);
-    expect(screen.getByRole('heading', { name: 'Preparing jamjam-kit-v1.zip' })).toBeInTheDocument();
+    renderWithRouter(<BuilderKitExport versions={exampleVersions} includes={[]} status="preparing" />);
+    expect(screen.getByRole('heading', { name: 'Preparing jamjam-kit-v[n].zip' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Download .zip' })).toBeDisabled();
   });
 

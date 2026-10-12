@@ -14,13 +14,14 @@
  * States: success (pending gate). Approve, Request changes and Save, decide later as on Gate 1.
  */
 import { Field, Grid, Text } from '../../ui/primitives';
-import { Card } from '../../ui/composites/Card';
+import { BuilderLabelledCard } from './BuilderLabelledCard';
 import { BuilderGateStep } from './BuilderGateStep';
 import { useBuilderFlow } from './useBuilderFlow';
 import type { GatePositioningData } from './types';
 
 export function BBGate2Positioning({ data }: { data: GatePositioningData }) {
-  const { positioningOption } = useBuilderFlow('gatePositioning');
+  const { positioningOption, brandFor } = useBuilderFlow('gatePositioning');
+  const brand = brandFor(data.brand);
   return (
     <BuilderGateStep
       flow="gatePositioning"
@@ -31,10 +32,10 @@ export function BBGate2Positioning({ data }: { data: GatePositioningData }) {
       whyLabel="Why this position? (optional, saved with the decision)"
       backLabel="Back to options"
     >
-      <Field label="Positioning statement" multiline rows={3} defaultValue={data.draft} />
+      <Field label="Positioning statement" multiline rows={3} key={brand.name} defaultValue={data.draft.replace('{brand}', brand.name)} />
       <Grid min="sm" gap={4}>
-        <Card variant="subtle" as="div"><Text variant="small"><strong>Alternative named</strong></Text><Text variant="small">{data.alternative}</Text></Card>
-        <Card variant="subtle" as="div"><Text variant="small"><strong>Your edge</strong></Text><Text variant="small">{data.edge}</Text></Card>
+        <BuilderLabelledCard label="Alternative named" lines={[data.alternative]} />
+        <BuilderLabelledCard label="Your edge" lines={[data.edge]} />
       </Grid>
       <Text variant="small" tone="secondary">{data.sourcesNote}</Text>
     </BuilderGateStep>

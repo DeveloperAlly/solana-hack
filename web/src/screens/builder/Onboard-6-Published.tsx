@@ -9,14 +9,15 @@
  * | brand        | brands, profiles                                                  | never                           |
  * | status       | registrations.status: registered or failed                        | n/a                             |
  * | version/hash | kit_versions.version, kit_versions.hash (SHA-256 of canonical JSON) | never: the kit is approved    |
- * | approvedBy   | decisions (owner email, date, time)                               | never                           |
+ * | approvedAt   | kit_versions.approved_at; the approver is the signed-in owner (flow) | never                         |
  * | sections     | kit_sections counts: gates approved, confirmed, missing           | n/a                             |
  * | tx           | registrations.signature -> Solana Explorer (devnet) via VerifyReceiptLink | "Not yet" with lastTry; null shows [tx signature] |
  * | reason       | registrations.error in plain words                                | n/a                             |
  * | errorDetails | registrations.error, full, for "Copy error details"               | n/a                             |
  *
  * States: success (registered) on Onboard-6; error (kit approved and saved, registration failed: Retry, Copy error details,
- * or continue unregistered) on Kit-RegisterFailed. Only hash, version and approver go onchain (note n-ob6.3).
+ * or fill the gaps while waiting; drafting posts needs a registered kit, web/worker/posts.ts) on Kit-RegisterFailed. Only hashes
+ * and ids go onchain: brand, kit hash, version, approver, domain-verified flag (web/worker/api.ts).
  */
 import { Badge, Button, Grid, Heading, Link, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
@@ -36,12 +37,13 @@ const nextSteps: { board: BoardKey; title: string; body: string }[] = [
 
 export function Onboard6Published({ data }: { data: PublishedData }) {
   const to = useBoardHref();
-  const { brandFor } = useBuilderFlow(data.status === 'registered' ? 'published' : 'registerFailed');
   const registered = data.status === 'registered';
+  const { brandFor } = useBuilderFlow(registered ? 'published' : 'registerFailed');
+  const brand = brandFor(data.brand);
   const record = [
     { label: 'Version', value: data.version },
     { label: 'Kit hash', value: <Text as="span" variant="mono">{data.hash}</Text> },
-    ...(registered ? [{ label: 'Approved by', value: data.approvedBy }, { label: 'Sections', value: data.sections }] : []),
+    ...(registered ? [{ label: 'Approved by', value: `${brand.approver}, ${data.approvedAt}` }, { label: 'Sections', value: data.sections }] : []),
     {
       label: 'Registered on Solana',
       value: registered ? <VerifyReceiptLink signature={data.tx ?? null} placeholder="[tx signature]">Registration transaction</VerifyReceiptLink> : `Not yet · last try ${data.lastTry}`,
@@ -51,9 +53,9 @@ export function Onboard6Published({ data }: { data: PublishedData }) {
     <BuilderStep
       flow={registered ? 'published' : 'registerFailed'}
       brand={data.brand}
-      title={registered ? `${brandFor(data.brand).name} kit ${data.version} is ready` : `Kit ${data.version} is approved, but not registered yet`}
+      title={registered ? `${brand.name} kit ${data.version} is ready` : `Kit ${data.version} is approved, but not registered yet`}
       flag={<Badge tone="solid">Approved</Badge>}
-      footer={!registered && <BuilderStepFooter><Button href={to('draftReview')} variant="secondary">Continue without registering</Button></BuilderStepFooter>}
+      footer={!registered && <BuilderStepFooter><Button href={to('brandBuild')} variant="secondary">Fill the gaps while you wait</Button></BuilderStepFooter>}
     >
       <BuilderRegistrationResult
         status={data.status}
@@ -61,7 +63,7 @@ export function Onboard6Published({ data }: { data: PublishedData }) {
         reason={data.reason}
         errorDetails={data.errorDetails}
         retryHref={to('published')}
-        note={registered ? 'Only the hash, version and approver are written onchain. The kit itself stays private to your workspace.' : undefined}
+        note={registered ? 'Only hashes and ids (brand, kit hash, version, approver, domain-verified flag) go onchain. The kit itself stays private to your workspace.' : undefined}
       />
       {registered && (
         <>

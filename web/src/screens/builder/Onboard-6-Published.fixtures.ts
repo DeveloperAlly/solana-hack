@@ -9,7 +9,7 @@ export const publishedData: PublishedData = {
   status: 'registered',
   version: 'v1',
   hash: '[sha256 of kit v1]',
-  approvedBy: '[owner email], [date, time]',
+  approvedAt: '[date, time]',
   sections: '3 gates approved · [n] confirmed · [n] missing',
   /** Not a real signature, so null: the receipt link shows the bracketed placeholder instead of a broken explorer link. */
   tx: null,

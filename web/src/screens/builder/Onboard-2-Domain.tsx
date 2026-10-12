@@ -10,7 +10,7 @@
  * | record         | POST /api/brands/:id/domain/token -> TXT host and value                 | not shown until a domain is entered |
  * | check          | POST /api/brands/:id/domain/check -> waiting or not found               | waiting                       |
  * | causes         | Static plain-language causes for "not found" (note n-ob2b.1)            | n/a                           |
- * | developerSteps | Client: the record and causes as an email body                          | n/a                           |
+ * | (email)        | Client: dnsCheckCopy(domain, record, causes): the same words as the heading, as a mailto | n/a |
  *
  * States: success (waiting for the record) on Onboard-2; error (record not found) on Onboard-2b. Skip continues
  * unverified to intake step 1 (note n-ob2.1). In the prototype "Check now" shows the failure and "Check again" succeeds:
@@ -18,7 +18,7 @@
  */
 import { Badge, Button, Field, Grid, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
-import { BuilderDnsRecord } from '../../ui/domain/BuilderDnsRecord';
+import { BuilderDnsRecord, dnsCheckCopy } from '../../ui/domain/BuilderDnsRecord';
 import { BuilderStep } from './BuilderStep';
 import { BuilderStepFooter } from './BuilderStepFooter';
 import { useBuilderFlow } from './useBuilderFlow';
@@ -31,7 +31,8 @@ export function Onboard2Domain({ data }: { data: DomainData }) {
   // Entered values live in the flow, so the result screen (2b) shows what was typed; fixtures fill in only when empty.
   const name = brand.brandName ?? data.brand.name;
   const domain = brand.domain ?? data.domain;
-  const mailto = `mailto:?subject=${encodeURIComponent(`DNS record for ${domain}`)}&body=${encodeURIComponent(data.developerSteps)}`;
+  const copy = dnsCheckCopy(domain, data.record, data.causes);
+  const mailto = `mailto:?subject=${encodeURIComponent(copy.subject)}&body=${encodeURIComponent(copy.body)}`;
   const actions = waiting
     ? <Button href={next ?? ''} onClick={() => enterBrand({ brandName: name, domain })}>Check now</Button>
     : <><Button href={next ?? ''} onClick={() => enterBrand({ verified: true })}>Check again</Button><Button href={mailto} variant="secondary">Email these steps to my developer</Button></>;

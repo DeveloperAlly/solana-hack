@@ -6,6 +6,7 @@ import { Field } from '../primitives/Field';
 import { Text } from '../primitives/Text';
 import { Card } from '../composites/Card';
 import { StatePanel } from '../composites/StatePanel';
+import { useRequiredNote } from '../hooks/useRequiredNote';
 import styles from './BuilderDecisionGate.module.css';
 
 export type GateStatus = 'pending' | 'approved' | 'changes' | 'deferred';
@@ -51,17 +52,8 @@ const stamp = () => `${new Date().toISOString().slice(0, 16).replace('T', ' ')} 
  */
 export function BuilderDecisionGate({ subject, draftLabel, draftMeta, whyLabel, approver, decision, onDecide, backHref, backLabel = 'Back', nextHref, children }: BuilderDecisionGateProps) {
   const [why, setWhy] = useState(decision.why ?? '');
-  const [asking, setAsking] = useState(false);
-  const [note, setNote] = useState('');
-  const [noteError, setNoteError] = useState<string | null>(null);
-
-  function requestChanges() {
-    if (!note.trim()) return setNoteError('Say what should change, so the next draft can fix it.');
-    onDecide({ status: 'changes', note: note.trim() });
-    setAsking(false);
-    setNote('');
-    setNoteError(null);
-  }
+  const changes = useRequiredNote('Say what should change, so the next draft can fix it.');
+  const requestChanges = () => changes.submit((note) => onDecide({ status: 'changes', note }));
 
   if (decision.status === 'approved') {
     return (
@@ -83,17 +75,17 @@ export function BuilderDecisionGate({ subject, draftLabel, draftMeta, whyLabel, 
         {children}
       </Card>
       <Field label={whyLabel} value={why} onChange={(e: { target: { value: string } }) => setWhy(e.target.value)} />
-      {asking && (
+      {changes.open && (
         <Card variant="subtle" as="div">
-          <Field label="What should change?" multiline rows={2} value={note} onChange={(e: { target: { value: string } }) => setNote(e.target.value)} error={noteError} />
-          <div className={styles.row}><Button onClick={requestChanges}>Send request</Button><Button variant="secondary" onClick={() => setAsking(false)}>Cancel</Button></div>
+          <Field label="What should change?" multiline rows={2} value={changes.text} onChange={(e: { target: { value: string } }) => changes.setText(e.target.value)} error={changes.error} />
+          <div className={styles.row}><Button onClick={requestChanges}>Send request</Button><Button variant="secondary" onClick={changes.cancel}>Cancel</Button></div>
         </Card>
       )}
       <Text variant="small" tone="secondary">Approving records a decision: who, when and why. You can reopen it later; that creates a new kit version.</Text>
       <div className={styles.footer}>
         <Button href={backHref} variant="secondary">{backLabel}</Button>
         <div className={styles.row}>
-          {!asking && <Button variant="secondary" onClick={() => setAsking(true)}>Request changes</Button>}
+          {!changes.open && <Button variant="secondary" onClick={changes.show}>Request changes</Button>}
           <Button href={nextHref} variant="secondary" onClick={() => onDecide({ status: 'deferred' })}>Save, decide later</Button>
           {/* INTEGRATION: POST /api/brands/:id/gates/:gate/approve (backend map §4, row "Gate 1, Gate 2, Gate 3"). */}
           <Button onClick={() => onDecide({ status: 'approved', by: approver, at: stamp(), why: why.trim() || undefined })}>Approve {subject}</Button>

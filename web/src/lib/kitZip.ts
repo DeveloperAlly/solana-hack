@@ -1,40 +1,42 @@
-// Builds a kit version's aDNA folder as a zip in the browser (backend map §4, row "Kit-Export": the zip is built client
-// side, gap G-ZIP). Zipping: fflate (https://github.com/101arrowz/fflate), zipSync over a path -> bytes map.
+// A kit version's aDNA folder: which files it holds, its tree preview, and the zip built in the browser (backend map §4,
+// row "Kit-Export": the zip is built client side, gap G-ZIP). Zipping: fflate (https://github.com/101arrowz/fflate).
 import { strToU8, zipSync, type Zippable } from 'fflate';
 
-export interface KitZipInput {
-  /** Folder tree, two spaces per level; directories end in "/"; text after two or more spaces is a comment. */
-  tree: string;
-  /** Lines written into MANIFEST.md (version, hash, included options). */
-  manifest: string[];
+export interface KitFile {
+  /** Path inside the kit folder, e.g. "what/brand/02-purpose.md". */
+  path: string;
+  content: string;
+  /** Include option that controls this file (e.g. "sources", "decisions", "missing"); always included when absent. */
+  group?: string;
 }
 
-/** Paths from an indented tree: "root/", "root/MANIFEST.md", "root/what/brand/" … */
-export function treePaths(tree: string): string[] {
-  const stack: string[] = [];
-  const paths: string[] = [];
-  for (const raw of tree.split('\n')) {
-    if (!raw.trim()) continue;
-    const depth = Math.floor((raw.length - raw.trimStart().length) / 2);
-    const name = raw.trim().split(/\s{2,}/)[0];
-    stack.length = depth;
-    paths.push([...stack, name].join(''));
-    if (name.endsWith('/')) stack[depth] = name;
-  }
-  return paths;
+/** The files a download holds for the ticked include options. */
+export function kitFiles(files: KitFile[], included: ReadonlySet<string>): KitFile[] {
+  return files.filter((f) => !f.group || included.has(f.group));
 }
 
-/** Zip bytes for a kit version: every folder in the tree, and MANIFEST.md with the manifest lines. */
-export function buildKitZip({ tree, manifest }: KitZipInput): Uint8Array<ArrayBuffer> {
-  const files: Zippable = {};
-  for (const p of treePaths(tree)) {
-    // Folders are empty directory entries; files get content (only MANIFEST.md has any until the endpoint lands).
-    // fflate writes an empty object as a directory and adds the trailing slash itself.
-    if (p.endsWith('/')) files[p.slice(0, -1)] = {};
-    else files[p] = strToU8(p.endsWith('MANIFEST.md') ? `${manifest.join('\n')}\n` : '');
+/** Indented tree preview of a folder: two spaces per level, folders end in "/", in path order. */
+export function kitTree(root: string, files: KitFile[]): string {
+  const lines = [`${root}/`];
+  const seen = new Set<string>();
+  for (const f of [...files].sort((a, b) => a.path.localeCompare(b.path))) {
+    const parts = f.path.split('/');
+    parts.forEach((part, i) => {
+      const key = parts.slice(0, i + 1).join('/');
+      if (seen.has(key)) return;
+      seen.add(key);
+      lines.push(`${'  '.repeat(i + 1)}${part}${i < parts.length - 1 ? '/' : ''}`);
+    });
   }
+  return lines.join('\n');
+}
+
+/** Zip bytes for a kit folder: each file under `root/`, with its content. */
+export function buildKitZip(root: string, files: KitFile[]): Uint8Array<ArrayBuffer> {
+  const entries: Zippable = {};
+  for (const f of files) entries[`${root}/${f.path}`] = strToU8(f.content);
   // Copied into a plain ArrayBuffer-backed array so it is a valid BlobPart.
-  return new Uint8Array(zipSync(files));
+  return new Uint8Array(zipSync(entries));
 }
 
 /** Hands a Blob to the browser as a download with the given file name. */

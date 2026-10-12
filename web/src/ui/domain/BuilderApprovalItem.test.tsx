@@ -16,6 +16,16 @@ describe('BuilderApprovalItem', () => {
     expect(screen.getByRole('button', { name: 'Pay (owner only)' })).toBeDisabled();
     await expectNoAxeViolations(container);
   });
+  it('Cancel clears the whole rejection form, reason and error', async () => {
+    renderWithRouter(example.render());
+    await userEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Send rejection' }));
+    await userEvent.type(screen.getByLabelText(/Reason for rejecting/), 'draft');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    expect(screen.getByLabelText(/Reason for rejecting/)).toHaveValue('');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
   it('rejects with a required reason', async () => {
     renderWithRouter(example.render());
     await userEvent.click(screen.getByRole('button', { name: 'Reject' }));

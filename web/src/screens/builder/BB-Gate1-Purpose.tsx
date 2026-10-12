@@ -16,8 +16,8 @@
  * is allowed, but kit v1 can't be approved until all three gates pass (note n-g1.3). Decisions live in the flow.
  */
 import { useState } from 'react';
-import { Button, Field, Stack, Text } from '../../ui/primitives';
-import { Card } from '../../ui/composites/Card';
+import { Button, Field, Stack } from '../../ui/primitives';
+import { BuilderLabelledCard } from './BuilderLabelledCard';
 import { BuilderGateStep } from './BuilderGateStep';
 import type { GatePurposeData } from './types';
 
@@ -37,10 +37,7 @@ export function BBGate1Purpose({ data }: { data: GatePurposeData }) {
       whyLabel="Why this wording? (optional, saved with the decision)"
     >
       <Field label="Purpose statement" multiline rows={3} value={draft} onChange={(e: { target: { value: string } }) => setDraft(e.target.value)} />
-      <Card variant="subtle" as="div">
-        <Text variant="small"><strong>Based on</strong></Text>
-        {data.basedOn.map((b) => <Text key={b} variant="small">{b}</Text>)}
-      </Card>
+      <BuilderLabelledCard label="Based on" lines={data.basedOn} />
       {/* INTEGRATION: POST /api/brands/:id/draft-section (purpose variants) (backend map §4, row "Gate 1, Gate 2, Gate 3"). */}
       <Stack direction="row" gap={3} wrap>
         <Button variant="secondary" onClick={another}>Try another draft</Button>

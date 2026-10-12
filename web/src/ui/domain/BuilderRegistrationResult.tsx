@@ -32,7 +32,7 @@ export function BuilderRegistrationResult({ status, items, reason, errorDetails 
         <Card variant="emphasis" as="div">
           <div role="alert" className={styles.message}>
             <Text><strong>We couldn&apos;t write the registration to Solana.</strong></Text>
-            <Text variant="small">{reason} Your kit is saved and nothing was charged. You can keep working; posts stay unregistered until this succeeds.</Text>
+            <Text variant="small">{reason} Your kit is saved and nothing was charged. Drafting posts needs a registered kit, so retry registration.</Text>
           </div>
           <div className={styles.actions}>
             {/* INTEGRATION: POST /api/registrations/:id/retry (backend map §4, row "Onboard-6-Published, Kit-RegisterFailed"). */}

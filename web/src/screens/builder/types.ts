@@ -12,7 +12,7 @@ import type { StatTileProps } from '../../ui/composites/StatTile';
 import type { BoardKey } from './paths';
 
 export type { GateDecision, GateStatus } from '../../ui/domain/BuilderDecisionGate';
-export type { ChoiceCardOption, CoverageRow, DnsRecord, KitIncludeOption, Persona, SourceRow, AmbassadorSubmission };
+export type { ChoiceCardOption, CoverageRow, DnsRecord, KitIncludeOption, KitVersion, Persona, SourceRow, AmbassadorSubmission };
 
 export type GateId = 'purpose' | 'positioning' | 'voice';
 
@@ -65,8 +65,6 @@ export interface DomainData {
   record: DnsRecord;
   check: DnsCheckStatus;
   causes: string[];
-  /** Steps the owner can send to a developer (mailto body). */
-  developerSteps: string;
 }
 
 export interface SourcesData {
@@ -79,7 +77,10 @@ export interface ProfilingData {
   brand: BuilderBrand;
   /** 0–100, from jobs.progress. */
   progress: number;
-  rows: SourceRow[];
+  /** Status of each source by position (the names come from the Sources step in the flow, else these). */
+  sources: SourceRow[];
+  /** The job's later stages, after the sources. */
+  stages: SourceRow[];
 }
 
 export interface BasicsData {
@@ -145,6 +146,7 @@ export interface GatePurposeData {
 
 export interface GatePositioningData {
   brand: BuilderBrand;
+  /** Drafted statement; "{brand}" is replaced with the brand name from the flow. */
   draft: string;
   alternative: string;
   edge: string;
@@ -163,7 +165,9 @@ export interface GateVoiceData {
 
 export interface CoverageData {
   brand: BuilderBrand;
+  /** "{brand}" is replaced with the brand name from the flow. */
   caption: string;
+  /** Brands compared; "{brand}" is the brand being built. */
   brands: string[];
   rows: CoverageRow[];
 }
@@ -173,7 +177,8 @@ export interface PublishedData {
   status: RegistrationStatus;
   version: string;
   hash: string;
-  approvedBy: string;
+  /** When the kit was approved; the approver comes from the flow (sign-in), else the brand fixture. */
+  approvedAt: string;
   sections: string;
   /** Transaction signature once registered. */
   tx: string | null;
@@ -184,9 +189,10 @@ export interface PublishedData {
 }
 
 export interface KitExportData {
-  brandId: string;
-  /** Approved versions, current first; each carries its hash, file name and tree. */
-  versions: KitVersion[];
+  /** The brand shown until the switcher picks another. */
+  defaultBrandId: string;
+  /** Per demo brand: approved versions, current first; each carries its hash, file name and files. */
+  byBrand: Record<string, { versions: KitVersion[] }>;
   includes: KitIncludeOption[];
 }
 
@@ -215,8 +221,13 @@ export interface PayoutRow {
   receiptBoard: BoardKey;
 }
 
+/** The Dashboard screen: one DashboardData per demo brand, chosen by the hub brand switcher. */
+export interface DashboardScreenData {
+  defaultBrandId: string;
+  byBrand: Record<string, DashboardData>;
+}
+
 export interface DashboardData {
-  brandId: string;
   title: string;
   meta: string;
   kpis: StatTileProps[];

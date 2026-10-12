@@ -6,9 +6,11 @@ import { jamjamBrand } from './shared.fixtures';
 export const profilingData: ProfilingData = {
   brand: jamjamBrand,
   progress: 50,
-  rows: [
+  sources: [
     { id: 'site', name: 'jamjam.tech', status: 'Done · 2 facts found', tone: 'done' },
     { id: 'press', name: '[2023 press or docs links]', status: 'Reading…', tone: 'active' },
+  ],
+  stages: [
     { id: 'sort', name: 'Sorting facts into the 17 kit sections', status: 'Waiting', tone: 'waiting' },
     { id: 'ask', name: 'Working out what to ask you', status: 'Waiting', tone: 'waiting' },
   ],

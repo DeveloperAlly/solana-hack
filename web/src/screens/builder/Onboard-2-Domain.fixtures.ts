@@ -15,5 +15,4 @@ export const domainData: DomainData = {
   record: { type: 'TXT', host: '@', value: 'jamjam-verify=[unique value]' },
   check: 'waiting',
   causes,
-  developerSteps: ['Please add this DNS record for jamjam.tech:', 'Type: TXT', 'Host: @', 'Value: jamjam-verify=[unique value]', '', ...causes].join('\n'),
 };

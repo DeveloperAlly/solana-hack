@@ -1,6 +1,7 @@
 // Sample data for Coverage-Map. Source: canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, board Coverage-Map (note n-cov;
 // all 17 rows as drawn; totals are counted by the component and match the canvas: JamJam E 0 · I 2 · M 15, film.fun
 // E 8 · I 3 · M 6); issue #50; backend map §4, row "Coverage-Map". Statuses are sample data (note n-cov.3).
+// {brand} is the brand being built, filled from the flow (JamJam on the canvas).
 import type { CoverageState } from '../../ui/domain/BuilderCoverageBadge';
 import type { CoverageData, CoverageRow } from './types';
 import { jamjamBrand } from './shared.fixtures';
@@ -16,8 +17,8 @@ const row = (section: string, jam: [CoverageState, string], film: [CoverageState
 
 export const coverageData: CoverageData = {
   brand: jamjamBrand,
-  caption: 'Coverage by section. JamJam: zero public presence. film.fun: public site and posts.',
-  brands: ['JamJam', 'film.fun'],
+  caption: 'Coverage by section. {brand}: zero public presence. film.fun: public site and posts.',
+  brands: ['{brand}', 'film.fun'],
   rows: [
     row('Identity', ['I', 'Confirm draft'], ['E', 'Confirm only']),
     row('Purpose', ['I', 'Confirm draft'], ['E', 'Confirm only'], 'Gate 1'),
