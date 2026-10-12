@@ -1,0 +1,6 @@
+.form { display: flex; gap: var(--wl-space-3); }
+.stacked { flex-direction: column; gap: var(--wl-space-4); }
+.row { flex-wrap: wrap; align-items: flex-end; }
+.field { min-width: 0; }
+.row .field { flex: 1 1 calc(var(--wl-space-12) * 4); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--wl-space-3); }

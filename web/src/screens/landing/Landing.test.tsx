@@ -12,7 +12,7 @@ describe('Landing in PublicShell', () => {
     expect(within(nav).getByRole('link', { name: 'How it works' })).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Check a post' })).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Build your brand. Then start creating.');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Build your voice. Launch your brand.');
     expect(screen.getByRole('link', { name: 'Build my brand' })).toHaveAttribute('href', '/sign-in');
   });
 

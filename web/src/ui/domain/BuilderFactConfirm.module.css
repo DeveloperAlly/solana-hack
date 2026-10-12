@@ -1,0 +1,2 @@
+.head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-2); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-3); }

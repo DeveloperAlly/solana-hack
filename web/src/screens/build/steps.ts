@@ -57,22 +57,10 @@ export const STEPS: Step[] = [
   { slug: 'kit', title: 'Kit v1', kind: 'kit' },
 ];
 
-// Research 06 starter set (1-5). Fo formality, En energy, Hu humour, Wa warmth, SL sentence length, Ja jargon,
-// Em emoji and punctuation, CTA call-to-action strength, Cl claims strictness (a gate, not a slider).
-export const VOICE_TEMPLATES = [
-  { value: 'academic', label: 'Academic', v: [5, 1, 1, 2, 5, 4, 1, 1, 5] },
-  { value: 'enterprise', label: 'Enterprise', v: [4, 2, 1, 3, 3, 3, 1, 2, 5] },
-  { value: 'professional', label: 'Professional', v: [4, 2, 1, 3, 3, 2, 1, 2, 4] },
-  { value: 'friendly', label: 'Friendly', v: [2, 3, 2, 5, 2, 1, 3, 2, 4] },
-  { value: 'plainspoken', label: 'Plainspoken', v: [2, 2, 2, 3, 2, 1, 1, 2, 4] },
-  { value: 'efficient', label: 'Efficient', v: [3, 3, 1, 2, 1, 2, 1, 2, 4] },
-  { value: 'candid_founder', label: 'Candid founder', v: [2, 3, 2, 3, 2, 2, 1, 3, 4] },
-  { value: 'playful', label: 'Playful', v: [1, 4, 5, 4, 2, 1, 4, 2, 3] },
-  { value: 'flirty', label: 'Flirty (suggestive, never explicit)', v: [1, 4, 4, 5, 1, 1, 4, 2, 4] },
-  { value: 'sales', label: 'Sales', v: [3, 4, 2, 3, 2, 2, 2, 5, 5] },
-  { value: 'hype_launch', label: 'Hype or launch', v: [2, 5, 3, 3, 1, 2, 4, 4, 4] },
-  { value: 'empathetic_support', label: 'Empathetic or support', v: [3, 2, 1, 5, 2, 1, 1, 1, 4] },
-];
+// Voice templates are defined once, in the Worker (worker/voice.ts), so the voice the web app offers and the voice
+// the Worker writes samples in are the same list.
+import { DIAL_KEYS, VOICE_TEMPLATES, voiceAnswerFor } from '../../../worker/voice';
+export { VOICE_TEMPLATES };
 export const DIALS = [
   { key: 'formality', label: 'Formality', low: 'Casual', high: 'Formal' },
   { key: 'energy', label: 'Energy', low: 'Calm', high: 'Excited' },
@@ -91,10 +79,10 @@ export const CLAIMS_GATE = [
 /** Dial values for a template, as the strings the answer form stores. */
 export function templateDials(value: string): Record<string, string> {
   const t = VOICE_TEMPLATES.find((x) => x.value === value) ?? VOICE_TEMPLATES[6];
-  const out: Record<string, string> = { template: t.value, claims: String(t.v[8]) };
-  DIALS.forEach((d, i) => (out[d.key] = String(t.v[i])));
-  return out;
+  return voiceAnswerFor(t.value);
 }
+/** The dial keys here and in the Worker are one list: a reorder in either place fails loudly, not silently. */
+if (DIALS.some((d, i) => d.key !== DIAL_KEYS[i]) || DIALS.length !== DIAL_KEYS.length) throw new Error('DIALS and worker/voice.ts DIAL_KEYS differ');
 
 // Templates from the first voice form that no longer exist, mapped to their closest research 06 template.
 const LEGACY_TEMPLATES: Record<string, string> = { friendly_expert: 'friendly' };

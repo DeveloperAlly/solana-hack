@@ -1,4 +1,6 @@
-import { requireUser, type User } from './auth';
+import { requirePermanent, requireUser, type User } from './auth';
+import { claimMap } from './claims';
+import { assertCanAddSource, assertCanCreateBrand, claimAnonymous, coverage, editFact, FIRST_POST_BRIEF, voiceSamples } from './journey';
 import { db } from './db';
 import { HttpError, json, safeError, sha256Hex, type Env } from './env';
 import { readPage } from './ingest';
@@ -6,6 +8,7 @@ import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type Secti
 import { MAX_QUOTE, normalisePage, quoteOnPage } from './quote';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
+import { factTrust, urlKind, usableFact } from './sources/registry';
 import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
@@ -13,7 +16,7 @@ export const MAX_POSTS = 500;
 
 interface Brand { id: string; owner_id: string; name: string; type: string; description: string | null; website: string | null; goal: string | null; channel: string | null }
 interface Answer { step: string; data: Record<string, string>; skipped: boolean; updated_at?: string }
-interface Evidence { id: string; section: string; claim: string; quote: string | null; origin: string; source_id: string | null }
+interface Evidence { id: string; section: string; claim: string; quote: string | null; origin: string; source_id: string | null; trust?: string | null; review_status?: string | null }
 interface Section { section: string; body: string; citations: string[]; status: string }
 interface Gate { gate: string; approved_by: string; approved_at: string; note: string | null }
 interface Kit { id: string; version: number; hash: string; status: string; signature: string | null; attestation: string | null; created_at: string; error: string | null }
@@ -47,7 +50,7 @@ async function brandState(env: Env, brand: Brand) {
     db.select<Gate>(env, 'gates', f),
     db.select<Kit>(env, 'kits', `${f}&select=id,version,hash,status,signature,attestation,created_at,error,payload&order=version.desc`),
   ]);
-  return { brand, answers, sources, evidence, sections, gates, kits };
+  return { brand, answers, sources, evidence, sections, gates, kits, coverage: coverage(evidence) };
 }
 
 function answerText(answers: Answer[], steps: readonly string[]) {
@@ -57,10 +60,12 @@ function answerText(answers: Answer[], steps: readonly string[]) {
     .join('\n\n');
 }
 
-async function draftSection(env: Env, brand: Brand, section: SectionId) {
+export async function draftSection(env: Env, brand: Brand, section: SectionId) {
   const st = await brandState(env, brand);
-  const ev = st.evidence;
-  const evText = ev.map((e) => `[${e.id}] (${e.origin}${e.quote ? `, quote: "${e.quote.slice(0, 200)}"` : ''}) ${e.claim}`).join('\n') || '(no evidence yet)';
+  // Only facts that may enter a kit are offered to the drafter (issue #57): approved, and owned, an owner answer or an
+  // approved third-party fact. A proposed or rejected fact cannot be cited, so it cannot reach a registered kit.
+  const ev = st.evidence.filter(usableFact);
+  const evText = ev.map((e) => `[${e.id}] (${e.trust}${e.quote ? `, quote: "${e.quote.slice(0, 200)}"` : ''}) ${e.claim}`).join('\n') || '(no evidence yet)';
   const system = `You draft one section of a brand kit for "${brand.name}". Use only the owner's answers and the evidence list. Cite the evidence ids you rely on. If something is not supported, write it anyway as a clearly labelled assumption ("Assumption:"). ${SLOP_RULES} Reply with JSON only: {"body": string, "citations": string[]}.`;
   const user = `Section: ${SECTIONS[section].title}\nWhat to write: ${SECTION_GUIDE[section]}\n\nOwner answers:\n${answerText(st.answers, SECTIONS[section].from) || '(none)'}\n\nEvidence:\n${evText}`;
   const { text, model } = await chat(env, system, user);
@@ -77,9 +82,14 @@ async function draftSection(env: Env, brand: Brand, section: SectionId) {
 }
 
 export async function ingest(env: Env, brand: Brand, rawUrl: string) {
-  const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url: rawUrl.slice(0, 500), status: 'pending' });
+  // Owned only when the page is on the brand's own website; any other page is third-party (registry urlKind).
+  let kind = urlKind(rawUrl, brand.website);
+  const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url: rawUrl.slice(0, 500), status: 'pending', kind });
   try {
     const page = await readPage(rawUrl);
+    // readPage follows redirects, so classify again on the page actually read: an on-site link that redirects off the
+    // website is third-party (PR #63 review). Owned needs both the link and the final page on the website.
+    if (urlKind(page.url, brand.website) !== 'site') kind = 'page';
     const text = page.text.slice(0, 14000);
     const system = `You extract facts about the brand "${brand.name}" from a web page. Each fact needs an exact quote copied character for character from the page text, at most ${MAX_QUOTE} characters. Sections: ${Object.keys(SECTIONS).join(', ')}. Reply with JSON only: {"facts": [{"section": string, "claim": string, "quote": string}]}. At most 12 facts. No facts that the page does not state.`;
     const { text: reply } = await chat(env, system, `Page title: ${page.title}\nURL: ${page.url}\n\n${text}`);
@@ -91,12 +101,13 @@ export async function ingest(env: Env, brand: Brand, rawUrl: string) {
     const rows = facts
       .map((f) => ({ ...f, quote: typeof f.quote === 'string' ? f.quote.trim() : '' }))
       .filter((f) => f.claim && f.quote && f.quote.length <= MAX_QUOTE && isSection(f.section ?? '') && quoteOnPage(hay, f.quote))
-      .map((f) => ({ brand_id: brand.id, source_id: src.id, section: f.section, claim: str(f.claim, 500), quote: f.quote, origin: 'source' }));
+      // Trust and the starting review decision come from the source type registry (sources/registry.ts), not from here.
+      .map((f) => ({ brand_id: brand.id, source_id: src.id, section: f.section, claim: str(f.claim, 500), quote: f.quote, origin: 'source', ...factTrust(kind) }));
     if (rows.length) await db.insert(env, 'evidence', rows);
     // source_text (spec/db/008) keeps the full text the quotes were checked against, so any stored quote can be
     // re-checked later; text_excerpt stays for existing readers.
-    await db.update(env, 'sources', db.eq('id', src.id), { status: 'read', title: page.title, text_excerpt: text.slice(0, 2000), source_text: page.text, fetched_at: new Date().toISOString(), url: page.url.slice(0, 500) });
-    return { sourceId: src.id, facts: rows.length, dropped: facts.length - rows.length };
+    await db.update(env, 'sources', db.eq('id', src.id), { status: 'read', kind, title: page.title, text_excerpt: text.slice(0, 2000), source_text: page.text, fetched_at: new Date().toISOString(), url: page.url.slice(0, 500) });
+    return { sourceId: src.id, facts: rows.length, dropped: facts.length - rows.length, kind, needsReview: kind === 'page' ? rows.length : 0 };
   } catch (e) {
     const msg = e instanceof HttpError ? e.message : 'reading the page failed';
     await db.update(env, 'sources', db.eq('id', src.id), { status: 'failed', error: msg });
@@ -121,6 +132,15 @@ export const staleSections = (sections: Pick<Section, 'section' | 'citations'>[]
   return sections.filter((s) => (s.citations ?? []).some((id) => !live.has(id))).map((s) => s.section);
 };
 
+/**
+ * Sections that cite a fact outside the allow-list (proposed, rejected, an assumption, or a row with no trust fields):
+ * such a section would register text resting on a fact the kit snapshot leaves out (issue #57).
+ */
+export const unusableCitations = (sections: Pick<Section, 'section' | 'citations'>[], evidence: Pick<Evidence, 'id' | 'trust' | 'review_status'>[]) => {
+  const bad = new Set(evidence.filter((e) => !usableFact(e)).map((e) => e.id));
+  return sections.filter((s) => (s.citations ?? []).some((id) => bad.has(id))).map((s) => s.section);
+};
+
 const sectionTitles = (ids: string[]) => ids.map((id) => (isSection(id) ? SECTIONS[id].title : id)).join(', ');
 
 export async function registerKit(env: Env, user: User, brand: Brand, now = Date.now()) {
@@ -140,6 +160,8 @@ export async function registerKit(env: Env, user: User, brand: Brand, now = Date
   // rows) would register without its support. Refuse, and name the sections to redraft.
   const stale = staleSections(st.sections, st.evidence.map((e) => e.id));
   if (stale.length) throw new HttpError(409, `these sections cite answers you have since changed; draft them again first: ${sectionTitles(stale)}`);
+  const unusable = unusableCitations(st.sections, st.evidence);
+  if (unusable.length) throw new HttpError(409, `these sections cite facts that are not approved; approve those facts or draft the sections again first: ${sectionTitles(unusable)}`);
   // Gate 3 must postdate the voice answer it approved. Reads of gates and answers are separate requests, so a voice
   // change racing this registration could pair the old approval with the new answer; this check refuses that pair.
   const voiceGate = st.gates.find((g) => g.gate === 'voice');
@@ -164,9 +186,11 @@ export async function registerKit(env: Env, user: User, brand: Brand, now = Date
     policy: kitPolicy(st.answers.find((a) => a.step === 'voice')),
     // The cited evidence itself (claim and quote), not just ids: evidence rows can be replaced later (owner answers
     // are rewritten on every save), and a post pinned to this version must still see what the kit relied on.
-    // All recorded evidence (assumptions excluded): polish reads the cited part, and the claims gate for posts written
-    // to this version checks against all of it, so neither depends on rows that can change after registration.
-    evidence: st.evidence.filter((e) => e.origin !== 'assumption').map((e) => ({ id: e.id, claim: e.claim, quote: e.quote, origin: e.origin })).sort((a, b) => a.id.localeCompare(b.id)),
+    // Allow-list (issue #57, plan v2 §5): only approved facts of a usable trust class (owned, owner answer, approved
+    // third-party). Every cited fact is among them (checked above), proposed and rejected facts never are. Polish reads
+    // the cited part, and the claims gate for posts written to this version checks against all of it, so neither
+    // depends on rows that can change after registration.
+    evidence: st.evidence.filter(usableFact).map((e) => ({ id: e.id, claim: e.claim, quote: e.quote, origin: e.origin, trust: e.trust, review_status: e.review_status })).sort((a, b) => a.id.localeCompare(b.id)),
   };
   // Posts written to this version are approved against this evidence, at most MAX_EVIDENCE_BATCHES model calls each;
   // a larger set would register a kit no post could ever be approved under, so it is refused before signing.
@@ -181,8 +205,20 @@ export async function registerKit(env: Env, user: User, brand: Brand, now = Date
     x.sections.find((s) => s.section === 'voice')?.body ?? null,
   ]);
   if (voiceKey(again) !== voiceKey(st)) throw new HttpError(409, 'your voice changed while registering; check Gate 3 and try again');
+  // Same for evidence decisions: a fact approved, rejected or removed while this ran would make the snapshot disagree
+  // with what the owner decided, so refuse rather than sign it (PR #63 review).
+  const evidenceKey = (x: typeof st) => JSON.stringify(x.evidence.map((e) => [e.id, e.trust ?? null, e.review_status ?? null]).sort());
+  if (evidenceKey(again) !== evidenceKey(st)) throw new HttpError(409, 'your facts changed while registering; check them and try again');
   const hash = 'sha256:' + (await sha256Hex(canonical(payload)));
   const [kit] = await db.insert<Kit>(env, 'kits', { brand_id: brand.id, version, hash, payload, approved_by: user.id, status: 'pending' });
+  // Read the fact decisions once more now that the pending kit exists, and refuse before signing if any changed: a
+  // rejection that landed between the re-read above and the insert would otherwise be signed (PR #63 review). Any
+  // decision after this read is a change made after registration began, which the next kit version picks up.
+  const final = await brandState(env, brand);
+  if (evidenceKey(final) !== evidenceKey(st)) {
+    await db.update(env, 'kits', db.eq('id', kit.id), { status: 'failed', error: 'facts changed while registering' });
+    throw new HttpError(409, 'your facts changed while registering; check them and try again');
+  }
   try {
     const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
     // Only hashes and ids go onchain (R27): brand id, kit hash, version, approver id.
@@ -243,9 +279,14 @@ export async function saveAnswer(env: Env, brand: Brand, step: string, data: Rec
   const [row] = await db.upsert(env, 'answers', { brand_id: brand.id, step, data, skipped, updated_at: new Date().toISOString() }, 'brand_id,step');
   // Owner answers are evidence, dated (P2: "owner answer, date"). One row per filled field; an unchanged field keeps
   // its row (and its id and date), a changed or cleared field's row is removed, and a new value gets a new row.
-  const evFilter = `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}`;
+  // Interview rows only: an owner's edit of a source fact (journey.ts editFact, edited_from set) is not an answer.
+  const evFilter = `${db.eq('brand_id', brand.id)}&${db.eq('origin', 'owner_answer')}&${db.eq('section', step)}&edited_from=is.null`;
   const existing = await db.select<{ id: string; claim: string }>(env, 'evidence', `${evFilter}&select=id,claim`);
-  const wanted = skipped ? [] : Object.entries(data).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`);
+  // The voice sample is a style example (typed, or a generated paragraph the owner picked in journey J4), never a fact
+  // about the brand: it stays in the answer for drafting the voice section, but never becomes approved evidence that
+  // could back a claim.
+  const NOT_EVIDENCE = step === 'voice' ? ['sample'] : [];
+  const wanted = skipped ? [] : Object.entries(data).filter(([k, v]) => v && !NOT_EVIDENCE.includes(k)).map(([k, v]) => `${k}: ${v}`);
   const kept = new Set<string>();
   const removed: string[] = [];
   for (const e of existing) {
@@ -253,7 +294,7 @@ export async function saveAnswer(env: Env, brand: Brand, step: string, data: Rec
     else removed.push(e.id);
   }
   if (removed.length) await db.del(env, 'evidence', `${evFilter}&id=in.(${removed.map(encodeURIComponent).join(',')})`);
-  const rows = wanted.filter((c) => !kept.has(c)).map((claim) => ({ brand_id: brand.id, section: step, claim, origin: 'owner_answer' }));
+  const rows = wanted.filter((c) => !kept.has(c)).map((claim) => ({ brand_id: brand.id, section: step, claim, origin: 'owner_answer', trust: 'owner_answer', review_status: 'approved' }));
   if (rows.length) await db.insert(env, 'evidence', rows);
   if (!removed.length) return { answer: row, stale: [] as string[] };
   const sections = await db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
@@ -289,6 +330,34 @@ export async function patchBrand(env: Env, brand: Brand, patch: Record<string, s
   return { brand: row, reapprove };
 }
 
+/** Trust classes whose facts the owner reviews; owner answers are changed by editing the answer, assumptions by redrafting. */
+const REVIEWABLE = ['owned', 'third_party'];
+
+/**
+ * The owner approves or rejects one fact (issue #57). Third-party facts start proposed and enter a kit or back a post
+ * only once approved; any reviewable fact can be rejected. Returns the sections citing the fact when it stops being
+ * usable, since registration now refuses them until redrafted or the fact is approved again.
+ */
+export async function reviewEvidence(env: Env, brand: Brand, id: string, decision: string) {
+  if (decision !== 'approved' && decision !== 'rejected') throw new HttpError(400, 'review_status must be approved or rejected');
+  const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
+  const [row] = await db.select<Evidence>(env, 'evidence', f);
+  if (!row) throw new HttpError(404, 'fact not found');
+  if (!REVIEWABLE.includes(row.trust ?? '')) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
+  // Read before the update: the database trigger (spec/db/010) deletes the correction as part of approving the source.
+  const [correction] = decision === 'approved' ? await db.select<{ id: string }>(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('edited_from', id)}&select=id&limit=1`) : [];
+  const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision });
+  const sections = () => db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
+  if (decision === 'approved') {
+    // Restoring a source fact the owner had reworded retires the rewording (journey.ts editFact), so a kit never holds
+    // both versions; sections that cited the rewording are stale and must be redrafted.
+    if (!correction) return { evidence: updated, stale: [] as string[] };
+    await db.del(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('id', correction.id)}`);
+    return { evidence: updated, stale: (await sections()).filter((s) => (s.citations ?? []).includes(correction.id)).map((s) => s.section) };
+  }
+  return { evidence: updated, stale: (await sections()).filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };
+}
+
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
 export async function publicLimit(req: Request, env: Env, scope: string) {
   if (!env.PUBLIC_LIMITER) return;
@@ -318,10 +387,17 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const brands = await db.select<Brand>(env, 'brands', `${db.eq('owner_id', user.id)}&order=created_at`);
     return json({ user, brands });
   }
+  // POST /api/me/claim {anonymousToken}: brands read before sign-in move to the account signed in to (journey J2).
+  if (p[1] === 'me' && p[2] === 'claim' && p.length === 3 && m === 'POST') {
+    const b = await body(req);
+    return json(await claimAnonymous(env, user, str(b.anonymousToken, 4000)));
+  }
   if (p[1] === 'brands' && p.length === 2 && m === 'POST') {
     const b = await body(req);
     const name = str(b.name, 120);
     if (!name) throw new HttpError(400, 'a brand name is required');
+    if (user.isAnonymous) await publicLimit(req, env, 'brand');
+    await assertCanCreateBrand(env, user);
     const type = ['company', 'person', 'founder_linked'].includes(str(b.type)) ? str(b.type) : 'company';
     const [brand] = await db.insert<Brand>(env, 'brands', { owner_id: user.id, name, type, description: str(b.description, 300) || null, website: str(b.website, 300) || null, goal: str(b.goal, 300) || null, channel: str(b.channel, 60) || null });
     return json({ brand }, 201);
@@ -347,7 +423,18 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     for (const [k, v] of Object.entries(raw).slice(0, 20)) data[k.slice(0, 60)] = str(v, 2000);
     return json(await saveAnswer(env, brand, step, data, b.skipped === true));
   }
+  // PATCH /api/brands/:id/evidence/:eid  {review_status: 'approved' | 'rejected'} -> {evidence, stale}
+  //                                      {claim} -> the owner's rewording (journey J3 Edit) -> {evidence, replaced, stale}
+  if (p[3] === 'evidence' && p.length === 5 && m === 'PATCH') {
+    if (!/^[0-9a-f-]{36}$/i.test(p[4])) throw new HttpError(404, 'fact not found');
+    const b = await body(req);
+    if (typeof b.claim === 'string') return json(await editFact(env, brand.id, p[4], b.claim));
+    return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20)));
+  }
   if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
+    // The anonymous source cap counts the rows that exist, so removing a source needs the saved account: otherwise
+    // delete and re-add would read sources (and call the model) without bound (Codex review on PR #96).
+    requirePermanent(user);
     // Removing a source removes the facts read from it. Sections that cited them then need redrafting before the next
     // registration (registerKit refuses stale citations); kits already registered keep their own evidence snapshot.
     const id = p[4];
@@ -363,11 +450,17 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const b = await body(req);
     const u = str(b.url, 500);
     if (!u) throw new HttpError(400, 'a link is required');
+    if (user.isAnonymous) {
+      // Reading before sign-in (D1): per-IP limit and a source cap, so an anonymous visitor's use stays bounded.
+      await publicLimit(req, env, 'read');
+      await assertCanAddSource(env, user, brand.id);
+    }
     return json(await ingest(env, brand, u), 201);
   }
   if (p[3] === 'sections' && p[4] && isSection(p[4])) {
     const section = p[4];
-    if (p[5] === 'draft' && m === 'POST') return json({ section: await draftSection(env, brand, section) });
+    // Drafting calls the model; it starts after the brand is saved (journey J2 before J3), so anonymous use stays bounded.
+    if (p[5] === 'draft' && m === 'POST') { requirePermanent(user); return json({ section: await draftSection(env, brand, section) }); }
     if (p.length === 5 && m === 'PUT') {
       const b = await body(req);
       const text = str(b.body, 6000);
@@ -387,7 +480,13 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
       return json({ section: row });
     }
   }
-  if (p[3] === 'kit' && p[4] === 'register' && m === 'POST') return json(await registerKit(env, user, brand), 201);
+  // POST /api/brands/:id/voice/samples {round: 1 | 2, near?} -> {samples: [{template, label, text}] x3} (journey J4)
+  if (p[3] === 'voice' && p[4] === 'samples' && p.length === 5 && m === 'POST') {
+    requirePermanent(user);
+    const b = await body(req);
+    return json({ samples: await voiceSamples(env, brand, b.round === 2 ? 2 : 1, str(b.near, 40) || undefined) });
+  }
+  if (p[3] === 'kit' && p[4] === 'register' && m === 'POST') { requirePermanent(user); return json(await registerKit(env, user, brand), 201); }
   // S5 Create: posts in the brand voice; human approval before registration (R8).
   if (p[3] === 'posts') {
     if (p.length === 4 && m === 'GET') {
@@ -400,8 +499,14 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     }
     if (p.length === 4 && m === 'POST') {
       const b = await body(req);
-      const brief = str(b.brief, 1000);
-      if (!brief) throw new HttpError(400, 'say what the post is about');
+      // No brief: only the brand's first post is written from the kit (journey J6, "no blank brief"); any later post
+      // still needs one, as the Create screen asks.
+      let brief = str(b.brief, 1000);
+      if (!brief) {
+        const [any] = await db.select<{ id: string }>(env, 'posts', `${db.eq('brand_id', brand.id)}&select=id&limit=1`);
+        if (any) throw new HttpError(400, 'say what the post is about');
+        brief = FIRST_POST_BRIEF;
+      }
       return json({ post: await draftPost(env, brand, brief, str(b.channel, 40)) }, 201);
     }
     const [post] = p[4] && /^[0-9a-f-]{36}$/.test(p[4]) ? await db.select<Post>(env, 'posts', `${db.eq('id', p[4])}&${db.eq('brand_id', brand.id)}`) : [];
@@ -411,9 +516,12 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     if (b.rev !== post.rev) throw new HttpError(409, 'this post changed since you loaded it; reload to see the latest version');
     if (p.length === 5 && m === 'PUT') return json({ post: await editPost(env, post, str(b.body, 4000)) });
     if (p[5] === 'approve' && m === 'POST') return json({ post: await approvePost(env, user, post) });
+    // POST .../posts/:pid/claims {rev} -> {claimMap}: each claim with the facts it rests on, or unsupported (H9, #62).
+    if (p[5] === 'claims' && m === 'POST') return json({ claimMap: await claimMap(env, post) });
     if (p[5] === 'polish' && m === 'POST') return json({ post: await polishPost(env, post, str(b.action, 40)) });
     if (p[5] === 'undo' && m === 'POST') return json({ post: await undoPost(env, post) });
     if (p[5] === 'register' && m === 'POST') {
+      requirePermanent(user);
       // Refused, not cut: a truncated link would be stored, and shown on Verify, as a different address.
       if (typeof b.publishedUrl === 'string' && b.publishedUrl.trim().length > 500) throw new HttpError(400, 'that link is longer than 500 characters; use the post\'s short link');
       return json(await registerPost(env, user, post, str(b.publishedUrl, 500)), 201);

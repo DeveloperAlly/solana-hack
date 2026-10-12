@@ -2,6 +2,7 @@ import type { User } from './auth';
 import { db } from './db';
 import { HttpError, safeError, sha256Hex, type Env } from './env';
 import { chat, parseJson, SLOP_RULES } from './llm';
+import { snapshotFact, USABLE_FILTER, usableFact } from './sources/registry';
 import { currentBlockHeight, explorerTx, NotLanded, prepareKitAttestation, readKitAttestation, registrarFromSecret } from './registry';
 
 export interface Post {
@@ -13,7 +14,7 @@ export interface Post {
 // A history entry is the full visible state before a change, so Undo restores the text *and* the scores and notes
 // that described it. Older rows stored only the text (string); those restore with scores cleared.
 export interface Snapshot { body: string; slop: Checks['slop']; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit' }
-interface Checks { slop: { passed: boolean; hits: string[] }; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit'; history?: (Snapshot | string)[]; lastAction?: string; policy?: PolicyResult }
+interface Checks { slop: { passed: boolean; hits: string[] }; voiceFit: number | null; platform: number | null; notes: string[]; source?: 'ai' | 'edit'; history?: (Snapshot | string)[]; lastAction?: string; policy?: PolicyResult; claimMap?: unknown }
 
 const snapshot = (post: Post): Snapshot => ({ body: post.body, slop: post.checks.slop, voiceFit: post.checks.voiceFit ?? null, platform: post.checks.platform ?? null, notes: post.checks.notes ?? [], source: post.checks.source });
 export const pushHistory = (post: Post) => [...(post.checks.history ?? []), snapshot(post)].slice(-10);
@@ -193,6 +194,8 @@ export async function polishPost(env: Env, post: Post, action: string) {
   // and every result is re-scored against it: the scores shown always describe the text shown.
   const ctx = await voiceContext(env, post.brand_id, post.kit_version);
   // The evidence the registered kit cites, so Review can tell sourced claims from unsupported ones.
+  // No trust filter is needed here: a kit's snapshot holds only allow-listed facts and registration refuses a section
+  // citing any other (api.ts registerKit, issue #57); the claims gate at approval re-applies the allow-list.
   // Kits registered from now on carry their cited evidence; older kits fall back to looking the ids up.
   const cited = new Set(ctx.citations);
   const evidence = (ctx.evidence as { id?: string; claim: string; quote: string | null }[] | undefined)?.filter((e) => !e.id || cited.has(e.id)) ?? (ctx.citations.length ? await db.select<{ claim: string; quote: string | null }>(env, 'evidence', `id=in.(${ctx.citations.join(',')})&select=claim,quote`) : []);
@@ -255,10 +258,13 @@ export const CLAIMS_POLICY: Record<string, string> = {
 const CATEGORIES = { sexual: 'sexual content', minors: 'content sexualising or targeting minors', explicitLanguage: 'explicit language' } as const;
 type Category = keyof typeof CATEGORIES;
 /**
- * Version of the approval check. Bumped when what a passing result means changes; 2 = checked against the evidence
- * snapshot of the post's kit version. A result from an earlier version is not current and must be run again.
+ * Version of the approval check. Bumped when what a passing result means changes. A result from an earlier version is
+ * not current and must be run again before the post can register.
+ * - 2: checked against the evidence snapshot of the post's kit version.
+ * - 3: only allow-listed snapshot facts count, each with its quote (issue #57); a post that passed under 2 on a fact
+ *   that is now proposed, rejected or a legacy source fact must be checked again (PR #63 review).
  */
-export const POLICY_VERSION = 2;
+export const POLICY_VERSION = 3;
 export interface PolicyResult { v: number; claims: string; template: string | null; unsupported: string[]; blocked: string[]; passed: boolean }
 
 /**
@@ -283,9 +289,10 @@ export function policyVerdict(claims: string, template: string | null, raw: unkn
  * The claims gate and template that govern a post: from the registered kit it was written to (kits record them
  * since this change), else from the brand's voice answer for kits registered before that.
  */
-async function postPolicy(env: Env, post: Post): Promise<{ claims: string; template: string | null; evidence: { claim: string; origin?: string }[] }> {
+export type KitFact = { id?: string; claim: string; quote?: string | null; origin?: string; trust?: string | null; review_status?: string | null };
+export async function postPolicy(env: Env, post: Post): Promise<{ claims: string; template: string | null; evidence: KitFact[] }> {
   if (post.kit_version) {
-    const [kit] = await db.select<{ payload: { policy?: { claims?: string; template?: string }; evidence?: { claim: string; origin?: string }[] } }>(env, 'kits', `${db.eq('brand_id', post.brand_id)}&${db.eq('version', String(post.kit_version))}&${db.eq('status', 'registered')}&select=payload`);
+    const [kit] = await db.select<{ payload: { policy?: { claims?: string; template?: string }; evidence?: KitFact[] } }>(env, 'kits', `${db.eq('brand_id', post.brand_id)}&${db.eq('version', String(post.kit_version))}&${db.eq('status', 'registered')}&select=payload`);
     const pol = kit?.payload?.policy;
     // The kit's own evidence snapshot: claims are judged against what the registered kit contained, which cannot
     // change after approval (live rows can be deleted when an answer is edited).
@@ -307,12 +314,15 @@ export function isCurrentPolicy(p: unknown): boolean {
   return !!r && r.v === POLICY_VERSION && r.passed === true && Array.isArray(r.blocked) && r.blocked.length === 0 && Array.isArray(r.unsupported) && r.unsupported.length === 0 && 'template' in r;
 }
 
-/** Every non-assumption evidence row for a brand, paged in a fixed order, so no supporting fact is silently left out. */
+/**
+ * Every usable evidence row for a brand (the allow-list in sources/registry.ts: approved, and owned, an owner answer or
+ * an approved third-party fact), paged in a fixed order, so no supporting fact is silently left out.
+ */
 export async function allEvidence(env: Env, brandId: string) {
-  const out: { claim: string }[] = [];
+  const out: { claim: string; quote: string | null }[] = [];
   // No total cap: keep paging until a short page, so a claim supported by any row can be found.
   for (let offset = 0; ; offset += 200) {
-    const page = await db.select<{ claim: string }>(env, 'evidence', `${db.eq('brand_id', brandId)}&origin=neq.assumption&select=claim&order=created_at.asc,id.asc&limit=200&offset=${offset}`);
+    const page = await db.select<{ claim: string; quote: string | null }>(env, 'evidence', `${db.eq('brand_id', brandId)}&${USABLE_FILTER}&select=claim,quote&order=created_at.asc,id.asc&limit=200&offset=${offset}`);
     out.push(...page);
     if (page.length < 200) break;
   }
@@ -320,8 +330,13 @@ export async function allEvidence(env: Env, brandId: string) {
 }
 
 export const MAX_EVIDENCE_BATCHES = 8; // about 190k characters of evidence
+/**
+ * One evidence line as the claims gate reads it: the claim with its verbatim source quote, so the checker can judge
+ * support from what the source said, not only from the extractor's paraphrase (issue #57 review).
+ */
+export const factLine = (e: { claim: string; quote?: string | null }) => `- ${e.claim}${e.quote ? ` (quote: "${e.quote}")` : ''}`;
 /** How many classifier batches an evidence set needs; registration refuses a kit that one approval could not check. */
-export const evidenceBatchCount = (evidence: { claim: string }[]) => evidenceBatches(evidence.map((e) => `- ${e.claim}`)).length;
+export const evidenceBatchCount = (evidence: { claim: string; quote?: string | null }[]) => evidenceBatches(evidence.map(factLine)).length;
 
 /**
  * Pre-approval check: the post's claims gate against the brand's evidence, and the content policy categories.
@@ -330,8 +345,11 @@ export const evidenceBatchCount = (evidence: { claim: string }[]) => evidenceBat
 export async function policyCheck(env: Env, post: Post): Promise<PolicyResult> {
   const { claims, template, evidence } = await postPolicy(env, post);
   const flirty = template === 'flirty';
-  const facts0 = (evidence ?? []).filter((e) => e.origin !== 'assumption');
-  const batches = evidenceBatches(facts0.map((e) => `- ${e.claim}`));
+  // Allow-list (issue #57, plan v2 §5): only approved facts of a usable trust class. Entries in kits registered before
+  // migration 009 carry only origin and are read as the migration backfills live rows (snapshotFact): a legacy
+  // source fact is third-party and proposed, so it is left out.
+  const facts0 = (evidence ?? []).map(snapshotFact).filter(usableFact);
+  const batches = evidenceBatches(facts0.map(factLine));
   // Bounded cost: at most MAX_EVIDENCE_BATCHES model calls per approval. Beyond that the check cannot be complete,
   // so it fails closed rather than approving on partial evidence.
   if (batches.length > MAX_EVIDENCE_BATCHES) throw new HttpError(422, `your brand has more evidence than one approval can check (${batches.length} batches, limit ${MAX_EVIDENCE_BATCHES}); remove sources you no longer need on the Your links step, then register a new kit version`);

@@ -1,0 +1,15 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--wl-space-6);
+  padding: 0 var(--wl-space-2);
+  border: var(--wl-border-width-default) solid;
+  border-radius: var(--wl-radius-control);
+  font-size: var(--wl-chip-font-size);
+  font-weight: var(--wl-font-weight-bold);
+  white-space: nowrap;
+}
+.found { background: var(--wl-bg-inverse); color: var(--wl-text-inverse); border-color: var(--wl-bg-inverse); }
+.partly { background: var(--wl-bg-subtle); color: var(--wl-text-primary); border-color: var(--wl-border-input); }
+.needs-you { background: var(--wl-bg-canvas); color: var(--wl-text-primary); border-style: dashed; border-color: var(--wl-border-strong); }

@@ -1,0 +1,16 @@
+/* Payout cell: a compact input (canvas max width about 120, here a space-token multiple) and its error below. */
+.cell { display: flex; flex-direction: column; gap: var(--wl-space-1); }
+.input {
+  width: 100%;
+  max-width: calc(var(--wl-space-12) * 2.5);
+  min-height: var(--wl-control-height-md);
+  padding: var(--wl-space-2) var(--wl-space-3);
+  border: var(--wl-border-width-default) solid var(--wl-border-input);
+  border-radius: var(--wl-radius-control);
+  background: var(--wl-bg-canvas);
+  color: var(--wl-text-primary);
+  font: inherit;
+}
+.input:focus-visible { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); outline-offset: var(--wl-border-width-focus); }
+.input[aria-invalid='true'] { border-color: var(--wl-status-danger-fg); }
+.error { font-size: var(--wl-font-size-sm); font-weight: var(--wl-font-weight-semibold); color: var(--wl-status-danger-fg); }

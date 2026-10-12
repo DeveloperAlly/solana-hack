@@ -1,5 +1,17 @@
 # JamJam
 
+## The system
+Six steps, each run by an intelligence system made for your brand (owner, 2026-10-13, working session):
+
+1. **Build your voice. Launch your brand.** JamJam reads your site, runs a short interview, and drafts the brand kit and voice for you to approve. Kit v1 is registered on Solana. On main: items 1 to 6 under [What it does](#what-it-does).
+2. **Create your content.** Drafts are written in your registered voice, pass a no-AI-slop check and your claims gate, and need your approval. On main: items 7 and 8.
+3. **Distribute everywhere.** Publish to every platform you use. Today you publish yourself; X and LinkedIn publishing is coming soon.
+4. **Verify anywhere.** Anyone can check a post against the public Verify page and the Ledger, which read the attestation on Solana. On main: item 9.
+5. **Grow your reach.** Ambassadors, influencers and campaigns, with ambassador payouts in USDC ([ADR-003](./.agentic/what/decisions/adr_003_superhub_business_model.md)). Coming soon.
+6. **Learn from what works.** Analytics, and a system that learns from what performs and feeds it back into the steps above. Coming soon.
+
+What is live and proven, and what is blocked, is tracked only in [STATE.md](./STATE.md).
+
 **JamJam: build your voice, launch your brand, prove every post.**
 
 JamJam builds a brand from scratch through a short guided interview. It then drafts content in that brand's voice, and a person approves everything. A proof layer on Solana records what is official, so anyone can check that a post really came from the brand. Purpose: [ADR-002](./.agentic/what/decisions/adr_002_purpose_build_run_prove.md). Product map: [ADR-003](./.agentic/what/decisions/adr_003_superhub_business_model.md). Hackathon scope: [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed).

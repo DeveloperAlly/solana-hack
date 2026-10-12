@@ -1,0 +1,14 @@
+.row { display: flex; align-items: flex-start; gap: var(--wl-space-4); }
+.text { display: flex; flex-direction: column; gap: var(--wl-space-1); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--wl-space-3); }
+/* P21 Spinner: a ring in the theme's ink. Motion tokens are zeroed under reduced motion, which stops the spin. */
+.spinner {
+  flex: none;
+  width: var(--wl-space-10);
+  height: var(--wl-space-10);
+  border: var(--wl-border-width-focus) solid var(--wl-border-subtle);
+  border-top-color: var(--wl-text-primary);
+  border-radius: var(--wl-radius-pill);
+  animation: spin calc(var(--wl-motion-duration-slow) * 3) linear infinite;
+}
+@keyframes spin { to { transform: rotate(1turn); } }

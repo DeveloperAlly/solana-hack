@@ -1,0 +1,2 @@
+.flag { display: inline-flex; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--wl-space-2); }
