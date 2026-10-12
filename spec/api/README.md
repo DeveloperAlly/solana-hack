@@ -19,6 +19,7 @@ These routes run in `web/worker/` (not stubs). The journey UI ([issue #48](https
 | Screen | Action | Call | Notes |
 |---|---|---|---|
 | J0 Land | Start with a URL, no sign-up | `supabase.auth.signInAnonymously()`, then `POST /api/brands {name, website}`, then `POST /api/brands/:id/sources {url}` | Anonymous: 1 brand and 8 sources; per-IP limit (429). Needs anonymous sign-ins on (`supabase-auth-config` workflow). |
+| J1 Read | Still reading | `POST .../sources` may answer 409 `{runId, status, progress}` once the workflow engine (#70) is merged | Not an error: poll `GET /api/runs/:runId` (or `GET /api/brands/:id`, which lists sources with status) until `done`, showing `progress`. 201 means it finished within the wait. |
 | J1 Read | Facts with quotes, coverage | `GET /api/brands/:id` gives `evidence` (claim, quote, trust, review_status) and `coverage` {sections: [{section, title, status: found/partly/needs_you, facts, usable}], covered, total, ratio} | A fact is kept only when its quote is on the page (`quote.ts`). |
 | J1 Read | Remove a source | `DELETE /api/brands/:id/sources/:sid` | Removes the facts read from it; the owner's edits of those facts stay. |
 | J1 Read | Upload a file or paste text | No route yet | The document and paste adapters exist (`worker/sources/`) but are not wired to a route. Use a link for now. |

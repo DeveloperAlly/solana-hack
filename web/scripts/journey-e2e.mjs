@@ -60,8 +60,19 @@ out(`J0 anonymous session ${anon.user.id}`);
 const host = new URL(SITE).hostname.replace(/^www\./, '');
 const { brand } = await must('create brand', api(anonToken, 'POST', '/brands', { name: host.split('.')[0], website: SITE }));
 out(`J0 brand ${brand.id} (${brand.name})`);
-const read = await must('read site', api(anonToken, 'POST', `/brands/${brand.id}/sources`, { url: SITE }));
-out(`J1 read: ${read.facts} facts kept, ${read.dropped} dropped (quote not on page), kind ${read.kind}`);
+let read = await must('read site', api(anonToken, 'POST', `/brands/${brand.id}/sources`, { url: SITE }), [200, 201, 409]);
+// With the workflow engine, a read that is still running answers 409 {runId}: poll the run (spec/api/README.md, J1).
+if (read.runId && read.facts === undefined) {
+  out(`J1 still reading (run ${read.runId}); polling`);
+  for (let i = 0; i < 60; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const r = await must('run status', api(anonToken, 'GET', `/runs/${read.runId}`));
+    if (r.run?.status === 'done') { read = r.run.output; break; }
+    if (r.run?.status === 'failed') fail(`the read failed: ${r.run.error}`);
+  }
+  if (read.facts === undefined) fail('the read did not finish within 3 minutes');
+}
+out(`J1 read: ${read.facts} facts kept, ${read.dropped} dropped (quote not on page), kind ${read.kind}${read.pages ? `, ${read.pages} pages` : ''}`);
 let state = await must('brand state', api(anonToken, 'GET', `/brands/${brand.id}`));
 const sourceFacts = state.evidence.filter((e) => e.origin === 'source');
 if (!sourceFacts.length) fail('no facts were read from the site');

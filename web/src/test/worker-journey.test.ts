@@ -284,6 +284,10 @@ describe('editing a fact (J3 Edit)', () => {
     await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${f.id}`, { claim: 'Owner wording' });
     expect((await call('perm', 'DELETE', `/api/brands/${b.id}/sources/${s.id}`)).status).toBe(200);
     expect(tables.evidence.map((e) => e.claim)).toEqual(['Owner wording']);
+    // Still marked as an edit after the fact it replaced is gone, so an answer save for the section keeps it.
+    expect(tables.evidence[0].edited_from).toBe(f.id);
+    await call('perm', 'PUT', `/api/brands/${b.id}/answers/origin`, { data: { story: 'We started small' } });
+    expect(tables.evidence.some((e) => e.claim === 'Owner wording')).toBe(true);
   });
   it('refuses an empty edit, an unknown fact and an owner answer', async () => {
     const b = brandRow('p-1');
