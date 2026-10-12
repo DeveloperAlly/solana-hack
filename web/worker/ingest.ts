@@ -101,10 +101,14 @@ export async function readPage(raw: string, gate?: FetchGate): Promise<{ url: st
   if (text.length < 40) throw new HttpError(422, 'that page has almost no readable text');
   // The page's own links (absolute http(s), at most 200), so a reader can choose subpages without another service.
   const links: string[] = [];
-  for (const m of body.matchAll(/<a\s[^>]*?href\s*=\s*["']([^"'#]+)/gi)) {
+  // href in all three HTML forms: double-quoted, single-quoted and unquoted (PR #71 review).
+  for (const m of body.matchAll(/<a\s[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi)) {
     if (links.length >= 200) break;
+    const raw = (m[1] ?? m[2] ?? m[3] ?? '').trim();
+    if (!raw || raw.startsWith('#')) continue;
     try {
-      const u = new URL(decode(m[1].trim()), landed);
+      const u = new URL(decode(raw), landed);
+      u.hash = '';
       if ((u.protocol === 'https:' || u.protocol === 'http:') && !links.includes(u.toString())) links.push(u.toString());
     } catch {
       // not a usable address
