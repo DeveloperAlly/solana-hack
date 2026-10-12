@@ -13,9 +13,10 @@ const { handleApi } = await import('../../worker/api');
 const { HttpError } = await import('../../worker/env');
 const { runWorkflow } = await import('../../worker/engine/runner');
 const { localDeps } = await import('../../worker/engine/executor');
-const { READERS, readSource } = await import('../../worker/engine/readers');
+const { READERS, readSource, SOURCE_READ_LIMIT } = await import('../../worker/engine/readers');
+const { EXTRACT_FACTS } = await import('../../worker/engine/seed');
 const { SOURCE_TYPES } = await import('../../worker/sources/registry');
-const { readSocial, SOCIAL_MAX_CHARS, SOCIAL_MAX_ITEMS } = await import('../../worker/sources/social');
+const { readSocial, SOCIAL_LIMIT, SOCIAL_MAX_ITEMS } = await import('../../worker/sources/social');
 const { readSearch, readCompetitors, EXA_SEARCH, EXA_FIND_SIMILAR, COMPETITOR_CANDIDATES } = await import('../../worker/sources/search');
 const { readStored } = await import('../../worker/sources/stored');
 const { readBodyCapped, MULTIPART_OVERHEAD } = await import('../../worker/intake');
@@ -160,6 +161,28 @@ describe('documents: converted at upload, text stored, read into extract_facts b
     expect(db.tables.sources).toHaveLength(0);
   });
 
+  it('Codex review on PR #100: a document that converts to more text than one run reads is refused (413) before anything is stored, never cut', async () => {
+    const over = 'JamJam is based in Melbourne. '.repeat(Math.ceil((SOURCE_READ_LIMIT.maxChars + 1) / 30));
+    aiOut = (name) => converted(name, over);
+    try {
+      const r = await upload('huge.docx', pdf);
+      expect(r).toMatchObject({ status: 413, body: { code: 'too_large' } });
+      expect(r.body.error).toMatch(/converts to [\d,]+ characters .* at most 200,000 characters .*Split it into smaller files/);
+      expect(db.tables.sources).toHaveLength(0);
+      expect(db.tables.runs).toHaveLength(0);
+      // Exactly at the limit is read whole.
+      aiOut = (name) => converted(name, over.slice(0, SOURCE_READ_LIMIT.maxChars));
+      expect((await upload('fits.docx', pdf)).status).toBe(202);
+    } finally {
+      aiOut = (name) => converted(name, `# ${name}\n\n${PROSE}`);
+    }
+  });
+
+  it('the stored-text limit is the read step\'s own limit, one constant', () => {
+    expect(EXTRACT_FACTS.steps.find((x) => x.id === 'read')).toMatchObject(SOURCE_READ_LIMIT);
+    expect(SOCIAL_LIMIT).toBe(SOURCE_READ_LIMIT);
+  });
+
   it('a scanned PDF answers needs_ocr (422) with what to do, and nothing is stored', async () => {
     aiOut = (name) => converted(name, `# ${name}\n## Metadata\n- Producer=Scanner\n## Contents\n### Page 1\n\n### Page 2\n`);
     try {
@@ -253,7 +276,7 @@ describe('socials: the owner\'s own X and LinkedIn exports, parsed in the browse
   });
 
   it('keeps exactly the newest items that fit the read step, whole, and reports the rest', () => {
-    const big = 'x'.repeat(SOCIAL_MAX_CHARS / 2);
+    const big = 'x'.repeat(SOCIAL_LIMIT.maxChars / 2);
     const r = readSocial({ platform: 'x', items: [{ text: `new ${big}` }, { text: `mid ${big}` }, { text: 'old but short' }] });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
@@ -310,6 +333,22 @@ describe('Exa search (#35): web research on the brand, third-party, never pre-ap
     const again = await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' });
     expect(again).toMatchObject({ status: 409, body: { error: expect.stringMatching(/remove it to search again/) } });
     expect(db.tables.sources.filter((s) => s.kind === 'search_result')).toHaveLength(1);
+  });
+
+  it('Codex review on PR #100: two search requests at once start exactly one search: one Exa call, one run, one source', async () => {
+    exaReply = () => exaOk([exaResult('https://news.example/jamjam', PROSE)]);
+    const both = await Promise.all([1, 2].map(() => api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' })));
+    expect(both.map((r) => r.status).sort()).toEqual([202, 409]);
+    expect(both.find((r) => r.status === 409)!.body.error).toMatch(/already in your sources \(/);
+    expect(exaCalls).toHaveLength(1);
+    expect(db.tables.runs).toHaveLength(1);
+    expect(db.tables.sources.filter((s) => s.kind === 'search_result')).toHaveLength(1);
+  });
+
+  it('a failed web search does not hold the place: a new one can start', async () => {
+    db.tables.sources.push({ id: '22222222-0000-4000-8000-000000000001', brand_id: BRAND, kind: 'search_result', url: '', status: 'failed', title: 'Web search: JamJam' });
+    exaReply = () => exaOk([exaResult('https://news.example/jamjam', PROSE)]);
+    expect((await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' })).status).toBe(202);
   });
 
   it('an Exa failure is a typed read failure with a way forward; a reply without cost records the list price with a note', async () => {

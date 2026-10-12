@@ -1,12 +1,33 @@
--- Intake sources (R9 on issue #38; issues #33 and #35): competitor candidates for the positioning step, their set
--- replaced atomically by each run, and the find_competitors definition. Next free number
+-- Intake sources (R9 on issue #38; issues #33 and #35): one web search per brand held by the database, competitor
+-- candidates for the positioning step with their set replaced atomically by each run, and the find_competitors
+-- definition. Next free number
 -- after 011 (fact extraction, PR #91), 012 (issue #34) and 013 (Create); depends on 010 (workflow_defs) and 011.
 -- Documents, social exports and web search need no schema change: they are sources whose text is stored in
 -- sources.source_text (008) with their kind (009), and a source without an address keeps url '' and is named by its
 -- title, as pasted text is (web/worker/engine/readers.ts READER_INPUTS.paste).
--- Must be applied before POST /api/brands/:id/competitors can start a run: without this row it answers 503 before
--- anything is written (web/worker/engine/api.ts activeDef). Safe to re-run. Only the Worker reads and writes these
+-- Must be applied before the Worker that calls these functions is deployed: a web search (extract_facts with reader
+-- search) reserves its source through reserve_search_source, and POST /api/brands/:id/competitors needs the
+-- find_competitors row (without it, it answers 503 before anything is written; web/worker/engine/api.ts activeDef). Safe to re-run. Only the Worker reads and writes these
 -- tables, with the secret key; RLS is on with no policies, as in 001.
+
+-- One web search per brand at a time (issue #35; Codex review on PR #100): the database holds the rule, so two requests
+-- at once cannot both start a paid search. A failed search does not hold the place. reserve_search_source inserts the
+-- pending search_result source, or does nothing when the brand already has one, and returns its id or null. On
+-- 2026-10-12 the live database held no sources, so the index cannot meet existing duplicates
+-- (https://github.com/DeveloperAlly/solana-hack/issues/38#issuecomment-6126851174).
+create unique index if not exists sources_one_search on public.sources(brand_id) where kind = 'search_result' and status <> 'failed';
+create or replace function public.reserve_search_source(p_brand uuid, p_title text)
+returns uuid language plpgsql security invoker set search_path = public as $fn$
+declare
+  v_id uuid;
+begin
+  insert into public.sources (brand_id, url, kind, status, title) values (p_brand, '', 'search_result', 'pending', p_title)
+  on conflict (brand_id) where kind = 'search_result' and status <> 'failed' do nothing
+  returning id into v_id;
+  return v_id;
+end $fn$;
+revoke all on function public.reserve_search_source(uuid, text) from public, anon, authenticated;
+grant execute on function public.reserve_search_source(uuid, text) to service_role;
 
 -- Competitor candidates are replaced as one set (Codex review on PR #100): each run's candidates take the place of the
 -- brand's previous ones in one transaction (a PostgREST call to a function runs as one), so GET /competitors always

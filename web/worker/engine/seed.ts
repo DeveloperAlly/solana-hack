@@ -2,6 +2,7 @@
 // the runtime source (workflow_defs, prompt_versions); this file exists so tests can check the migration's seed and
 // run the same definition. worker-engine.test.ts fails if the two drift apart.
 import type { WorkflowSpec } from './types';
+import { SOURCE_READ_LIMIT } from './readers';
 import { TASK_MODELS_KEY, type TaskModels } from '../models';
 
 /** The extraction prompt that ingest used inline in api.ts before the engine, with its three values as variables. */
@@ -76,7 +77,7 @@ export const EXTRACT_FACTS: WorkflowSpec = {
   concurrency: 'parallel',
   retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
   steps: [
-    { id: 'read', type: 'fetch', label: 'Reading the source', reader: '$input.reader', args: '$input.args', maxChars: 200000, maxBytes: 600000 },
+    { id: 'read', type: 'fetch', label: 'Reading the source', reader: '$input.reader', args: '$input.args', maxChars: SOURCE_READ_LIMIT.maxChars, maxBytes: SOURCE_READ_LIMIT.maxBytes },
     { id: 'chunk', type: 'code', label: 'Splitting it into parts', fn: 'chunk_text', args: { text: '$steps.read.text', target: '12000', min: '8000', max: '16000', overlap: '600', max_chunks: '20' } },
     {
       id: 'extract', type: 'map', label: 'Finding facts', over: '$steps.chunk.chunks', max: 20,

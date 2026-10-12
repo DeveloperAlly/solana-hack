@@ -64,6 +64,14 @@ function replaceCompetitorCandidates({ p_brand, p_run, p_rows }: { p_brand: stri
   return true;
 }
 
+/** Same semantics as spec/db/014 reserve_search_source and its unique index sources_one_search. */
+function reserveSearchSource({ p_brand, p_title }: { p_brand: string; p_title: string }) {
+  if (db.tables.sources.some((s) => s.brand_id === p_brand && s.kind === 'search_result' && s.status !== 'failed')) return null;
+  const row = { id: uuid(), created_at: new Date().toISOString(), brand_id: p_brand, url: '', kind: 'search_result', status: 'pending', title: p_title };
+  db.tables.sources.push(row);
+  return row.id;
+}
+
 export function fakeDb(url: string, init: RequestInit = {}) {
   const u = new URL(url);
   const path = u.pathname.replace('/rest/v1/', '');
@@ -74,6 +82,7 @@ export function fakeDb(url: string, init: RequestInit = {}) {
   if (path === 'rpc/record_run_step') return recordRunStep(body);
   if (path === 'rpc/record_fact_conflict') return recordFactConflict(body);
   if (path === 'rpc/replace_competitor_candidates') return replaceCompetitorCandidates(body);
+  if (path === 'rpc/reserve_search_source') return reserveSearchSource(body);
   const rows = (db.tables[path] ??= []);
   if (method === 'GET') {
     if (Number(q.get('offset') ?? 0) > 0) return [];

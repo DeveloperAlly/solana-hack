@@ -18,7 +18,7 @@ import { startRun } from './engine/api';
 import type { WaitUntil } from './engine/executor';
 import type { Caller } from './engine/guards';
 import { registerKind, type BrandRef } from './engine/kinds';
-import { capText, registerReader, STATUS, type ReaderBrand, type ReadStepOutput } from './engine/readers';
+import { capText, fitsRead, registerReader, SOURCE_READ_LIMIT, STATUS, utf8Length, type ReaderBrand, type ReadStepOutput } from './engine/readers';
 import { WRITES } from './engine/steps';
 import type { RunRow } from './engine/types';
 import { stableId } from './ids';
@@ -87,8 +87,16 @@ export async function uploadDocument(env: Env, ctx: WaitUntil | undefined, calle
   }
   if (!file || typeof file === 'string') throw new HttpError(400, 'attach the file in a field named "file"');
   const r = await readDocument(env, { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()), maxBytes });
+  if (!r.ok) return failed(r);
+  // A file under the upload limit can still convert to more text than one run reads (a compressed DOCX or XLSX). It is
+  // refused whole, before anything is stored: a stored text longer than the read would be cut by the run, and facts
+  // from the part it read would look like the whole document (Codex review on PR #100).
+  if (!fitsRead(r.text)) {
+    const { maxChars, maxBytes: readBytes } = SOURCE_READ_LIMIT;
+    return { status: STATUS.too_large, body: { code: 'too_large', error: `That document converts to ${r.text.length.toLocaleString('en')} characters (${utf8Length(r.text).toLocaleString('en')} bytes); we read at most ${maxChars.toLocaleString('en')} characters (${readBytes.toLocaleString('en')} bytes) of one document. Split it into smaller files and upload each.` } };
+  }
   // The file name is what the owner knows the upload by; the document's own heading stays in its text.
-  return r.ok ? storeAndExtract(env, ctx, caller, brand, r, r.name ?? r.title) : failed(r);
+  return storeAndExtract(env, ctx, caller, brand, r, r.name ?? r.title);
 }
 
 /** POST /api/brands/:id/sources/social: post text the browser parsed from the owner's own export (sources/social.ts). */
@@ -154,16 +162,21 @@ for (const kind of ['document', 'social_export'] as const) {
 }
 
 /**
- * Web research on the brand (#35): one search_result source per brand. A second search while one is listed is refused,
- * so the same pages are never read twice into duplicate facts; removing the earlier search (DELETE /sources/:id, which
- * removes its facts) allows a new one.
+ * Web research on the brand (#35): one search_result source per brand at a time, held by the database
+ * (spec/db/014 sources_one_search, a unique index, and reserve_search_source, which inserts with ON CONFLICT DO
+ * NOTHING), so two requests at once can never both start a paid search (Codex review on PR #100). The request that
+ * gets no row answers 409 with the search already listed and starts nothing. A failed search does not hold the place;
+ * removing a listed one (DELETE /sources/:id, which removes its facts) allows a new one.
  */
 registerReader('search', (env, a) => readSearch(env, { brandName: str(a.brandName), website: str(a.website) || null }), async (env, brand) => {
   const name = (brand.name ?? '').trim();
   if (!name) throw new HttpError(400, 'the brand needs a name before we can search the web for it');
-  const [had] = await db.select<{ id: string }>(env, 'sources', `${db.eq('brand_id', brand.id)}&${db.eq('kind', 'search_result')}&select=id&limit=1`);
-  if (had) throw new HttpError(409, 'a web search is already in your sources; remove it to search again');
-  return { args: { brandName: name, website: brand.website ?? '' }, source: { url: '', kind: 'search_result', title: `Web search: ${name}`.slice(0, 200) } };
+  const id = await db.rpc<string | null>(env, 'reserve_search_source', { p_brand: brand.id, p_title: `Web search: ${name}`.slice(0, 200) });
+  if (!id) {
+    const [had] = await db.select<{ id: string }>(env, 'sources', `${db.eq('brand_id', brand.id)}&${db.eq('kind', 'search_result')}&status=neq.failed&select=id&limit=1`);
+    throw new HttpError(409, `a web search is already in your sources${had ? ` (${had.id})` : ''}; remove it to search again`);
+  }
+  return { args: { brandName: name, website: brand.website ?? '' }, sourceId: id };
 });
 
 /**

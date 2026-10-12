@@ -26,6 +26,22 @@ export function capText(s: string, maxUnits: number, maxBytes: number) {
 
 const asText = (v: unknown) => (typeof v === 'string' ? v : '');
 
+/**
+ * The most text one source read carries into extract_facts: its read step's maxChars (UTF-16 units) and maxBytes (UTF-8
+ * bytes) in engine/seed.ts EXTRACT_FACTS and spec/db/011, sized so the step output stays under the Workflows 1 MiB
+ * limit. A source whose text is stored when it is added (an upload, an export) is checked against this before it is
+ * stored, so what is stored is never more than the run reads (Codex review on PR #100).
+ */
+export const SOURCE_READ_LIMIT = { maxChars: 200_000, maxBytes: 600_000 } as const;
+/** UTF-8 length of a string, without allocating its encoding. */
+export function utf8Length(s: string): number {
+  let n = 0;
+  for (const ch of s) { const c = ch.codePointAt(0)!; n += c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4; }
+  return n;
+}
+/** Whether a text fits SOURCE_READ_LIMIT whole. */
+export const fitsRead = (s: string) => s.length <= SOURCE_READ_LIMIT.maxChars && utf8Length(s) <= SOURCE_READ_LIMIT.maxBytes;
+
 export const READERS: Record<string, (env: Env, args: Record<string, unknown>) => Promise<SourceResult>> = {
   /** A web link: the brand's site (home page plus key subpages) or a third-party page, per sources/site.ts. */
   site: (env, a) => readSite(env, asText(a.url), { website: typeof a.website === 'string' && a.website ? a.website : null }),
