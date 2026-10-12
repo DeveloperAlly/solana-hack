@@ -10,7 +10,7 @@ tags: [pitch, script, colosseum]
 
 # Pitch script: JamJam
 
-Total: 470 words, about 2:56 at 160 words a minute.
+Total: 472 words, about 2:57 at 160 words a minute.
 
 ## 1. Dot points per slide
 
@@ -68,20 +68,20 @@ Total: 470 words, about 2:56 at 160 words a minute.
 - 59 products checked; the best do two steps
 - JamJam does all four
 
-**10. Business model** (2:17–2:34)
+**10. Business model** (2:17–2:35)
 - Free kit is the hook
 - Solo $39, Team $199 a month
 - 3% on tips and rewards
-- Flywheel: verified posts carry a check-it badge back to JamJam
+- Flywheel: every check happens on a public JamJam Verify page
 - Refer a friend: you both get 2 months free
 
-**11. Roadmap** (2:34–2:41)
+**11. Roadmap** (2:35–2:42)
 - Now: your brand kit
 - Next: content you approve unedited
 - Then: publish everywhere; tips and fan rewards
 - Later: monetise your voice
 
-**12. Team and ask** (2:41–2:56)
+**12. Team and ask** (2:42–2:57)
 - Founded Lilypad; built the original Waterlily.ai
 - Developer communities at IBM and Filecoin Foundation
 - JamJam: your brand team, in one app
@@ -114,7 +114,7 @@ We don't need a blockchain to write your posts. We need one where trust and mone
 
 **7. Solana integration** · 1:42–1:48 · 17 words
 
-Today your kit and posts are on Solana, with email sign-in. Next: verified accounts and USDC payouts.
+Today the Solana registry is live on devnet, with email sign-in. Next: verified accounts and USDC payouts.
 
 **8. Go to market** · 1:48–2:03 · 38 words
 
@@ -124,14 +124,14 @@ Our first customers are web3 founders and creators, where impersonation is up fo
 
 We checked fifty-nine products. The best do two of the four steps. JamJam is the only one we found that builds the brand, runs it, proves it and pays for the work, and it exports to your tools.
 
-**10. Business model** · 2:17–2:34 · 46 words
+**10. Business model** · 2:17–2:35 · 48 words
 
-Building your brand kit is free. Solo is thirty-nine dollars a month, Team is a hundred and ninety-nine, and we take three percent on tips and rewards. Every verified post carries a badge back to JamJam. Refer a friend, and you both get two months free.
+Building your brand kit is free. Solo is thirty-nine dollars a month, Team is a hundred and ninety-nine, and we take three percent on tips and rewards. Every check of a post happens on a public JamJam page. Refer a friend, and you both get two months free.
 
-**11. Roadmap** · 2:34–2:41 · 19 words
+**11. Roadmap** · 2:35–2:42 · 19 words
 
 Next: content you approve unedited, publishing everywhere, tips and fan rewards, then getting paid when agents use your voice.
 
-**12. Team and ask** · 2:41–2:56 · 40 words
+**12. Team and ask** · 2:42–2:57 · 40 words
 
 I founded Lilypad, a decentralised AI compute network, and built the original Waterlily, AI art that paid its artists. I've built developer communities at IBM and the Filecoin Foundation. JamJam: your brand team, in one app. Every post provably yours.

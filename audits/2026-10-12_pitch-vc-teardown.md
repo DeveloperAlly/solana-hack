@@ -22,10 +22,10 @@ The owner asked for a VC reading of the pitch: "why do I need a blockchain at al
 - **Trust.** Every official kit, post, account and claim goes on an open record ([ADR-002](../.agentic/what/decisions/adr_002_purpose_build_run_prove.md), Prove).
   - Any wallet, exchange or app can read it without asking JamJam.
   - No one can quietly rewrite it, including JamJam, because the record and its history are public.
-  - Outside readers arrive through distribution. Published posts carry a "check it" link to Verify where the channel allows links, and a check-it badge where it doesn't (X post bodies stay link-free, backlog phase 3). The record format is open, so a wallet or exchange can query it directly.
+  - Outside readers arrive through distribution. Published posts carry a "check it" link to Verify where the channel allows links (backlog phase 3; X post bodies stay link-free). Anyone can also paste a post into the public Verify page, which is live today. The record format is open, so a wallet or exchange can query it directly.
 - **Money.** Brands pay partners and ambassadors in USDC, anywhere, from their own wallet, inside a set budget ([ADR-006](../.agentic/what/decisions/adr_006_wallet_identity_split.md); backlog phase 4). The gain over card and bank payouts that JamJam's design relies on is public settlement: each payment is a transfer anyone can check against the approved piece it paid for.
 
-Brands sign in with email, so a business that never touches crypto still ends up using Solana for both jobs.
+Brands sign in with email, so the proof job needs no wallet: JamJam's Registrar signs every record. The money job does: the brand connects its own wallet and signs each USDC payout, and the ambassador receives to theirs ([ADR-006](../.agentic/what/decisions/adr_006_wallet_identity_split.md)).
 
 ## 2. No traction
 
@@ -69,7 +69,7 @@ That is backlog phases 2 to 4 (slide 11). Competitors meter by seats or credits;
 **Finding.** "A VC hears 'maybe nobody wants all four.'"
 
 **Answer.** Slide 9 now reads "Four tools that don't talk. Or one."
-- **What we have:** solo founders already pay for three or four point tools at $10–65 each ([research 04](../.agentic/what/context/research/04_brand_hub_landscape.md) §5b, §6).
+- **What we have:** comparable point tools list at $10–65 a month each, and covering the whole job plausibly takes three or four of them. That stack is an estimate, not observed spending ([research 04](../.agentic/what/context/research/04_brand_hub_landscape.md) §5b, §6).
 - **Why joining them matters:** you can only pay for work you can prove, and only prove what was approved against the kit.
 
 **Open:** whether buyers want the steps joined up is to be tested in the planned founder interviews ([go-to-market](../.agentic/what/context/gtm_2026_10_12.md) §8).
