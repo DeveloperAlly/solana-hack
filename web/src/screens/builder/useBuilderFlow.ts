@@ -212,6 +212,8 @@ export type BuilderFlow = ReturnType<typeof useBuilderFlow>;
 /** The kit version Kit-Export should open on, if one was chosen upstream. */
 export function useExportVersion(): string | undefined {
   const pick = store.use()[0].exportFor;
+  // Every hook runs on every render, never behind && (hook order).
+  const brandId = activeBrand.use();
   // A version picked for one brand never opens under another.
-  return pick && pick.brand === activeBrand.use() ? pick.version : undefined;
+  return pick && pick.brand === brandId ? pick.version : undefined;
 }

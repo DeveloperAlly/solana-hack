@@ -15,6 +15,8 @@ export const currentBrainVersion = (): string => loopStore.read().brainVersion ?
 
 /** The Brain version now; re-renders when a rule change bumps it. */
 export function useBrainVersion(): string {
+  // Both hooks run on every render, in the same order: never behind ?? or && (Codex review on PR 111).
   const [state] = loopStore.use();
-  return state.brainVersion ?? baseBrainVersionFor(activeBrand.use());
+  const brandId = activeBrand.use();
+  return state.brainVersion ?? baseBrainVersionFor(brandId);
 }
