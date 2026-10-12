@@ -17,6 +17,7 @@ function matches(row: Row, q: URLSearchParams) {
   for (const [k, v] of q) {
     if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(k)) continue;
     if (v.startsWith('eq.') && String(row[k]) !== v.slice(3)) return false;
+    if (v.startsWith('neq.') && String(row[k]) === v.slice(4)) return false;
     if (v.startsWith('in.(') && !v.slice(4, -1).split(',').includes(String(row[k]))) return false;
     // PostgREST `is.null` and array containment `cs.{a,b}` (https://docs.postgrest.org/en/stable/references/api/tables_views.html#operators).
     if (v === 'is.null' && row[k] !== null && row[k] !== undefined) return false;
@@ -43,6 +44,55 @@ function recordRunStep({ p_run, p_step, p_patch }: { p_run: string; p_step: Row 
 /** Same semantics as spec/db/011 record_fact_conflict: re-derives the slot (the facts decide; the other arguments are unused). */
 function recordFactConflict({ p_brand, p_slot }: { p_brand: string; p_slot: string }) {
   return rederiveConflicts(p_brand, p_slot);
+}
+
+const runOrder = (a: Row, b: Row) => String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id));
+/** The brand's latest find_competitors run whose status is 'done', by (created_at, id). */
+const latestDoneCompetitors = (brand: string) => db.tables.runs.filter((r) => r.brand_id === brand && r.kind === 'find_competitors' && r.status === 'done').sort(runOrder).at(-1);
+
+/** Same semantics as spec/db/014 save_competitor_candidates (checked against Postgres 16): insert this run's rows,
+ * keyed by id (a retry inserts nothing), then prune the rows of runs older than the brand's latest done run. */
+function saveCompetitorCandidates({ p_brand, p_run, p_rows }: { p_brand: string; p_run: string; p_rows: Row[] }) {
+  if (!db.tables.runs.some((r) => r.id === p_run && r.brand_id === p_brand && r.kind === 'find_competitors')) throw new Error(`run ${p_run} is not a find_competitors run of brand ${p_brand}`);
+  let inserted = 0;
+  for (const x of p_rows) {
+    if (db.tables.sources.some((s) => s.id === x.id)) continue;
+    db.tables.sources.push({ id: x.id, created_at: new Date().toISOString(), brand_id: p_brand, run_id: p_run, url: x.url, title: x.title, kind: 'competitor_page', status: 'read', source_text: x.source_text, text_excerpt: x.text_excerpt, fetched_at: new Date().toISOString() });
+    inserted++;
+  }
+  const done = latestDoneCompetitors(p_brand);
+  if (done) {
+    db.tables.sources = db.tables.sources.filter((s) => {
+      if (s.brand_id !== p_brand || s.kind !== 'competitor_page') return true;
+      const owner = db.tables.runs.find((r) => r.id === s.run_id);
+      return !owner || runOrder(owner, done) >= 0;
+    });
+  }
+  return inserted;
+}
+
+/** Same semantics as spec/db/014 competitor_candidates: the rows of the brand's latest done find_competitors run. */
+function competitorCandidates({ p_brand }: { p_brand: string }) {
+  const done = latestDoneCompetitors(p_brand);
+  return done ? db.tables.sources.filter((s) => s.brand_id === p_brand && s.kind === 'competitor_page' && s.run_id === done.id) : [];
+}
+
+/** Same semantics as spec/db/014 reserve_search_source and its unique index sources_one_search (checked against
+ * Postgres 16): a pending reservation whose run failed or was superseded, or that no run owns after two minutes, is
+ * reclaimed first. */
+export const SEARCH_RESERVATION_TTL_MS = 2 * 60_000;
+function reserveSearchSource({ p_brand, p_title }: { p_brand: string; p_title: string }) {
+  const owner = (id: unknown) => db.tables.runs.find((r) => r.brand_id === p_brand && (r.input as Row | undefined)?.sourceId === id);
+  for (const s of db.tables.sources) {
+    if (s.brand_id !== p_brand || s.kind !== 'search_result' || s.status !== 'pending') continue;
+    const run = owner(s.id);
+    const stale = !run && Date.now() - new Date(String(s.created_at)).getTime() > SEARCH_RESERVATION_TTL_MS;
+    if (stale || (run && (run.status === 'failed' || run.status === 'superseded'))) Object.assign(s, { status: 'failed', error: 'the web search did not start; search again' });
+  }
+  if (db.tables.sources.some((s) => s.brand_id === p_brand && s.kind === 'search_result' && s.status !== 'failed')) return null;
+  const row = { id: uuid(), created_at: new Date().toISOString(), brand_id: p_brand, url: '', kind: 'search_result', status: 'pending', title: p_title };
+  db.tables.sources.push(row);
+  return row.id;
 }
 
 /** A database error a function raises on purpose (PostgREST PTxyz: the status and message reach the caller). */
@@ -226,6 +276,9 @@ export function fakeDb(url: string, init: RequestInit = {}) {
   db.calls.push({ method, table: path, query: u.search });
   if (path === 'rpc/record_run_step') return recordRunStep(body);
   if (path === 'rpc/record_fact_conflict') return recordFactConflict(body);
+  if (path === 'rpc/save_competitor_candidates') return saveCompetitorCandidates(body);
+  if (path === 'rpc/competitor_candidates') return competitorCandidates(body);
+  if (path === 'rpc/reserve_search_source') return reserveSearchSource(body);
   if (path === 'rpc/admit_run') return admitRun(body);
   if (path === 'rpc/consume_metered') return consumeMetered(body);
   if (path === 'rpc/save_extraction') return atomically(() => saveExtraction(body));

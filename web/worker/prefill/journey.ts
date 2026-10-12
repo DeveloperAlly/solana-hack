@@ -147,17 +147,20 @@ export function confirmData(state: JourneyState): ConfirmDataWithConflicts {
 /** J4's gap questions: GapsVoiceData without the voice rounds (the voice samples route writes those), plus the ranked list. */
 export type GapsData = Omit<GapsVoiceData, 'voice'> & { questions: GapQuestion[] };
 
-export function gapsData(state: JourneyState, today: string): GapsData {
+export function gapsData(state: JourneyState, today: string, competitors: { title: string; url: string }[] = []): GapsData {
   const b = build(state);
   const q = (id: string) => fieldById(id)!.question;
+  // Options are the competitor candidates found on the web (#35; intake.ts listCompetitors, PR #100), passed in by the
+  // route, each named by its page title; the owner picks, edits or adds. With none, nothing is offered: none is invented.
+  const names = [...new Set(competitors.map((c) => c.title.trim()).filter(Boolean))].slice(0, 8);
+  const hosts = [...new Set(competitors.map((c) => host(c.url)).filter(Boolean))].slice(0, 8);
   return {
     brandName: state.brand.name,
     alternatives: {
       question: `What do people use instead of ${state.brand.name} today?`,
-      // Options come from competitor research (§4 row 5 zero-data fallback; backlog B2, #35), not built yet: none are invented.
-      hint: 'Name what people use instead today, or add your own.',
-      options: [],
-      source: 'Source: your own answer.',
+      hint: names.length ? 'Alternatives found on the web. Pick, edit or add your own.' : 'Name what people use instead today, or add your own.',
+      options: names,
+      source: hosts.length ? `Source: a web search for similar sites (${hosts.join(', ')}).` : 'Source: your own answer.',
     },
     edgeQuestion: q('alternatives.edge'),
     originQuestion: q('origin.why'),

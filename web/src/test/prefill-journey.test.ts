@@ -231,6 +231,9 @@ describe('the routes return #75\'s shapes when wired to the prefill module', () 
     expect(g).toMatchObject({ brandName: 'Tidewater', edgeQuestion: 'What can only you do?', originQuestion: 'Why does it exist?', originNote: 'Saved as evidence: "owner answer, 2026-10-13".' });
     expect(g.alternatives).toEqual({ question: 'What do people use instead of Tidewater today?', hint: 'Name what people use instead today, or add your own.', options: [], source: 'Source: your own answer.' });
     expect(gapsData(await state(), '2026-10-13').questions.map((q) => q.id)).toEqual(['alternatives.instead', 'audience.real_people', 'voice.template']);
+    // Competitor candidates found on the web (#35, PR #100 listCompetitors) become the options, with their source.
+    const withCandidates = gapsData(await state(), '2026-10-13', [{ title: 'Beanline', url: 'https://www.beanline.example/' }, { title: 'Roastly', url: 'https://roastly.example/x' }]);
+    expect(withCandidates.alternatives).toEqual({ question: 'What do people use instead of Tidewater today?', hint: 'Alternatives found on the web. Pick, edit or add your own.', options: ['Beanline', 'Roastly'], source: 'Source: a web search for similar sites (beanline.example, roastly.example).' });
   });
 
   it('an answer raises coverage: the owner\'s answers make their sections found and finish their steps', async () => {
