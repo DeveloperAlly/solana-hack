@@ -90,7 +90,7 @@ Problem (a founder needs a brand team; every option hurts) → solution (JamJam 
 - Solo $39 and Team $199 a month (launch prices)
 - 3% on tips and rewards paid through JamJam
 - Every check runs on a public JamJam Verify page
-- Refer a friend: you both get 2 months free
+- Refer a friend: you both get 2 months free (proposed, ADR-014)
 
 **11. Roadmap** (2:22–2:31)
 - Now: your brand kit
