@@ -4,17 +4,17 @@
 // The draft lives in memory for the session only: no network, nothing persisted (INTEGRATION: PATCH /api/campaigns/:id).
 import { useCallback, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router';
-import { soonRoutes } from './routes';
+import { useSoonRoutes } from './routes';
 
 // `external`: built on Superhub (issue #52); this page cannot see whether it finished, so the campaign record
 // (fixtures in the gallery) stands for it.
 export const campaignSteps = [
-  { id: 'goal', label: 'Goal', href: soonRoutes.campaignGoal, external: true },
-  { id: 'audience', label: 'Audience', href: soonRoutes.campaignAudience, external: false },
-  { id: 'measure', label: 'Measure', href: soonRoutes.campaignMeasure, external: true },
-  { id: 'plan', label: 'Content plan', href: soonRoutes.campaignPlan, external: false },
-  { id: 'budget', label: 'People and budget', href: soonRoutes.campaignBudget, external: false },
-  { id: 'launch', label: 'Review and launch', href: soonRoutes.campaignLaunch, external: false },
+  { id: 'goal', label: 'Goal', route: 'campaignGoal', external: true },
+  { id: 'audience', label: 'Audience', route: 'campaignAudience', external: false },
+  { id: 'measure', label: 'Measure', route: 'campaignMeasure', external: true },
+  { id: 'plan', label: 'Content plan', route: 'campaignPlan', external: false },
+  { id: 'budget', label: 'People and budget', route: 'campaignBudget', external: false },
+  { id: 'launch', label: 'Review and launch', route: 'campaignLaunch', external: false },
 ] as const;
 
 export type CampaignStepId = (typeof campaignSteps)[number]['id'];
@@ -45,21 +45,23 @@ export function resetCampaignDraft() {
 
 export function useCampaignFlow(step: CampaignStepId) {
   const navigate = useNavigate();
+  const routes = useSoonRoutes();
+  const hrefAt = (i: number) => (campaignSteps[i] ? routes[campaignSteps[i].route] : undefined);
   const current = campaignSteps.findIndex((s) => s.id === step);
   const state = useSyncExternalStore(subscribe, read, read);
   const update = useCallback((patch: Partial<CampaignDraft>) => {
     draft = { ...draft, ...patch };
     listeners.forEach((l) => l());
   }, []);
-  const nextHref = campaignSteps[current + 1]?.href;
+  const nextHref = hrefAt(current + 1);
   const finished = (i: number) => campaignSteps[i]?.external || (state.completed ?? []).includes(campaignSteps[i]?.id);
   return {
     steps: campaignSteps.map((s) => ({ label: s.label })),
     current,
-    backHref: campaignSteps[current - 1]?.href,
+    backHref: hrefAt(current - 1),
     nextHref,
     /** Only finished steps link back to their screen. */
-    hrefFor: (i: number) => (finished(i) ? campaignSteps[i]?.href : undefined),
+    hrefFor: (i: number) => (finished(i) ? hrefAt(i) : undefined),
     /** Marks this step finished, then moves to the next one. Call only after the step validated. */
     next: () => {
       draft = { ...draft, completed: [...new Set([...(draft.completed ?? []), step])] };

@@ -21,13 +21,14 @@ import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
 import { SoonInlineForm } from '../../ui/domain/SoonInlineForm';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { StateView } from './StateView';
-import { soonRoutes } from './routes';
+import { useSoonRoutes } from './routes';
 import { email } from './validate';
 import type { UpgradeData } from './types';
 
 type Phase = 'form' | 'paid' | 'failed';
 
 export function Upgrade({ data, state = 'success' }: { data: UpgradeData; state?: ScreenState }) {
+  const routes = useSoonRoutes();
   const [phase, setPhase] = useState<Phase>(state === 'error' ? 'failed' : 'form');
   // INTEGRATION: the billing provider's checkout (G-BILLING); the error state stands in for a decline.
   const pay = () => setPhase(state === 'error' ? 'failed' : 'paid');
@@ -35,7 +36,7 @@ export function Upgrade({ data, state = 'success' }: { data: UpgradeData; state?
     <SoonHubFrame header={{ title: 'Upgrade to Solo', intro: 'One page from choosing a plan to paid.', definedIn: "draft backlog launch check: one page from 'I want to pay' to paid; G-BILLING" }}>
       <StateView state={state} loading={{ title: 'Taking payment', body: 'Waiting for the billing provider. Do not close this page.' }}>
         {phase === 'paid' ? (
-          <StatePanel kind="success" title="You're on Solo" body={data.keepNote} actions={<Button href={soonRoutes.settingsPlan}>See your plan</Button>} />
+          <StatePanel kind="success" title="You're on Solo" body={data.keepNote} actions={<Button href={routes.settingsPlan}>See your plan</Button>} />
         ) : (
           <Grid min="lg" gap={5}>
             <Card header={<Heading level={2} size="lg">Payment</Heading>}>
@@ -53,7 +54,7 @@ export function Upgrade({ data, state = 'success' }: { data: UpgradeData; state?
             <Card variant="subtle" header={<Heading level={2} size="lg">{data.planName}</Heading>}>
               <Text>{data.price} / month · cancel any time</Text>
               <Text tone="secondary">{data.keepNote}</Text>
-              <Button href={soonRoutes.pricing} variant="secondary">Compare plans</Button>
+              <Button href={routes.pricing} variant="secondary">Compare plans</Button>
             </Card>
           </Grid>
         )}

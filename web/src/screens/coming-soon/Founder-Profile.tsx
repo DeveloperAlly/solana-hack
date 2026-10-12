@@ -21,12 +21,13 @@ import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
 import { SoonAddForm } from '../../ui/domain/SoonAddForm';
 import { SoonStatusList } from '../../ui/domain/SoonStatusList';
 import { SoonStatusRow } from '../../ui/domain/SoonStatusRow';
-import { soonRoutes } from './routes';
+import { useSoonRoutes } from './routes';
 import { soonStatus } from './status';
 import { required } from './validate';
 import type { FounderProfileData, StatusRowItem } from './types';
 
 export function FounderProfile({ data }: { data: FounderProfileData }) {
+  const routes = useSoonRoutes();
   const [sources, setSources] = useState<StatusRowItem[]>(data.sources);
   const [shared, setShared] = useState(data.sharedStories);
   // INTEGRATION: POST /api/brands/:id/sources (person kit); DELETE …/sources/:id to remove.
@@ -54,7 +55,7 @@ export function FounderProfile({ data }: { data: FounderProfileData }) {
       </Card>
       <Card header={<Heading level={2} size="lg">Linked to</Heading>}>
         <SoonStatusList label="Linked brands">
-          <SoonStatusRow name={data.linkedTo} actions={<Button href={soonRoutes.brandSwitcher} variant="secondary">Your brands</Button>} />
+          <SoonStatusRow name={data.linkedTo} actions={<Button href={routes.brandSwitcher} variant="secondary">Your brands</Button>} />
         </SoonStatusList>
         <CheckboxRow label="Stories you approve can be used by both kits." checked={shared} onChange={(e) => setShared(e.target.checked)} />
         <Text variant="small" tone="secondary" role="status">{shared ? 'Approved stories are shared with the linked brand kit.' : 'Stories stay in this profile only.'}</Text>

@@ -23,7 +23,7 @@ import { SoonStatusRow } from '../../ui/domain/SoonStatusRow';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { SettingsNav } from './SettingsNav';
 import { StateView } from './StateView';
-import { soonRoutes } from './routes';
+import { useSoonRoutes } from './routes';
 import { soonStatus } from './status';
 import { httpsUrl } from './validate';
 import type { SettingsAIData, StatusRowItem } from './types';
@@ -31,13 +31,14 @@ import type { SettingsAIData, StatusRowItem } from './types';
 type TestResult = 'none' | 'ok' | 'failed';
 
 export function SettingsAI({ data, state = 'success' }: { data: SettingsAIData; state?: ScreenState }) {
+  const routes = useSoonRoutes();
   const [sources, setSources] = useState<StatusRowItem[]>(data.sources);
   const [storedKey, setStoredKey] = useState(data.storedKey);
   const [adding, setAdding] = useState(false);
   const [test, setTest] = useState<TestResult>(state === 'error' ? 'failed' : 'none');
 
   const actionFor = (row: StatusRowItem) => {
-    if (row.id === 'openrouter') return <Button href={soonRoutes.settingsGetKey} variant="secondary">Connect OpenRouter</Button>;
+    if (row.id === 'openrouter') return <Button href={routes.settingsGetKey} variant="secondary">Connect OpenRouter</Button>;
     if (row.id === 'endpoint' && row.status === 'not-set') return <Button variant="secondary" onClick={() => setAdding(true)}>Add endpoint</Button>;
     return null;
   };
@@ -71,7 +72,7 @@ export function SettingsAI({ data, state = 'success' }: { data: SettingsAIData; 
               <Stack direction="row" gap={3} wrap>
                 {/* INTEGRATION: PUT …/ai-settings key test (OpenRouter, Anthropic or OpenAI). */}
                 <Button variant="secondary" onClick={() => setTest(state === 'error' ? 'failed' : 'ok')}>Test key</Button>
-                <Button href={soonRoutes.settingsGetKey} variant="secondary">Replace</Button>
+                <Button href={routes.settingsGetKey} variant="secondary">Replace</Button>
                 <Button variant="secondary" onClick={() => { setStoredKey(null); setTest('none'); }}>Remove</Button>
               </Stack>
               {test === 'ok' && <Alert tone="success" title="That key works." />}

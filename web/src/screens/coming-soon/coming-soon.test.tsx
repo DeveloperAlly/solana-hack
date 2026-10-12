@@ -134,6 +134,15 @@ describe('Settings flow', () => {
   });
 });
 
+describe('links keep the gallery theme', () => {
+  it('every screen-to-screen link carries ?theme=', async () => {
+    const user = at('/screens/Pricing?theme=wireframe-dark');
+    expect(screen.getByRole('link', { name: 'Choose Solo' })).toHaveAttribute('href', '/screens/Upgrade?theme=wireframe-dark');
+    await user.click(screen.getByRole('link', { name: 'Choose Solo' }));
+    expect(screen.getByRole('link', { name: 'Compare plans' })).toHaveAttribute('href', '/screens/Pricing?theme=wireframe-dark');
+  });
+});
+
 describe('Pricing to paid', () => {
   it('Choose Solo opens Upgrade; the email is validated; paying lands on the plan', async () => {
     const user = at('/screens/Pricing');
@@ -163,8 +172,15 @@ describe('Media flow', () => {
     await user.click(screen.getByRole('tab', { name: 'Short video' }));
     expect(screen.getByRole('list', { name: 'Short video slides' })).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Carousel' }));
+    // No format is pre-selected, and review waits for a real choice.
+    expect(screen.getByRole('radio', { name: 'Image set' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'LinkedIn document (PDF)' })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Check and review' })).toBeDisabled();
+    expect(screen.getByText('Choose a format to continue.')).toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: 'Image set' }));
-    expect(screen.getByRole('radio', { name: 'Image set' })).toBeChecked();
+    expect(screen.getByText('Exports one image per slide.')).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'LinkedIn document (PDF)' }));
+    expect(screen.getByText('Exports one PDF with a page per slide.')).toBeInTheDocument();
     await user.clear(screen.getByLabelText('Slide 1 · Hook text'));
     await user.click(screen.getByRole('button', { name: 'Check and review' }));
     expect(screen.getByText('Every slide needs text before review.')).toBeInTheDocument();
@@ -195,9 +211,12 @@ describe('Campaign v2 flow (steps 2, 4, 5, 6 here; 1 and 3 on Superhub)', () => 
   it('audience: Back goes to Goal; Continue needs a segment and goes to Measure', async () => {
     const user = at('/screens/Campaign-v2-3-Audience');
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/screens/Campaign-v2-1-Goal');
+    expect(screen.getByRole('checkbox', { name: /\[Audience segment 1\]/ })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: /\[Audience segment 1\]/ }));
-    await user.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Choose at least one audience segment.');
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+    await user.click(screen.getByRole('checkbox', { name: /\[Audience segment 1\]/ }));
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: /\[Audience segment 2\]/ }));
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByText('Probe: /screens/Campaign-v2-2-Measure')).toBeInTheDocument();
@@ -206,6 +225,7 @@ describe('Campaign v2 flow (steps 2, 4, 5, 6 here; 1 and 3 on Superhub)', () => 
   it('plan, budget and launch chain, carrying the draft, and launch needs the cap approved', async () => {
     const user = at('/screens/Campaign-v2-3-Audience');
     await user.click(screen.getByRole('checkbox', { name: /\[Audience segment 2\]/ }));
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
     // Measure (step 3) is a Superhub screen, so open step 4 directly; the draft carries over in memory.
     cleanup();
     const plan = at('/screens/Campaign-v2-4-Plan');
@@ -229,7 +249,11 @@ describe('Campaign v2 flow (steps 2, 4, 5, 6 here; 1 and 3 on Superhub)', () => 
 
     const summary = screen.getByLabelText('Campaign summary');
     expect(within(summary).getByText('300 USDC')).toBeInTheDocument();
-    expect(within(summary).getByText('2 segment(s) chosen')).toBeInTheDocument();
+    expect(within(summary).getByText('1 segment(s) chosen')).toBeInTheDocument();
+    // State machine: steps finished in this session link back from the stepper; the current step does not.
+    const stepper = screen.getByRole('list', { name: 'Step 6 of 6' });
+    expect(within(stepper).getByRole('link', { name: /People and budget/ })).toHaveAttribute('href', '/screens/Campaign-v2-5-Budget');
+    expect(within(stepper).getByRole('link', { name: /Audience/ })).toBeInTheDocument();
     const launch = screen.getByRole('button', { name: 'Launch campaign' });
     expect(launch).toBeDisabled();
     await plan.click(screen.getByRole('checkbox', { name: 'I approve a spending cap of 300 USDC for this campaign.' }));
@@ -253,10 +277,12 @@ describe('Publishing calendar', () => {
   it('picks an open slot and schedules an approved post; copy and reconnect work', async () => {
     const user = at('/screens/Publish-Calendar');
     await user.click(screen.getAllByRole('button', { name: '[open slot]' })[0]);
+    expect(screen.getByRole('radio', { name: '[approved post 2]' })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Schedule here' })).toBeDisabled();
     await user.click(screen.getByRole('radio', { name: '[approved post 2]' }));
     await user.click(screen.getByRole('button', { name: 'Schedule here' }));
     expect(screen.getAllByRole('button', { name: '[open slot]' })).toHaveLength(1);
-    expect(screen.getByText('[time] LinkedIn')).toBeInTheDocument();
+    expect(screen.getByText('[time] LinkedIn · [approved post 2]')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Copy and post myself' }));
     expect(await navigator.clipboard.readText()).toBe('[approved post text]');
     await user.click(screen.getByRole('link', { name: 'Reconnect and retry' }));
@@ -314,8 +340,10 @@ describe('Brands and founder', () => {
     await user.click(screen.getByRole('button', { name: 'Remove Conference talk' }));
     expect(screen.queryByText('Conference talk')).not.toBeInTheDocument();
     const shared = screen.getByRole('checkbox', { name: 'Stories you approve can be used by both kits.' });
+    expect(screen.getByText('Approved stories are shared with the linked brand kit.')).toBeInTheDocument();
     await user.click(shared);
     expect(shared).not.toBeChecked();
+    expect(screen.getByText('Stories stay in this profile only.')).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Your brands' }));
     expect(h1('Your brands')).toBeInTheDocument();
   });

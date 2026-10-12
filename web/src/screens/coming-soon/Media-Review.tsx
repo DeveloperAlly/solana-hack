@@ -21,7 +21,7 @@ import { StatePanel } from '../../ui/composites/StatePanel';
 import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
 import { SoonInlineForm } from '../../ui/domain/SoonInlineForm';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { soonRoutes } from './routes';
+import { useSoonRoutes } from './routes';
 import { tableState } from './tableState';
 import { ChipBadge } from './ChipBadge';
 import { checkChips } from './status';
@@ -29,6 +29,7 @@ import { httpsUrl } from './validate';
 import type { MediaReviewData, SlideCheck } from './types';
 
 export function MediaReview({ data, state = 'success' }: { data: MediaReviewData; state?: ScreenState }) {
+  const routes = useSoonRoutes();
   const [checks, setChecks] = useState<SlideCheck[]>(data.checks);
   const [fixing, setFixing] = useState<string | null>(null);
   const [approved, setApproved] = useState(false);
@@ -42,7 +43,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
     <SoonHubFrame header={{ title: 'Review your carousel', intro: 'Every slide passes the same checks as a post before you can approve it.', definedIn: 'draft backlog (media review); ChecksPanel D3 in the component inventory' }}>
       {approved ? (
         // INTEGRATION: POST /api/drafts/:id/approve, then the Registrar's SAS content attestation.
-        <StatePanel kind="success" title="Approved and registered" body="Every slide passed its checks. Anyone can now check this carousel on Verify." actions={<Button href={soonRoutes.publishCalendar}>Schedule it</Button>} />
+        <StatePanel kind="success" title="Approved and registered" body="Every slide passed its checks. Anyone can now check this carousel on Verify." actions={<Button href={routes.publishCalendar}>Schedule it</Button>} />
       ) : (
         <Stack gap={4}>
           <DataTable<SlideCheck>
@@ -72,7 +73,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
           {blocked.map((c) => <Alert key={c.id} tone="warning" title={`Slide ${c.slide} has a claim with no evidence. Add a source or change the slide to approve.`} />)}
           <Stack direction="row" gap={3} wrap>
             <Button onClick={() => setApproved(true)} disabled={blocked.length > 0 || state !== 'success'}>Approve and register</Button>
-            <Button href={soonRoutes.mediaComposer} variant="secondary">Edit slides</Button>
+            <Button href={routes.mediaComposer} variant="secondary">Edit slides</Button>
           </Stack>
         </Stack>
       )}

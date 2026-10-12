@@ -21,12 +21,13 @@ import { KeyValueList } from '../../ui/composites/KeyValueList';
 import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { SettingsNav } from './SettingsNav';
-import { soonRoutes } from './routes';
+import { useSoonRoutes } from './routes';
 import { downloadText } from './download';
 import { tableState } from './tableState';
 import type { Invoice, SettingsPlanData } from './types';
 
 export function SettingsPlan({ data, state = 'success' }: { data: SettingsPlanData; state?: ScreenState }) {
+  const routes = useSoonRoutes();
   const [showBilling, setShowBilling] = useState(false);
   // INTEGRATION: the billing provider's invoice PDF (G-BILLING); until then a text summary is saved locally.
   const download = (inv: Invoice) => downloadText(`jamjam-invoice-${inv.id}.txt`, `JamJam invoice\nDate: ${inv.date}\nAmount: ${inv.amount}\n`);
@@ -36,7 +37,7 @@ export function SettingsPlan({ data, state = 'success' }: { data: SettingsPlanDa
         <KeyValueList
           label="Plan and billing"
           items={[
-            { label: 'Plan', value: <Stack direction="row" gap={3} wrap><span>{data.plan}</span><Link href={soonRoutes.pricing}>Change plan</Link></Stack> },
+            { label: 'Plan', value: <Stack direction="row" gap={3} wrap><span>{data.plan}</span><Link href={routes.pricing}>Change plan</Link></Stack> },
             { label: 'Seats', value: <Stack gap={1}><span>{data.seats}</span><Text variant="small" tone="secondary">Partners and ambassadors are free seats (ADR-003)</Text></Stack> },
             {
               label: 'Next bill',

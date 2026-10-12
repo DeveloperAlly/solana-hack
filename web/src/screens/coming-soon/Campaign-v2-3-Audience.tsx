@@ -19,10 +19,11 @@ import { EmptyState } from '../../ui/composites/EmptyState';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { CampaignStep } from './CampaignStep';
 import { useCampaignFlow } from './useCampaignFlow';
-import { soonRoutes } from './routes';
+import { useSoonRoutes } from './routes';
 import type { CampaignAudienceData } from './types';
 
 export function CampaignAudience({ data, state = 'success' }: { data: CampaignAudienceData; state?: ScreenState }) {
+  const routes = useSoonRoutes();
   const { draft, update } = useCampaignFlow('audience');
   // Nothing is pre-checked: Continue stays disabled until the person picks a segment (review finding).
   const chosen = draft.audience ?? [];
@@ -40,7 +41,7 @@ export function CampaignAudience({ data, state = 'success' }: { data: CampaignAu
       continueDisabled={isEmpty || chosen.length === 0}
     >
       {isEmpty ? (
-        <EmptyState title="Your kit has no audience yet" body="Add the audience section to your kit, then come back." actions={<Button href={soonRoutes.brandBuild}>Open your kit</Button>} />
+        <EmptyState title="Your kit has no audience yet" body="Add the audience section to your kit, then come back." actions={<Button href={routes.brandBuild}>Open your kit</Button>} />
       ) : (
         <Stack as="fieldset" gap={2} aria-label="Audience segments">
           {data.segments.map((s) => (

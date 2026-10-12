@@ -19,7 +19,7 @@ import { SoonHubFrame } from '../../ui/domain/SoonHubFrame';
 import { SoonInlineForm } from '../../ui/domain/SoonInlineForm';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { StateView } from './StateView';
-import { soonRoutes } from './routes';
+import { useSoonRoutes } from './routes';
 import { required } from './validate';
 import type { SettingsGetKeyData } from './types';
 
@@ -32,6 +32,7 @@ const alerts = (keyError: string): Record<Outcome, { tone: 'success' | 'danger';
 });
 
 export function SettingsGetKey({ data, state = 'success' }: { data: SettingsGetKeyData; state?: ScreenState }) {
+  const routes = useSoonRoutes();
   const [outcome, setOutcome] = useState<Outcome>(state === 'error' ? 'failed' : 'none');
   const banner = alerts(data.keyError)[outcome];
   return (
@@ -40,7 +41,7 @@ export function SettingsGetKey({ data, state = 'success' }: { data: SettingsGetK
         title: 'Get an AI key in a minute',
         intro: 'One button connects your OpenRouter account. Prefer to paste a key? You can.',
         definedIn: 'delivery plan Phase 1 (Settings › AI); backend map (OpenRouter BYOK)',
-        actions: <Link href={soonRoutes.settingsAI}>← Back to AI settings</Link>,
+        actions: <Link href={routes.settingsAI}>← Back to AI settings</Link>,
       }}
     >
       <StateView state={state} loading={{ title: 'Testing your key', body: 'Checking the key with the provider. Nothing is saved until it works.' }}>

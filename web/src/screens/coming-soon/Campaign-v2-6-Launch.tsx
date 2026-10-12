@@ -24,10 +24,11 @@ import { StatePanel } from '../../ui/composites/StatePanel';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { CampaignStep } from './CampaignStep';
 import { useCampaignFlow } from './useCampaignFlow';
-import { soonRoutes } from './routes';
+import { useSoonRoutes } from './routes';
 import type { CampaignLaunchData } from './types';
 
 export function CampaignLaunch({ data, state = 'success' }: { data: CampaignLaunchData; state?: ScreenState }) {
+  const routes = useSoonRoutes();
   const { draft } = useCampaignFlow('launch');
   const [approved, setApproved] = useState(false);
   const [launched, setLaunched] = useState(false);
@@ -51,7 +52,7 @@ export function CampaignLaunch({ data, state = 'success' }: { data: CampaignLaun
       error={blocked && <Alert tone="danger" title={`Blocked: the cap is above your wallet balance (${data.balance} USDC). Lower it or top up.`} />}
     >
       {launched ? (
-        <StatePanel kind="success" title="Campaign launched" body="Every item still goes to approval before it is published or paid." actions={<Button href={soonRoutes.contentDashboard}>Go to your posts</Button>} />
+        <StatePanel kind="success" title="Campaign launched" body="Every item still goes to approval before it is published or paid." actions={<Button href={routes.contentDashboard}>Go to your posts</Button>} />
       ) : (
         <>
           <KeyValueList

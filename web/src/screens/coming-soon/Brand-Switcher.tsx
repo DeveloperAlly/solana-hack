@@ -23,17 +23,18 @@ import { SoonStatusList } from '../../ui/domain/SoonStatusList';
 import { SoonStatusRow } from '../../ui/domain/SoonStatusRow';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { StateView } from './StateView';
-import { soonRoutes } from './routes';
+import { useSoonRoutes } from './routes';
 import { soonStatus } from './status';
 import { domain, required } from './validate';
 import type { BrandSwitcherData, StatusRowItem } from './types';
 
 export function BrandSwitcherScreen({ data, state = 'success' }: { data: BrandSwitcherData; state?: ScreenState }) {
+  const routes = useSoonRoutes();
   const [brands, setBrands] = useState<StatusRowItem[]>(data.brands);
   const [current, setCurrent] = useState(data.currentId);
   const actionFor = (b: StatusRowItem) => {
     if (b.id === current) return <Badge tone="solid">Current</Badge>;
-    if (b.id === data.founderId) return <Button href={soonRoutes.founderProfile} variant="secondary" aria-label={`Open ${b.name}`}>Open</Button>;
+    if (b.id === data.founderId) return <Button href={routes.founderProfile} variant="secondary" aria-label={`Open ${b.name}`}>Open</Button>;
     // INTEGRATION: switching sets the active brand for the session (no endpoint yet).
     return <Button variant="secondary" aria-label={`Switch to ${b.name}`} onClick={() => setCurrent(b.id)}>Switch</Button>;
   };

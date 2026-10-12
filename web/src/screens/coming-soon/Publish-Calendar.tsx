@@ -21,12 +21,13 @@ import { SoonCopyButton } from '../../ui/domain/SoonCopyButton';
 import { SoonWeekCalendar } from '../../ui/domain/SoonWeekCalendar';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { StateView } from './StateView';
-import { soonRoutes } from './routes';
+import { useSoonRoutes } from './routes';
 import type { CalendarSlot, PublishCalendarData } from './types';
 
 const slotLabel = (s: CalendarSlot) => (s.status === 'open' ? '[open slot]' : `${s.time} ${s.channel} · ${s.title}`);
 
 export function PublishCalendar({ data, state = 'success' }: { data: PublishCalendarData; state?: ScreenState }) {
+  const routes = useSoonRoutes();
   const [slots, setSlots] = useState<CalendarSlot[]>(data.slots);
   const [picked, setPicked] = useState<string | null>(null);
   const [post, setPost] = useState('');
@@ -43,13 +44,13 @@ export function PublishCalendar({ data, state = 'success' }: { data: PublishCale
       <StateView
         state={state}
         loading={{ title: 'Loading your schedule', body: 'Reading approved posts and their slots.' }}
-        empty={{ title: 'Nothing scheduled yet', body: 'Approve a post, then pick a slot for it here.', actions: <Button href={soonRoutes.contentDashboard}>Go to your posts</Button> }}
+        empty={{ title: 'Nothing scheduled yet', body: 'Approve a post, then pick a slot for it here.', actions: <Button href={routes.contentDashboard}>Go to your posts</Button> }}
       >
         {f && (
           <Stack gap={2}>
             <Alert tone="danger" title={`A post didn't go out: "${f.title}" to ${f.channel} failed at ${f.time} (${f.reason}). Nothing was posted twice.`} />
             <Stack direction="row" gap={3} wrap>
-              <Button href={soonRoutes.settingsConnections}>Reconnect and retry</Button>
+              <Button href={routes.settingsConnections}>Reconnect and retry</Button>
               <SoonCopyButton text={f.text} label="Copy and post myself" />
             </Stack>
           </Stack>
