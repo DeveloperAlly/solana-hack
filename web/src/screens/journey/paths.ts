@@ -58,5 +58,6 @@ export function useJourneyHref(): (target: JourneyTarget, state?: ScreenState) =
 const navTargets: Record<string, JourneyTarget> = { '/': 'main', '/home': 'hub', '/verify': 'proof', '/ledger': 'ledger' };
 export function useNavHref(): (path: string) => string {
   const to = useJourneyHref();
-  return useCallback((path: string) => (navTargets[path] ? to(navTargets[path]) : path), [to]);
+  const live = useContext(JourneyHrefContext);
+  return useCallback((path: string) => (live && path === '/verify' ? '/verify' : navTargets[path] ? to(navTargets[path]) : path), [to, live]);
 }

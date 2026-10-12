@@ -92,7 +92,7 @@ export function Main({ data, state = 'success' }: MainProps) {
           </Card>
           <Stack as="footer" direction="row" gap={5} wrap>
             <Text as="span" variant="small" tone="secondary">jamjam.tech</Text>
-            <Link href={to('proof')}>Check a post</Link>
+            <Link href={navHref('/verify')}>Check a post</Link>
             <Link href={to('ledger')}>Public ledger</Link>
             <Text as="span" variant="small" tone="secondary">Ambassadors: coming soon</Text>
           </Stack>
