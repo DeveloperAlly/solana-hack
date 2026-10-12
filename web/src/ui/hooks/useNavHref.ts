@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import type { NavTarget } from '../../config/nav';
 import { screenPath } from '../../gallery/screenPath';
 import { useGalleryMode } from './galleryMode';
+import { usePreviewRoutes } from './previewRoutes';
 
 /**
  * Resolves a nav target (config/nav.ts) to an href. Inside the gallery every target is its artboard's typed screen
@@ -12,9 +13,10 @@ import { useGalleryMode } from './galleryMode';
  */
 export function useNavHref(): (target: NavTarget) => string {
   const gallery = useGalleryMode();
+  const preview = usePreviewRoutes();
   const [params] = useSearchParams();
   return useCallback(
-    (target: NavTarget) => (!gallery && target.live ? target.live : screenPath(target.artboard, undefined, params)),
-    [gallery, params],
+    (target: NavTarget) => preview ? target.live ?? `/preview/${encodeURIComponent(target.artboard)}` : (!gallery && target.live ? target.live : screenPath(target.artboard, undefined, params)),
+    [gallery, params, preview],
   );
 }
