@@ -338,9 +338,20 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     const chunk = new TextEncoder().encode(`# ${'y'.repeat(16_382)}\n`);
     // An endless body: buffering it all would never finish.
     const body = new ReadableStream<Uint8Array>({ pull(ctl) { pulled += chunk.length; ctl.enqueue(chunk); } });
-    const bytes = await readCapped(new Response(body), ROBOTS_MAX_BYTES);
+    const { bytes, truncated } = await readCapped(new Response(body), ROBOTS_MAX_BYTES);
     expect(bytes.length).toBe(ROBOTS_MAX_BYTES);
+    expect(truncated).toBe(true);
     expect(pulled).toBeLessThanOrEqual(ROBOTS_MAX_BYTES + 2 * chunk.length);
+  });
+  it('drops a rule cut off at the 500 KiB cap instead of reading the fragment (PR #71 review)', async () => {
+    // "Allow: /public" straddles the cap and would be cut to "Allow: /", which ties "Disallow: /" and allows.
+    const head = 'User-agent: *\nDisallow: /\n# ';
+    const pad = 'x'.repeat(ROBOTS_MAX_BYTES - head.length - '\nAllow: /'.length);
+    stub({ robots: () => new Response(`${head}${pad}\nAllow: /public\n`) });
+    expect(await readSite({}, 'https://x.test/private')).toMatchObject({ ok: false, code: 'robots_disallowed' });
+    // A file that fits is read whole, last line included.
+    const { truncated } = await readCapped(new Response('User-agent: *\nDisallow: /a'), ROBOTS_MAX_BYTES);
+    expect(truncated).toBe(false);
   });
   it('reads robots.txt up to 500 KiB in bytes (RFC 9309 §2.5; PR #67 review)', async () => {
     const filler = `# ${'x'.repeat(505_000)}\n`;

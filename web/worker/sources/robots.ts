@@ -104,23 +104,26 @@ export function allowedBy(rules: Rule[], pathAndQuery: string): boolean {
 export type RobotsCheck = { state: 'rules'; rules: Rule[] } | { state: 'none' } | { state: 'unreachable' };
 
 /** Reads at most `max` bytes of a response body, then cancels the rest of the stream. */
-export async function readCapped(res: Response, max: number): Promise<Uint8Array> {
+export async function readCapped(res: Response, max: number): Promise<{ bytes: Uint8Array; truncated: boolean }> {
   const out = new Uint8Array(max);
   let n = 0;
+  let truncated = false;
   const reader = res.body?.getReader();
-  if (!reader) return out.subarray(0, 0);
+  if (!reader) return { bytes: out.subarray(0, 0), truncated };
   try {
-    while (n < max) {
+    while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       const take = Math.min(value.length, max - n);
       out.set(value.subarray(0, take), n);
       n += take;
+      // Any byte past the cap means the body was cut, so its last line may be incomplete.
+      if (take < value.length) { truncated = true; break; }
     }
   } finally {
     await reader.cancel().catch(() => undefined);
   }
-  return out.subarray(0, n);
+  return { bytes: out.subarray(0, n), truncated };
 }
 
 /** Reads robots.txt for an origin. Never throws. */
@@ -131,8 +134,12 @@ export async function fetchRobots(origin: string, fetcher: typeof fetch = fetch)
     if (!res.ok) return { state: 'unreachable' };
     // Read up to the parsing limit in bytes, then decode: a limit in characters could stop short of 500 KiB. The body
     // is streamed and cancelled at the limit, so a huge or endless file never fills memory (PR #71 review).
-    const bytes = await readCapped(res, ROBOTS_MAX_BYTES);
-    return { state: 'rules', rules: parseRobots(new TextDecoder().decode(bytes)) };
+    const { bytes, truncated } = await readCapped(res, ROBOTS_MAX_BYTES);
+    let body = new TextDecoder().decode(bytes);
+    // A file cut at the cap can end inside a rule ("Allow: /public" cut to "Allow: /"). Its unterminated last line is
+    // dropped, so a fragment is never read as a complete rule (PR #71 review).
+    if (truncated) body = body.slice(0, Math.max(body.lastIndexOf('\n'), body.lastIndexOf('\r')) + 1);
+    return { state: 'rules', rules: parseRobots(body) };
   } catch {
     return { state: 'unreachable' };
   }
