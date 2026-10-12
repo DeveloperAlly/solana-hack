@@ -249,6 +249,13 @@ Know JamJam data types (M6). Grouped by area.
 | D54 | ModelSettings | default free model; bring-your-own Claude or OpenAI key (storage per mission Q4); test key | default, key added, key invalid | Settings: AI model |
 | D55 | PlanSeats | plan, seats (partners, agencies, ambassadors), billing summary | n/a | Settings: plan and seats |
 
+### 6.8 Added in UI-0 ([issue #46](https://github.com/DeveloperAlly/solana-hack/issues/46))
+| ID | Component | Variants and props | States | Used by |
+|---|---|---|---|---|
+| D56 | ComingSoonFlag | chip from the route tag (M1 `routeTagLabels`); renders nothing for HACKATHON | n/a | every coming-soon, roadmap, stretch and experimental screen or section (canvas "chipd") |
+| D57 | EvidenceChip | Found (solid) / Partly found (grey) / Needs you (dashed) | n/a | J1-Read, J3-Confirm, Hub-Home |
+| D58 | Placeholder | local SVG stand-in image; aspect ratio square / landscape / portrait / wide; alt text required | n/a | every screen with an image until real media exists (issue #45, "Rules") |
+
 ## 7. Shared config and data modules
 Not visual, but they are what keeps the UI DRY.
 
