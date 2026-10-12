@@ -7,6 +7,7 @@ import { isSection, SECTIONS } from '../kit';
 import { chat, parseJson } from '../llm';
 import { MAX_QUOTE, normalisePage, quoteOnPage } from '../quote';
 import { loadPrompt, render } from './prompts';
+import { factTrust, urlKind } from '../sources/registry';
 import type { RunRow, StepSpec, StepTrace } from './types';
 
 export interface StepContext { env: Env; run: RunRow; state: RunState }
@@ -56,17 +57,23 @@ export const CODE: Record<string, (args: Record<string, unknown>) => unknown> = 
 
 /** Database writes a 'write' step (or onFailure) can name. Each is idempotent, because a step may run more than once. */
 export const WRITES: Record<string, (ctx: StepContext, args: Record<string, unknown>) => Promise<unknown>> = {
-  /** Evidence for one source, then the source marked read. Re-running replaces that source's evidence, never duplicates it. */
-  save_source_facts: async ({ env, run }, { sourceId, facts, dropped, url, title, text }) => {
+  /**
+   * Evidence for one source, then the source marked read. Re-running replaces that source's evidence, never duplicates
+   * it. Trust comes from the source type registry (issue #57): owned only when both the link and the page actually
+   * read (after redirects) are on the brand's website; anything else is a third-party 'page' whose facts wait for review.
+   */
+  save_source_facts: async ({ env, run }, { sourceId, facts, dropped, link, website, url, title, text }) => {
     const sid = asText(sourceId);
-    const rows = ((facts ?? []) as { section: string; claim: string; quote: string }[]).map((f) => ({ brand_id: run.brand_id, source_id: sid, section: f.section, claim: f.claim, quote: f.quote, origin: 'source' }));
+    const site = typeof website === 'string' ? website : null;
+    const kind = urlKind(asText(link), site) === 'site' && urlKind(asText(url), site) === 'site' ? 'site' : 'page';
+    const rows = ((facts ?? []) as { section: string; claim: string; quote: string }[]).map((f) => ({ brand_id: run.brand_id, source_id: sid, section: f.section, claim: f.claim, quote: f.quote, origin: 'source', ...factTrust(kind) }));
     const own = `${db.eq('brand_id', run.brand_id)}&${db.eq('source_id', sid)}`;
     await db.del(env, 'evidence', own);
     if (rows.length) await db.insert(env, 'evidence', rows);
     const page = asText(text);
     // source_text (spec/db/008) keeps the text the quotes were checked against, so any stored quote can be re-checked.
-    await db.update(env, 'sources', `${db.eq('id', sid)}&${db.eq('brand_id', run.brand_id)}`, { status: 'read', title: asText(title), text_excerpt: page.slice(0, 2000), source_text: page, fetched_at: new Date().toISOString(), url: asText(url).slice(0, 500), error: null });
-    return { sourceId: sid, facts: rows.length, dropped: Number(dropped) || 0 };
+    await db.update(env, 'sources', `${db.eq('id', sid)}&${db.eq('brand_id', run.brand_id)}`, { status: 'read', kind, title: asText(title), text_excerpt: page.slice(0, 2000), source_text: page, fetched_at: new Date().toISOString(), url: asText(url).slice(0, 500), error: null });
+    return { sourceId: sid, facts: rows.length, dropped: Number(dropped) || 0, kind, needsReview: kind === 'page' ? rows.length : 0 };
   },
   mark_source_failed: async ({ env, run }, { sourceId, error }) => {
     await db.update(env, 'sources', `${db.eq('id', asText(sourceId))}&${db.eq('brand_id', run.brand_id)}`, { status: 'failed', error: asText(error) || 'reading the page failed' });

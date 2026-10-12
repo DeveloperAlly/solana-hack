@@ -88,7 +88,7 @@ describe('ingest runs on the engine (POST /api/brands/:id/sources)', () => {
   it('answers as before, keeps only quotes it checked, and stores the full source text', async () => {
     const r = await call('POST', `/brands/${BRAND}/sources`, { url: 'https://example.com' });
     expect(r.status).toBe(201);
-    expect(r.body).toMatchObject({ facts: 1, dropped: 2, sourceId: db.tables.sources[0].id, runId: run().id });
+    expect(r.body).toMatchObject({ facts: 1, dropped: 2, kind: 'page', needsReview: 1, sourceId: db.tables.sources[0].id, runId: run().id });
     expect(started).toEqual([{ id: run().id, params: { runId: run().id } }]);
     expect(db.tables.evidence).toHaveLength(1);
     expect(db.tables.evidence[0]).toMatchObject({ quote: "JamJam's mission is to help brands prove what they say on chain.", origin: 'source', source_id: db.tables.sources[0].id });
@@ -136,6 +136,40 @@ describe('ingest runs on the engine (POST /api/brands/:id/sources)', () => {
     const r = await ingestSource(envWith, undefined, { id: 'u' }, db.tables.brands[0] as never, { url: 'https://example.com' }, 0);
     expect(r).toEqual({ status: 202, body: { runId: run().id, sourceId: db.tables.sources[0].id, status: 'running', progress: run().progress, resume_at: undefined } });
     expect(db.tables.sources[0].status).toBe('pending');
+  });
+});
+
+describe('evidence trust through the engine (issue #57, moved from worker-trust.test.ts)', () => {
+  const add = (url: string) => call('POST', `/brands/${BRAND}/sources`, { url });
+  it('a page on the brand website is owned and approved', async () => {
+    db.tables.brands[0].website = 'example.com';
+    const r = await add('https://www.example.com/about');
+    expect(r.body).toMatchObject({ kind: 'site', needsReview: 0 });
+    expect(db.tables.evidence[0]).toMatchObject({ origin: 'source', trust: 'owned', review_status: 'approved' });
+    expect(db.tables.sources[0]).toMatchObject({ kind: 'site' });
+  });
+  it('a page off the brand website is third-party and waits for the owner', async () => {
+    db.tables.brands[0].website = 'jamjam.tech';
+    const r = await add('https://news.example.org/jamjam');
+    expect(r.body).toMatchObject({ kind: 'page', needsReview: 1 });
+    expect(db.tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
+    expect(db.tables.sources[0]).toMatchObject({ kind: 'page' });
+  });
+  it('with no website set, nothing counts as owned', async () => {
+    await add('https://jamjam.tech');
+    expect(db.tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
+  });
+  it('an on-site link that redirects off the website is third-party', async () => {
+    db.tables.brands[0].website = 'jamjam.tech';
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      const res = await realFetch(url, init);
+      if (url.startsWith('https://jamjam.tech')) Object.defineProperty(res, 'url', { value: 'https://elsewhere.example/landing' });
+      return res;
+    }));
+    await add('https://jamjam.tech/go');
+    expect(db.tables.evidence[0]).toMatchObject({ trust: 'third_party', review_status: 'proposed' });
+    expect(db.tables.sources[0]).toMatchObject({ kind: 'page', url: 'https://elsewhere.example/landing' });
   });
 });
 

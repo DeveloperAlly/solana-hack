@@ -6,6 +6,7 @@ import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
 import { activeRun, getRun, ingestSource, startRun } from './engine/api';
 import type { WaitUntil } from './engine/executor';
+import { usableFact } from './sources/registry';
 import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
@@ -13,7 +14,7 @@ export const MAX_POSTS = 500;
 
 interface Brand { id: string; owner_id: string; name: string; type: string; description: string | null; website: string | null; goal: string | null; channel: string | null }
 interface Answer { step: string; data: Record<string, string>; skipped: boolean; updated_at?: string }
-interface Evidence { id: string; section: string; claim: string; quote: string | null; origin: string; source_id: string | null }
+interface Evidence { id: string; section: string; claim: string; quote: string | null; origin: string; source_id: string | null; trust?: string | null; review_status?: string | null }
 interface Section { section: string; body: string; citations: string[]; status: string }
 interface Gate { gate: string; approved_by: string; approved_at: string; note: string | null }
 interface Kit { id: string; version: number; hash: string; status: string; signature: string | null; attestation: string | null; created_at: string; error: string | null }
@@ -57,10 +58,12 @@ function answerText(answers: Answer[], steps: readonly string[]) {
     .join('\n\n');
 }
 
-async function draftSection(env: Env, brand: Brand, section: SectionId) {
+export async function draftSection(env: Env, brand: Brand, section: SectionId) {
   const st = await brandState(env, brand);
-  const ev = st.evidence;
-  const evText = ev.map((e) => `[${e.id}] (${e.origin}${e.quote ? `, quote: "${e.quote.slice(0, 200)}"` : ''}) ${e.claim}`).join('\n') || '(no evidence yet)';
+  // Only facts that may enter a kit are offered to the drafter (issue #57): approved, and owned, an owner answer or an
+  // approved third-party fact. A proposed or rejected fact cannot be cited, so it cannot reach a registered kit.
+  const ev = st.evidence.filter(usableFact);
+  const evText = ev.map((e) => `[${e.id}] (${e.trust}${e.quote ? `, quote: "${e.quote.slice(0, 200)}"` : ''}) ${e.claim}`).join('\n') || '(no evidence yet)';
   const system = `You draft one section of a brand kit for "${brand.name}". Use only the owner's answers and the evidence list. Cite the evidence ids you rely on. If something is not supported, write it anyway as a clearly labelled assumption ("Assumption:"). ${SLOP_RULES} Reply with JSON only: {"body": string, "citations": string[]}.`;
   const user = `Section: ${SECTIONS[section].title}\nWhat to write: ${SECTION_GUIDE[section]}\n\nOwner answers:\n${answerText(st.answers, SECTIONS[section].from) || '(none)'}\n\nEvidence:\n${evText}`;
   const { text, model } = await chat(env, system, user);
@@ -93,6 +96,15 @@ export const staleSections = (sections: Pick<Section, 'section' | 'citations'>[]
   return sections.filter((s) => (s.citations ?? []).some((id) => !live.has(id))).map((s) => s.section);
 };
 
+/**
+ * Sections that cite a fact outside the allow-list (proposed, rejected, an assumption, or a row with no trust fields):
+ * such a section would register text resting on a fact the kit snapshot leaves out (issue #57).
+ */
+export const unusableCitations = (sections: Pick<Section, 'section' | 'citations'>[], evidence: Pick<Evidence, 'id' | 'trust' | 'review_status'>[]) => {
+  const bad = new Set(evidence.filter((e) => !usableFact(e)).map((e) => e.id));
+  return sections.filter((s) => (s.citations ?? []).some((id) => bad.has(id))).map((s) => s.section);
+};
+
 const sectionTitles = (ids: string[]) => ids.map((id) => (isSection(id) ? SECTIONS[id].title : id)).join(', ');
 
 export async function registerKit(env: Env, user: User, brand: Brand, now = Date.now()) {
@@ -112,6 +124,8 @@ export async function registerKit(env: Env, user: User, brand: Brand, now = Date
   // rows) would register without its support. Refuse, and name the sections to redraft.
   const stale = staleSections(st.sections, st.evidence.map((e) => e.id));
   if (stale.length) throw new HttpError(409, `these sections cite answers you have since changed; draft them again first: ${sectionTitles(stale)}`);
+  const unusable = unusableCitations(st.sections, st.evidence);
+  if (unusable.length) throw new HttpError(409, `these sections cite facts that are not approved; approve those facts or draft the sections again first: ${sectionTitles(unusable)}`);
   // Gate 3 must postdate the voice answer it approved. Reads of gates and answers are separate requests, so a voice
   // change racing this registration could pair the old approval with the new answer; this check refuses that pair.
   const voiceGate = st.gates.find((g) => g.gate === 'voice');
@@ -136,9 +150,11 @@ export async function registerKit(env: Env, user: User, brand: Brand, now = Date
     policy: kitPolicy(st.answers.find((a) => a.step === 'voice')),
     // The cited evidence itself (claim and quote), not just ids: evidence rows can be replaced later (owner answers
     // are rewritten on every save), and a post pinned to this version must still see what the kit relied on.
-    // All recorded evidence (assumptions excluded): polish reads the cited part, and the claims gate for posts written
-    // to this version checks against all of it, so neither depends on rows that can change after registration.
-    evidence: st.evidence.filter((e) => e.origin !== 'assumption').map((e) => ({ id: e.id, claim: e.claim, quote: e.quote, origin: e.origin })).sort((a, b) => a.id.localeCompare(b.id)),
+    // Allow-list (issue #57, plan v2 §5): only approved facts of a usable trust class (owned, owner answer, approved
+    // third-party). Every cited fact is among them (checked above), proposed and rejected facts never are. Polish reads
+    // the cited part, and the claims gate for posts written to this version checks against all of it, so neither
+    // depends on rows that can change after registration.
+    evidence: st.evidence.filter(usableFact).map((e) => ({ id: e.id, claim: e.claim, quote: e.quote, origin: e.origin, trust: e.trust, review_status: e.review_status })).sort((a, b) => a.id.localeCompare(b.id)),
   };
   // Posts written to this version are approved against this evidence, at most MAX_EVIDENCE_BATCHES model calls each;
   // a larger set would register a kit no post could ever be approved under, so it is refused before signing.
@@ -153,8 +169,20 @@ export async function registerKit(env: Env, user: User, brand: Brand, now = Date
     x.sections.find((s) => s.section === 'voice')?.body ?? null,
   ]);
   if (voiceKey(again) !== voiceKey(st)) throw new HttpError(409, 'your voice changed while registering; check Gate 3 and try again');
+  // Same for evidence decisions: a fact approved, rejected or removed while this ran would make the snapshot disagree
+  // with what the owner decided, so refuse rather than sign it (PR #63 review).
+  const evidenceKey = (x: typeof st) => JSON.stringify(x.evidence.map((e) => [e.id, e.trust ?? null, e.review_status ?? null]).sort());
+  if (evidenceKey(again) !== evidenceKey(st)) throw new HttpError(409, 'your facts changed while registering; check them and try again');
   const hash = 'sha256:' + (await sha256Hex(canonical(payload)));
   const [kit] = await db.insert<Kit>(env, 'kits', { brand_id: brand.id, version, hash, payload, approved_by: user.id, status: 'pending' });
+  // Read the fact decisions once more now that the pending kit exists, and refuse before signing if any changed: a
+  // rejection that landed between the re-read above and the insert would otherwise be signed (PR #63 review). Any
+  // decision after this read is a change made after registration began, which the next kit version picks up.
+  const final = await brandState(env, brand);
+  if (evidenceKey(final) !== evidenceKey(st)) {
+    await db.update(env, 'kits', db.eq('id', kit.id), { status: 'failed', error: 'facts changed while registering' });
+    throw new HttpError(409, 'your facts changed while registering; check them and try again');
+  }
   try {
     const registrar = await registrarFromSecret(env.REGISTRAR_KEY);
     // Only hashes and ids go onchain (R27): brand id, kit hash, version, approver id.
@@ -225,7 +253,7 @@ export async function saveAnswer(env: Env, brand: Brand, step: string, data: Rec
     else removed.push(e.id);
   }
   if (removed.length) await db.del(env, 'evidence', `${evFilter}&id=in.(${removed.map(encodeURIComponent).join(',')})`);
-  const rows = wanted.filter((c) => !kept.has(c)).map((claim) => ({ brand_id: brand.id, section: step, claim, origin: 'owner_answer' }));
+  const rows = wanted.filter((c) => !kept.has(c)).map((claim) => ({ brand_id: brand.id, section: step, claim, origin: 'owner_answer', trust: 'owner_answer', review_status: 'approved' }));
   if (rows.length) await db.insert(env, 'evidence', rows);
   if (!removed.length) return { answer: row, stale: [] as string[] };
   const sections = await db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
@@ -259,6 +287,26 @@ export async function patchBrand(env: Env, brand: Brand, patch: Record<string, s
   const [row] = await db.update<Brand>(env, 'brands', db.eq('id', brand.id), patch);
   if (renamed) for (const s of await unapproveAll()) if (!reapprove.includes(s)) reapprove.push(s);
   return { brand: row, reapprove };
+}
+
+/** Trust classes whose facts the owner reviews; owner answers are changed by editing the answer, assumptions by redrafting. */
+const REVIEWABLE = ['owned', 'third_party'];
+
+/**
+ * The owner approves or rejects one fact (issue #57). Third-party facts start proposed and enter a kit or back a post
+ * only once approved; any reviewable fact can be rejected. Returns the sections citing the fact when it stops being
+ * usable, since registration now refuses them until redrafted or the fact is approved again.
+ */
+export async function reviewEvidence(env: Env, brand: Brand, id: string, decision: string) {
+  if (decision !== 'approved' && decision !== 'rejected') throw new HttpError(400, 'review_status must be approved or rejected');
+  const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
+  const [row] = await db.select<Evidence>(env, 'evidence', f);
+  if (!row) throw new HttpError(404, 'fact not found');
+  if (!REVIEWABLE.includes(row.trust ?? '')) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
+  const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision });
+  if (decision === 'approved') return { evidence: updated, stale: [] as string[] };
+  const sections = await db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
+  return { evidence: updated, stale: sections.filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };
 }
 
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
@@ -329,6 +377,12 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
     const raw = (b.data ?? {}) as Record<string, unknown>;
     for (const [k, v] of Object.entries(raw).slice(0, 20)) data[k.slice(0, 60)] = str(v, 2000);
     return json(await saveAnswer(env, brand, step, data, b.skipped === true));
+  }
+  // PATCH /api/brands/:id/evidence/:eid  {review_status: 'approved' | 'rejected'} -> {evidence, stale}
+  if (p[3] === 'evidence' && p.length === 5 && m === 'PATCH') {
+    if (!/^[0-9a-f-]{36}$/i.test(p[4])) throw new HttpError(404, 'fact not found');
+    const b = await body(req);
+    return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20)));
   }
   if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
     // Removing a source removes the facts read from it. Sections that cited them then need redrafting before the next

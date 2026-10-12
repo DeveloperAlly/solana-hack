@@ -27,7 +27,7 @@ export const INGEST_URL: WorkflowSpec = {
       userVars: { title: '$steps.read.title', url: '$steps.read.url', text: '$steps.read.excerpt' },
     },
     { id: 'check', type: 'code', label: 'Checking every quote against the page', fn: 'keep_quoted_facts', args: { facts: '$steps.extract.facts', page: '$steps.read.text' } },
-    { id: 'save', type: 'write', label: 'Saving the facts', op: 'save_source_facts', args: { sourceId: '$input.sourceId', facts: '$steps.check.facts', dropped: '$steps.check.dropped', url: '$steps.read.url', title: '$steps.read.title', text: '$steps.read.text' } },
+    { id: 'save', type: 'write', label: 'Saving the facts', op: 'save_source_facts', args: { sourceId: '$input.sourceId', link: '$input.url', website: '$input.website', facts: '$steps.check.facts', dropped: '$steps.check.dropped', url: '$steps.read.url', title: '$steps.read.title', text: '$steps.read.text' } },
   ],
   output: '$steps.save',
   onFailure: { op: 'mark_source_failed', args: { sourceId: '$input.sourceId' } },

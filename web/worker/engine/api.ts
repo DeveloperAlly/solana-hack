@@ -7,9 +7,10 @@ import { db } from '../db';
 import { HttpError, type Env } from '../env';
 import { checkExecutor, executorName, launch, waitForRun, type WaitUntil } from './executor';
 import { progressAt } from './runner';
+import { urlKind } from '../sources/registry';
 import type { RunRow, WorkflowSpec } from './types';
 
-interface BrandRef { id: string; owner_id: string; name: string }
+interface BrandRef { id: string; owner_id: string; name: string; website?: string | null }
 interface UserRef { id: string }
 
 /** How long POST /sources waits for its run before answering 202 with the run to follow instead. */
@@ -24,9 +25,12 @@ const KINDS: Record<string, (env: Env, brand: BrandRef, body: Record<string, unk
   ingest_url: async (env, brand, body) => {
     const url = typeof body.url === 'string' ? body.url.trim().slice(0, 500) : '';
     if (!url) throw new HttpError(400, 'a link is required');
-    // The source row exists from the start (pending), as before, so the list shows it while it is read.
-    const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url, status: 'pending' });
-    return { url, sourceId: src.id, brandName: brand.name };
+    // The source row exists from the start (pending), as before, so the list shows it while it is read. Its kind is
+    // 'site' only for a link on the brand's own website (sources/registry.ts urlKind, issue #57); the save step
+    // classifies again on the page actually read, since a redirect can leave the website.
+    const website = brand.website ?? null;
+    const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url, status: 'pending', kind: urlKind(url, website) });
+    return { url, sourceId: src.id, brandName: brand.name, website };
   },
 };
 
@@ -76,7 +80,7 @@ export async function getRun(env: Env, user: UserRef, id: string) {
 
 /**
  * POST /api/brands/:id/sources on the engine. Waits for the run like the old synchronous ingest did, and answers with
- * the same body (201 {sourceId, facts, dropped}, plus runId) or the same error. A run still going after INGEST_WAIT_MS,
+ * the same body (201 {sourceId, facts, dropped, kind, needsReview}, plus runId) or the same error. A run still going after INGEST_WAIT_MS,
  * or paused for the model's daily limit, answers 202 {runId, sourceId, status, progress, resume_at}; GET /api/runs/:id
  * follows it from there.
  */
