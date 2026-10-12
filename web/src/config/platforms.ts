@@ -8,7 +8,8 @@
 // - Capabilities are plans, not facts. `today` names the one thing that works now, with its source.
 // - Posting rules carry a source. A rule with no official source found stays bracketed: "[platform posting rules]".
 //   Sources were found with a web search on 2026-10-13 and read from the official page.
-// - Connect methods named only where a repo doc names them; the rest stay bracketed.
+// - Connect methods named only where a repo doc names them (X and LinkedIn OAuth: backend map §9; the Discord bot and
+//   the Telegram brand bot: canvas Inbox-Connect; a feed URL for blogs: the site ingest); the rest stay bracketed.
 
 export const platformKinds = [
   { id: 'social', label: 'Social' },
