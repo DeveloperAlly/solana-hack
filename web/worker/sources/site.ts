@@ -45,8 +45,11 @@ const MAX_CANDIDATES = 12;
 // carries no costDollars.
 const EXA_PER_PAGE = 0.001;
 
-interface ExaPage { url?: string; title?: string | null; text?: string | null; extras?: { links?: unknown[] } }
+interface ExaPage { url?: unknown; title?: unknown; text?: unknown; extras?: { links?: unknown } }
 interface ExaResponse { results?: ExaPage[]; statuses?: { id?: string; status?: string; error?: { tag?: string; httpStatusCode?: number } }[]; costDollars?: { total?: number } }
+
+/** A provider field as a string, or '' when it is anything else: provider replies are untrusted (PR #71 review). */
+const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 
 /** Host without a leading "www.", so an apex-to-www redirect stays on the same site. */
 const hostKey = (u: URL) => u.hostname.toLowerCase().replace(/^www\./, '');
@@ -89,10 +92,15 @@ async function exaContents(key: string, body: Record<string, unknown>): Promise<
   }
   // Logging policy: the status only; Exa's message could echo the request.
   if (!res.ok) return { error: `Exa answered HTTP ${res.status}` };
-  try { return (await res.json()) as ExaResponse; } catch { return { error: 'Exa sent an unreadable reply' }; }
+  let data: unknown;
+  try { data = await res.json(); } catch { return { error: 'Exa sent an unreadable reply' }; }
+  return data && typeof data === 'object' && !Array.isArray(data) ? (data as ExaResponse) : { error: 'Exa sent an unreadable reply' };
 }
 
-const exaCost = (data: ExaResponse, pages: number) => (typeof data.costDollars?.total === 'number' ? data.costDollars.total : pages * EXA_PER_PAGE);
+const exaCost = (data: ExaResponse, pages: number) => {
+  const total = data.costDollars?.total;
+  return typeof total === 'number' && Number.isFinite(total) && total >= 0 ? total : pages * EXA_PER_PAGE;
+};
 
 /**
  * Reads the home page and its links with Exa, lets `pick` choose which links may be read (robots.txt, same site,
@@ -103,27 +111,29 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (
   const home = await exaContents(key, { urls: [url.toString()], text, extras: { links: EXA_LINKS } });
   if ('error' in home && typeof home.error === 'string') return { error: home.error };
   const data = home as ExaResponse;
-  const top = data.results?.[0];
-  const failed = data.statuses?.find((s) => s.status === 'error');
-  if (!top?.text?.trim()) return { error: failed ? `Exa could not read the page (${failed.error?.tag ?? 'error'})` : 'Exa returned no text for the page' };
+  const results = Array.isArray(data.results) ? data.results : [];
+  const top = results[0];
+  const failed = Array.isArray(data.statuses) ? data.statuses.find((s) => s?.status === 'error') : undefined;
+  if (!str(top?.text).trim()) return { error: failed ? `Exa could not read the page (${str(failed.error?.tag) || 'error'})` : 'Exa returned no text for the page' };
   const seen = new Set<string>();
   const pages: SourcePage[] = [];
   const add = (p: ExaPage) => {
-    const body = p.text?.trim();
-    const u = absoluteUrl(p.url);
+    const body = str(p?.text).trim();
+    const u = absoluteUrl(p?.url);
     if (!u || !body || seen.has(u.toString())) return;
     seen.add(u.toString());
-    pages.push({ url: u.toString(), title: (p.title ?? '').trim().slice(0, 200) || u.hostname, text: body });
+    pages.push({ url: u.toString(), title: str(p.title).trim().slice(0, 200) || u.hostname, text: body });
   };
   add(top);
   let cost = exaCost(data, 1);
-  const links = (top.extras?.links ?? []).map(absoluteUrl).filter((u): u is URL => !!u);
+  const rawLinks = top?.extras?.links;
+  const links = (Array.isArray(rawLinks) ? rawLinks : []).map(absoluteUrl).filter((u): u is URL => !!u);
   const chosen = opts.subpages > 0 ? await pick(links) : [];
   if (chosen.length) {
     const more = await exaContents(key, { urls: chosen.map((u) => u.toString()), text });
     if ('error' in more && typeof more.error === 'string') return { pages, cost };
     const extra = more as ExaResponse;
-    for (const p of extra.results ?? []) add(p);
+    for (const p of Array.isArray(extra.results) ? extra.results : []) add(p);
     cost += exaCost(extra, chosen.length);
   }
   return { pages, cost };
@@ -146,9 +156,9 @@ async function viaRendered(env: SourceEnv, url: URL): Promise<{ text: string; fi
     });
     if (!res.ok) return { error: res.status === 429 ? 'the page renderer is at its limit for now' : `the page renderer answered HTTP ${res.status}` };
     // meta.finalUrl is the address the browser ended on after redirects (API reference above).
-    const data = (await res.json()) as { success?: boolean; result?: string; meta?: { finalUrl?: string } };
-    const text = data.success ? (data.result ?? '').trim() : '';
-    return text.length >= 40 ? { text, finalUrl: data.meta?.finalUrl } : { error: 'the rendered page has almost no readable text' };
+    const data = (await res.json()) as { success?: unknown; result?: unknown; meta?: { finalUrl?: unknown } } | null;
+    const text = data?.success === true ? str(data.result).trim() : '';
+    return text.length >= 40 ? { text, finalUrl: str(data?.meta?.finalUrl) || undefined } : { error: 'the rendered page has almost no readable text' };
   } catch {
     return { error: 'the page renderer did not answer in time' };
   }

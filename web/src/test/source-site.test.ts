@@ -127,6 +127,22 @@ describe('site adapter: untrusted Exa output', () => {
   });
 });
 
+describe('site adapter: provider replies of the wrong shape (PR #71 review)', () => {
+  it('never throws on Exa fields of the wrong type, and returns its typed result', async () => {
+    const odd = (body: unknown) => stub({ exa: () => new Response(JSON.stringify(body)), page: () => html('Home', LONG) });
+    for (const body of [null, [], { results: 'x' }, { results: [{ url: 'https://a.test/', text: 42, title: {} }] }, { results: [{ url: 'https://a.test/', text: LONG, title: 7, extras: { links: 'https://a.test/b' } }], costDollars: { total: 'free' }, statuses: 'ok' }]) {
+      odd(body);
+      const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/');
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(typeof r.title).toBe('string');
+    }
+  });
+  it('never throws on a renderer reply of the wrong type', async () => {
+    stub({ page: () => new Response('<html><body></body></html>', { headers: { 'content-type': 'text/html' } }), render: () => new Response(JSON.stringify({ success: true, result: 12345, meta: { finalUrl: 9 } })) });
+    expect(await readSite({ CF_ACCOUNT_ID: 'a', CF_BROWSER_TOKEN: 't' }, 'https://spa.test/')).toMatchObject({ ok: false, code: 'unreadable' });
+  });
+});
+
 describe('site adapter: fallbacks', () => {
   it('without an Exa key, reads the home page directly and says Exa is not configured', async () => {
     const calls = stub({ page: () => html('aDNA', LONG) });
@@ -242,6 +258,11 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     });
     expect(await readSite(env, 'https://spa.test/')).toMatchObject({ ok: true, url: 'https://spa.test/home', meta: { via: 'rendered' } });
     expect(ok.find((c) => c.url.startsWith('https://api.cloudflare.com/'))?.body).toMatchObject({ url: 'https://spa.test/home' });
+  });
+  it('reads a robots.txt with CR-only line endings (RFC 9309 §2.2; PR #71 review)', async () => {
+    expect(allowedBy(parseRobots('User-agent: *\rDisallow: /\r'), '/page')).toBe(false);
+    stub({ robots: () => new Response('User-agent: *\rDisallow: /private\r') });
+    expect(await readSite({}, 'https://x.test/private/a')).toMatchObject({ ok: false, code: 'robots_disallowed' });
   });
   it('a Sitemap record does not end a group (RFC 9309 §2.2.4; PR #67 review)', () => {
     // JamJamBot and OtherBot share one group: the Sitemap line between their user-agent lines must not split it.
