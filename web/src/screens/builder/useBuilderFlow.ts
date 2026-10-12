@@ -4,7 +4,8 @@
 // Order and labels: canvas boards Onboard-1 … Onboard-6 and BB-1 … BB-Gate3 (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn).
 // State is held in memory for the session, so it survives moving between /screens routes; nothing is sent anywhere.
 // INTEGRATION: gates persist through POST /api/brands/:id/gates/:gate/approve (backend map §4, "Gate 1, Gate 2, Gate 3").
-import { useSyncExternalStore } from 'react';
+import { createStore } from '../../lib/createStore';
+import { activeBrand, selectBrand, useActiveBrandId } from '../../flows/brand/activeBrand';
 import type { StepperStep } from '../../ui/composites/Stepper';
 import { useBoardHref, type BoardKey } from './paths';
 import type { BuilderBrand, DialValues, GateDecision, GateId, VoicePick } from './types';
@@ -90,10 +91,8 @@ export interface FlowState {
   links?: string;
   /** Sources chosen on the Sources step, in order. */
   sources?: string[];
-  /** The brand chosen in the hub brand switcher. */
-  hubBrand?: string;
-  /** The kit version Kit-Export opens on (set when coming from the kit just published). */
-  exportVersion?: string;
+  /** The kit version Kit-Export opens on, and the brand it belongs to (set when coming from the kit just published). */
+  exportFor?: { brand: string; version: string };
   /** Gate decisions as recorded; an approval keeps a fingerprint of the inputs it approved (see gateInputs). */
   gates: Record<GateId, StoredDecision>;
   positioningOption: string;
@@ -109,23 +108,11 @@ const initial: FlowState = {
   dials: { formality: 2, energy: 3, humour: 2 },
 };
 
-let state: FlowState = initial;
-const listeners = new Set<() => void>();
-function set(next: Partial<FlowState>) {
-  state = { ...state, ...next };
-  listeners.forEach((l) => l());
-}
-function subscribe(l: () => void) {
-  listeners.add(l);
-  return () => listeners.delete(l);
-}
+const store = createStore<FlowState>(initial);
+const set = store.set;
 
-/** Clears the flow (tests, and "start again"). */
-export function resetBuilderFlow() {
-  // Replaced whole, not merged: optional fields (email, links, sources, hub brand) must not survive a reset.
-  state = initial;
-  listeners.forEach((l) => l());
-}
+/** Clears the flow (tests, and "start again"): replaced whole, so optional fields (email, links, hub brand) go too. */
+export const resetBuilderFlow = store.reset;
 
 /** A gate decision as stored: an approval also keeps the fingerprint of the flow inputs it approved. */
 export type StoredDecision = GateDecision & { inputs?: string };
@@ -165,7 +152,7 @@ export function openGates(gates: Record<GateId, GateDecision>): GateId[] {
 }
 
 export function useBuilderFlow(key: FlowKey) {
-  const flow = useSyncExternalStore(subscribe, () => state);
+  const flow = store.use()[0];
   const to = useBoardHref();
   const c = config[key];
   const href = (board?: BoardKey) => (board ? to(board) : undefined);
@@ -192,7 +179,10 @@ export function useBuilderFlow(key: FlowKey) {
     enterLinks: (links: string) => set({ links }),
     chooseSources: (sources: string[]) => set({ sources }),
     /** Open Kit-Export on this brand and version (the kit just published). */
-    openExport: (brandId: string, version: string) => set({ hubBrand: brandId, exportVersion: version }),
+    openExport: (brandId: string, version: string) => {
+      selectBrand(brandId);
+      set({ exportFor: { brand: brandId, version } });
+    },
     /** Gates not yet approved. The Coverage-Map alert and the kit approval block both read this, never a second check. */
     openGates: openGates(effectiveGates(flow)),
     decide: (gate: GateId, decision: GateDecision) => set({ gates: recordDecision(flow, gate, decision) }),
@@ -204,14 +194,17 @@ export function useBuilderFlow(key: FlowKey) {
 
 export type BuilderFlow = ReturnType<typeof useBuilderFlow>;
 
-/** The hub brand switcher's selection (Kit-Export, Dashboard): [current brand id, choose]. Falls back to the screen's default. */
-export function useHubBrand(defaultId: string): [string, (id: string) => void] {
-  const flow = useSyncExternalStore(subscribe, () => state);
-  // Choosing another brand drops a version picked for the previous one.
-  return [flow.hubBrand ?? defaultId, (hubBrand: string) => set({ hubBrand, exportVersion: undefined })];
+/**
+ * The hub brand switcher's selection (Kit-Export, Dashboard): [active brand id, choose]. The brand is the app-wide one
+ * (flows/brand/activeBrand), so every page's switcher agrees.
+ */
+export function useHubBrand(): [string, (id: string) => void] {
+  return useActiveBrandId();
 }
 
 /** The kit version Kit-Export should open on, if one was chosen upstream. */
 export function useExportVersion(): string | undefined {
-  return useSyncExternalStore(subscribe, () => state).exportVersion;
+  const pick = store.use()[0].exportFor;
+  // A version picked for one brand never opens under another.
+  return pick && pick.brand === activeBrand.use() ? pick.version : undefined;
 }

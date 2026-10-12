@@ -459,7 +459,7 @@ describe('choices flow to every later screen (session.ts), desktop and mobile', 
 
   it('a draft edited on desktop opens on mobile, and a pasted link reaches the failed check', async () => {
     const u = user();
-    ambSession.update({ draft: 'Edited elsewhere.\n\nSponsored by aDNA' });
+    ambSession.set({ draft: 'Edited elsewhere.\n\nSponsored by aDNA' });
     at('/screens/M-3-Generate');
     await h1('Write your piece');
     expect(screen.getByRole('textbox', { name: 'Draft' })).toHaveValue('Edited elsewhere.\n\nSponsored by aDNA');
@@ -468,7 +468,7 @@ describe('choices flow to every later screen (session.ts), desktop and mobile', 
     await u.type(screen.getByLabelText('LinkedIn post URL'), 'https://www.linkedin.com/posts/mai_agents-1');
     await u.click(screen.getByRole('button', { name: 'Submit URL' }));
     await h1('Checking your post');
-    expect(ambSession.get().route).toBe('paste-url');
+    expect(ambSession.read().route).toBe('paste-url');
     render(<MemoryRouter initialEntries={['/screens/Amb-5c-VerifyFailed']}><Routes><Route path="/screens/:artboard" element={<GalleryScreen />} /></Routes></MemoryRouter>);
     expect(await screen.findByText('Link checked: https://www.linkedin.com/posts/mai_agents-1')).toBeInTheDocument();
   });
@@ -552,27 +552,27 @@ describe('Codex review round 2 on PR #78', () => {
     const tutorial = adnaFormats[2];
     expect(campaignProgress({ ...statusPaid, piece: tutorial }).text).toBe('2 of 3 pieces done. LinkedIn post (10 USDC) still open.');
     expect(campaignProgress(statusPaid).text).toBe('2 of 3 pieces done. Tutorial (50 USDC) still open.');
-    ambSession.update({ piece: tutorial });
+    ambSession.set({ piece: tutorial });
     const u = user();
     at('/screens/M-5-Status');
     await h1('Paid 50 USDC');
     expect(screen.getByText('2 of 3 pieces done. LinkedIn post (10 USDC) still open.')).toBeInTheDocument();
     await u.click(screen.getByRole('link', { name: 'Write the LinkedIn post (10 USDC)' }));
     await h1('Write your piece');
-    expect(ambSession.get().piece?.id).toBe('linkedin');
+    expect(ambSession.read().piece?.id).toBe('linkedin');
   });
 });
 
 describe('Codex review round 3 on PR #78', () => {
   it('paid shows the link the ambassador submitted', async () => {
-    ambSession.update({ piece: adnaFormats[2], route: 'blog-url', submittedUrl: 'https://mai.dev/agents-context' });
+    ambSession.set({ piece: adnaFormats[2], route: 'blog-url', submittedUrl: 'https://mai.dev/agents-context' });
     at('/screens/Amb-5b-Paid');
     await h1('Paid 50 USDC');
     expect(screen.getByRole('link', { name: /https:\/\/mai\.dev\/agents-context/ })).toHaveAttribute('href', 'https://mai.dev/agents-context');
     expect(screen.queryByText(/\[LinkedIn post link\]/)).not.toBeInTheDocument();
   });
   it('a failed blog page gets page reasons, not LinkedIn ones', async () => {
-    ambSession.update({ piece: adnaFormats[2], route: 'blog-url', submittedUrl: 'https://mai.dev/agents-context' });
+    ambSession.set({ piece: adnaFormats[2], route: 'blog-url', submittedUrl: 'https://mai.dev/agents-context' });
     at('/screens/Amb-5c-VerifyFailed');
     await h1("We couldn't verify your post");
     expect(screen.getByText("The page at that link doesn't match your draft")).toBeInTheDocument();
@@ -592,7 +592,7 @@ describe('Codex review round 4 on PR #78: status values derive from the session'
     const angle = screen.getByLabelText('Your angle');
     await u.clear(angle);
     await u.type(angle, 'My own angle');
-    expect(ambSession.get().angle).toBe('My own angle');
+    expect(ambSession.read().angle).toBe('My own angle');
     first.unmount();
     at('/screens/M-3-Generate');
     expect(await screen.findByLabelText('Your angle')).toHaveValue('My own angle');
@@ -604,7 +604,7 @@ describe('Codex review round 4 on PR #78: status values derive from the session'
     expect(screen.getByText('Mai T. · 25 USDC')).toBeInTheDocument();
     expect(screen.getAllByText('25 USDC').length).toBeGreaterThan(0);
     cleanup();
-    ambSession.update({ piece: adnaFormats[2] });
+    ambSession.set({ piece: adnaFormats[2] });
     at('/screens/Amb-5b-Paid');
     await h1('Paid 50 USDC');
     expect(screen.getByText('Mai T. · 65 USDC')).toBeInTheDocument();
@@ -616,7 +616,7 @@ describe('Codex review round 4 on PR #78: status values derive from the session'
   });
 
   it('recovery and budget copy name the campaign brand', async () => {
-    ambSession.update({ campaign: { title: 'GamersLab season', brand: 'GamersLab' } });
+    ambSession.set({ campaign: { title: 'GamersLab season', brand: 'GamersLab' } });
     at('/screens/Amb-5c-VerifyFailed');
     expect(await screen.findByRole('button', { name: 'Ask GamersLab to review' })).toBeInTheDocument();
     cleanup();

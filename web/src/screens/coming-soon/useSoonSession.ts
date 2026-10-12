@@ -3,19 +3,16 @@
 // Everything except the brand choice is scoped to the active brand, so switching brand never shows another brand's
 // keys, connections, plan, claims or schedule (Codex review on PR #79).
 // INTEGRATION: each field is server state once its endpoint exists (named on each field).
-import { createStore, type BrandSource } from '../../lib/brandScopedStore';
+import { createStore } from '../../lib/createStore';
+import { createBrandScopedStore } from '../../lib/brandScopedStore';
+import { activeBrand } from '../../flows/brand/activeBrand';
 import type { SoonStatusId } from './status';
 import type { Claim, PaidPlan, StatusRowItem } from './types';
 
-/** The brand selected when none was chosen in this session (demo fixture id). */
-export const defaultBrandId = 'jamjam';
-
 export type AiSource = { source: 'default' } | { source: 'openrouter'; key: { last4: string } };
 
-/** Account-level state, shared by every brand. */
+/** Account-level state, shared by every brand. The active brand itself is flows/brand/activeBrand. */
 interface AccountState {
-  /** Active brand (D48), shared by the hub frame's switcher and Brand-Switcher. Session, no endpoint yet. */
-  brandId?: string;
   /** Brands added on Brand-Switcher (POST /api/brands). */
   addedBrands?: StatusRowItem[];
 }
@@ -44,31 +41,24 @@ export interface BrandState {
 
 export type SoonSession = AccountState & BrandState;
 
-const store = createStore<AccountState & { byBrand: Record<string, BrandState> }>({ byBrand: {} });
+const account = createStore<AccountState>({});
+const byBrand = createBrandScopedStore<BrandState>(activeBrand);
 
 /** Clears the session (tests). */
-export const resetSoonSession = store.reset;
-
-function setSession(patch: Partial<SoonSession>) {
-  const { brandId, addedBrands, ...scoped } = patch;
-  const current = store.read();
-  const brand = current.brandId ?? defaultBrandId;
-  store.set({
-    ...('brandId' in patch ? { brandId } : {}),
-    ...('addedBrands' in patch ? { addedBrands } : {}),
-    byBrand: { ...current.byBrand, [brand]: { ...current.byBrand[brand], ...scoped } },
-  });
+export function resetSoonSession() {
+  account.reset();
+  byBrand.reset();
 }
 
-/** The active brand, for stores kept per brand (lib/brandScopedStore). */
-export const soonBrand: BrandSource = {
-  read: () => store.read().brandId ?? defaultBrandId,
-  use: () => store.use()[0].brandId ?? defaultBrandId,
-};
+function setSession(patch: Partial<SoonSession>) {
+  const { addedBrands, ...scoped } = patch;
+  if ('addedBrands' in patch) account.set({ addedBrands });
+  if (Object.keys(scoped).length) byBrand.set(scoped);
+}
 
 /** The session for the active brand, and a setter that merges a patch (brand fields go to the active brand). */
 export function useSoonSession(): [SoonSession, (patch: Partial<SoonSession>) => void] {
-  const [state] = store.use();
-  const brand = state.brandId ?? defaultBrandId;
-  return [{ brandId: state.brandId, addedBrands: state.addedBrands, ...state.byBrand[brand] }, setSession];
+  const [acc] = account.use();
+  const [scoped] = byBrand.use();
+  return [{ ...acc, ...scoped }, setSession];
 }

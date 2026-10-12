@@ -33,7 +33,7 @@ import { useHubBrand } from './useBuilderFlow';
 
 export function Dashboard({ data: screen }: { data: DashboardScreenData }) {
   const to = useBoardHref();
-  const [brandId, selectBrand] = useHubBrand(screen.defaultBrandId);
+  const [brandId, selectBrand] = useHubBrand();
   const data = screen.byBrand[brandId] ?? screen.byBrand[screen.defaultBrandId];
   return (
     <BuilderHubPage

@@ -132,7 +132,7 @@ export interface Claim { id: string; text: string; evidence: string; owner: Brac
 export interface ClaimsData { claims: Claim[] }
 
 /* Brands (D48, D36) and founder profile */
-export interface BrandSwitcherData { brands: StatusRowItem[]; currentId: string; founderId: string }
+export interface BrandSwitcherData { brands: StatusRowItem[]; founderId: string }
 export interface FounderProfileData { name: string; sources: StatusRowItem[]; linkedTo: string; sharedStories: boolean }
 
 /* Outcome log */

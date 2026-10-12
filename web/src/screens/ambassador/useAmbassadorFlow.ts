@@ -34,7 +34,7 @@ export function useAmbassadorFlow(device: Device) {
       device,
       /** What the ambassador chose on earlier screens (session.ts); fixtures fill only what is not chosen yet. */
       session,
-      remember: ambSession.update,
+      remember: ambSession.set,
       paths,
       pages: { ...pageRoutes, verifyMatch: href(verifyMatch) },
       next: (step: AmbStep) => at(step, 1),

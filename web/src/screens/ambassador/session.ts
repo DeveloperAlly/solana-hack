@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { createStore } from '../../lib/createStore';
 import type { CampaignRef, DraftReview, PieceFormat, PublishRouteId } from './types';
 
 /**
@@ -18,27 +18,10 @@ export interface AmbSession {
   submittedUrl?: string;
 }
 
-let current: AmbSession = {};
-const listeners = new Set<() => void>();
-
-export const ambSession = {
-  get: (): AmbSession => current,
-  update(patch: AmbSession) {
-    current = { ...current, ...patch };
-    listeners.forEach((l) => l());
-  },
-  /** Back to the fixture defaults (tests, and a fresh demo run). */
-  reset() {
-    current = {};
-    listeners.forEach((l) => l());
-  },
-  subscribe(listener: () => void) {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  },
-};
+/** The session store (lib/createStore); `reset` goes back to the fixture defaults (tests, and a fresh demo run). */
+export const ambSession = createStore<AmbSession>({});
 
 /** The session, re-rendering when it changes. */
 export function useAmbSession(): AmbSession {
-  return useSyncExternalStore(ambSession.subscribe, ambSession.get, ambSession.get);
+  return ambSession.use()[0];
 }

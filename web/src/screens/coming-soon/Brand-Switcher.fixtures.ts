@@ -8,6 +8,5 @@ export const brandSwitcher: BrandSwitcherData = {
     { id: 'adna', name: 'aDNA', detail: 'adna.network', status: 'domain-verified' },
     { id: 'founder', name: '[Founder name]', detail: 'founder profile, linked to JamJam', status: 'person' },
   ],
-  currentId: 'jamjam',
   founderId: 'founder',
 };

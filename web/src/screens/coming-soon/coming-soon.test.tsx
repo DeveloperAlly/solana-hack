@@ -341,8 +341,8 @@ describe('Claims', () => {
 describe('Brands and founder', () => {
   it('switches brand, adds one with validation, and opens the founder profile', async () => {
     const user = at('/screens/Brand-Switcher');
-    await user.click(screen.getByRole('button', { name: 'Switch to aDNA' }));
-    expect(screen.getByRole('button', { name: 'Switch to JamJam' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Switch to JamJam' }));
+    expect(screen.getByRole('button', { name: 'Switch to aDNA' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Add a brand' }));
     await user.type(screen.getByLabelText('Brand name'), 'GamersLab');
     await user.type(screen.getByLabelText(/Website domain/), 'not a domain');
@@ -431,10 +431,10 @@ describe('upstream values flow downstream', () => {
 
   it('the brand chosen on Brand-Switcher carries to the hub frame on other screens', async () => {
     const user = at('/screens/Brand-Switcher');
-    await user.click(screen.getByRole('button', { name: 'Switch to aDNA' }));
-    expect(screen.getByRole('button', { name: 'aDNA, switch brand' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Switch to JamJam' }));
+    expect(screen.getByRole('button', { name: 'JamJam, switch brand' })).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Open [Founder name]' }));
-    expect(screen.getByRole('button', { name: 'aDNA, switch brand' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'JamJam, switch brand' })).toBeInTheDocument();
   });
 
   it('a key saved on Settings-GetKey shows on Settings-AI, with OpenRouter in use', async () => {
@@ -550,11 +550,11 @@ describe('review fixes, round 4 (Codex, PR #79)', () => {
     const user = at('/screens/Settings-Connections');
     await user.click(screen.getByRole('button', { name: 'Reconnect X' }));
     expect(screen.queryByText('Expired')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'JamJam, switch brand' }));
-    await user.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
-    expect(screen.getByText('Expired')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'aDNA, switch brand' }));
     await user.click(screen.getByRole('menuitemradio', { name: /JamJam/ }));
+    expect(screen.getByText('Expired')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'JamJam, switch brand' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
     expect(screen.queryByText('Expired')).not.toBeInTheDocument();
   });
 
@@ -574,13 +574,13 @@ describe('review fixes, round 5 (Codex, PR #79)', () => {
   it('media drafts are kept per brand', async () => {
     const user = at('/screens/Media-Composer');
     await user.clear(screen.getByLabelText('Slide 1 · Hook text'));
-    await user.type(screen.getByLabelText('Slide 1 · Hook text'), 'JamJam hook');
-    await user.click(screen.getByRole('button', { name: 'JamJam, switch brand' }));
-    await user.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
-    expect(screen.getByLabelText('Slide 1 · Hook text')).toHaveValue('[hook]');
+    await user.type(screen.getByLabelText('Slide 1 · Hook text'), 'aDNA hook');
     await user.click(screen.getByRole('button', { name: 'aDNA, switch brand' }));
     await user.click(screen.getByRole('menuitemradio', { name: /JamJam/ }));
-    expect(screen.getByLabelText('Slide 1 · Hook text')).toHaveValue('JamJam hook');
+    expect(screen.getByLabelText('Slide 1 · Hook text')).toHaveValue('[hook]');
+    await user.click(screen.getByRole('button', { name: 'JamJam, switch brand' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
+    expect(screen.getByLabelText('Slide 1 · Hook text')).toHaveValue('aDNA hook');
   });
 
   it('an untouched short video is not blocked by the carousel claim', async () => {
@@ -636,11 +636,11 @@ describe('review fixes, round 6 (Codex, PR #79)', () => {
     await user.click(screen.getByRole('button', { name: 'Check and review' }));
     await user.click(screen.getByRole('button', { name: 'Approve and register' }));
     expect(screen.getByRole('heading', { name: 'Approved and registered' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'JamJam, switch brand' }));
-    await user.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
-    expect(screen.queryByRole('heading', { name: 'Approved and registered' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'aDNA, switch brand' }));
     await user.click(screen.getByRole('menuitemradio', { name: /JamJam/ }));
+    expect(screen.queryByRole('heading', { name: 'Approved and registered' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'JamJam, switch brand' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
     expect(screen.getByRole('heading', { name: 'Approved and registered' })).toBeInTheDocument();
     // Any change to the approved draft un-approves it.
     cleanup();

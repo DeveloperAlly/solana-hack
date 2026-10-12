@@ -2,7 +2,7 @@
 // defaults; once the person edits, Review renders the edited slides, the media type and the export format chosen.
 // INTEGRATION: PATCH /api/drafts/:id with the slides and format (no media row in the backend map yet; issue #51).
 import { createBrandScopedStore } from '../../lib/brandScopedStore';
-import { soonBrand } from './useSoonSession';
+import { activeBrand } from '../../flows/brand/activeBrand';
 import type { ExportOption, MediaFormat, MediaKind } from './types';
 
 interface MediaDraft {
@@ -17,7 +17,7 @@ interface MediaDraft {
 }
 
 // Kept per brand (Codex review on PR #79): another brand's media never shows here.
-const mediaDraft = createBrandScopedStore<MediaDraft>(soonBrand);
+const mediaDraft = createBrandScopedStore<MediaDraft>(activeBrand);
 
 /** How each media type is named in a sentence ("Review your …"). */
 export const mediaKindNames: Record<MediaKind, string> = { carousel: 'carousel', card: 'image card', video: 'short video' };

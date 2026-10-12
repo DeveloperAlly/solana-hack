@@ -1,43 +1,8 @@
-// In-memory stores for gallery flows (issue #51, shared for Superhub): a plain store, and a store kept per brand so
-// a draft started for one brand never shows under another (Codex review on PR #79). They live for the browser
-// session only: nothing is persisted and nothing calls the network.
-import { useSyncExternalStore } from 'react';
+// A store kept per brand, so a draft started for one brand never shows under another (Codex review on PR #79).
+// Built on the one store primitive, lib/createStore.ts. Browser session only: nothing persisted, no network.
+import { createStore, type Store } from './createStore';
 
-export interface Store<T> {
-  read: () => T;
-  /** Merges a patch into the state. */
-  set: (patch: Partial<T>) => void;
-  /** Back to the initial state (tests, and starting over). */
-  reset: () => void;
-  /** The current state (re-renders on change) and the setter. */
-  use: () => [T, (patch: Partial<T>) => void];
-}
-
-export function createStore<T extends object>(initial: T): Store<T> {
-  let state = initial;
-  const listeners = new Set<() => void>();
-  const emit = () => listeners.forEach((l) => l());
-  const subscribe = (l: () => void) => {
-    listeners.add(l);
-    return () => {
-      listeners.delete(l);
-    };
-  };
-  const read = () => state;
-  const set = (patch: Partial<T>) => {
-    state = { ...state, ...patch };
-    emit();
-  };
-  return {
-    read,
-    set,
-    reset: () => {
-      state = initial;
-      emit();
-    },
-    use: () => [useSyncExternalStore(subscribe, read, read), set],
-  };
-}
+export type { Store };
 
 /** Where the active brand comes from: read it now, or subscribe to it inside a component. */
 export interface BrandSource {
@@ -60,6 +25,7 @@ export function createBrandScopedStore<T extends object>(brand: BrandSource): St
     read,
     set,
     reset: byBrand.reset,
+    subscribe: byBrand.subscribe,
     use: () => {
       const [all] = byBrand.use();
       return [all[brand.use()] ?? {}, set];

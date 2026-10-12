@@ -6,7 +6,8 @@ import { PageHeader } from '../../ui/layouts/PageHeader';
 import { BrandSwitcher } from '../../ui/domain/BrandSwitcher';
 import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { demoBrands } from '../../ui/domain/demoBrands';
-import { defaultBrandId, useSoonSession } from './useSoonSession';
+import { useActiveBrandId } from '../../flows/brand/activeBrand';
+import { useSoonSession } from './useSoonSession';
 
 export interface SoonHeader {
   title: string;
@@ -30,11 +31,12 @@ export interface SoonPageProps {
  * the session, so it carries across every screen; brands added on Brand-Switcher appear in the switcher.
  */
 export function SoonPage({ header, nav, children }: SoonPageProps) {
-  const [session, set] = useSoonSession();
+  const [session] = useSoonSession();
+  const [brandId, selectBrand] = useActiveBrandId();
   const brands = [...demoBrands, ...(session.addedBrands ?? []).map((b) => ({ id: b.id, name: b.name }))];
   const { title, intro, definedIn, actions, tag = 'COMING SOON' } = header;
   return (
-    <AppShell brandSlot={<BrandSwitcher brands={brands} currentId={session.brandId ?? defaultBrandId} onSelect={(brandId) => set({ brandId })} />}>
+    <AppShell brandSlot={<BrandSwitcher brands={brands} currentId={brandId} onSelect={selectBrand} />}>
       <Container width="app">
         <Stack gap={6}>
           <PageHeader title={title} intro={intro} actions={actions} badges={<ComingSoonFlag tag={tag} />} meta={definedIn && `Drawn, not built. Defined in: ${definedIn}`} />

@@ -5,7 +5,7 @@
  * survive moving between the /screens/<Artboard> routes in one visit. Nothing is preselected and nothing is sent; each
  * action names the endpoint that will persist it once the flow is wired.
  */
-import { useSyncExternalStore } from 'react';
+import { createStore } from '../../lib/createStore';
 import type { GateDecision } from '../../ui/domain/DecisionGate';
 import { journeySteps, useJourneyHref, type JourneyStepId } from './paths';
 import type { FactDecision, FactRecord } from './types';
@@ -69,23 +69,15 @@ const empty: JourneySelections = {
   gateApprovals: {},
 };
 
-let state: JourneySelections = empty;
-const listeners = new Set<() => void>();
-const subscribe = (l: () => void) => {
-  listeners.add(l);
-  return () => listeners.delete(l);
-};
-const snapshot = () => state;
+const store = createStore<JourneySelections>(empty);
 function update(patch: (s: JourneySelections) => Partial<JourneySelections>) {
-  state = { ...state, ...patch(state) };
-  listeners.forEach((l) => l());
+  store.set(patch(store.read()));
 }
 const without = <T,>(rec: Record<string, T>, key: string) => Object.fromEntries(Object.entries(rec).filter(([k]) => k !== key));
 
 /** Clears every selection (a new visit; tests). */
 export function resetJourneyFlow() {
-  state = empty;
-  listeners.forEach((l) => l());
+  store.reset();
 }
 
 /** Edited facts keep the person's wording; any other decision keeps none. */
@@ -141,7 +133,7 @@ const kitStatus = (s: JourneySelections, index: number) => (s.kitRegistered === 
 
 /** Step position and links for a numbered step (J1 to J7); Main and J8 call it without a step for the selections. */
 export function useJourneyFlow(step?: JourneyStepId) {
-  const selections = useSyncExternalStore(subscribe, snapshot, snapshot);
+  const selections = store.use()[0];
   const to = useJourneyHref();
   const index = step ? journeySteps.findIndex((s) => s.id === step) : -1;
   const next = journeySteps[index + 1];

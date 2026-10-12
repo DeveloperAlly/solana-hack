@@ -9,7 +9,7 @@
  * | brands[].name     | brands.name for each membership                            | never (one brand at least)|
  * | brands[].detail   | brands.domain, or the founder link for a person kit        | no domain                 |
  * | brands[].status   | self-declared / domain verified (D36) / person             | never                     |
- * | currentId         | The active brand (session)                                 | never                     |
+ * | (active brand)    | flows/brand/activeBrand: the app-wide active brand        | never                     |
  * | founderId         | The linked founder profile (architecture §3, founder link) | no founder profile        |
  *
  * States: success, loading.
@@ -23,6 +23,7 @@ import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { uniqueId } from '../../lib/id';
 import { StateView } from '../../ui/composites/StateView';
 import { useSoonSession } from './useSoonSession';
+import { useActiveBrandId } from '../../flows/brand/activeBrand';
 import { useSoonRoutes } from './routes';
 import { soonStatus } from './status';
 import { domain, required } from './validate';
@@ -31,10 +32,9 @@ import type { BrandSwitcherData, StatusRowItem } from './types';
 export function BrandSwitcherScreen({ data, state = 'success' }: { data: BrandSwitcherData; state?: ScreenState }) {
   const routes = useSoonRoutes();
   const [session, set] = useSoonSession();
-  // The current brand and added brands are session state, shared with the hub frame's switcher on every screen.
+  // The current brand is the app-wide active brand (flows/brand), shared with every frame's switcher; added brands are session state.
   const brands = [...data.brands, ...(session.addedBrands ?? [])];
-  const current = session.brandId ?? data.currentId;
-  const setCurrent = (brandId: string) => set({ brandId });
+  const [current, setCurrent] = useActiveBrandId();
   const actionFor = (b: StatusRowItem) => {
     if (b.id === current) return <Badge tone="solid">Current</Badge>;
     if (b.id === data.founderId) return <Button href={routes.founderProfile} variant="secondary" aria-label={`Open ${b.name}`}>Open</Button>;

@@ -1,6 +1,7 @@
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useMemo } from 'react';
 import { demoBrands } from '../../../ui/domain/demoBrands';
-import { campaignStore } from '../../../flows/campaign/draft';
+import { createBrandScopedStore } from '../../../lib/brandScopedStore';
+import { activeBrand, resetActiveBrand, useActiveBrandId } from '../../../flows/brand/activeBrand';
 import type { DraftRecord } from './draftStatus';
 
 /** What a person changes on one Superhub screen that later screens must show, for one brand. */
@@ -22,28 +23,13 @@ export interface HubSession extends BrandScoped {
 }
 
 const emptyBrand: BrandScoped = { inbox: {}, drafts: {}, rulesOff: [] };
-interface Store { brand: string; byBrand: Record<string, BrandScoped> }
-
-const initial: Store = { brand: 'adna', byBrand: {} };
-let store = initial;
-const viewOf = (s: Store): HubSession => ({ ...emptyBrand, ...s.byBrand[s.brand], brand: s.brand });
-let view = viewOf(store);
-const listeners = new Set<() => void>();
-
-function write(next: Store) {
-  store = next;
-  view = viewOf(store);
-  listeners.forEach((l) => l());
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
+/** Everything but the brand choice, kept per brand (lib/brandScopedStore keyed by the app-wide active brand). */
+const byBrand = createBrandScopedStore<BrandScoped>(activeBrand);
 
 /** Starts a fresh session (tests; a sign-out in the real app). */
 export function resetHubSession() {
-  write(initial);
+  byBrand.reset();
+  resetActiveBrand();
 }
 
 /**
@@ -53,26 +39,19 @@ export function resetHubSession() {
  * INTEGRATION: these are server state once the screens are wired (brands, inbox_threads, drafts, rules, personas).
  */
 export function useHubSession(): [HubSession, (change: (s: HubSession) => HubSession) => void] {
-  const state = useSyncExternalStore(subscribe, () => view, () => view);
+  const [brand] = useActiveBrandId();
+  const [scoped] = byBrand.use();
+  const state = useMemo(() => ({ ...emptyBrand, ...scoped, brand }), [scoped, brand]);
   const update = useCallback((change: (s: HubSession) => HubSession) => {
-    const { brand, ...scoped } = change(view);
-    write({ brand, byBrand: { ...store.byBrand, [store.brand]: scoped } });
+    const { brand: _brand, ...next } = change({ ...emptyBrand, ...byBrand.read(), brand: activeBrand.read() });
+    byBrand.set(next);
   }, []);
   return [state, update];
 }
 
-/** The brand chosen in the switcher, with its name, for every screen that names the brand. */
+/** The active brand with its name, for every screen that names the brand. */
 export function useActiveBrand() {
-  const [s] = useHubSession();
-  const brand = demoBrands.find((b) => b.id === s.brand) ?? demoBrands[0];
-  return {
-    id: brand.id,
-    name: brand.name,
-    select: (id: string) => {
-      if (id === store.brand) return;
-      write({ ...store, brand: id });
-      // The shared campaign draft (flows/campaign) belongs to one brand: switching brand starts a new campaign.
-      campaignStore.reset();
-    },
-  };
+  const [id, select] = useActiveBrandId();
+  const brand = demoBrands.find((b) => b.id === id) ?? demoBrands[0];
+  return { id: brand.id, name: brand.name, select };
 }

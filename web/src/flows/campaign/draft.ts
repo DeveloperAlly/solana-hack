@@ -1,7 +1,10 @@
-// The campaign draft every step reads and writes, and its fixture defaults (issue #46). In memory for the browser
-// session only: no network, nothing persisted (INTEGRATION: POST /api/campaigns, then PATCH /api/campaigns/:id per
-// step; backend map rows "Campaign-v2-1" to "Campaign-v2-6").
-import { useSyncExternalStore } from 'react';
+// The campaign draft every step reads and writes, and its fixture defaults (issue #46). Kept per brand: each brand has
+// its own draft, and switching back restores it (Codex review on PR #79). In memory for the browser session only: no
+// network, nothing persisted (INTEGRATION: POST /api/campaigns, then PATCH /api/campaigns/:id per step; backend map
+// rows "Campaign-v2-1" to "Campaign-v2-6").
+import { useMemo } from 'react';
+import { createBrandScopedStore } from '../../lib/brandScopedStore';
+import { activeBrand } from '../brand/activeBrand';
 import { stepIndex, type CampaignStepId } from './steps';
 
 export interface CampaignDraft {
@@ -53,17 +56,12 @@ function completedBefore(completed: FlowState['completed'], step: CampaignStepId
   return Object.fromEntries(Object.entries(completed).filter(([id]) => stepIndex(id as CampaignStepId) < cut));
 }
 
-const initialState = (): FlowState => ({ draft: structuredClone(campaignDraftFixture), completed: {} });
-let state = initialState();
-const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((l) => l());
-const subscribe = (l: () => void) => {
-  listeners.add(l);
-  return () => {
-    listeners.delete(l);
-  };
-};
-const read = () => state;
+/** A brand with no campaign yet starts here; never mutated, so it is safe to share. */
+const initialState: FlowState = { draft: campaignDraftFixture, completed: {} };
+/** One draft per brand, keyed by the app-wide active brand (flows/brand/activeBrand). */
+const byBrand = createBrandScopedStore<FlowState>(activeBrand);
+const read = (): FlowState => ({ ...initialState, ...byBrand.read() });
+const write = (next: FlowState) => byBrand.set(next);
 
 export const campaignStore = {
   read,
@@ -73,24 +71,25 @@ export const campaignStore = {
    * data), so an edited earlier step can never be skipped past (Codex review on PR #80).
    */
   set<K extends keyof CampaignDraft>(key: K, value: CampaignDraft[K]) {
-    state = { ...state, draft: { ...state.draft, [key]: value }, completed: completedBefore(state.completed, sectionStep[key]) };
-    emit();
+    const state = read();
+    write({ draft: { ...state.draft, [key]: value }, completed: completedBefore(state.completed, sectionStep[key]) });
   },
   /** Un-completes this step and every later one (its input became incomplete). */
   invalidate(step: CampaignStepId) {
+    const state = read();
     const completed = completedBefore(state.completed, step);
     if (Object.keys(completed).length === Object.keys(state.completed).length) return;
-    state = { ...state, completed };
-    emit();
+    write({ ...state, completed });
   },
   complete(step: CampaignStepId) {
-    state = { ...state, completed: { ...state.completed, [step]: true } };
-    emit();
+    const state = read();
+    write({ ...state, completed: { ...state.completed, [step]: true } });
   },
-  /** Starts a new campaign (and resets between tests). */
-  reset() {
-    state = initialState();
-    emit();
+  /** Clears every brand's campaign (between tests). */
+  reset: byBrand.reset,
+  /** The active brand's campaign; re-renders when it or the active brand changes. */
+  use: (): FlowState => {
+    const [scoped] = byBrand.use();
+    return useMemo(() => ({ ...initialState, ...scoped }), [scoped]);
   },
-  use: (): FlowState => useSyncExternalStore(subscribe, read, read),
 };

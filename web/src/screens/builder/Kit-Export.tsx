@@ -21,7 +21,7 @@ import type { KitExportData } from './types';
 const statusFor: Partial<Record<ScreenState, KitExportStatus>> = { loading: 'preparing', error: 'failed' };
 
 export function KitExport({ data, state = 'success' }: { data: KitExportData; state?: ScreenState }) {
-  const [brandId, selectBrand] = useHubBrand(data.defaultBrandId);
+  const [brandId, selectBrand] = useHubBrand();
   const versionId = useExportVersion();
   const kit = data.byBrand[brandId] ?? data.byBrand[data.defaultBrandId];
   return (
