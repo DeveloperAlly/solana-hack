@@ -57,7 +57,7 @@ export function Events({ data, state = 'success' }: ScreenProps<EventsData>) {
         empty={{ title: 'No events yet', body: 'Connect your Luma calendar (needs Luma Plus), or add an event by hand. Each one gets a content plan.', actions: <>{connect}{add}</> }}>
         <EventsPending flow={flow} />
         <EventsControls flow={flow} />
-        <EventsTable tab={flow.tab} events={flow.shown} drafts={flow.drafts} brainVersion={data.brainVersion} onClear={() => flow.setRoleFilter('all')} />
+        <EventsTable tab={flow.tab} events={flow.shown} drafts={flow.drafts} brainVersion={flow.brainVersion} onClear={() => flow.setRoleFilter('all')} />
       </StateView>
       <Grid min="md">
         <EventSourceCard title="From your Luma calendar" status={eventSourceStatus('luma')} facts={luma.facts} requirement={luma.requirement} unverified={luma.unverified}

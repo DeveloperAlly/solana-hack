@@ -4,6 +4,7 @@ import { postFingerprint } from '../../domain/post';
 import { findPlatform, postLength, type Platform } from '../../config/platforms';
 import { scheduleGate, versionCheck, type ClaimsResult } from './adaptChecks';
 import { growthSession, nowIso, type AdaptEdits } from './session';
+import { useBrainVersion } from '../../flows/loop/brainVersion';
 import type { AdaptData } from './types';
 
 export type VersionApproval = 'approved' | 'stale' | 'none';
@@ -60,8 +61,10 @@ export function useAdapt(data: AdaptData): AdaptFlow {
   const edits = session.adapt[data.post.id] ?? empty;
   const patch = (p: Partial<AdaptEdits>) => setSession({ adapt: { ...session.adapt, [data.post.id]: { ...edits, ...p } } });
 
+  // Every approval here is bound to the current Brain version: a rule change makes them stale (Codex review on PR 102).
+  const brainVersion = useBrainVersion();
   const original = edits.original ?? data.post.text;
-  const originalFp = postFingerprint({ ...data.post, text: original }, data.brainVersion);
+  const originalFp = postFingerprint({ ...data.post, text: original }, brainVersion);
   const originalApprovalRec = edits.originalApproval ?? data.post.lifecycle.approval;
   const originalApproval: VersionApproval = !originalApprovalRec ? 'none' : isStale(originalApprovalRec, originalFp) ? 'stale' : 'approved';
   const chosen = edits.chosen ?? data.chosen;
@@ -75,7 +78,7 @@ export function useAdapt(data: AdaptData): AdaptFlow {
     const last = edits.claims[platform.id];
     const claims: ClaimsResult = text === seed.text ? runClaims(seed.unsourcedClaims, text) : last?.text === text ? last.unsourced : 'pending';
     const approval: Approval | undefined = edits.approvals[platform.id] ?? data.approvals[platform.id];
-    const fresh = approval ? !isStale(approval, fingerprintOf(original, text)) : false;
+    const fresh = approval ? !isStale(approval, fingerprintOf(original, text, brainVersion)) : false;
     const slot = edits.when[platform.id] ?? data.slots[0];
     const taken = data.taken.find((t) => t.platformId === platform.id && t.slot === slot);
     return {
@@ -127,7 +130,7 @@ export function useAdapt(data: AdaptData): AdaptFlow {
     approveVersion: (id) => {
       const v = all.find((x) => x.platform.id === id);
       if (!v || v.check.blocking) return;
-      patch({ approvals: { ...edits.approvals, [id]: stamp(fingerprintOf(original, v.text)) } });
+      patch({ approvals: { ...edits.approvals, [id]: stamp(fingerprintOf(original, v.text, brainVersion)) } });
     },
     setSlot: (id, slot) => patch({ when: { ...edits.when, [id]: slot }, scheduled: undefined }),
     confirmSchedule: () => {

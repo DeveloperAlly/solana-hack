@@ -7,7 +7,7 @@ import type { ArtboardName } from '../config/artboards';
 import type { Gate } from './approval';
 import { proposalGate, type Proposal } from './proposal';
 import type { PostChecks } from './post';
-import { submissionGate, type QuestSlots } from './quest';
+import { submissionGate, type Quest } from './quest';
 
 interface QueueBase {
   id: string;
@@ -56,8 +56,8 @@ export const primaryActions: Record<QueueKind, { label: string; done: string; re
 export interface GateContext {
   brainVersion: string;
   proposal: (id: string) => Proposal | undefined;
-  /** A quest's slots and payouts so far (this session's approvals included), for quest submissions (domain/quest.ts). */
-  quest?: (id: string) => QuestSlots | undefined;
+  /** The full quest, with this session's payouts counted, for quest submissions (domain/quest.ts submissionGate). */
+  quest?: (id: string) => Quest | undefined;
 }
 
 /** The no-AI-slop pass and the claims gate: the core product gates (issue #45). */
@@ -83,7 +83,7 @@ const gates: { [K in QueueKind]: (item: Extract<QueueItem, { kind: K }>, ctx: Ga
   draft: (i) => checksGate(i.checks),
   reply: (i) => checksGate(i.checks),
   // A quest submission also needs a free slot: the same gate on Quests and on Today (Codex review on PR 102).
-  ambassadorPost: (i, ctx) => (i.questId ? submissionGate(ambassadorGate(i), ctx.quest?.(i.questId)) : ambassadorGate(i)),
+  ambassadorPost: (i, ctx) => (i.questId ? submissionGate(ambassadorGate(i), i, ctx.quest?.(i.questId)) : ambassadorGate(i)),
   learnedRule: (i, ctx) => {
     const p = ctx.proposal(i.proposalId);
     return p ? proposalGate(p, ctx.brainVersion) : { blocking: true, label: 'Proposal not found.' };

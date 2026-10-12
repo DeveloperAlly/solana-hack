@@ -4,12 +4,15 @@ import type { Post } from '../../domain/post';
 import { uniqueId } from '../../lib/id';
 import { sampleDraft } from './drafts';
 import { growthSession, type EventEdit } from './session';
+import { useBrainVersion } from '../../flows/loop/brainVersion';
 import type { EventsData } from './types';
 
 export interface BrandEventsFlow {
   /** Every event with this session's changes: added by hand first, then the fixture's. */
   events: BrandEvent[];
   drafts: Map<string, Post>;
+  /** The current Brain version: draft approvals are bound to it (flows/loop/brainVersion.ts). */
+  brainVersion: string;
   /** Accepted events that have not ended, soonest first. */
   upcoming: BrandEvent[];
   /** Accepted events that have ended, latest first. */
@@ -34,6 +37,7 @@ export interface BrandEventsFlow {
  */
 export function useBrandEvents(data: EventsData): BrandEventsFlow {
   const [session, set] = growthSession.use();
+  const brainVersion = useBrainVersion();
   const events = useMemo(
     () => [...session.eventsAdded, ...data.events].map((e) => ({ ...e, ...session.eventEdits[e.id] })),
     [session.eventsAdded, session.eventEdits, data.events],
@@ -48,6 +52,7 @@ export function useBrandEvents(data: EventsData): BrandEventsFlow {
   return {
     events,
     drafts,
+    brainVersion,
     upcoming,
     past,
     pending: events.filter((e) => e.status === 'pending'),

@@ -32,7 +32,7 @@ import type { AdaptData, ScreenProps } from './types';
 
 const originalView: Record<VersionApproval, { label: string; tone: 'solid' | 'warning' | 'neutral'; approved: boolean }> = {
   approved: { label: 'Approved', tone: 'solid', approved: true },
-  stale: { label: 'Edited: needs approval', tone: 'warning', approved: false },
+  stale: { label: 'Stale: approve again', tone: 'warning', approved: false },
   none: { label: 'Not approved yet', tone: 'neutral', approved: false },
 };
 
@@ -57,7 +57,7 @@ export function DistributeAdapt({ data, state = 'success' }: ScreenProps<AdaptDa
         onSave={flow.editOriginal}
         approval={originalView[flow.originalApproval]}
         onApprove={flow.approveOriginal}
-        staleNote={flow.staleCount ? `The original or a version changed, so ${flow.staleCount} approved ${flow.staleCount === 1 ? 'version needs' : 'versions need'} approving again.` : undefined}
+        staleNote={flow.staleCount ? `The original, a version or the Brain changed, so ${flow.staleCount} approved ${flow.staleCount === 1 ? 'version needs' : 'versions need'} approving again.` : undefined}
         link={<Link href={links.to('Post-Detail')}>Post detail</Link>}
       />
       <DistributePlatformPicker

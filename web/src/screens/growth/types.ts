@@ -234,7 +234,6 @@ export interface TakenSlot {
 export interface AdaptData {
   /** The approved original every version is adapted from (the shared Post type). */
   post: Post;
-  brainVersion: string;
   /** Who approves here; bracketed in samples. */
   approver: string;
   /** The brand's platforms this post can go to (registry ids, config/platforms.ts), in registry order. */
@@ -257,7 +256,6 @@ export interface EventsData {
   events: BrandEvent[];
   /** Ordinary drafts the plan items point at (the shared Post type, the same drafts Create shows). */
   drafts: Post[];
-  brainVersion: string;
   /** The connected Luma calendar, bracketed; null when Luma is not connected. */
   lumaCalendar: string | null;
 }

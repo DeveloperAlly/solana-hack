@@ -4,7 +4,7 @@
 // their drafts are ordinary drafts (./drafts.ts). Guest counts and results are sample figures from the boards where the
 // boards give them (140 guests); the rest are marked sample in the gallery's "Sample data" flag.
 import { planFor, type BrandEvent, type EventPerson, type EventRole } from '../../domain/event';
-import { sampleBrainVersion, sampleDraft } from './drafts';
+import { sampleDraft } from './drafts';
 import type { EventDetailData, EventsData } from './types';
 
 const today = '2026-10-13';
@@ -72,7 +72,7 @@ export const brandEvents: BrandEvent[] = [
   }),
 ];
 
-const base: EventsData = { today, events: brandEvents, drafts: eventDrafts, brainVersion: sampleBrainVersion, lumaCalendar: 'lu.ma/[your-calendar]' };
+const base: EventsData = { today, events: brandEvents, drafts: eventDrafts, lumaCalendar: 'lu.ma/[your-calendar]' };
 
 export const events: EventsData = base;
 /** No events yet, and Luma not connected (canvas Events: "no events (connect Luma or add one)"). */

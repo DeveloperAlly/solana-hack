@@ -38,7 +38,7 @@ export interface ScheduleInput {
 /** Schedule: something chosen, the original's approval current, every version passing, approved and free of conflicts. */
 export function scheduleGate(originalApproved: boolean, chosen: ScheduleInput[]): Gate {
   if (chosen.length === 0) return block('Choose at least one platform.');
-  if (!originalApproved) return block('The original changed. Approve it again first.');
+  if (!originalApproved) return block('The original’s approval is stale. Approve it again first.');
   const failing = chosen.find((v) => v.check.blocking);
   if (failing) return block(`Fix the ${failing.name} version first.`);
   const waiting = chosen.filter((v) => !v.approved).map((v) => v.name);

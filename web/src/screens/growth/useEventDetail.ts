@@ -28,9 +28,9 @@ export function useEventDetail(data: EventDetailData): EventDetailFlow {
   return {
     event,
     timing: eventTiming(event, data.today),
-    phases: planByPhase(event, base.drafts, data.brainVersion, data.today),
-    readiness: planReadiness(event, base.drafts, data.brainVersion),
-    needsYou: planned.filter((d) => draftStatus(d, data.brainVersion) === 'needs-you').length,
+    phases: planByPhase(event, base.drafts, base.brainVersion, data.today),
+    readiness: planReadiness(event, base.drafts, base.brainVersion),
+    needsYou: planned.filter((d) => draftStatus(d, base.brainVersion) === 'needs-you').length,
     changeRole: (r) => isEventRole(r) && base.setRole(event.id, r),
     makePlan: () => base.setRole(event.id, event.role ?? 'attending'),
     draftItem: (itemId) => base.draftItem(event.id, itemId),

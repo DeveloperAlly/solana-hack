@@ -4,6 +4,7 @@
 // ambassador posts with a payout, tagged with their questId: no second queue. Quests and Today share the one gate
 // (queue.ts gateFor, which applies submissionGate) and the one action, approveSubmission. Rewards go to the doer's own wallet (backend map). No paid posting
 // on X (pitch deck "Why now").
+import type { Gate } from './approval';
 
 export const questFormats = [
   { id: 'tutorial', label: 'Tutorial or article' },
@@ -33,10 +34,6 @@ export interface Quest {
   opens: string | null;
 }
 
-/** What a quest submission's gate reads: the slots and how many are paid (this session's approvals included). */
-export type QuestSlots = Pick<Quest, 'paid' | 'slots'>;
-
-/** The budget held before a quest opens: reward × slots, to the cent. */
 export const budgetCap = (rewardUsdc: number, slots: number): number => Math.round(rewardUsdc * slots * 100) / 100;
 
 /** A quest's state, given how many of its submissions still wait for a decision. */
@@ -88,11 +85,16 @@ export function questGate(d: QuestDraft): { blocking: boolean; label: string } {
 }
 
 /**
- * The free-slot part of a quest submission's gate, applied on top of the queue's own checks (domain/queue.ts gateFor).
- * Once every slot is paid the budget is reached, so no further submission can be approved (Codex review on PR 102).
+ * The quest part of a submission's gate, applied on top of the queue's own checks (domain/queue.ts gateFor). It needs the
+ * full quest (Codex review on PR 102): an unknown quest blocks, a payout that is not the quest's reward blocks, and once
+ * every slot is paid the budget is reached, so no further submission can be approved.
  */
-export function submissionGate(queueGate: { blocking: boolean; label: string }, quest: QuestSlots | undefined): { blocking: boolean; label: string } {
-  if (quest && quest.paid >= quest.slots) return { blocking: true, label: `All ${quest.slots} ${quest.slots === 1 ? 'slot is' : 'slots are'} paid; the budget is reached.` };
+export function submissionGate(queueGate: Gate, item: { payout: { amount: number; unit: string } }, quest: Quest | undefined): Gate {
+  if (!quest) return { blocking: true, label: 'Quest not found.' };
+  if (item.payout.unit !== 'USDC' || item.payout.amount !== quest.rewardUsdc) {
+    return { blocking: true, label: `The payout (${item.payout.amount} ${item.payout.unit}) is not this quest’s reward (${quest.rewardUsdc} USDC).` };
+  }
+  if (quest.paid >= quest.slots) return { blocking: true, label: `All ${quest.slots} ${quest.slots === 1 ? 'slot is' : 'slots are'} paid; the budget is reached.` };
   return queueGate;
 }
 
@@ -101,16 +103,16 @@ export const payoutOutcome = (payout: { amount: number; unit: string }): string 
 export const isPayoutOutcome = (outcome: string | undefined): boolean => Boolean(outcome?.startsWith('Approved. The ') && outcome.endsWith(' payout is queued.'));
 
 /**
- * The one action for paying a quest submission (Quests and Today call it): it re-checks the gate it is given, which must
- * come from queue.ts gateFor with this session's quest slots, and returns the outcome to record, or null when blocked.
+ * The one action for paying a quest submission (Quests and Today call it). It resolves nothing on trust: it re-runs the
+ * quest gate on the full quest over the queue gate it is given, and returns the outcome to record, or null when blocked.
  * INTEGRATION: POST /api/payouts (not built yet).
  */
-export function approveSubmission(item: { payout: { amount: number; unit: string } }, gate: { blocking: boolean }): string | null {
-  return gate.blocking ? null : payoutOutcome(item.payout);
+export function approveSubmission(item: { payout: { amount: number; unit: string } }, quest: Quest | undefined, queueGate: Gate): string | null {
+  return submissionGate(queueGate, item, quest).blocking ? null : payoutOutcome(item.payout);
 }
 
-/** A quest's slots with this session's approvals counted: its fixture `paid` plus its submissions paid since. */
-export function questSlots(quest: Quest, submissions: { id: string; questId?: string }[], outcomes: Record<string, string>): QuestSlots {
+/** A quest with this session's payouts counted: its fixture `paid` plus its submissions approved since. */
+export function questWithPayouts(quest: Quest, submissions: { id: string; questId?: string }[], outcomes: Record<string, string>): Quest {
   const paidNow = submissions.filter((s) => s.questId === quest.id && isPayoutOutcome(outcomes[s.id])).length;
-  return { paid: quest.paid + paidNow, slots: quest.slots };
+  return { ...quest, paid: quest.paid + paidNow };
 }

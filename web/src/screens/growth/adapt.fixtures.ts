@@ -21,12 +21,11 @@ const versions: AdaptData['versions'] = {
 
 export const adapt: AdaptData = {
   post,
-  brainVersion: sampleBrainVersion,
   approver: sampleApprover,
   platformIds: ['x', 'linkedin', 'threads', 'bluesky', 'substack'],
   chosen: ['x', 'linkedin', 'threads'],
   versions,
-  approvals: { x: { by: sampleApprover, at: '[date]', fingerprint: fingerprintOf(xText, xText) } },
+  approvals: { x: { by: sampleApprover, at: '[date]', fingerprint: fingerprintOf(xText, xText, sampleBrainVersion) } },
   slots: ['Tue 09:30 (best time)', 'Tue 13:00', 'Wed 09:30', 'Now'],
   taken: [{ platformId: 'linkedin', slot: 'Tue 09:30 (best time)', what: 'another aDNA post' }],
 };

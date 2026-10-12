@@ -2,10 +2,11 @@ import { useState } from 'react';
 import type { Gate } from '../../domain/approval';
 import { gateFor, type AmbassadorPostItem, type GateContext } from '../../domain/queue';
 import {
-  approveSubmission, budgetCap, isPayoutOutcome, emptyQuestDraft, isQuestFormat, parseReward, parseSlots, questSlots, questState,
+  approveSubmission, budgetCap, isPayoutOutcome, emptyQuestDraft, isQuestFormat, parseReward, parseSlots, questWithPayouts, questState,
   type Quest, type QuestDraft, type QuestState,
 } from '../../domain/quest';
 import { loopStore } from '../../flows/loop/store';
+import { useBrainVersion } from '../../flows/loop/brainVersion';
 import { uniqueId } from '../../lib/id';
 import { eventDay } from './eventPlan';
 import { growthSession } from './session';
@@ -53,18 +54,19 @@ function terms(q: Quest, waiting: number): string {
 export function useQuests(data: QuestsData): QuestsFlow {
   const [session, set] = growthSession.use();
   const [loop, setLoop] = loopStore.use();
+  const brainVersion = useBrainVersion();
   const [focus, setFocus] = useState<string | null>(null);
   const [form, setForm] = useState<QuestsFlow['form']>(null);
   const decided = (id: string) => Boolean(loop.outcomes[id]);
   const all = [...session.questsAdded, ...data.quests];
   // The same context Today gives gateFor: quest slots with this session's payouts counted.
   const ctx: GateContext = {
-    brainVersion: '',
+    brainVersion,
     proposal: () => undefined,
-    quest: (id) => { const q = all.find((x) => x.id === id); return q && questSlots(q, data.submissions, loop.outcomes); },
+    quest: (id) => { const q = all.find((x) => x.id === id); return q && questWithPayouts(q, data.submissions, loop.outcomes); },
   };
   const quests = all.map((q) => {
-    const quest = { ...q, ...questSlots(q, data.submissions, loop.outcomes) };
+    const quest = questWithPayouts(q, data.submissions, loop.outcomes);
     const waiting = data.submissions.filter((s) => s.questId === q.id && !decided(s.id)).length;
     return { quest, state: questState(quest, waiting), waiting, terms: terms(quest, waiting) };
   });
@@ -95,7 +97,7 @@ export function useQuests(data: QuestsData): QuestsFlow {
     approve: (id) => {
       const item = data.submissions.find((s) => s.id === id);
       if (!item || decided(id)) return;
-      const outcome = approveSubmission(item, gateFor(item, ctx));
+      const outcome = approveSubmission(item, item.questId ? ctx.quest?.(item.questId) : undefined, gateFor(item, ctx));
       if (outcome) setLoop({ outcomes: { ...loop.outcomes, [id]: outcome } });
     },
   };

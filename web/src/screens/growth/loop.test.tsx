@@ -15,7 +15,7 @@ import { eventsBoard } from './board.fixtures';
 import { DistributeAdapt as AdaptScreen } from './Distribute-Adapt';
 import { adapt } from './adapt.fixtures';
 import { gateFor, type GateContext } from '../../domain/queue';
-import { approveSubmission, questSlots } from '../../domain/quest';
+import { approveSubmission, questWithPayouts } from '../../domain/quest';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
 
@@ -116,8 +116,8 @@ describe('Distribute-Adapt', () => {
     await user.type(screen.getByLabelText('Original post'), ' Try it.');
     await user.click(screen.getByRole('button', { name: 'Save original' }));
     expect(within(screen.getByRole('region', { name: 'X' })).getByText('Stale: approve again')).toBeInTheDocument();
-    expect(screen.getByText('Edited: needs approval')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Schedule 3' })).toHaveAccessibleDescription('The original changed. Approve it again first.');
+    expect(screen.getByRole('button', { name: 'Approve original' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Schedule 3' })).toHaveAccessibleDescription('The original’s approval is stale. Approve it again first.');
     await user.click(screen.getByRole('button', { name: 'Approve original' }));
     expect(screen.getByRole('button', { name: 'Schedule 3' })).toHaveAccessibleDescription(/^Approve X, LinkedIn, Threads first/);
   });
@@ -476,12 +476,46 @@ describe('Codex round 2 on PR 102', () => {
     await user.click(within(screen.getByRole('list', { name: 'Quest submissions' })).getAllByRole('button', { name: 'Approve and pay' })[0]);
     // Today's path: the same gateFor, given the quest slots and the shared loop store outcomes.
     const outcomes = loopStore.read().outcomes;
-    const ctx: GateContext = { brainVersion: '3.1', proposal: () => undefined, quest: (id) => { const q = data.quests.find((x) => x.id === id); return q && questSlots(q, pending, outcomes); } };
+    const questOf = (o: Record<string, string>) => (id: string) => { const q = data.quests.find((x) => x.id === id); return q && questWithPayouts(q, pending, o); };
+    const ctx: GateContext = { brainVersion: '3.1', proposal: () => undefined, quest: questOf(outcomes) };
     const gate = gateFor(pending[1], ctx);
     expect(gate).toEqual({ blocking: true, label: 'All 3 slots are paid; the budget is reached.' });
-    expect(approveSubmission(pending[1], gate)).toBeNull();
+    expect(approveSubmission(pending[1], ctx.quest!('qst-answers'), gate)).toBeNull();
     // And the other way: with the slot still free, Today's approval of it uses the same action and outcome.
-    const fresh: GateContext = { ...ctx, quest: (id) => { const q = data.quests.find((x) => x.id === id); return q && questSlots(q, pending, {}); } };
-    expect(approveSubmission(pending[1], gateFor(pending[1], fresh))).toBe('Approved. The 10 USDC payout is queued.');
+    const fresh: GateContext = { ...ctx, quest: questOf({}) };
+    expect(approveSubmission(pending[1], fresh.quest!('qst-answers'), gateFor(pending[1], fresh))).toBe('Approved. The 10 USDC payout is queued.');
+  });
+
+  it('an unknown quest, or a payout that is not the quest’s reward, is blocked in the gate and the action', () => {
+    const item = { ...quests.submissions[0], disclosure: 'present' as const };
+    const known = (id: string) => quests.quests.find((q) => q.id === id);
+    const ctx: GateContext = { brainVersion: '3.1', proposal: () => undefined, quest: known };
+    const unknown = { ...item, questId: 'qst-missing' };
+    expect(gateFor(unknown, ctx)).toEqual({ blocking: true, label: 'Quest not found.' });
+    expect(approveSubmission(unknown, known('qst-missing'), { blocking: false, label: 'forged pass' })).toBeNull();
+    const greedy = { ...item, payout: { amount: 500, unit: 'USDC' as const } };
+    expect(gateFor(greedy, ctx).blocking).toBe(true);
+    expect(gateFor(greedy, ctx).label).toMatch(/not this quest’s reward \(10 USDC\)/);
+    expect(approveSubmission(greedy, known('qst-answers'), { blocking: false, label: 'forged pass' })).toBeNull();
+    expect(approveSubmission(item, known('qst-answers'), gateFor(item, ctx))).toBe('Approved. The 10 USDC payout is queued.');
+  });
+});
+
+describe('Brain-derived approvals follow the Brain version (Codex review on PR 102)', () => {
+  it('a version approved before a rule is approved in Learn-Rules is stale after it', async () => {
+    const user = userEvent.setup();
+    const mount = (path: string) => render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/screens/:artboard" element={<GalleryScreen />} /></Routes></MemoryRouter>);
+    let view = mount(screenPath('Distribute-Adapt'));
+    await user.click(screen.getByRole('button', { name: 'Approve LinkedIn' }));
+    expect(within(screen.getByRole('region', { name: 'LinkedIn' })).getByText('Approved')).toBeInTheDocument();
+    view.unmount();
+    view = mount(screenPath('Learn-Rules'));
+    const rule = screen.getAllByRole('region').find((r) => within(r).queryByRole('button', { name: 'Approve rule' }))!;
+    await user.click(within(rule).getByRole('button', { name: 'Approve rule' }));
+    view.unmount();
+    mount(screenPath('Distribute-Adapt'));
+    expect(within(screen.getByRole('region', { name: 'LinkedIn' })).getByText('Stale: approve again')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'X' })).getByText('Stale: approve again')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve original' })).toBeInTheDocument();
   });
 });
