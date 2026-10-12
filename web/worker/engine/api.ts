@@ -18,18 +18,23 @@ interface UserRef { id: string }
 const RUN_FIELDS = 'id,brand_id,kind,workflow_version,executor,status,progress,resume_at,error,error_code,output,created_at,updated_at';
 const STEP_FIELDS = 'step,attempt,type,outcome,prompt_key,prompt_version,prompt_hash,model,tokens_in,tokens_out,duration_ms,error,created_at';
 
+/**
+ * Both ingest kinds start the same way: the source row exists from the start (pending), as before, so the list shows it
+ * while it is read. Its kind is 'site' only for a link on the brand's own website (sources/registry.ts urlKind, issue
+ * #57); the save step classifies again on the page actually read, since a redirect can leave the website.
+ */
+async function pendingSource(env: Env, brand: BrandRef, body: Record<string, unknown>) {
+  const url = typeof body.url === 'string' ? body.url.trim().slice(0, 500) : '';
+  if (!url) throw new HttpError(400, 'a link is required');
+  const website = brand.website ?? null;
+  const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url, status: 'pending', kind: urlKind(url, website) });
+  return { url, sourceId: src.id, brandName: brand.name, website };
+}
+
 /** Kinds a person can start through POST /runs, each turning the request body into the run's input. */
 const KINDS: Record<string, (env: Env, brand: BrandRef, body: Record<string, unknown>) => Promise<Record<string, unknown>>> = {
-  ingest_url: async (env, brand, body) => {
-    const url = typeof body.url === 'string' ? body.url.trim().slice(0, 500) : '';
-    if (!url) throw new HttpError(400, 'a link is required');
-    // The source row exists from the start (pending), as before, so the list shows it while it is read. Its kind is
-    // 'site' only for a link on the brand's own website (sources/registry.ts urlKind, issue #57); the save step
-    // classifies again on the page actually read, since a redirect can leave the website.
-    const website = brand.website ?? null;
-    const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url, status: 'pending', kind: urlKind(url, website) });
-    return { url, sourceId: src.id, brandName: brand.name, website };
-  },
+  ingest_url: pendingSource,
+  ingest_site: pendingSource,
 };
 
 export async function activeDef(env: Env, kind: string): Promise<WorkflowSpec> {
@@ -97,8 +102,20 @@ export const STILL_READING = 'Still reading your source. It will appear in your 
  * (Build.tsx) treats every 2xx as {facts, dropped} and shows the error text of any non-2xx, then reloads the list, so
  * this never shows "undefined facts" (PR #70 review); GET /api/runs/:id follows the run from there.
  */
+/**
+ * The home page of the brand's own website is read as a site (ingest_site: home page plus key subpages, architecture
+ * §6.1), which is what the journey's first step sends. Any other link, a specific page on the site included, is read
+ * as that one page (ingest_url). Same response either way.
+ */
+export function ingestKind(url: string, website: string | null | undefined) {
+  if (!website || urlKind(url, website) !== 'site') return 'ingest_url';
+  let path = '';
+  try { path = new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`).pathname; } catch { return 'ingest_url'; }
+  return path === '/' || path === '' ? 'ingest_site' : 'ingest_url';
+}
+
 export async function ingestSource(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, body: Record<string, unknown>) {
-  const { run, config } = await start(env, ctx, user, brand, 'ingest_url', body);
+  const { run, config } = await start(env, ctx, user, brand, ingestKind(typeof body.url === 'string' ? body.url : '', brand.website), body);
   const done = await waitForRun(env, run, config.ingestWaitMs);
   if (done.status === 'done') return { status: 201, body: { ...(done.output as object), runId: run.id } };
   if (done.status === 'failed') throw new HttpError(done.error_code && done.error_code >= 400 ? done.error_code : 502, done.error ?? 'reading the page failed');

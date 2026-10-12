@@ -9,6 +9,12 @@ interface StepBase { id: string; label: string; retries?: RetrySpec; timeout?: s
 /** Reads one public page (ingest.ts readPage). Output: {url, title, text, excerpt}. The text keeps at most maxChars
  * UTF-16 units and maxBytes UTF-8 bytes, so the step result stays under Workflows' 1 MiB limit in either encoding. */
 export interface FetchStep extends StepBase { type: 'fetch'; url: string; maxChars: number; maxBytes: number; excerptChars: number }
+/**
+ * Reads a source through the source adapter registry (worker/sources, issue #33): 'site' is the brand's website, home
+ * page plus key subpages (sources/site.ts). Output: {kind, pages: [{url, title, text, excerpt}], notes, via}; each page's
+ * text is capped like a fetch step. A failed read throws the adapter's reason, which a person can act on.
+ */
+export interface SourceStep extends StepBase { type: 'source'; source: 'site'; url: string; website?: string; subpages: number; maxChars: number; excerptChars: number }
 /** One call through the LLM gateway (llm.ts chat) with a versioned prompt (prompt_versions) as the system message. */
 export interface LlmStep extends StepBase { type: 'llm'; prompt: string; promptVersion?: number; vars?: Record<string, string>; user: string; userVars?: Record<string, string>; json?: boolean }
 /** A named pure function from the code registry (steps.ts CODE). */
@@ -17,7 +23,7 @@ export interface CodeStep extends StepBase { type: 'code'; fn: string; args: Rec
 export interface WriteStep extends StepBase { type: 'write'; op: string; args: Record<string, string> }
 /** Runs an inner step once per item of a list, each item as its own durable step. Output: the list of results. */
 export interface MapStep extends StepBase { type: 'map'; over: string; max: number; step: Exclude<StepSpec, MapStep> }
-export type StepSpec = FetchStep | LlmStep | CodeStep | WriteStep | MapStep;
+export type StepSpec = FetchStep | SourceStep | LlmStep | CodeStep | WriteStep | MapStep;
 
 export interface WorkflowSpec {
   id: string;

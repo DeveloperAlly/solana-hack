@@ -34,5 +34,34 @@ export const INGEST_URL: WorkflowSpec = {
   onFailure: { op: 'mark_source_failed', args: { sourceId: '$input.sourceId' } },
 };
 
-export const SEED_DEFS = [INGEST_URL];
+/**
+ * ingest_site v1: the brand's own website read as a site (architecture §6.1: home page plus about 8 key subpages, robots.txt
+ * first, a rendered fallback for script-only pages), through the source adapter registry (sources/site.ts). Facts are
+ * extracted per page, each quote checked against its own page, and each page saved as its own source.
+ */
+export const INGEST_SITE: WorkflowSpec = {
+  id: 'ingest_site',
+  version: 1,
+  title: 'Read the website',
+  concurrency: 'parallel',
+  retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
+  steps: [
+    { id: 'read', type: 'source', label: 'Reading your site', source: 'site', url: '$input.url', website: '$input.website', subpages: 8, maxChars: 20000, excerptChars: 14000 },
+    {
+      id: 'extract', type: 'map', label: 'Finding facts on each page', over: '$steps.read.pages', max: 9,
+      step: {
+        id: 'extract_page', type: 'llm', label: 'Finding facts', prompt: 'ingest.extract_facts', json: true,
+        vars: { brand_name: '$input.brandName', max_quote: '$const.MAX_QUOTE', sections: '$const.SECTIONS' },
+        user: 'Page title: {{title}}\nURL: {{url}}\n\n{{text}}',
+        userVars: { title: '$input.item.title', url: '$input.item.url', text: '$input.item.excerpt' },
+      },
+    },
+    { id: 'check', type: 'code', label: 'Checking every quote against its page', fn: 'keep_quoted_facts_per_page', args: { pages: '$steps.read.pages', extracts: '$steps.extract' } },
+    { id: 'save', type: 'write', label: 'Saving the facts', op: 'save_site_facts', args: { sourceId: '$input.sourceId', pages: '$steps.check', link: '$input.url', website: '$input.website' } },
+  ],
+  output: '$steps.save',
+  onFailure: { op: 'mark_source_failed', args: { sourceId: '$input.sourceId' } },
+};
+
+export const SEED_DEFS = [INGEST_URL, INGEST_SITE];
 export const SEED_PROMPTS = [{ key: 'ingest.extract_facts', version: 1, body: EXTRACT_FACTS_PROMPT }];

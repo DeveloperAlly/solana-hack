@@ -8,6 +8,7 @@ import { chat, parseJson } from '../llm';
 import { MAX_QUOTE, normalisePage, quoteOnPage } from '../quote';
 import { loadPrompt, render } from './prompts';
 import { factTrust, urlKind } from '../sources/registry';
+import { readSite } from '../sources/site';
 import type { RunRow, StepSpec, StepTrace } from './types';
 
 export interface StepContext { env: Env; run: RunRow; state: RunState }
@@ -62,6 +63,18 @@ export const CODE: Record<string, (args: Record<string, unknown>) => unknown> = 
    * The quote check from issue #31, unchanged: keep a fact only when its quote is on the page, through the one
    * normaliser (quote.ts). A quote longer than the stored limit is refused before the check, never cut after it.
    */
+  /**
+   * The same quote check for every page of a site read: page i's facts are checked against page i's text only, so a
+   * quote can never be credited to a page it is not on. Output: one entry per page, in the order read.
+   */
+  keep_quoted_facts_per_page: ({ pages, extracts }) => {
+    const ps = (Array.isArray(pages) ? pages : []) as { url?: string; title?: string; text?: string }[];
+    const ex = (Array.isArray(extracts) ? extracts : []) as { facts?: Fact[] }[];
+    return ps.map((p, i) => {
+      const r = CODE.keep_quoted_facts({ facts: ex[i]?.facts ?? [], page: p.text ?? '' }) as { facts: Fact[]; dropped: number };
+      return { url: asText(p.url), title: asText(p.title), text: asText(p.text), facts: r.facts, dropped: r.dropped };
+    });
+  },
   keep_quoted_facts: ({ facts, page }) => {
     const list = (Array.isArray(facts) ? facts : []) as Fact[];
     const hay = normalisePage(asText(page));
@@ -94,6 +107,30 @@ export const WRITES: Record<string, (ctx: StepContext, args: Record<string, unkn
     await db.update(env, 'sources', `${db.eq('id', sid)}&${db.eq('brand_id', run.brand_id)}`, { status: 'read', kind, title: asText(title), text_excerpt: page.slice(0, 2000), source_text: page, fetched_at: new Date().toISOString(), url: asText(url).slice(0, 500), error: null });
     return { sourceId: sid, facts: rows.length, dropped: Number(dropped) || 0, kind, needsReview: kind === 'page' ? rows.length : 0 };
   },
+  /**
+   * A site read: the first page is the source row the run started with; every further page gets its own source row
+   * (found again by URL on a retry, so a retry writes no duplicates), and each page's facts are saved against its own
+   * row with save_source_facts, so trust, ids and the stored text follow exactly the single-page rules.
+   */
+  save_site_facts: async (ctx, { sourceId, pages, link, website }) => {
+    const list = (Array.isArray(pages) ? pages : []) as { url: string; title: string; text: string; facts: unknown[]; dropped: number }[];
+    if (!list.length) throw new HttpError(422, 'nothing readable was found on the site; paste the key text instead');
+    const site = typeof website === 'string' ? website : null;
+    const results: { sourceId: string; facts: number; dropped: number; kind: string; needsReview: number }[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i];
+      let sid = asText(sourceId);
+      if (i > 0) {
+        const url = p.url.slice(0, 500);
+        const [found] = await db.select<{ id: string }>(ctx.env, 'sources', `${db.eq('brand_id', ctx.run.brand_id)}&${db.eq('url', url)}&select=id&limit=1`);
+        sid = found?.id ?? (await db.insert<{ id: string }>(ctx.env, 'sources', { brand_id: ctx.run.brand_id, url, status: 'pending', kind: urlKind(url, site) }))[0].id;
+      }
+      const r = (await WRITES.save_source_facts(ctx, { sourceId: sid, facts: p.facts, dropped: p.dropped, link: i === 0 ? link : p.url, website, url: p.url, title: p.title, text: p.text })) as typeof results[number];
+      results.push(r);
+    }
+    const sum = (k: 'facts' | 'dropped' | 'needsReview') => results.reduce((n, r) => n + (Number(r[k]) || 0), 0);
+    return { sourceId: asText(sourceId), facts: sum('facts'), dropped: sum('dropped'), kind: results[0].kind, needsReview: sum('needsReview'), pages: results.length, sources: results.map((r) => r.sourceId) };
+  },
   mark_source_failed: async ({ env, run }, { sourceId, error }) => {
     await db.update(env, 'sources', `${db.eq('id', asText(sourceId))}&${db.eq('brand_id', run.brand_id)}`, { status: 'failed', error: asText(error) || 'reading the page failed' });
     return null;
@@ -108,6 +145,16 @@ export async function runStep(spec: Exclude<StepSpec, { type: 'map' }>, ctx: Ste
       const page = await readPage(asText(resolve(spec.url, state)));
       const text = capText(page.text, spec.maxChars, spec.maxBytes);
       return { output: { url: page.url, title: page.title, text, excerpt: text.slice(0, spec.excerptChars) }, trace: {} };
+    }
+    case 'source': {
+      const website = spec.website ? asText(resolve(spec.website, state)) || null : null;
+      const r = await readSite(ctx.env, asText(resolve(spec.url, state)), { website, subpages: spec.subpages, maxCharacters: spec.maxChars });
+      if (!r.ok) throw new HttpError(r.code === 'invalid_input' ? 400 : 422, r.reason);
+      const pages = (r.pages ?? [{ url: r.url ?? '', title: r.title, text: r.text }]).map((p) => {
+        const text = capText(p.text, spec.maxChars, spec.maxChars * 3);
+        return { url: p.url, title: p.title, text, excerpt: text.slice(0, spec.excerptChars) };
+      });
+      return { output: { kind: r.kind, pages, notes: r.meta.notes, via: r.meta.via ?? null }, trace: {} };
     }
     case 'llm': {
       const p = await loadPrompt(ctx.env, spec.prompt, spec.promptVersion ?? state.prompts[spec.prompt]);
