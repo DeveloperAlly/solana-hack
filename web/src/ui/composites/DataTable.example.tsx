@@ -14,6 +14,8 @@ const columns: DataTableColumn<Row>[] = [
   { key: 'kit', header: 'Kit', align: 'end' },
 ];
 const key = (r: Row) => r.id;
+// A long sample list, so the sticky header has rows to scroll under.
+const many: Row[] = Array.from({ length: 24 }, (_, i) => ({ id: `m${i}`, date: `${(i % 28) + 1} Sep 2026`, type: i % 3 ? 'Post' : 'Kit', what: `[Sample] registration ${i + 1}`, kit: 'v1' }));
 const filter = {
   label: 'Filter by type',
   options: [{ id: 'all', label: 'All' }, { id: 'Kit', label: 'Kits' }, { id: 'Post', label: 'Posts' }],
@@ -23,10 +25,12 @@ const filter = {
 export const example: WorkbenchExample = {
   id: 'C10',
   name: 'DataTable',
-  description: 'Ready with filter chips, sortable Date and Type, row actions and a sticky header; then empty, loading and error.',
+  description: 'Ready with filter chips, sortable Date and Type and row actions; a long table with and without the sticky header; then empty, loading and error.',
   render: () => (
     <Stack gap={5}>
-      <DataTable caption="Registrations (ready)" columns={columns} rows={rows} rowKey={key} actions={(r) => <Link href="/system">Check {r.what}</Link>} stickyHeader filter={filter} initialSort={{ key: 'date', direction: 'descending' }} />
+      <DataTable caption="Registrations (ready)" columns={columns} rows={rows} rowKey={key} actions={(r) => <Link href="/system">Check {r.what}</Link>} filter={filter} initialSort={{ key: 'date', direction: 'descending' }} />
+      <DataTable caption="Registrations (long, sticky header: the rows scroll in a bounded box)" columns={columns} rows={many} rowKey={key} stickyHeader />
+      <DataTable caption="Registrations (long, no sticky header: the page scrolls)" columns={columns} rows={many.slice(0, 8)} rowKey={key} />
       <DataTable caption="Registrations (empty)" columns={columns} rows={[]} rowKey={key} />
       <DataTable caption="Registrations (loading)" columns={columns} rows={[]} rowKey={key} state="loading" />
       <DataTable caption="Registrations (error)" columns={columns} rows={[]} rowKey={key} state="error" />
