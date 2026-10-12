@@ -14,14 +14,20 @@ export interface StepperProps {
   hrefFor?: (index: number) => string | undefined;
   /** Accessible name of the step list. */
   label?: string;
+  /**
+   * Which steps are done, when that is not simply "every step before the current one" (a deep link into a wizard
+   * whose earlier steps are unfinished). Default: steps before `current`.
+   */
+  done?: readonly boolean[];
 }
 
 /** C8 Stepper: done / current / todo steps, horizontal or vertical; completed steps can be links. */
-export function Stepper({ steps, current, orientation = 'horizontal', hrefFor, label = 'Progress' }: StepperProps) {
+export function Stepper({ steps, current, orientation = 'horizontal', hrefFor, label = 'Progress', done }: StepperProps) {
   return (
     <ol className={`${styles.steps} ${styles[orientation]}`} aria-label={label}>
       {steps.map((s, i) => {
-        const status = i < current ? 'done' : i === current ? 'current' : 'todo';
+        const isDone = done ? Boolean(done[i]) : i < current;
+        const status = i === current ? 'current' : isDone ? 'done' : 'todo';
         const href = status === 'done' ? hrefFor?.(i) : undefined;
         const text = (
           <>
