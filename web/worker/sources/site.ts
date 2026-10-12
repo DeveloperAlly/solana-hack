@@ -17,9 +17,9 @@ export interface SiteOptions {
    * subpage (registry urlKind, from the PR #63 review). With no website set, nothing read here counts as owned.
    */
   website?: string | null;
-  /** Subpages Exa crawls from the home page (Exa `subpages`, 0 to 100). Architecture §6.1: "about 8 key subpages". */
+  /** Key subpages read after the home page, chosen from its links. Architecture §6.1: "about 8 key subpages". */
   subpages?: number;
-  /** Terms Exa uses to pick which subpages to crawl (Exa `subpageTarget`). */
+  /** Terms that rank the home page's links: a link whose path holds an earlier term is read first. */
   subpageTarget?: string[];
   /** Characters of text kept per page (Exa `text.maxCharacters`). */
   maxCharacters?: number;
@@ -30,15 +30,22 @@ export const SITE_DEFAULTS: Required<Omit<SiteOptions, 'website'>> = {
   maxCharacters: 20_000,
 };
 
-// Exa /contents: POST https://api.exa.ai/contents, key in x-api-key; body urls[], text, subpages, subpageTarget;
-// response results[] (url, title, text, subpages[]), statuses[] and costDollars.total
-// (https://exa.ai/docs/reference/get-contents).
+// Exa /contents: POST https://api.exa.ai/contents, key in x-api-key; body urls[] (1 to 100), text, extras.links;
+// response results[] (url, title, text, extras.links[]), statuses[] and costDollars.total
+// (https://exa.ai/docs/reference/get-contents; request type ExtrasOptions { links?: number } in exa-js 2.25.0).
+// Exa's own subpage crawl (`subpages`) is not used: it would fetch subpages before their robots.txt could be checked.
+// Instead the home page is read with its links, the links are checked against robots.txt here, and only allowed pages
+// are requested (PR #71 review).
 const EXA_CONTENTS = 'https://api.exa.ai/contents';
+// Links asked for on the home page, and at most this many candidates checked against robots.txt (each new origin costs
+// one robots.txt fetch, so this bounds the subrequests).
+const EXA_LINKS = 100;
+const MAX_CANDIDATES = 24;
 // Exa pricing: contents cost $1 per 1,000 pages per content type (https://exa.ai/pricing). Used only when the response
 // carries no costDollars.
 const EXA_PER_PAGE = 0.001;
 
-interface ExaPage { url?: string; title?: string | null; text?: string | null; subpages?: ExaPage[] }
+interface ExaPage { url?: string; title?: string | null; text?: string | null; extras?: { links?: unknown[] } }
 interface ExaResponse { results?: ExaPage[]; statuses?: { id?: string; status?: string; error?: { tag?: string; httpStatusCode?: number } }[]; costDollars?: { total?: number } }
 
 /** Host without a leading "www.", so an apex-to-www redirect stays on the same site. */
@@ -68,13 +75,13 @@ export function siteUrl(raw: string): URL | null {
   }
 }
 
-async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS): Promise<{ pages: SourcePage[]; cost: number } | { error: string }> {
+async function exaContents(key: string, body: Record<string, unknown>): Promise<ExaResponse | { error: string }> {
   let res: Response;
   try {
     res = await fetch(EXA_CONTENTS, {
       method: 'POST',
       headers: { 'x-api-key': key, 'content-type': 'application/json' },
-      body: JSON.stringify({ urls: [url.toString()], text: { maxCharacters: opts.maxCharacters }, subpages: opts.subpages, subpageTarget: opts.subpageTarget }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(30_000),
     });
   } catch {
@@ -82,22 +89,43 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS): Promis
   }
   // Logging policy: the status only; Exa's message could echo the request.
   if (!res.ok) return { error: `Exa answered HTTP ${res.status}` };
-  let data: ExaResponse;
-  try { data = (await res.json()) as ExaResponse; } catch { return { error: 'Exa sent an unreadable reply' }; }
+  try { return (await res.json()) as ExaResponse; } catch { return { error: 'Exa sent an unreadable reply' }; }
+}
+
+const exaCost = (data: ExaResponse, pages: number) => (typeof data.costDollars?.total === 'number' ? data.costDollars.total : pages * EXA_PER_PAGE);
+
+/**
+ * Reads the home page and its links with Exa, lets `pick` choose which links may be read (robots.txt, same site,
+ * ranking), then reads only those. Provider output is untrusted: only an absolute http(s) URL is used (PR #67 review).
+ */
+async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (links: URL[]) => Promise<URL[]>): Promise<{ pages: SourcePage[]; cost: number } | { error: string }> {
+  const text = { maxCharacters: opts.maxCharacters };
+  const home = await exaContents(key, { urls: [url.toString()], text, extras: { links: EXA_LINKS } });
+  if ('error' in home && typeof home.error === 'string') return { error: home.error };
+  const data = home as ExaResponse;
   const top = data.results?.[0];
   const failed = data.statuses?.find((s) => s.status === 'error');
   if (!top?.text?.trim()) return { error: failed ? `Exa could not read the page (${failed.error?.tag ?? 'error'})` : 'Exa returned no text for the page' };
   const seen = new Set<string>();
   const pages: SourcePage[] = [];
-  for (const p of [top, ...(top.subpages ?? [])]) {
-    const text = p.text?.trim();
-    // Provider output is untrusted: only an absolute http(s) URL is used (PR #67 review).
+  const add = (p: ExaPage) => {
+    const body = p.text?.trim();
     const u = absoluteUrl(p.url);
-    if (!u || !text || seen.has(u.toString())) continue;
+    if (!u || !body || seen.has(u.toString())) return;
     seen.add(u.toString());
-    pages.push({ url: u.toString(), title: (p.title ?? '').trim().slice(0, 200) || u.hostname, text });
+    pages.push({ url: u.toString(), title: (p.title ?? '').trim().slice(0, 200) || u.hostname, text: body });
+  };
+  add(top);
+  let cost = exaCost(data, 1);
+  const links = (top.extras?.links ?? []).map(absoluteUrl).filter((u): u is URL => !!u);
+  const chosen = opts.subpages > 0 ? await pick(links) : [];
+  if (chosen.length) {
+    const more = await exaContents(key, { urls: chosen.map((u) => u.toString()), text });
+    if ('error' in more && typeof more.error === 'string') return { pages, cost };
+    const extra = more as ExaResponse;
+    for (const p of extra.results ?? []) add(p);
+    cost += exaCost(extra, chosen.length);
   }
-  const cost = typeof data.costDollars?.total === 'number' ? data.costDollars.total : pages.length * EXA_PER_PAGE;
   return { pages, cost };
 }
 
@@ -171,10 +199,38 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     return { ok: true, kind, trust: factTrust(kind).trust, url: pages[0].url, title: pages[0].title, text: pages.map((p) => p.text).join('\n\n'), pages, meta: c.meta(pages.length, cost, via) };
   };
 
-  // 1. Exa: one call for the home page and its key subpages.
+  // Which of the home page's links to read: on the same site as the home page, ranked by the key-page terms, and only
+  // those robots.txt allows, checked before any of them is requested (PR #71 review).
+  const pick = async (links: URL[]) => {
+    const homeKind = kindOf(url.toString());
+    const seen = new Set<string>([url.toString()]);
+    const candidates: URL[] = [];
+    for (const raw of links) {
+      const l = siteUrl(raw.toString());
+      if (!l || seen.has(l.toString())) continue;
+      seen.add(l.toString());
+      if (kindOf(l.toString()) !== homeKind || (homeKind === 'page' && hostKey(l) !== hostKey(url))) continue;
+      candidates.push(l);
+    }
+    const rank = (u: URL) => {
+      const i = opts.subpageTarget.findIndex((t) => u.pathname.toLowerCase().includes(t.toLowerCase()));
+      return i === -1 ? opts.subpageTarget.length : i;
+    };
+    const ranked = candidates.map((u, i) => ({ u, i, r: rank(u) })).sort((a, b) => a.r - b.r || a.i - b.i).slice(0, MAX_CANDIDATES);
+    const out: URL[] = [];
+    let blocked = 0;
+    for (const { u } of ranked) {
+      if (out.length >= opts.subpages) break;
+      if (await allowedHere(u)) out.push(u); else blocked++;
+    }
+    if (blocked) c.notes.push(`${blocked} linked page(s) not read: robots.txt disallows them`);
+    return out;
+  };
+
+  // 1. Exa: the home page with its links, then the chosen key subpages.
   let cost = 0;
   if (env.EXA_API_KEY) {
-    const exa = await viaExa(env.EXA_API_KEY, url, opts);
+    const exa = await viaExa(env.EXA_API_KEY, url, opts, pick);
     if ('pages' in exa) {
       cost = exa.cost;
       const allowed = await admit(exa.pages);

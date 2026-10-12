@@ -18,34 +18,44 @@ function stub(routes: { robots?: Handler; exa?: Handler; page?: Handler; render?
 afterEach(() => vi.unstubAllGlobals());
 
 const html = (title: string, body: string) => new Response(`<html><title>${title}</title><body><p>${body}</p></body></html>`, { headers: { 'content-type': 'text/html' } });
-const exaReply = (pages: { url: string; title: string; text: string }[], cost = 0.009) => new Response(JSON.stringify({
-  results: [{ ...pages[0], subpages: pages.slice(1) }], statuses: [{ id: pages[0].url, status: 'success' }], costDollars: { total: cost },
-}));
+// A mock Exa for one site: the call with `extras` reads the home page (pages[0]) and lists the other pages as its links;
+// any other call returns the pages it names, in the order asked.
+type ExaMockPage = { url: unknown; title?: string; text?: string };
+const exaSite = (pages: ExaMockPage[], cost: number | null = 0.009, links?: unknown[]): Handler => (_url, init) => {
+  const body = JSON.parse(String(init?.body ?? '{}')) as { urls: string[]; extras?: unknown };
+  const results = body.extras
+    ? [{ ...pages[0], extras: { links: links ?? pages.slice(1).map((p) => p.url) } }]
+    : body.urls.map((u) => pages.find((p) => p.url === u)).filter(Boolean);
+  return new Response(JSON.stringify({ results, statuses: body.urls.map((id) => ({ id, status: 'success' })), ...(cost === null ? {} : { costDollars: { total: cost } }) }));
+};
 const LONG = 'JamJam helps brands prove what they say, with every fact tied to a quote from its source.';
 
 describe('site adapter: Exa first', () => {
-  it('reads the home page and key subpages in one Exa call, with the documented request shape', async () => {
-    const calls = stub({ exa: () => exaReply([{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://jamjam.tech/about', title: 'About', text: 'About us.' }, { url: 'https://jamjam.tech/pricing', title: 'Pricing', text: 'Free plan.' }]) });
+  it('reads the home page with its links, then only the chosen key subpages, with the documented request shape', async () => {
+    const calls = stub({ exa: exaSite([{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://jamjam.tech/about', title: 'About', text: 'About us.' }, { url: 'https://jamjam.tech/pricing', title: 'Pricing', text: 'Free plan.' }]) });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'jamjam.tech', { website: 'https://jamjam.tech' });
-    expect(r).toMatchObject({ ok: true, kind: 'site', trust: 'owned', url: 'https://jamjam.tech/', title: 'JamJam', meta: { pages: 3, cost: 0.009, via: 'exa' } });
+    expect(r).toMatchObject({ ok: true, kind: 'site', trust: 'owned', url: 'https://jamjam.tech/', title: 'JamJam', meta: { pages: 3, cost: 0.018, via: 'exa' } });
     if (!r.ok) throw new Error('expected ok');
     expect(r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/about', 'https://jamjam.tech/pricing']);
     expect(r.text).toContain('Free plan.');
     const exa = calls.filter((c) => c.url === 'https://api.exa.ai/contents');
-    expect(exa).toHaveLength(1);
-    expect(exa[0].body).toMatchObject({ urls: ['https://jamjam.tech/'], subpages: SITE_DEFAULTS.subpages, subpageTarget: SITE_DEFAULTS.subpageTarget, text: { maxCharacters: SITE_DEFAULTS.maxCharacters } });
+    expect(exa).toHaveLength(2);
+    expect(exa[0].body).toEqual({ urls: ['https://jamjam.tech/'], text: { maxCharacters: SITE_DEFAULTS.maxCharacters }, extras: { links: 100 } });
+    // Exa's own subpage crawl is never asked for; the chosen links are named, ranked by the key-page terms.
+    expect(exa[1].body).toEqual({ urls: ['https://jamjam.tech/about', 'https://jamjam.tech/pricing'], text: { maxCharacters: SITE_DEFAULTS.maxCharacters } });
   });
-  it('drops subpages robots.txt disallows, and says so', async () => {
-    stub({
+  it('never asks Exa for a subpage robots.txt disallows, and says so (PR #71 review)', async () => {
+    const calls = stub({
       robots: () => new Response('User-agent: *\nDisallow: /private\n'),
-      exa: () => exaReply([{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://jamjam.tech/private/plan', title: 'Plan', text: 'secret' }]),
+      exa: exaSite([{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://jamjam.tech/private/plan', title: 'Plan', text: 'secret' }]),
     });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/');
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/']);
     expect(r.meta.notes.join(' ')).toMatch(/robots\.txt disallows/);
+    expect(JSON.stringify(calls.filter((c) => c.url.startsWith('https://api.exa.ai/')).map((c) => c.body))).not.toContain('/private');
   });
   it('estimates cost from Exa pricing when the reply has no cost', async () => {
-    stub({ exa: () => new Response(JSON.stringify({ results: [{ url: 'https://a.test/', title: 'A', text: LONG, subpages: [{ url: 'https://a.test/b', title: 'B', text: 'b' }] }] })) });
+    stub({ exa: exaSite([{ url: 'https://a.test/', title: 'A', text: LONG }, { url: 'https://a.test/b', title: 'B', text: 'b' }], null) });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/');
     expect(r.meta.cost).toBe(0.002);
   });
@@ -60,11 +70,11 @@ describe('site adapter: trust follows the brand website (PR #63 review)', () => 
   it('a subdomain of the website is owned; a redirect off the website is classified on where it landed', async () => {
     stub({ page: () => html('Docs', LONG) });
     expect(await readSite({}, 'https://docs.jamjam.tech/', { website: 'www.jamjam.tech' })).toMatchObject({ ok: true, kind: 'site', trust: 'owned' });
-    stub({ exa: () => exaReply([{ url: 'https://elsewhere.test/', title: 'Elsewhere', text: LONG }]) });
+    stub({ exa: exaSite([{ url: 'https://elsewhere.test/', title: 'Elsewhere', text: LONG }]) });
     expect(await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/go', { website: 'jamjam.tech' })).toMatchObject({ ok: true, kind: 'page', trust: 'third_party' });
   });
   it('a path-scoped website on a shared host owns only its own path (PR #63 urlKind)', async () => {
-    stub({ exa: () => exaReply([{ url: 'https://github.com/acme', title: 'acme', text: LONG }, { url: 'https://github.com/acme/brand', title: 'brand', text: 'ours' }, { url: 'https://github.com/other', title: 'other', text: 'theirs' }]) });
+    stub({ exa: exaSite([{ url: 'https://github.com/acme', title: 'acme', text: LONG }, { url: 'https://github.com/acme/brand', title: 'brand', text: 'ours' }, { url: 'https://github.com/other', title: 'other', text: 'theirs' }]) });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://github.com/acme', { website: 'github.com/acme' });
     expect(r).toMatchObject({ ok: true, kind: 'site', trust: 'owned' });
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://github.com/acme', 'https://github.com/acme/brand']);
@@ -74,16 +84,17 @@ describe('site adapter: trust follows the brand website (PR #63 review)', () => 
     expect(await readSite({}, 'https://docs.github.com/', { website: 'github.com/acme' })).toMatchObject({ ok: true, kind: 'page' });
   });
   it('drops subpages off the website, so one result never mixes owned and third-party text', async () => {
-    stub({ exa: () => exaReply([{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://partner.test/jamjam', title: 'Partner', text: 'claims' }]) });
+    const calls = stub({ exa: exaSite([{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://partner.test/jamjam', title: 'Partner', text: 'claims' }]) });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/', { website: 'jamjam.tech' });
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/']);
-    expect(r.meta.notes.join(' ')).toMatch(/not on the same site/);
+    // A link off the site is never requested.
+    expect(JSON.stringify(calls.map((c) => c.body))).not.toContain('partner.test');
   });
 });
 
 describe('site adapter: untrusted Exa output', () => {
   it('skips relative, malformed and non-http page URLs instead of throwing (PR #67 review)', async () => {
-    stub({ exa: () => new Response(JSON.stringify({ results: [{ url: 'https://a.test/', title: '', text: LONG, subpages: [{ url: '/about', title: '', text: 'x' }, { url: 'http://[bad', title: '', text: 'y' }, { url: 'javascript:alert(1)', title: '', text: 'z' }, { url: 42, text: 'n' }] }] })) });
+    stub({ exa: exaSite([{ url: 'https://a.test/', title: '', text: LONG }], 0.001, ['/about', 'http://[bad', 'javascript:alert(1)', 42, null]) });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/');
     expect(r).toMatchObject({ ok: true, title: 'a.test' });
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://a.test/']);
@@ -127,7 +138,7 @@ describe('site adapter: fallbacks', () => {
 
 describe('site adapter: robots.txt (RFC 9309)', () => {
   it('does not read a page robots.txt disallows for every agent', async () => {
-    const calls = stub({ robots: () => new Response('User-agent: *\nDisallow: /\n'), exa: () => exaReply([{ url: 'https://x.test/', title: 'X', text: LONG }]) });
+    const calls = stub({ robots: () => new Response('User-agent: *\nDisallow: /\n'), exa: exaSite([{ url: 'https://x.test/', title: 'X', text: LONG }]) });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://x.test/');
     expect(r).toMatchObject({ ok: false, code: 'robots_disallowed' });
     expect(calls.some((c) => c.url.startsWith('https://api.exa.ai/'))).toBe(false);
@@ -152,7 +163,7 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
   it('checks robots.txt of each origin a page comes from, including an apex-to-www redirect (PR #67 review)', async () => {
     const calls = stub({
       robots: (u) => new Response(u.startsWith('https://www.jamjam.tech') ? 'User-agent: *\nDisallow: /team\n' : ''),
-      exa: () => exaReply([{ url: 'https://www.jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://www.jamjam.tech/team', title: 'Team', text: 'people' }, { url: 'https://www.jamjam.tech/about', title: 'About', text: 'about' }]),
+      exa: exaSite([{ url: 'https://www.jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://www.jamjam.tech/team', title: 'Team', text: 'people' }, { url: 'https://www.jamjam.tech/about', title: 'About', text: 'about' }]),
     });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/', { website: 'jamjam.tech' });
     expect(r).toMatchObject({ ok: true, kind: 'site', trust: 'owned' });
@@ -160,7 +171,7 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     expect(calls.filter((c) => c.url.endsWith('/robots.txt')).map((c) => c.url)).toEqual(['https://jamjam.tech/robots.txt', 'https://www.jamjam.tech/robots.txt']);
   });
   it('never merges two unrelated third-party sites, and refuses a redirect into a disallowed origin', async () => {
-    stub({ exa: () => exaReply([{ url: 'https://news.test/a', title: 'News', text: LONG }, { url: 'https://other.test/b', title: 'Other', text: 'x' }]) });
+    stub({ exa: exaSite([{ url: 'https://news.test/a', title: 'News', text: LONG }, { url: 'https://other.test/b', title: 'Other', text: 'x' }]) });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://news.test/a', { website: 'jamjam.tech' });
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://news.test/a']);
     const calls = stub({

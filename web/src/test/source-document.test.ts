@@ -33,6 +33,15 @@ describe('document adapter', () => {
     expect(deck).toMatchObject({ ok: true, meta: { pages: 5 } });
     expect(deck.ok && deck.text).toContain('Pricing');
   });
+  it('keeps a text PDF of only numbers and symbols, such as an invoice table (PR #71 review)', async () => {
+    const table = '# inv.pdf\n## Metadata\n- Producer=Xero\n\n## Contents\n### Page 1\n| 2026-10-01 | $1,000 | 42% |\n| 2026-10-08 | $2,500 | 7% |\n';
+    const r = await readDocument({ AI: ai({ name: 'inv.pdf', format: 'markdown', data: table }) }, { name: 'inv.pdf', bytes });
+    expect(r).toMatchObject({ ok: true });
+    expect(r.ok && r.text).toContain('$2,500');
+    // A bare page number alone is not text: a one-page scan stamped "1" still needs OCR.
+    const stamped = await readDocument({ AI: ai({ name: 's1.pdf', format: 'markdown', data: '# s1.pdf\n## Metadata\n- Producer=Scanner\n\n## Contents\n### Page 1\n- 1 -\n' }) }, { name: 's1.pdf', bytes });
+    expect(stamped).toMatchObject({ ok: false, code: 'needs_ocr' });
+  });
   it('returns needs_ocr when only a running header or footer comes through on every page', async () => {
     const pages = Array.from({ length: 10 }, (_, i) => `### Page ${i + 1}\nPage ${i + 1} of 10 Confidential`).join('\n');
     const data = `# s.pdf\n## Metadata\n- Producer=Scanner\n\n## Contents\n${pages}`;

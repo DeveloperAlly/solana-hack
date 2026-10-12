@@ -24,18 +24,24 @@ export const DOC_MAX_BYTES = 15 * 1024 * 1024;
 export const MIN_LETTERS_PER_PAGE = 40;
 export const MIN_LETTERS = 200;
 
+/** Letters and digits in any script: the characters that make a line real extracted text. */
+const contentCount = (s: string) => (s.match(/[\p{L}\p{N}]/gu) ?? []).length;
+/** A bare page number such as "3", "- 3 -" or "3/10", which a scanner can stamp on a page with no text layer. */
+const bareNumber = (line: string) => /^[\s\p{P}]*\d{1,4}(?:\s*[/|]\s*\d{1,4})?[\s\p{P}]*$/u.test(line);
+
 /**
- * Letters in the lines that are the document's own text. In a PDF of two or more pages, a line that appears on every
- * page (digits ignored, so "Page 3 of 10" matches "Page 4 of 10") is a running header or footer, which a scanner can
- * stamp on pages that have no text layer, so it does not count. A one-page PDF counts every line.
+ * Letters and digits in the lines that are the document's own text, so a text PDF of only numbers and symbols (an
+ * invoice table, a price sheet) counts as text (PR #71 review). Not counted: a bare page number, and, in a PDF of two
+ * or more pages, a line that appears on every page (digits ignored, so "Page 3 of 10" matches "Page 4 of 10"), which
+ * is a running header or footer a scanner can stamp on pages with no text layer.
  */
-export function contentLetters(body: string, pages: number): number {
+export function contentChars(body: string, pages: number): number {
   const key = (line: string) => line.trim().replace(/\d+/g, '#').toLowerCase();
-  const lines = body.split('\n').filter((l) => l.trim());
-  if (pages < 2) return letterCount(lines.join('\n'));
+  const lines = body.split('\n').filter((l) => l.trim() && !bareNumber(l));
+  if (pages < 2) return contentCount(lines.join('\n'));
   const seen = new Map<string, number>();
   for (const l of lines) seen.set(key(l), (seen.get(key(l)) ?? 0) + 1);
-  return letterCount(lines.filter((l) => (seen.get(key(l)) ?? 0) < pages).join('\n'));
+  return contentCount(lines.filter((l) => (seen.get(key(l)) ?? 0) < pages).join('\n'));
 }
 
 export interface DocumentInput { name: string; bytes: ArrayBuffer | Uint8Array; maxBytes?: number }
@@ -104,14 +110,15 @@ export async function readDocument(env: SourceEnv, input: DocumentInput): Promis
   const letters = letterCount(body);
   if (extension === 'pdf') {
     // needs_ocr only when no text of the document's own came through; sparse text is kept (PR #71 review).
-    if (contentLetters(body, pages) === 0) {
+    if (contentChars(body, pages) === 0) {
       return fail('needs_ocr', 'This file has no readable text (it looks like a scan). Export it with text, or paste the key points.', pages);
     }
     if (letters < MIN_LETTERS || letters / pages < MIN_LETTERS_PER_PAGE) {
       c.notes.push(`only ${letters} letters came through across ${pages} page(s); if parts of the file are scanned images, paste their key points`);
     }
+  } else if (letters === 0 && contentCount(body) === 0) {
+    return fail('empty', `This ${type.label} has no text we can use; paste the key points instead.`, pages);
   }
-  if (letters === 0) return fail('empty', `This ${type.label} has no text we can use; paste the key points instead.`, pages);
   const title = (body.match(/^#\s+(.+)$/m)?.[1] ?? name).trim().slice(0, 200);
   return { ok: true, kind: 'document', trust, name, title, text: body, meta: c.meta(pages, 0, 'tomarkdown') };
 }
