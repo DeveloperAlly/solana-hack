@@ -20,7 +20,7 @@ const post = { id: '22222222-2222-2222-2222-222222222222', brief: 'launch', chan
 function mockApi() {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     const body = url === '/api/me' ? { user: { email: 'owner@example.com' }, brands: [brand] }
-      : url === '/api/health' ? { ok: true, registrar: 'E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG', rpcConfigured: true, aiConfigured: true, model: 'openrouter/auto' }
+      : url === '/api/health' ? { ok: true, registrar: 'E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG', rpcConfigured: true, aiConfigured: true, model: 'openrouter/free' }
       : /\/posts(\?limit=\d+)?$/.test(url) ? { posts: [post], more: false }
       : url === `/api/brands/${brand.id}` ? state : {};
     return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -53,7 +53,7 @@ describe('hub screens (mocked API)', () => {
   it('Settings is honest about what is live', async () => {
     mockApi();
     const { container } = renderWithRouter(<Settings />);
-    expect(await screen.findByText(/openrouter\/auto/)).toBeInTheDocument();
+    expect(await screen.findByText(/openrouter\/free/)).toBeInTheDocument();
     expect(screen.getAllByText('Coming soon').length).toBeGreaterThan(0);
     await noViolations(container);
   });

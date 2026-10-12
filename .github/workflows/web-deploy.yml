@@ -57,7 +57,7 @@ jobs:
               // S1-S4 product API: Supabase (auth check + data) and the LLM gateway.
               SUPABASE_URL: process.env.SUPABASE_URL || "", SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY || "",
               SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY || "", OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
-              OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || "openrouter/auto" };
+              OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || "openrouter/free" };
             for (const k of Object.keys(out)) if (!out[k]) { delete out[k]; console.log("not set: " + k); }
             require("fs").writeFileSync(process.env.RUNNER_TEMP + "/worker-secrets.json", JSON.stringify(out), { mode: 0o600 });'
       - name: Deploy to Cloudflare (jamjam.tech)

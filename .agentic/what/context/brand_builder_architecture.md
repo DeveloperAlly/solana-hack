@@ -136,7 +136,7 @@ Beliefs, values, messaging and vocabulary are then drafted from these answers an
     - Applies per-platform formatting: markdown for Substack and blogs, plain text with line breaks for LinkedIn and X.
     - LinkedIn has **no native bold**, so emphasis needs Unicode "mathematical" characters. Screen readers may read these letter by letter, so Beautify limits Unicode emphasis to a few key phrases and offers an **accessible mode** that uses no Unicode styling ([linkedinpreview](https://linkedinpreview.com/blog/linkedin-unicode-formatting-guide)).
 
-### 6.1 Component design and evaluation [proposed 2026-10-12]
+### 6.1 Component design and evaluation [accepted 2026-10-12]
 
 Moved here from the 2026-10-12 delivery plan so the repo holds it. Each component has its state on main (9da167b), the option chosen for the best output with the alternatives it beat, and the measure that proves it. IDs are the [backlog](../../how/backlog/backlog.md) IDs. A component is done only when its measure passes on the fixtures in §13. The rule throughout: **nothing grades itself.** Today the drafting prompt scores its own voice fit and platform fit (`posts.ts` `draftPost`); every measure below replaces that with a check the generator cannot influence. Sources: §13.5.
 
@@ -147,7 +147,7 @@ Moved here from the 2026-10-12 delivery plan so the repo holds it. Each componen
 | Component | On main today | Best-output option (alternatives considered) | Measured by |
 |---|---|---|---|
 | **Source ingestion**: read what the brand already has | `ingest.ts` reads one URL; HTML entities decoded (#40) | Check robots.txt, then one Exa contents call for the home page plus about 8 key subpages (about $0.009 a brand; Exa's free monthly credit covers about 1,100 onboardings); fall back to a plain fetch, then Cloudflare's rendered Markdown for script-only sites, then paste. PDF, DOCX, XLSX via Workers AI `toMarkdown` (free); scanned PDFs through an OCR engine (about $2 per 1,000 pages); PPTX parsed in the browser. X and LinkedIn history from the owner's own data export, parsed in the browser. Rejected: single page (misses most facts), full-site crawl (cost, noise, free crawl limited to 5 jobs a day) | Key-page coverage ≥ 90% on the fixture sites; ≥ 95% of gold sentences present in the extracted text; cost and Worker CPU per brand logged |
-| **Fact extraction with quote check** (B3) | Full source text stored and quotes checked with the shared normaliser (`quote.ts`, #40); one call, no enforced schema, `openrouter/auto` | Chunks of 2–4k tokens with source offsets; strict JSON schema with the provider required to honour it; both sides normalised (Unicode, quote marks, dashes, entities) and an exact match required; a fuzzy match (≥ 0.9) used only to find the real passage, after which the stored quote is replaced by the exact source text and its offsets (the source-alignment design in Google's LangExtract); a second check that the quote actually supports the fact; overlapping facts merged; contradictions turned into interview questions; confidence computed from match type and number of sources, not asked of the model. Rejected: one long call (models degrade as input grows), trusting the model's quote | **0 invented facts and 0 unsupported quote–fact pairs (hard gates)**; precision ≥ 95%, recall ≥ 70% against hand-labelled facts; false-drop rate of true quotes reported; 100% of planted near-miss quotes rejected |
+| **Fact extraction with quote check** (B3) | Full source text stored and quotes checked with the shared normaliser (`quote.ts`, #40); one call, no enforced schema, default model `openrouter/free` | Chunks of 2–4k tokens with source offsets; strict JSON schema with the provider required to honour it; both sides normalised (Unicode, quote marks, dashes, entities) and an exact match required; a fuzzy match (≥ 0.9) used only to find the real passage, after which the stored quote is replaced by the exact source text and its offsets (the source-alignment design in Google's LangExtract); a second check that the quote actually supports the fact; overlapping facts merged; contradictions turned into interview questions; confidence computed from match type and number of sources, not asked of the model. Rejected: one long call (models degrade as input grows), trusting the model's quote | **0 invented facts and 0 unsupported quote–fact pairs (hard gates)**; precision ≥ 95%, recall ≥ 70% against hand-labelled facts; false-drop rate of true quotes reported; 100% of planted near-miss quotes rejected |
 | **Coverage map** (B4: Evidence, Inferred, Missing per field) | Not built (#34) | A coverage matrix of slots per kit section; ask only about missing, weak or conflicting slots, ranked by a simple stand-in for expected information gain. Evidence: prompting a model to ask questions made results worse, while asking only when unsure improved accuracy by 22% (MediQ). Rejected: static checklist (asks what the site already says) | Field-status accuracy ≥ 90% against gold; questions until full coverage; on aDNA ≥ 70% prefilled and < 5 min to kit v1 (#34) |
 | **Guided interview** (B5, B6) | Linear steps (`steps.ts`) | Confirm mode: prefilled cards to accept, edit or reject, then gap questions only; answers stored as owner evidence so every fact follows the same quote rule. Rejected: a blank form (slow), free chat (hard to finish) | Time to kit v1; edits per prefilled field; 5-person usability run with ≥ 4 of 5 finishing unaided |
 
@@ -172,7 +172,7 @@ Moved here from the 2026-10-12 delivery plan so the repo holds it. Each componen
 | **Approval and learned rules** (G3, T1b) | Approve flow; edits not learned | Each edit becomes a readable rule (CIPHER) the brand can keep or delete; rules retrieved on the next draft | Edit distance falls over a brand's first 20 posts; share of learned rules kept |
 | **Publishing** (P1 to P3, P3a) | Copy text, paste the URL back (`Create.tsx` L176) | Official APIs in order of cost and access: Bluesky (free), LinkedIn as a member (self-serve), X ($0.015 a post, $0.20 with a link, so links stay out of post bodies), Threads (app review), LinkedIn Company Pages (vetted access) | Publish success rate; the published text hashes to the approved hash 100% |
 
-### 6.2 Voice: template first, then a ladder [proposed 2026-10-12]
+### 6.2 Voice: template first, then a ladder [accepted 2026-10-12]
 
 **Owner ruling (2026-10-12):** the proof of concept starts from voice templates (research 06: 12 templates on 9 dimensions, claims strictness used as a gate). Existing open-source template sets are adopted where their licence and format fit; templates are authored only where none do. Each rung below is added when the evaluation harness (§13) shows it beats the rung before. Which open-source template sets are adopted, and which templates are authored, is in [research 06](./research/06_voice_templates.md) ("Reusable template sources"): templates must carry sample lines, because zero-shot style matching scored 3 to 7% in one 2025 study. The evidence for the rungs follows.
 
@@ -206,7 +206,7 @@ Above the template rung, the next step is retrieval plus a learned spec, not a f
 - training-consent flags per brand;
 - 20–30 held-out approved posts per brand as its test set.
 
-**Who pays for model calls:** during the proof of concept JamJam's own OpenRouter account and an optional self-hosted provider carry the calls. Free models allow 50 requests a day, or 1,000 after buying $10 of credits once, and best-of-3 plus a judge is about 5 calls a post, so the $10 is needed even then ([limits](https://openrouter.ai/docs/api_reference/limits)). After the proof of concept each brand brings its own OpenRouter key through a one-button Connect flow in Settings › AI (OpenRouter's [OAuth PKCE flow](https://openrouter.ai/docs/guides/overview/auth/oauth) returns the user's key to JamJam with no copy-paste), so each brand's usage and credits are its own.
+**Who pays for model calls:** nobody during the proof of concept. The default is `openrouter/free` ([OpenRouter Free Models Router](https://openrouter.ai/docs/guides/routing/routers/free-router)), which picks a free model per request; an optional self-hosted provider is the other route. Free models allow 50 requests a day, or 1,000 after a one-time $10 credit purchase ([limits](https://openrouter.ai/docs/api-reference/limits)); best-of-3 plus a judge is about 5 calls a post, so the higher limit is needed for real use. After the proof of concept each brand can bring its own OpenRouter key through a one-button Connect flow in Settings › AI (OpenRouter OAuth PKCE), so its usage is its own.
 
 ## 7. Proof layer (what gets registered, when)
 | Event | Registered | Why |
@@ -220,7 +220,7 @@ Above the template rung, the next step is retrieval plus a learned spec, not a f
 
 Only hashes and ids go onchain. Content stays offchain. They are written as **Solana Attestation Service** attestations issued by the Registrar, with the memo program as the fallback (owner decision 2026-10-06; see [backend map](./backend_map.md) G-SAS).
 
-### 7.1 Attestation, Verify and payout design [proposed 2026-10-12]
+### 7.1 Attestation, Verify and payout design [accepted 2026-10-12]
 
 From the 2026-10-12 delivery plan; measures run on fixtures F7 and F8 (§13).
 
@@ -345,7 +345,7 @@ After that, all optional: claims with evidence, an ambassador campaign with USDC
 - **Full backend map, endpoints and gaps:** [backend_map.md](./backend_map.md); stubs in `spec/api/`.
 - **Runtime:** ingest and agent runs probably on Cloudflare Queues or Workflows. The Workers free plan allows 10 ms of CPU per request, but time spent waiting on LLM calls doesn't count toward it. Still to be verified.
 
-## 13. Evaluation harness [proposed 2026-10-12]
+## 13. Evaluation harness [accepted 2026-10-12]
 
 One harness gates every component. It runs in GitHub Actions on every PR that touches a prompt, a model choice, the normaliser or a scoring rule, and before any model swap. Results are written to Supabase (an `eval_runs` table: component, fixture set, model id, prompt version, scores) so a regression is visible as a number, not a feeling. Deterministic checks run as unit tests; model-judged checks run through an open-source eval runner (promptfoo-style assertions) so prompts and models can be swapped and compared on the same inputs.
 
