@@ -419,6 +419,9 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20)));
   }
   if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
+    // The anonymous source cap counts the rows that exist, so removing a source needs the saved account: otherwise
+    // delete and re-add would read sources (and call the model) without bound (Codex review on PR #96).
+    requirePermanent(user);
     // Removing a source removes the facts read from it. Sections that cited them then need redrafting before the next
     // registration (registerKit refuses stale citations); kits already registered keep their own evidence snapshot.
     const id = p[4];

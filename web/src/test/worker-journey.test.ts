@@ -123,6 +123,9 @@ describe('reading before sign-in (anonymous users, decision D1)', () => {
     tables.brands = [b];
     tables.sources = Array.from({ length: ANON_MAX_SOURCES }, () => ({ id: uuid(), brand_id: b.id, url: 'x' }));
     expect((await call('anon', 'POST', `/api/brands/${b.id}/sources`, { url: 'https://acme.test' })).status).toBe(409);
+    // Deleting to make room is refused, so the cap bounds what an anonymous visitor reads.
+    expect((await call('anon', 'DELETE', `/api/brands/${b.id}/sources/${(tables.sources[0] as { id: string }).id}`)).status).toBe(403);
+    expect(tables.sources).toHaveLength(ANON_MAX_SOURCES);
     tables.sources = [];
     limited = true;
     expect((await call('anon', 'POST', `/api/brands/${b.id}/sources`, { url: 'https://acme.test' })).status).toBe(429);
