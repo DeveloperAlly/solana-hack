@@ -17,3 +17,8 @@
 .control:focus-visible { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); outline-offset: var(--wl-border-width-focus); }
 .control[aria-invalid='true'] { border-color: var(--wl-status-danger-fg); }
 textarea.control { min-height: calc(var(--wl-control-height-md) * 3); resize: vertical; }
+/* Inline layout (FieldFrame layout="inline"): label beside a compact control, e.g. a toolbar "Sort" select. */
+.inline { flex-direction: row; flex-wrap: wrap; align-items: center; font-size: var(--wl-font-size-sm); }
+.inline .label { font-size: var(--wl-font-size-sm); font-weight: var(--wl-font-weight-regular); }
+.inline .control { width: auto; }
+.inline .hint, .inline .error { flex-basis: 100%; }

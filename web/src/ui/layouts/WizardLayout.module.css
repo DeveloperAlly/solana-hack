@@ -1,0 +1,16 @@
+.layout { display: flex; flex-direction: column; gap: var(--wl-space-6); }
+.progress { display: flex; flex-direction: column; gap: var(--wl-space-3); }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-3); }
+.saving { font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
+.head { display: flex; flex-direction: column; gap: var(--wl-space-2); }
+.body { display: flex; flex-direction: column; gap: var(--wl-space-4); }
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wl-space-3);
+  padding: var(--wl-space-4) var(--wl-space-5);
+  border: var(--wl-border-width-strong) solid var(--wl-border-strong);
+  border-radius: var(--wl-radius-box);
+}

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import axe from 'axe-core';
 import { screen } from '@testing-library/react';
 import { renderWithRouter } from '../../test/render';
+import { expectNoAxeViolations } from '../../test/axe';
 import { Home } from './Home';
 import { Brand } from './Brand';
 import { Settings } from './Settings';
@@ -29,9 +29,7 @@ function mockApi() {
 afterEach(() => vi.unstubAllGlobals());
 
 async function noViolations(container: HTMLElement) {
-  const r = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
-  if (r.violations.length) console.error(JSON.stringify(r.violations, null, 2));
-  expect(r.violations).toHaveLength(0);
+  await expectNoAxeViolations(container);
 }
 
 describe('hub screens (mocked API)', () => {

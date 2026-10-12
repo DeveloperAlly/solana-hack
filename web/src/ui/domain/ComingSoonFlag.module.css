@@ -1,0 +1,16 @@
+/* Canvas "chipd": solid ink chip. */
+.flag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--wl-chip-padY) var(--wl-chip-padX);
+  border: var(--wl-border-width-default) solid var(--wl-bg-inverse);
+  border-radius: var(--wl-radius-pill);
+  background: var(--wl-bg-inverse);
+  color: var(--wl-text-inverse);
+  font-family: var(--wl-font-body);
+  font-size: var(--wl-chip-font-size);
+  font-weight: var(--wl-chip-font-weight);
+  line-height: var(--wl-font-lineHeight-body);
+  white-space: nowrap;
+  vertical-align: middle;
+}

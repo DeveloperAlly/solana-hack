@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>JamJam</title>
+    <!-- PNG first, SVG last with sizes="any": browsers pick by type, media and sizes, and use the last of equally
+         appropriate icons (HTML spec, link type "icon": https://html.spec.whatwg.org/multipage/links.html#rel-icon),
+         so the SVG, with its dark-mode inverse, wins wherever SVG favicons are supported. -->
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#ffffff" />
   </head>
   <body>
     <div id="root"></div>

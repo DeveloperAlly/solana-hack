@@ -1,0 +1,5 @@
+.icon { flex: none; stroke-width: var(--wl-border-width-strong); vector-effect: non-scaling-stroke; }
+.icon * { vector-effect: non-scaling-stroke; }
+.sm { width: var(--wl-font-size-md); height: var(--wl-font-size-md); }
+.md { width: var(--wl-space-6); height: var(--wl-space-6); }
+.lg { width: var(--wl-space-10); height: var(--wl-space-10); }
