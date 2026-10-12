@@ -50,31 +50,8 @@ export const journeySteps = [
 
 export type JourneyStepId = (typeof journeySteps)[number]['id'];
 
-/** Live public nav paths (config/routes.ts publicNav) mapped to the boards canvas Main links to. */
-const publicTargets: Record<string, JourneyTarget> = { '/': 'main', '/verify': 'proof', '/ledger': 'ledger', '/sign-in': 'signIn', '/home': 'hub' };
-
-/** Live hub nav paths (config/routes.ts hubNav) mapped to the boards canvas J8-Hub-FirstRun links to. */
-const hubTargets: Record<string, JourneyTarget> = {
-  '/home': 'hub',
-  '/brand': 'brandBuild',
-  '/create': 'contentDashboard',
-  '/grow': 'engageQueue',
-  '/inbox': 'inbox',
-  '/analytics': 'analytics',
-  '/ledger': 'ledger',
-  '/settings': 'settingsAi',
-};
-
 /** (target, state?) => href that keeps the gallery theme. Every Journey link goes through it. */
 export function useJourneyHref(): (target: JourneyTarget, state?: ScreenState) => string {
   const href = useScreenHref();
   return useCallback((target: JourneyTarget, state?: ScreenState) => href(journeyBoards[target], state), [href]);
 }
-
-/** Maps a shell's live nav path to its Journey board; paths with no board (How it works) stay as they are. */
-function useNavHref(targets: Record<string, JourneyTarget>): (path: string) => string {
-  const to = useJourneyHref();
-  return useCallback((path: string) => (targets[path] ? to(targets[path]) : path), [to, targets]);
-}
-export const usePublicNavHref = () => useNavHref(publicTargets);
-export const useHubNavHref = () => useNavHref(hubTargets);

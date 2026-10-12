@@ -46,6 +46,8 @@ export interface JourneySectionStatus {
 
 /** The person's decision on a found fact (J3). */
 export type FactDecision = 'accepted' | 'edited' | 'rejected';
+/** A decided fact; `edit` is present only for an edited one. */
+export type FactRecord = { decision: Exclude<FactDecision, 'edited'>; edit?: undefined } | { decision: 'edited'; edit: string };
 
 /** A kit gate on J5 (the `gates` and `kit_sections` rows). */
 export interface JourneyGate {
@@ -135,6 +137,8 @@ export interface GapsVoiceData {
 /** J5-Approve-Kit. `registration` is set when registering kit v1 failed (Kit-RegisterFailed). */
 export interface ApproveKitData {
   approver: string;
+  /** The J4 voice samples, so the Voice gate can name the person's picks. */
+  voice: GapsVoiceData['voice'];
   gates: JourneyGate[];
   alsoDrafted: JourneyStatusRow[];
   onChain: string;
@@ -143,16 +147,19 @@ export interface ApproveKitData {
 
 /** J6-First-Post. */
 export interface FirstPostData {
-  channels: { id: JourneyChannel; label: string; segments: JourneyClaimSegment[] }[];
+  /** Each channel's draft; `polish` holds a sample revision per polish action (what POST …/polish returns). */
+  channels: { id: JourneyChannel; label: string; segments: JourneyClaimSegment[]; polish?: Record<string, JourneyClaimSegment[]> }[];
   claims: JourneyClaim[];
-  checks: JourneyStatusRow[];
+  /** The slop pass (a gate) and voice fit (shown, not a gate); the claims gate is counted from `claims` on screen. */
+  checks: { slop: { label: string; passed: boolean }; voiceFit: JourneyStatusRow };
   blocked: { claim: string; message: string };
   polishActions: string[];
 }
 
 /** J7-Proof. `signature` is null until the registration has a transaction. */
 export interface ProofData {
-  record: { label: string; value: string }[];
+  /** The registration record. */
+  record: { post: string; kit: string; approvedBy: string; hash: string };
   signature: string | null;
   network: string;
   postText: string;
@@ -168,9 +175,11 @@ export type JourneyRecordRow = Omit<JourneyStatusRow, 'href'> & { target?: Journ
 /** J8-Hub-FirstRun. */
 export interface HubFirstRunData {
   brandName: string;
-  status: string;
+  /** Kit readiness for the status line, e.g. "readiness 72%". */
+  readiness: string;
+  /** Items "kit" and "post" follow whether kit v1 and the first post were registered on this visit. */
   checklist: JourneyChecklistEntry[];
   nextPost: string;
-  publicRecord: JourneyRecordRow[];
+  publicRecord: { kit: JourneyRecordRow; post: JourneyRecordRow };
   comingSoon: string;
 }

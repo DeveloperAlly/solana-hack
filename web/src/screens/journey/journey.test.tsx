@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { GalleryScreen } from '../../gallery/Gallery';
+import { GalleryIndex, GalleryScreen } from '../../gallery/Gallery';
 import { screenPath } from '../../gallery/screenPath';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { resetJourneyFlow } from './useJourneyFlow';
@@ -31,6 +31,8 @@ const h1 = () => screen.getByRole('heading', { level: 1 });
 const button = (name: string | RegExp) => screen.getByRole('button', { name });
 const click = (name: string | RegExp) => userEvent.click(button(name));
 const follow = (name: string | RegExp) => userEvent.click(screen.getByRole('link', { name }));
+/** Main's site form button (the canvas repeats it lower down; both submit the same form). */
+const readSite = () => userEvent.click(screen.getAllByRole('button', { name: 'Read my site' })[0]);
 
 /** J4 finished: both answers, and a voice picked in each round. */
 async function finishGapsVoice() {
@@ -53,10 +55,10 @@ describe('Journey flow, Main to J8', () => {
     const site = screen.getByLabelText('Your website');
     expect(site).toHaveValue('');
     await userEvent.type(site, 'jamjam');
-    await click('Read my site');
+    await readSite();
     expect(screen.getByRole('alert')).toHaveTextContent('Enter a web address');
     await userEvent.type(site, '.tech');
-    await click('Read my site');
+    await readSite();
     expect(h1()).toHaveTextContent('Reading jamjam.tech');
     expect(screen.getByText('Aha 1')).toBeInTheDocument();
 
@@ -80,7 +82,7 @@ describe('Journey flow, Main to J8', () => {
     await click('Approve and register kit v1');
 
     expect(h1()).toHaveTextContent('Your first post, from kit v1');
-    await follow('Approve and register');
+    await click('Approve and register');
     expect(h1()).toHaveTextContent('Your first post is registered');
     expect(screen.getByRole('heading', { name: 'Official' })).toBeInTheDocument();
     await follow('Plan the rest of my week');
@@ -182,9 +184,9 @@ describe('Review rule: toggles, tabs and checks change what is displayed', () =>
 
   it('J6 channel tabs swap the draft, and a selected claim shows its evidence', async () => {
     at('firstPost');
-    expect(screen.getByText('"Anyone can check what really came from you"')).toBeInTheDocument();
-    await click('Claim: drafts posts in your voice');
     expect(screen.getByText('"drafts posts in your voice"')).toBeInTheDocument();
+    await click('Claim: Anyone can check what really came from you');
+    expect(screen.getByText('"Anyone can check what really came from you"')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: 'X' }));
     expect(screen.getByText('[X version of the first post, from kit v1]')).toBeInTheDocument();
   });
@@ -269,6 +271,9 @@ describe('Journey screens: other interactions and states', () => {
     expect(screen.getByText('Rejected')).toBeInTheDocument();
     await userEvent.click(screen.getAllByRole('button', { name: 'Undo' })[0]);
     expect(screen.queryByText('Edited')).not.toBeInTheDocument();
+    // Undo clears the decision and the edit together (one record): the card shows the original wording again.
+    expect(screen.queryByText('JamJam reads first.')).not.toBeInTheDocument();
+    expect(screen.getByText('JamJam builds a brand kit, then drafts posts in that voice.')).toBeInTheDocument();
   });
 
   it('J4 takes one sentence instead of a pick', async () => {
@@ -279,29 +284,178 @@ describe('Journey screens: other interactions and states', () => {
     expect(screen.getByText('Your sentence: "Plain and direct."')).toBeInTheDocument();
   });
 
-  it('J5 shows the failed registration with the kit still approved', async () => {
+  it('J5 shows the failed registration with the kit still approved, and no way on to drafting', async () => {
     at('approveKit', 'error');
     expect(screen.getByRole('heading', { name: 'Kit v1 is approved, but not registered yet' })).toBeInTheDocument();
     expect(screen.getAllByText('Approved')).toHaveLength(3);
+    expect(screen.queryByText('Continue without registering')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review the kit' })).toHaveAttribute('href', path('brandBuild'));
     await click('Retry registration');
     expect(screen.getByText('Not yet · last try just now')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Continue without registering' })).toHaveAttribute('href', path('firstPost'));
   });
 
-  it('J6 polishes with undo and copies the draft', async () => {
+  it('J6 polishing replaces the draft with the revision, and Undo restores it', async () => {
     at('firstPost');
+    const panel = () => screen.getByRole('tabpanel');
+    expect(panel()).toHaveTextContent('Every brand tool I tried asked me questions my website already answered. So JamJam reads first.');
     await click('Shorten');
+    expect(panel()).toHaveTextContent('Brand tools kept asking what my website already said.');
+    expect(panel()).not.toHaveTextContent('Built in public');
+    await click('Clarify');
+    expect(panel()).toHaveTextContent('JamJam reads your site first');
+    await click('Undo Clarify');
+    expect(panel()).toHaveTextContent('Brand tools kept asking what my website already said.');
     await click('Undo Shorten');
-    expect(screen.queryByRole('button', { name: 'Undo Shorten' })).not.toBeInTheDocument();
-    fireEvent.click(button('Copy text'));
-    expect(await screen.findByRole('button', { name: 'Copy text: copied' })).toBeInTheDocument();
+    expect(panel()).toHaveTextContent('So JamJam reads first.');
+    expect(screen.queryByRole('button', { name: /^Undo/ })).not.toBeInTheDocument();
   });
 
-  it('J8 keeps its nav and checklist inside the gallery', () => {
+  it('J8 links its checklist into the gallery', () => {
     at('hub');
-    const nav = screen.getByRole('navigation', { name: 'Hub' });
-    expect(within(nav).getByRole('link', { name: /Brand/ })).toHaveAttribute('href', path('brandBuild'));
     expect(screen.getByRole('link', { name: 'Start: Add 2 more sources' })).toHaveAttribute('href', path('read'));
     expect(screen.getByRole('progressbar', { name: '2 of 6 done' })).toBeInTheDocument();
+    expect(screen.getByText(/Kit v1 registered · first post official · readiness 72%/)).toBeInTheDocument();
+  });
+});
+
+describe('Truthfulness: status follows whether kit v1 really registered', () => {
+  it('after a failed retry, J6 does not draft, its chip says not registered, and J8 shows the kit as approved only', async () => {
+    at('approveKit', 'error');
+    await click('Retry registration');
+    again('firstPost');
+    expect(screen.getByRole('heading', { name: 'Register kit v1 first' })).toBeInTheDocument();
+    expect(screen.getByText('Kit v1 not registered')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve and register' })).not.toBeInTheDocument();
+    again('hub');
+    expect(screen.getByText(/Kit v1 approved, not registered · no post yet/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Start: Register kit v1' })).toHaveAttribute('href', path('approveKit'));
+    expect(screen.getAllByText('Not registered yet')).toHaveLength(2);
+  });
+
+  it('a successful registration leads on with the registered chip', async () => {
+    at('approveKit');
+    for (const b of screen.getAllByRole('button', { name: 'Approve' })) await userEvent.click(b);
+    await click('Approve and register kit v1');
+    expect(screen.getByText('Kit v1 registered ✓')).toBeInTheDocument();
+  });
+});
+
+describe('Earlier choices carry to later screens (fixtures are only the defaults)', () => {
+  it('the site typed on Main names J1 and its home source', async () => {
+    at('main');
+    await userEvent.type(screen.getByLabelText('Your website'), 'acme.example.com');
+    await readSite();
+    expect(h1()).toHaveTextContent('Reading acme.example.com');
+    expect(within(screen.getByRole('region', { name: 'Sources' })).getByText('acme.example.com')).toBeInTheDocument();
+  });
+
+  it('the lower "Read my site" submits the same site form', async () => {
+    at('main');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Read my site' })[1]);
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter your website address.');
+  });
+
+  it('a new read from Main starts a fresh journey', async () => {
+    at('confirm');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Accept' })[0]);
+    expect(screen.getByText('1 confirmed')).toBeInTheDocument();
+    again('main');
+    await userEvent.type(screen.getByLabelText('Your website'), 'jamjam.tech');
+    await readSite();
+    again('confirm');
+    expect(screen.getByText('0 confirmed')).toBeInTheDocument();
+  });
+
+  it('J3 rejections and edits change what J5 cites and counts', async () => {
+    at('confirm');
+    // Cards: positioning, purpose, messaging (checked), messaging (gates). Edit purpose, reject messaging (checked).
+    await userEvent.click(screen.getAllByRole('button', { name: 'Edit' })[1]);
+    const field = screen.getByLabelText('Edit: Purpose · Gate 1');
+    await userEvent.clear(field);
+    await userEvent.type(field, 'Proof that posts came from the brand.');
+    await click('Save');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Reject' })[1]);
+    again('approveKit');
+    const purpose = screen.getByRole('region', { name: 'Purpose' });
+    expect(within(purpose).getByText(/Built from: 1 fact, 1 answer/)).toBeInTheDocument();
+    expect(within(purpose).getByText('Proof that posts came from the brand.')).toBeInTheDocument();
+    expect(within(purpose).queryByText('Every draft is checked, and a person approves before anything goes out.')).not.toBeInTheDocument();
+  });
+
+  it('J4 answers, alternatives and voice picks fill the J5 drafts', async () => {
+    at('gapsVoice');
+    await click('Google Pomelli');
+    await finishGapsVoice();
+    again('approveKit');
+    expect(within(screen.getByRole('region', { name: 'Positioning' })).getByText(/Unlike Google Pomelli, Reads first\./)).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Positioning' })).getByText(/1 alternative/)).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Voice' })).getByText(/Candid founder, narrowed in round 2 by paragraph B/)).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Purpose' })).getByText('Brand tools asked what my site said')).toBeInTheDocument();
+  });
+
+  it('a fact rejected on J3 leaves its J6 claim unsupported, and Approve waits', async () => {
+    at('confirm');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Reject' })[1]); // purpose backs "Anyone can check…"
+    again('firstPost');
+    expect(screen.getByText('Claims: 1 of 2 backed')).toBeInTheDocument();
+    await click('Claim: Anyone can check what really came from you');
+    expect(screen.getByText(/this claim is unsupported/)).toBeInTheDocument();
+    expect(button('Approve and register')).toBeDisabled();
+  });
+
+  it('the J6 claim panel follows the channel on screen', async () => {
+    at('firstPost');
+    await click('Claim: drafts posts in your voice');
+    await userEvent.click(screen.getByRole('tab', { name: 'X' }));
+    expect(screen.queryByRole('heading', { name: 'Claim → evidence' })).not.toBeInTheDocument();
+    expect(screen.getByText('Claims: 0 of 0 backed')).toBeInTheDocument();
+  });
+
+  it('the channel and polished text approved on J6 are what J7 records and checks', async () => {
+    at('firstPost');
+    await click('Shorten');
+    await click('Approve and register');
+    expect(h1()).toHaveTextContent('Your first post is registered');
+    expect(screen.getByText('LinkedIn launch post')).toBeInTheDocument();
+    expect(screen.getByLabelText('Text or URL')).toHaveValue('Brand tools kept asking what my website already said. JamJam reads first, drafts posts in your voice and waits for your approval. Anyone can check what really came from you.');
+    fireEvent.click(button('Copy post'));
+    expect(await screen.findByRole('button', { name: 'Copy post: copied' })).toBeInTheDocument();
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringMatching(/^Brand tools kept asking/));
+  });
+
+  it('J7 matches like the Worker: rewrapped whitespace is still Official, a changed word is not', async () => {
+    at('proof');
+    const box = screen.getByLabelText('Text or URL');
+    const text = (box as HTMLTextAreaElement).value;
+    await userEvent.clear(box);
+    await userEvent.type(box, `  ${text.replace('So JamJam', 'So\n\nJamJam')}  `);
+    await click('Check');
+    expect(screen.getByRole('heading', { name: 'Official' })).toBeInTheDocument();
+  });
+
+  it('J1 sources added one after another keep separate rows', async () => {
+    at('read');
+    for (const link of ['one.example.com', 'two.example.com']) {
+      await click('Another link');
+      await userEvent.type(screen.getByLabelText('Another link'), link);
+      await click('Add');
+    }
+    const sources = within(screen.getByRole('region', { name: 'Sources' }));
+    expect(sources.getByText('one.example.com')).toBeInTheDocument();
+    expect(sources.getByText('two.example.com')).toBeInTheDocument();
+  });
+});
+
+describe('Gallery index with Journey registered', () => {
+  it('keeps the same J1 link node across a tick in a theme (no remount loop)', async () => {
+    render(
+      <MemoryRouter initialEntries={['/screens?theme=wireframe-dark']}>
+        <Routes><Route path="/screens" element={<GalleryIndex />} /></Routes>
+      </MemoryRouter>,
+    );
+    const first = screen.getByRole('link', { name: 'J1-Read' });
+    expect(first).toHaveAttribute('href', '/screens/J1-Read?theme=wireframe-dark');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByRole('link', { name: 'J1-Read' })).toBe(first);
   });
 });

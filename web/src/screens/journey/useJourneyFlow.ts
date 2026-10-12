@@ -8,18 +8,26 @@
 import { useSyncExternalStore } from 'react';
 import type { JourneyGateDecision } from '../../ui/domain/JourneyGateCard';
 import { journeySteps, useJourneyHref, type JourneyStepId } from './paths';
-import type { FactDecision } from './types';
+import type { FactDecision, FactRecord } from './types';
 
 export type VoiceRound = 1 | 2;
 
 /** J2 sign-in as a state machine: a code is accepted only once an email was sent. */
 export type SignInPhase = 'email' | 'sending' | 'code';
 
+/** The post approved and registered on J6, carried to J7 and J8. */
+export interface ApprovedPost {
+  channelLabel: string;
+  text: string;
+}
+
 export interface JourneySelections {
+  /** The address typed on Main; J1 reads it. Empty until a journey starts from Main. */
+  site: string;
   signIn: SignInPhase;
   emailSentTo: string;
-  factDecisions: Record<string, FactDecision>;
-  factEdits: Record<string, string>;
+  /** One record per found fact: the decision, and the person's wording only when it was edited. Undo removes it. */
+  facts: Record<string, FactRecord>;
   alternatives: string[];
   customAlternatives: string[];
   answers: Record<string, string>;
@@ -29,13 +37,18 @@ export interface JourneySelections {
   gateDrafts: Record<string, string>;
   /** A decision per gate; null means reopened, which hides a decision that came with the data. */
   gateDecisions: Record<string, JourneyGateDecision | null>;
+  /** Whether kit v1 reached Solana: true after J5 registers it, false after a retry fails, undefined before J5. */
+  kitRegistered?: boolean;
+  /** The channel tab chosen on J6. */
+  postChannel?: string;
+  post?: ApprovedPost;
 }
 
 const empty: JourneySelections = {
+  site: '',
   signIn: 'email',
   emailSentTo: '',
-  factDecisions: {},
-  factEdits: {},
+  facts: {},
   alternatives: [],
   customAlternatives: [],
   answers: {},
@@ -65,14 +78,24 @@ export function resetJourneyFlow() {
   listeners.forEach((l) => l());
 }
 
+/** Edited facts keep the person's wording; any other decision keeps none. */
+const factRecord = (decision: FactDecision, edit?: string): FactRecord =>
+  decision === 'edited' ? { decision, edit: edit ?? '' } : { decision };
+
 const actions = {
+  /** A new read from Main starts a new journey: every earlier selection is cleared, and the new site is kept. */
+  // INTEGRATION: POST /api/brands {website}, then POST /api/brands/:id/sources {url} starts the read (J1).
+  startJourney: (site: string) => {
+    resetJourneyFlow();
+    update(() => ({ site }));
+  },
   // INTEGRATION: supabase.auth.signInWithOtp({ email }); the phase moves to 'code' when it resolves.
   sendEmail: (email: string) => update(() => ({ signIn: 'code', emailSentTo: email })),
   changeEmail: () => update(() => ({ signIn: 'email', emailSentTo: '' })),
   // INTEGRATION: PUT /api/brands/:id/sections/:section (edit) and POST …/sections/:section/approve (accept).
   decideFact: (id: string, decision: FactDecision, edit?: string) =>
-    update((s) => ({ factDecisions: { ...s.factDecisions, [id]: decision }, factEdits: edit === undefined ? s.factEdits : { ...s.factEdits, [id]: edit } })),
-  undoFact: (id: string) => update((s) => ({ factDecisions: without(s.factDecisions, id) })),
+    update((s) => ({ facts: { ...s.facts, [id]: factRecord(decision, edit) } })),
+  undoFact: (id: string) => update((s) => ({ facts: without(s.facts, id) })),
   // INTEGRATION: PUT /api/brands/:id/answers/:step (alternatives, answers and voice picks are interview answers).
   setAlternatives: (selected: string[]) => update(() => ({ alternatives: selected })),
   addAlternative: (option: string) => update((s) => ({ customAlternatives: [...s.customAlternatives, option], alternatives: [...s.alternatives, option] })),
@@ -84,6 +107,11 @@ const actions = {
   editGate: (id: string, draft: string) => update((s) => ({ gateDrafts: { ...s.gateDrafts, [id]: draft }, gateDecisions: { ...s.gateDecisions, [id]: null } })),
   approveGate: (id: string, decision: JourneyGateDecision) => update((s) => ({ gateDecisions: { ...s.gateDecisions, [id]: decision } })),
   reopenGate: (id: string) => update((s) => ({ gateDecisions: { ...s.gateDecisions, [id]: null } })),
+  // INTEGRATION: POST /api/brands/:id/kit/register, and POST /api/registrations/:id/retry after a failure.
+  setKitRegistered: (kitRegistered: boolean) => update(() => ({ kitRegistered })),
+  setPostChannel: (postChannel: string) => update(() => ({ postChannel })),
+  // INTEGRATION: POST /api/brands/:id/posts/:id/approve, then POST …/register (needs kit v1 registered: posts.ts 409).
+  approvePost: (post: ApprovedPost) => update(() => ({ post })),
 };
 
 export type JourneyActions = typeof actions;
@@ -91,6 +119,10 @@ export type JourneyActions = typeof actions;
 /** J4 is finished when both questions are answered and the voice is set: a round 2 pick, or one sentence. */
 export const voiceDone = (s: JourneySelections) =>
   Boolean(s.answers.edge?.trim() && s.answers.origin?.trim() && (s.voicePicks[2] || s.voiceSentence.trim()));
+
+const afterKit = journeySteps.findIndex((x) => x.id === 'approveKit');
+/** Header chip: the step's own, except after J5 while kit v1 is known not to be registered. */
+const kitStatus = (s: JourneySelections, index: number) => (s.kitRegistered === false && index > afterKit ? 'Kit v1 not registered' : journeySteps[index]?.status);
 
 /** Step position and links for a numbered step (J1 to J7); Main and J8 call it without a step for the selections. */
 export function useJourneyFlow(step?: JourneyStepId) {
@@ -102,7 +134,7 @@ export function useJourneyFlow(step?: JourneyStepId) {
     steps: journeySteps.map((s) => ({ label: s.label })),
     index,
     estimate: journeySteps[index]?.estimate,
-    status: journeySteps[index]?.status,
+    status: kitStatus(selections, index),
     /** The next step, or the first-run hub after the last one. */
     nextHref: to(next?.id ?? 'hub'),
     /** Done steps link back to their screen. */

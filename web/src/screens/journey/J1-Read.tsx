@@ -5,7 +5,7 @@
  *
  * | Field     | Source                                                                                                  | Empty when |
  * |-----------|---------------------------------------------------------------------------------------------------------|------------|
- * | site      | The address from Main (client), stored as `brands.website` by POST /api/brands                          | never      |
+ * | site      | The address typed on Main (useJourneyFlow), stored as `brands.website` by POST /api/brands; the fixture's when opened directly | never |
  * | sources[] | `sources` rows: POST /api/brands/:id/sources {url} adds one (web/worker/api.ts); status from the ingest job (Realtime on `jobs`, `sources`) | [] before the first read |
  * | facts[]   | `evidence` rows with their quote and page, via GET /api/brands/:id (brandState). A fact is kept only if its quote is on the page | [] while reading, or for an empty site |
  * | coverage  | GET /api/brands/:id/coverage (backend map row "Coverage-Map"; rules only)                                 | all six "Needs you" |
@@ -32,6 +32,7 @@ import { JourneyStepFrame } from './JourneyStepFrame';
 import { ReadAddMore } from './ReadAddMore';
 import { ReadBlockedSource } from './ReadBlockedSource';
 import { useJourneyHref } from './paths';
+import { useJourneyFlow } from './useJourneyFlow';
 import { useJourneySources } from './useJourneySources';
 import type { ReadData } from './types';
 
@@ -42,20 +43,23 @@ export interface ReadProps {
 
 export function J1Read({ data, state = 'success' }: ReadProps) {
   const to = useJourneyHref();
-  const src = useJourneySources(data.sources);
+  const { selections } = useJourneyFlow('read');
+  // The site typed on Main, else the fixture's; it names the page and the home source.
+  const site = selections.site || data.site;
+  const src = useJourneySources(data.sources.map((s) => (s.id === 'home' ? { ...s, label: site } : s)));
   const { blocked } = src;
   const c = data.coverage;
   // Shown in place of the facts when there are none yet, per state.
   const noFacts: Record<ScreenState, ReactNode> = {
     success: null,
-    loading: <StatePanel kind="loading" title={`Reading ${data.site}`} body="Facts appear here as each page is read, each with the line it came from." />,
-    error: <StatePanel kind="error" title={`We couldn't read ${data.site}`} body="Paste its text or upload a file on the left, or skip to a few questions." actions={<Button variant="secondary" href={to('basics')}>Start with a few questions</Button>} />,
+    loading: <StatePanel kind="loading" title={`Reading ${site}`} body="Facts appear here as each page is read, each with the line it came from." />,
+    error: <StatePanel kind="error" title={`We couldn't read ${site}`} body="Paste its text or upload a file on the left, or skip to a few questions." actions={<Button variant="secondary" href={to('basics')}>Start with a few questions</Button>} />,
     empty: <EmptyState title="Nothing to read on this site yet" body="We'll ask a few short questions instead." actions={<Button href={to('basics')}>Start with a few questions</Button>} />,
   };
   return (
     <JourneyStepFrame
       step="read"
-      title={`Reading ${data.site}`}
+      title={`Reading ${site}`}
       intro="We keep a fact only if its line is on the page. Start confirming whenever you like; we keep reading."
       footer={
         <>

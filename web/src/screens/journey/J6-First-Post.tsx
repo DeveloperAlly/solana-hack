@@ -7,34 +7,59 @@
  * |---------------|---------------------------------------------------------------------------------------------------|------------|
  * | channels[]    | The first draft from kit v1: POST /api/brands/:id/posts {brief, channel} (web/worker/api.ts, draftPost), one per channel; claim spans from the claims gate | never: drafted automatically, no blank brief |
  * | claims[]      | Each claim with the `evidence` row that backs it (H9)                                               | [] for a post with no claims |
- * | checks[]      | The post's slop pass, claims gate and voice-fit score (`posts` row). Voice fit is self-graded today | never      |
+ * | checks        | The post's slop pass, claims gate and voice-fit score (`posts` row). Voice fit is self-graded today | never      |
  * | blocked       | A claim the gate refused: it has no evidence, so Approve stays blocked until it is sourced or removed | unset when every claim is backed |
  * | polishActions | Static: POST /api/brands/:id/posts/:id/polish {action}, undo via POST …/undo                        | never      |
+ * | channels[].polish | The rewrite each polish action returns (POST …/polish); applying one replaces the draft, Undo restores the previous | absent: no polish bar |
  *
+ * The channel and the post approved come from useJourneyFlow; with kit v1 known not to be registered, the screen says to
+ * register it first instead of drafting; claims count as backed only
+ * while their evidence survives J3 (derive.ts), and Approve is enabled by the same function that renders the check badges (derive.ts postChecks).
  * States: success only (the board draws one state; its blocked-claim panel is an example inside it).
  */
 import { useState } from 'react';
-import { Button, Heading, Text } from '../../ui/primitives';
+import { Button, Text } from '../../ui/primitives';
+import { StatePanel } from '../../ui/composites/StatePanel';
 import { Card } from '../../ui/composites/Card';
 import { Tabs } from '../../ui/composites/Tabs';
 import { JourneyAha } from '../../ui/domain/JourneyAha';
 import { JourneyClaimText } from '../../ui/domain/JourneyClaimText';
 import { JourneyCopyButton } from '../../ui/domain/JourneyCopyButton';
-import { JourneyFactCard } from '../../ui/domain/JourneyFactCard';
 import { JourneyPolishBar } from '../../ui/domain/JourneyPolishBar';
 import { JourneySplit } from '../../ui/domain/JourneySplit';
 import { JourneyStatusList } from '../../ui/domain/JourneyStatusList';
+import { FirstPostClaimPanel } from './FirstPostClaimPanel';
+import { JourneyNextButton } from './JourneyNextButton';
 import { JourneyStepFrame } from './JourneyStepFrame';
+import { draftClaims, postChecks } from './derive';
 import { useJourneyHref } from './paths';
+import { useJourneyFlow } from './useJourneyFlow';
 import type { FirstPostData } from './types';
 
 export function J6FirstPost({ data }: { data: FirstPostData }) {
   const to = useJourneyHref();
-  const [channel, setChannel] = useState(data.channels[0].id);
-  const [claimId, setClaimId] = useState(data.claims[0]?.id);
-  const [applied, setApplied] = useState<string[]>([]);
-  const claim = data.claims.find((c) => c.id === claimId);
-  const text = (data.channels.find((c) => c.id === channel) ?? data.channels[0]).segments.map((s) => s.text).join('');
+  const { selections, actions } = useJourneyFlow('firstPost');
+  const [chosen, setChosen] = useState<string>();
+  // Polish actions applied per channel, oldest first; the draft on screen is the last one's revision, else the original.
+  const [applied, setApplied] = useState<Record<string, string[]>>({});
+  const channel = data.channels.find((c) => c.id === selections.postChannel) ?? data.channels[0];
+  const steps = applied[channel.id] ?? [];
+  const last = steps[steps.length - 1];
+  const draft = { ...channel, segments: (last && channel.polish?.[last]) || channel.segments };
+  const setSteps = (next: string[]) => setApplied((a) => ({ ...a, [channel.id]: next }));
+  const claims = draftClaims(draft, data.claims, selections);
+  // The evidence panel always describes the draft on screen: the chosen claim if it is in this draft, else its first.
+  const claim = claims.find((c) => c.id === chosen) ?? claims[0];
+  const checks = postChecks(data.checks, claims);
+  const text = draft.segments.map((s) => s.text).join('');
+  if (selections.kitRegistered === false) {
+    // Drafting needs a registered kit (web/worker/posts.ts returns 409 "register your brand kit first").
+    return (
+      <JourneyStepFrame step="firstPost" title="Your first post, from kit v1">
+        <StatePanel kind="error" title="Register kit v1 first" body="Your first post is drafted from the registered kit, and kit v1 is not registered yet." actions={<Button href={to('approveKit', 'error')}>Back to kit v1</Button>} />
+      </JourneyStepFrame>
+    );
+  }
   return (
     <JourneyStepFrame step="firstPost" title="Your first post, from kit v1" intro="Written in your approved voice. Every claim is linked to the evidence behind it.">
       <JourneySplit
@@ -43,32 +68,33 @@ export function J6FirstPost({ data }: { data: FirstPostData }) {
           <Card variant="selected" as="div">
             <Tabs
               label="Channel"
-              value={channel}
-              onChange={(id) => setChannel(id as typeof channel)}
-              items={data.channels.map((c) => ({ id: c.id, label: c.label, panel: <JourneyClaimText segments={c.segments} selected={claimId} onSelect={setClaimId} /> }))}
+              value={draft.id}
+              onChange={actions.setPostChannel}
+              items={data.channels.map((c) => ({ id: c.id, label: c.label, panel: <JourneyClaimText segments={c.id === draft.id ? draft.segments : c.segments} selected={claim?.id} onSelect={setChosen} /> }))}
             />
             <Text variant="caption" tone="secondary">Sample draft for the wireframe. Highlighted = a claim linked to evidence; select one to see it.</Text>
             {/* INTEGRATION: POST /api/brands/:id/posts/:id/polish {action, rev}; Undo is POST …/undo {rev}. */}
-            <JourneyPolishBar actions={data.polishActions} applied={applied} onApply={(a) => setApplied((x) => [...x, a])} onUndo={() => setApplied((x) => x.slice(0, -1))} />
+            {channel.polish && <JourneyPolishBar actions={data.polishActions} applied={steps} onApply={(a) => setSteps([...steps, a])} onUndo={() => setSteps(steps.slice(0, -1))} />}
           </Card>
         }
         second={
           <>
             <JourneyAha n={4}>It's my voice, and every claim is backed.</JourneyAha>
-            <JourneyStatusList title="Checks" rows={data.checks} />
-            {claim?.evidence && (
-              <Card labelledBy="post-claim">
-                <Heading level={2} size="lg" id="post-claim">Claim → evidence</Heading>
-                <Text variant="small"><strong>"{claim.text}"</strong></Text>
-                <JourneyFactCard fact={claim.evidence} />
-              </Card>
-            )}
+            <JourneyStatusList title="Checks" rows={checks.rows} />
+            {claim && <FirstPostClaimPanel claim={claim} />}
             <Card variant="emphasis" as="div">
               <Text variant="small"><strong>Example: an unsupported claim is blocked</strong></Text>
               <Text variant="small">"{data.blocked.claim}" {data.blocked.message}</Text>
             </Card>
             {/* INTEGRATION: POST /api/brands/:id/posts/:id/approve {rev}, then POST …/register (web/worker/api.ts). */}
-            <Button href={to('proof')}>Approve and register</Button>
+            <JourneyNextButton
+              href={to('proof')}
+              ready={checks.ready}
+              hint="Every check must pass first: source or remove each unsupported claim, and fix what the slop pass flags."
+              onGo={() => actions.approvePost({ channelLabel: draft.label, text })}
+            >
+              Approve and register
+            </JourneyNextButton>
             <JourneyCopyButton label="Copy text" text={text} />
           </>
         }

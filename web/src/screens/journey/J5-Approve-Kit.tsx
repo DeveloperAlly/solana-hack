@@ -6,13 +6,16 @@
  * | Field         | Source                                                                                            | Empty when |
  * |---------------|---------------------------------------------------------------------------------------------------|------------|
  * | approver      | The signed-in user (Supabase session); the `gates.approved_by` it records                         | never      |
+ * | voice         | The J4 voice samples (BB-6), to name the picks in the Voice gate draft                              | never      |
  * | gates[]       | `kit_sections` drafts (POST /api/brands/:id/sections/:section/draft) with their cited `evidence`, plus any `gates` row (approved_by, approved_at, note) via GET /api/brands/:id | never: J5 follows J4 |
  * | alsoDrafted[] | `kit_sections` without a gate (audience, origin, messaging), status drafted                       | []         |
  * | onChain       | Static copy: the WL-KIT schema fields (brand_id, hash, kit_version, approver, domain_verified)     | never      |
  * | registration  | POST /api/brands/:id/kit/register failure (web/worker/api.ts, registerKit): reason, kit hash, last try | unset unless it failed |
  *
+ * Drafts, evidence and "built from" follow the person's J3 decisions and J4 answers, alternatives and picks (derive.ts).
  * Approve, Edit and Change persist through useJourneyFlow (INTEGRATION there: POST …/sections/:section/approve {note}).
- * States (note n-j5-approve-kit): success = the three gates; error = registration failed, the kit stays approved.
+ * States (note n-j5-approve-kit): success = the three gates; error = registration failed, the kit stays approved and the
+ * first post waits (the Worker drafts only from a registered kit). Registering sets kitRegistered in useJourneyFlow.
  */
 import { useNavigate } from 'react-router';
 import { Grid } from '../../ui/primitives';
@@ -22,6 +25,7 @@ import { JourneyStatusList } from '../../ui/domain/JourneyStatusList';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { ApproveRegisterPanel } from './ApproveRegisterPanel';
 import { JourneyStepFrame } from './JourneyStepFrame';
+import { gateView } from './derive';
 import { useJourneyFlow } from './useJourneyFlow';
 import type { ApproveKitData } from './types';
 
@@ -34,7 +38,9 @@ export function J5ApproveKit({ data, state = 'success' }: ApproveKitProps) {
   const navigate = useNavigate();
   const flow = useJourneyFlow('approveKit');
   const { selections, actions } = flow;
-  const decisions = data.gates.map((g) => flow.gateDecision(g.id, g.decision));
+  // Each gate as the person left it on J3 and J4 (rejected facts dropped, edits and answers used), else the fixture.
+  const gates = data.gates.map((g) => gateView(g, selections, data.voice));
+  const decisions = gates.map((g) => flow.gateDecision(g.id, g.decision));
   return (
     <JourneyStepFrame
       step="approveKit"
@@ -42,12 +48,12 @@ export function J5ApproveKit({ data, state = 'success' }: ApproveKitProps) {
       intro="Three decisions. Each shows what it was built from. Your approval is recorded: who, when, and why if you say."
     >
       <Grid min="sm" gap={4}>
-        {data.gates.map((g, i) => (
+        {gates.map((g, i) => (
           <JourneyGateCard
             key={g.id}
             gate={g.gate}
             title={g.title}
-            draft={selections.gateDrafts[g.id] ?? g.draft}
+            draft={g.draft}
             builtFrom={g.builtFrom}
             evidence={g.evidence.map((f) => <JourneyFactCard key={f.id} fact={f} />)}
             decision={decisions[i]}
@@ -61,9 +67,10 @@ export function J5ApproveKit({ data, state = 'success' }: ApproveKitProps) {
       <ApproveRegisterPanel
         onChain={data.onChain}
         approved={decisions.filter(Boolean).length}
-        total={data.gates.length}
+        total={gates.length}
         failure={state === 'error' ? data.registration : undefined}
-        onRegister={() => navigate(flow.nextHref)}
+        onRegister={() => { actions.setKitRegistered(true); navigate(flow.nextHref); }}
+        onRetry={() => actions.setKitRegistered(false)}
       />
     </JourneyStepFrame>
   );

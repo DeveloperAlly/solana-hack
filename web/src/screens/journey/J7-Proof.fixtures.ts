@@ -8,12 +8,7 @@ import type { ProofData } from './types';
 import { launchPost } from './journey.fixtures';
 
 export const proofFixture: ProofData = {
-  record: [
-    { label: 'Post', value: 'LinkedIn launch post' },
-    { label: 'Kit', value: 'v1' },
-    { label: 'Approved by', value: '[approver] · [time]' },
-    { label: 'Hash', value: '[sha256]' },
-  ],
+  record: { post: 'LinkedIn launch post', kit: 'v1', approvedBy: '[approver] · [time]', hash: '[sha256]' },
   signature: null,
   network: 'devnet',
   postText: launchPost,

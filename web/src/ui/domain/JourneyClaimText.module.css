@@ -1,4 +1,4 @@
-.text { margin: 0; font-size: var(--wl-font-size-lg); line-height: var(--wl-font-lineHeight-body); }
+.text { margin: 0; white-space: pre-line; font-size: var(--wl-font-size-lg); line-height: var(--wl-font-lineHeight-body); }
 .claim {
   display: inline;
   padding: 0 var(--wl-space-half);

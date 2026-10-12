@@ -26,6 +26,8 @@ export interface JourneyInlineFormProps {
   error?: string | null;
   /** Validates from the first render, e.g. to show an invalid value that was carried in. */
   showErrorsNow?: boolean;
+  /** id of the form, so a submit button elsewhere on the page (form="…") submits this same form. */
+  formId?: string;
 }
 
 /**
@@ -34,7 +36,7 @@ export interface JourneyInlineFormProps {
  * and the one-sentence voice (J4) on the canvas Journey boards (issue #48).
  */
 export function JourneyInlineForm(props: JourneyInlineFormProps) {
-  const { label, submitLabel, validate, onSubmit, defaultValue = '', placeholder, hint, multiline = false, type = 'text', inputMode, autoComplete, busy = false, busyLabel, onCancel, error, showErrorsNow = false } = props;
+  const { label, submitLabel, validate, onSubmit, defaultValue = '', placeholder, hint, multiline = false, type = 'text', inputMode, autoComplete, busy = false, busyLabel, onCancel, error, showErrorsNow = false, formId } = props;
   const [value, setValue] = useState(defaultValue);
   const [touched, setTouched] = useState(showErrorsNow);
   const problem = touched ? validate(value.trim()) : null;
@@ -46,7 +48,7 @@ export function JourneyInlineForm(props: JourneyInlineFormProps) {
   }
   const shared = { label, hint, placeholder, value, error: problem ?? error, onChange: (e: { target: { value: string } }) => setValue(e.target.value) };
   return (
-    <form className={styles.form} onSubmit={submit} noValidate aria-busy={busy || undefined}>
+    <form id={formId} className={styles.form} onSubmit={submit} noValidate aria-busy={busy || undefined}>
       <div className={styles.field}>
         {multiline ? <Field {...shared} multiline rows={2} /> : <Field {...shared} type={type} inputMode={inputMode} autoComplete={autoComplete} />}
       </div>

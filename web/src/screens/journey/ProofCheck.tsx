@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { normalise } from '../../lib/normalise';
 import { Stack } from '../../ui/primitives';
 import { VerifyInput } from '../../ui/domain/VerifyInput';
 import { VerifyResultCard, type VerifyResultTone } from '../../ui/domain/VerifyResultCard';
@@ -19,7 +20,8 @@ const verdicts: Record<Verdict, { tone: VerifyResultTone; title: string }> = {
 
 /**
  * J7's "Check a post" panel, what anyone sees (canvas board J7-Proof, note n-j7-proof 2): the same exact-text rule as
- * Verify today (web/worker/posts.ts verifyText), run locally against the registered text, shown in the Verify page's
+ * Verify today (web/worker/posts.ts verifyText: the normalised text must match, so rewrapped lines still match and any
+ * changed word does not), run locally against the registered text, shown in the Verify page's
  * D34 result card. Composition only, no styles.
  */
 export function ProofCheck({ registeredText, officialNote }: ProofCheckProps) {
@@ -29,7 +31,7 @@ export function ProofCheck({ registeredText, officialNote }: ProofCheckProps) {
   return (
     <Stack gap={3}>
       {/* INTEGRATION: POST /api/verify {text} (web/worker/api.ts, verifyText); backend map row "Verify-1, Verify-2, Verify-3". */}
-      <VerifyInput defaultValue={registeredText} onCheck={(t) => setVerdict(t === registeredText.trim() ? 'official' : 'not-official')} />
+      <VerifyInput defaultValue={registeredText} onCheck={(t) => setVerdict(normalise(t) === normalise(registeredText) ? 'official' : 'not-official')} />
       <div role="status">
         <VerifyResultCard tone={v.tone} title={v.title} summary={summary} level={3} />
       </div>

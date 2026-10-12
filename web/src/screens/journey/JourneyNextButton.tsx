@@ -9,6 +9,8 @@ export interface JourneyNextButtonProps {
   ready: boolean;
   /** What is still missing, shown while not ready. */
   hint: string;
+  /** Runs before moving on, e.g. to record the choice. */
+  onGo?: () => void;
   children: ReactNode;
 }
 
@@ -17,12 +19,12 @@ export interface JourneyNextButtonProps {
  * disabled with the reason beside it until then (binding review rule "multi-step forms are state machines").
  * Composition only, no styles.
  */
-export function JourneyNextButton({ href, ready, hint, children }: JourneyNextButtonProps) {
+export function JourneyNextButton({ href, ready, hint, onGo, children }: JourneyNextButtonProps) {
   const navigate = useNavigate();
   return (
     <>
       {!ready && <Text variant="small" tone="secondary" role="status">{hint}</Text>}
-      <Button disabled={!ready} onClick={() => navigate(href)}>{children}</Button>
+      <Button disabled={!ready} onClick={() => { onGo?.(); navigate(href); }}>{children}</Button>
     </>
   );
 }

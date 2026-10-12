@@ -21,8 +21,9 @@ import { JourneyQuote } from '../../ui/domain/JourneyQuote';
 import { JourneySplit } from '../../ui/domain/JourneySplit';
 import { JourneyStepCards } from '../../ui/domain/JourneyStepCards';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { useJourneyHref, usePublicNavHref } from './paths';
+import { useJourneyHref } from './paths';
 import { MainExamplePanel } from './MainExamplePanel';
+import { useJourneyFlow } from './useJourneyFlow';
 import { siteUrl } from './validators';
 import type { MainData } from './types';
 
@@ -33,10 +34,10 @@ export interface MainProps {
 
 export function Main({ data, state = 'success' }: MainProps) {
   const to = useJourneyHref();
-  const publicNav = usePublicNavHref();
   const navigate = useNavigate();
+  const { actions } = useJourneyFlow();
   return (
-    <PublicShell navHref={publicNav}>
+    <PublicShell>
       <Container width="app">
         <Stack gap={10}>
           <JourneySplit
@@ -47,7 +48,7 @@ export function Main({ data, state = 'success' }: MainProps) {
                 <Heading level={1} size="4xl">{data.headline}</Heading>
                 <Text tone="secondary">{data.intro}</Text>
                 {/* INTEGRATION: none here; J1 starts the read with POST /api/brands then POST /api/brands/:id/sources {url}. */}
-                <JourneyInlineForm key={state} label="Your website" submitLabel="Read my site" defaultValue={data.siteDefault} placeholder={data.sitePlaceholder} type="url" autoComplete="url" validate={siteUrl} showErrorsNow={state === 'error'} onSubmit={() => navigate(to('read'))} />
+                <JourneyInlineForm key={state} label="Your website" submitLabel="Read my site" defaultValue={data.siteDefault} placeholder={data.sitePlaceholder} type="url" autoComplete="url" validate={siteUrl} formId="main-site" showErrorsNow={state === 'error'} onSubmit={(site) => { actions.startJourney(site); navigate(to('read')); }} />
                 <Text variant="small" tone="secondary">
                   No sign-up to see what we find. No website? <Link href={to('basics')}>Start with a few questions</Link>. No wallet, ever.
                 </Text>
@@ -58,7 +59,8 @@ export function Main({ data, state = 'success' }: MainProps) {
           <Stack as="section" id="how" gap={5} aria-labelledby="main-how">
             <Heading level={2} id="main-how">What happens in the next few minutes</Heading>
             <JourneyStepCards label="Steps" items={data.howSteps} />
-            <div><Button href={to('read')}>Read my site</Button></div>
+            {/* The canvas repeats the action here: it submits the same site form, with the same validation. */}
+            <div><Button type="submit" form="main-site">Read my site</Button></div>
           </Stack>
           <Grid min="sm" gap={5}>
             {data.features.map((f) => (

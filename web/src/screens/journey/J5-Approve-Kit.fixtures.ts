@@ -6,20 +6,24 @@
  */
 import type { ApproveKitData } from './types';
 import { facts, ownerAnswer } from './journey.fixtures';
+import { gapsVoiceFixture } from './J4-Gaps-Voice.fixtures';
+import { ALTERNATIVES_ID } from './derive';
 
-const alternatives = { id: 'alternatives', section: 'Alternatives', status: 'found', statement: 'Pressmaster, Google Pomelli, Canva Brand Kit', note: 'From competitor research (research 10), each with its link.' } as const;
+const alternatives = { id: ALTERNATIVES_ID, section: 'Alternatives', status: 'found', statement: 'Pressmaster, Google Pomelli, Canva Brand Kit', note: 'From competitor research (research 10), each with its link.' } as const;
 
 export const approveKitFixture: ApproveKitData = {
   approver: 'ally@…',
+  voice: gapsVoiceFixture.voice,
   gates: [
-    { id: 'purpose', gate: 1, title: 'Purpose', draft: '[Purpose drafted from 2 facts and your answer]', builtFrom: '2 facts, 1 answer', evidence: [facts.purpose, facts.messagingChecked, ownerAnswer] },
+    { id: 'purpose', gate: 1, title: 'Purpose', draft: '[Purpose drafted from 2 facts and your answer]', builtFrom: '2 facts, 1 answer', evidence: [facts.purpose, facts.messagingChecked, { ...ownerAnswer, id: 'answer-origin', section: 'Why you started' }] },
     {
       id: 'positioning',
       gate: 2,
       title: 'Positioning',
-      draft: 'For [audience] who [need], JamJam is [category] that [benefit]. Unlike Pressmaster, [edge].',
+      // {alternative} and {edge} are filled from J4 (the first alternative picked, the "only you" answer); bracketed until then.
+      draft: 'For [audience] who [need], JamJam is [category] that [benefit]. Unlike {alternative}, {edge}.',
       builtFrom: '1 fact, 2 answers, 3 alternatives',
-      evidence: [facts.positioning, ownerAnswer, alternatives],
+      evidence: [facts.positioning, { ...ownerAnswer, id: 'answer-edge', section: 'What only you do' }, alternatives],
     },
     {
       id: 'voice',

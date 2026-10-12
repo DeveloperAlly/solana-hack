@@ -4,6 +4,7 @@
  * sent. Backend map §4, rows "Onboard-3-Sources" and "Onboard-3b-Profiling, Ingest-Error".
  */
 import { useState } from 'react';
+import { uniqueId } from '../../lib/id';
 import type { JourneySource, JourneyStatusRow, SourceStatus } from './types';
 
 const statusRow: Record<SourceStatus, (s: JourneySource) => Pick<JourneyStatusRow, 'value' | 'solid'>> = {
@@ -26,7 +27,11 @@ export function useJourneySources(initial: JourneySource[]) {
     blocked: sources.find((s) => s.status === 'blocked'),
     reading: sources.find((s) => s.status === 'reading'),
     // INTEGRATION: POST /api/brands/:id/sources {url} (a link), or Storage createSignedUploadUrl (a file or pasted text).
-    add: (label: string) => setSources((list) => [...list, { id: `added-${list.length}`, label, status: 'queued' }]),
+    add: (label: string) => {
+      // Unique for the page load, so an id is never reused after a source is added, skipped or replaced.
+      const id = uniqueId('src');
+      setSources((list) => [...list, { id, label, status: 'queued' }]);
+    },
     /** The person supplied the blocked page's text or file instead: it is queued under its original name. */
     supply: (id: string, how: string) => set(id, { status: 'queued', label: `${sources.find((s) => s.id === id)?.label ?? ''} (${how})`, reason: undefined }),
     // INTEGRATION: DELETE /api/brands/:id/sources/:id removes the source and its facts.

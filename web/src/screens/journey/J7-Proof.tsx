@@ -5,7 +5,7 @@
  *
  * | Field        | Source                                                                                              | Empty when |
  * |--------------|-----------------------------------------------------------------------------------------------------|------------|
- * | record[]     | The registration: POST /api/brands/:id/posts/:id/register (web/worker/api.ts, registerPost) returns post, kit version, approver, time and hash (`registrations` row) | never: J7 follows registration |
+ * | record       | The registration: POST /api/brands/:id/posts/:id/register (web/worker/api.ts, registerPost) returns post, kit version, approver, time and hash (`registrations` row) | never: J7 follows registration |
  * | signature    | The registration's transaction signature; shown as a D32 receipt link to Solana Explorer (devnet)  | null until it has a transaction |
  * | network      | Static: devnet (the demo runs on devnet only)                                                       | never      |
  * | postText     | The approved post body (`posts` row)                                                                | never      |
@@ -13,6 +13,7 @@
  * | officialNote | POST /api/verify result for an exact match                                                          | never      |
  * | edited       | Static example: the edited-copy diff is COMING SOON (verifyText checks exact text only; G-MATCH)    | never      |
  *
+ * The post's channel and text are the ones approved on J6 (useJourneyFlow); the fixture is the default.
  * States: success only (the board draws one state). Publishing from JamJam is coming soon (ADR-008).
  */
 import { Badge, Button, Heading, Link, Stack, Text } from '../../ui/primitives';
@@ -27,9 +28,20 @@ import { VerifyReceiptLink } from '../../ui/domain/VerifyReceiptLink';
 import { JourneyStepFrame } from './JourneyStepFrame';
 import { ProofCheck } from './ProofCheck';
 import { useJourneyHref } from './paths';
+import { useJourneyFlow } from './useJourneyFlow';
 import type { ProofData } from './types';
 
 export function J7Proof({ data }: { data: ProofData }) {
+  const { selections } = useJourneyFlow('proof');
+  const post = selections.post;
+  const postText = post?.text ?? data.postText;
+  const r = data.record;
+  const record = [
+    { label: 'Post', value: post ? `${post.channelLabel} launch post` : r.post },
+    { label: 'Kit', value: r.kit },
+    { label: 'Approved by', value: r.approvedBy },
+    { label: 'Hash', value: r.hash },
+  ];
   const to = useJourneyHref();
   const transaction = <VerifyReceiptLink signature={data.signature} placeholder="[explorer link once registered]">View on Solana Explorer</VerifyReceiptLink>;
   return (
@@ -40,9 +52,9 @@ export function J7Proof({ data }: { data: ProofData }) {
         first={
           <Card labelledBy="proof-record">
             <Heading level={2} size="xl" id="proof-record">On the public record</Heading>
-            <KeyValueList items={[...data.record, { label: 'Transaction', value: <>{transaction} <Badge>{data.network}</Badge></> }]} />
+            <KeyValueList items={[...record, { label: 'Transaction', value: <>{transaction} <Badge>{data.network}</Badge></> }]} />
             <Stack direction="row" gap={2} wrap>
-              <JourneyCopyButton variant="primary" label="Copy post" text={data.postText} />
+              <JourneyCopyButton variant="primary" label="Copy post" text={postText} />
               <JourneyCopyButton label="Copy check link" text={data.checkLink} />
             </Stack>
             <Text variant="caption" tone="secondary">
@@ -52,7 +64,7 @@ export function J7Proof({ data }: { data: ProofData }) {
         }
         second={
           <Card variant="selected" labelledBy="proof-check" header={<><Heading level={2} size="xl" id="proof-check">Check a post</Heading><Badge>What anyone sees</Badge></>}>
-            <ProofCheck registeredText={data.postText} officialNote={data.officialNote} />
+            <ProofCheck key={postText} registeredText={postText} officialNote={data.officialNote} />
             <Card variant="subtle" as="div" header={<><Text variant="small"><strong>Someone edits it?</strong></Text><ComingSoonFlag tag="COMING SOON" /></>}>
               <Text variant="caption" tone="secondary">{data.edited.note}</Text>
               <DiffView segments={data.edited.diff} />

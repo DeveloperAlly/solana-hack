@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { PublicShell } from '../../ui/shells/PublicShell';
 import { WizardLayout } from '../../ui/layouts/WizardLayout';
 import { Badge, Link } from '../../ui/primitives';
-import { useJourneyHref, usePublicNavHref, type JourneyStepId } from './paths';
+import { useJourneyHref, type JourneyStepId } from './paths';
 import { useJourneyFlow } from './useJourneyFlow';
 
 export interface JourneyStepFrameProps {
@@ -15,25 +15,27 @@ export interface JourneyStepFrameProps {
 }
 
 /**
- * The frame every numbered Journey step shares (canvas boards J1-Read to J7-Proof; issue #48): the public shell with
- * a status chip and "Save and exit" in place of the nav, then L6 WizardLayout with the seven steps, the time estimate,
- * and links back to done steps. Composition only: no styles.
+ * The frame every numbered Journey step shares (canvas boards J1-Read to J7-Proof; issue #48): the public shell, then L6
+ * WizardLayout with the seven steps, the time estimate, the status chip and "Save and exit" in its flag and header
+ * slots, and links back to done steps. Composition only: no styles.
  */
 export function JourneyStepFrame({ step, title, intro, footer, error, children }: JourneyStepFrameProps) {
   const to = useJourneyHref();
-  const publicNav = usePublicNavHref();
   const flow = useJourneyFlow(step);
   return (
-    <PublicShell
-      navHref={publicNav}
-      actions={
-        <>
-          <Badge>{flow.status}</Badge>
-          <Link href={to('main')}>Save and exit</Link>
-        </>
-      }
-    >
-      <WizardLayout steps={flow.steps} current={flow.index} estimate={flow.estimate} hrefFor={flow.stepHref} title={title} intro={intro} footer={footer} error={error}>
+    <PublicShell>
+      <WizardLayout
+        steps={flow.steps}
+        current={flow.index}
+        estimate={flow.estimate}
+        hrefFor={flow.stepHref}
+        flag={<Badge>{flow.status}</Badge>}
+        headerActions={<Link href={to('main')}>Save and exit</Link>}
+        title={title}
+        intro={intro}
+        footer={footer}
+        error={error}
+      >
         {children}
       </WizardLayout>
     </PublicShell>

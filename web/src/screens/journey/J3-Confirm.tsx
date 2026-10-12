@@ -33,9 +33,9 @@ import type { ConfirmData } from './types';
 export function J3Confirm({ data }: { data: ConfirmData }) {
   const to = useJourneyHref();
   const { selections, actions } = useJourneyFlow('confirm');
-  const decided = data.facts.every((f) => selections.factDecisions[f.id]);
+  const decided = data.facts.every((f) => selections.facts[f.id]);
   const hint = 'Accept, edit or reject each card first.';
-  const confirmed = data.facts.filter((f) => selections.factDecisions[f.id] === 'accepted' || selections.factDecisions[f.id] === 'edited').length;
+  const confirmed = data.facts.filter((f) => ['accepted', 'edited'].includes(selections.facts[f.id]?.decision ?? '')).length;
   const cards = data.facts.length + 2;
   const readiness = data.readinessBase + Math.round(((100 - data.readinessBase) * confirmed) / cards);
   return (
@@ -59,8 +59,7 @@ export function J3Confirm({ data }: { data: ConfirmData }) {
           <ConfirmFactCard
             key={f.id}
             fact={f}
-            decision={selections.factDecisions[f.id]}
-            edit={selections.factEdits[f.id]}
+            record={selections.facts[f.id]}
             onDecide={(d, edit) => actions.decideFact(f.id, d, edit)}
             onUndo={() => actions.undoFact(f.id)}
           />
