@@ -17,32 +17,38 @@ import { useState } from 'react';
 import { Alert, Button, Heading, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { SoonPage } from './SoonPage';
-import { SoonInlineForm } from '../../ui/domain/SoonInlineForm';
-import { SoonStatusList } from '../../ui/domain/SoonStatusList';
-import { SoonStatusRow } from '../../ui/domain/SoonStatusRow';
+import { InlineForm } from '../../ui/composites/InlineForm';
+import { List, ListRow } from '../../ui/composites/ListRow';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { SettingsNav } from './SettingsNav';
-import { StateView } from './StateView';
-import { useSoonSession } from './useSoonSession';
+import { StateView } from '../../ui/composites/StateView';
+import { useSoonSession, type AiSource } from './useSoonSession';
 import { useSoonRoutes } from './routes';
 import { soonStatus } from './status';
 import { httpsUrl } from './validate';
-import type { SettingsAIData, StatusRowItem } from './types';
+import type { SettingsAIData, StatusRowItem, StoredKey } from './types';
 
 type TestResult = 'none' | 'ok' | 'failed';
+
+/** The stored-key panel: the fixture until the person changes the source; then the OpenRouter key, or none. */
+function keyFor(ai: AiSource | undefined, fixture: StoredKey | null): StoredKey | null {
+  if (!ai) return fixture;
+  return ai.source === 'openrouter' ? { last4: ai.key.last4, addedOn: '[date]' } : null;
+}
 
 export function SettingsAI({ data, state = 'success' }: { data: SettingsAIData; state?: ScreenState }) {
   const routes = useSoonRoutes();
   const [session, set] = useSoonSession();
+  const onOpenRouter = session.ai?.source === 'openrouter';
   // Fixtures are defaults; what was changed here or on Settings-GetKey (session) wins.
   const sources = data.sources.map((r): StatusRowItem => {
     // Connecting OpenRouter moves "In use" to it; JamJam's default becomes the fallback (Codex review on PR #79).
-    if (r.id === 'openrouter' && session.openRouter === 'connected') return { ...r, status: 'in-use' };
-    if (r.id === 'default' && session.openRouter === 'connected') return { ...r, status: 'fallback' };
+    if (r.id === 'openrouter' && onOpenRouter) return { ...r, status: 'in-use' };
+    if (r.id === 'default' && onOpenRouter) return { ...r, status: 'fallback' };
     if (r.id === 'endpoint' && session.endpoint) return { ...r, detail: session.endpoint, status: 'connected' };
     return r;
   });
-  const storedKey = session.aiKey === undefined ? data.storedKey : session.aiKey && { last4: session.aiKey.last4, addedOn: '[date]' };
+  const storedKey = keyFor(session.ai, data.storedKey);
   const [adding, setAdding] = useState(false);
   const [test, setTest] = useState<TestResult>(state === 'error' ? 'failed' : 'none');
 
@@ -61,11 +67,11 @@ export function SettingsAI({ data, state = 'success' }: { data: SettingsAIData; 
     <SoonPage header={{ title: 'Settings', intro: 'Which AI model writes for you, and whose key pays for it.', definedIn: 'component inventory D54; backend map, Settings › AI; delivery plan Phase 1' }} nav={<SettingsNav value="ai" />}>
       <StateView state={state} loading={{ title: 'Loading AI settings', body: 'Reading your model sources and key.' }}>
         <Card header={<Heading level={2} size="lg">Model source, in order</Heading>}>
-          <SoonStatusList label="Model sources">
-            {sources.map((row) => <SoonStatusRow key={row.id} name={row.name} detail={row.detail} status={soonStatus[row.status]} actions={actionFor(row)} />)}
-          </SoonStatusList>
+          <List label="Model sources">
+            {sources.map((row) => <ListRow key={row.id} title={row.name} detail={row.detail} status={soonStatus[row.status]} actions={actionFor(row)} />)}
+          </List>
           {adding && (
-            <SoonInlineForm
+            <InlineForm surface="card"
               label="Add an OpenAI-compatible endpoint"
               fields={[{ name: 'url', label: 'Endpoint URL', type: 'url', hint: 'The base URL of an OpenAI-compatible API.', validate: httpsUrl }]}
               submitLabel="Save endpoint"
@@ -82,7 +88,7 @@ export function SettingsAI({ data, state = 'success' }: { data: SettingsAIData; 
                 {/* INTEGRATION: PUT …/ai-settings key test (OpenRouter, Anthropic or OpenAI). */}
                 <Button variant="secondary" onClick={() => setTest(state === 'error' ? 'failed' : 'ok')}>Test key</Button>
                 <Button href={routes.settingsGetKey} variant="secondary">Replace</Button>
-                <Button variant="secondary" onClick={() => { set({ aiKey: null, openRouter: undefined }); setTest('none'); }}>Remove</Button>
+                <Button variant="secondary" onClick={() => { set({ ai: { source: 'default' } }); setTest('none'); }}>Remove</Button>
               </Stack>
               {test === 'ok' && <Alert tone="success" title="That key works." />}
               {test === 'failed' && <Alert tone="danger" title={data.keyError} />}

@@ -16,9 +16,9 @@ import { useState } from 'react';
 import { Alert, Badge, Button, Grid, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { SoonPage } from './SoonPage';
-import { SoonInlineForm } from '../../ui/domain/SoonInlineForm';
+import { InlineForm } from '../../ui/composites/InlineForm';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { StateView } from './StateView';
+import { StateView } from '../../ui/composites/StateView';
 import { useSoonSession } from './useSoonSession';
 import { useSoonRoutes } from './routes';
 import { required } from './validate';
@@ -38,13 +38,14 @@ export function SettingsGetKey({ data, state = 'success' }: { data: SettingsGetK
   const banner = alerts(data.keyError)[outcome];
   const [, set] = useSoonSession();
   const connect = () => {
-    set({ openRouter: 'connected' });
+    // INTEGRATION: the OAuth exchange returns the key; only its last 4 characters are ever shown.
+    set({ ai: { source: 'openrouter', key: { last4: '[last 4]' } } });
     setOutcome('connected');
   };
   // Only the last 4 characters are kept, as the stored-key row shows (never the key itself).
   const save = (v: Record<string, string>) => {
     if (state === 'error') return setOutcome('failed');
-    set({ aiKey: { last4: v.key.slice(-4) } });
+    set({ ai: { source: 'openrouter', key: { last4: v.key.slice(-4) } } });
     setOutcome('saved');
   };
   return (
@@ -66,7 +67,7 @@ export function SettingsGetKey({ data, state = 'success' }: { data: SettingsGetK
           </Card>
           <Card header={<Heading level={2} size="lg">Paste a key</Heading>}>
             {/* INTEGRATION: PUT …/ai-settings { key } then the key test; the error state shows the provider message. */}
-            <SoonInlineForm
+            <InlineForm surface="card"
               label="Paste a key"
               fields={[{ name: 'key', label: 'API key', type: 'password', validate: required('your API key') }]}
               submitLabel="Save and test"

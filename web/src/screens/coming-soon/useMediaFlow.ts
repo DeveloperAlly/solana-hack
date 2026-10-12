@@ -1,7 +1,8 @@
 // Media flow state (issue #51): the draft Media-Composer edits and Media-Review checks. Composer's fixtures are the
 // defaults; once the person edits, Review renders the edited slides, the media type and the export format chosen.
 // INTEGRATION: PATCH /api/drafts/:id with the slides and format (no media row in the backend map yet; issue #51).
-import { createBrandScopedStore } from './useSoonSession';
+import { createBrandScopedStore } from '../../lib/brandScopedStore';
+import { soonBrand } from './useSoonSession';
 import type { ExportOption, MediaFormat, MediaKind } from './types';
 
 interface MediaDraft {
@@ -11,10 +12,12 @@ interface MediaDraft {
   exportAs?: ExportOption;
   /** Slide text at the last checks re-run, by slide id (Media-Review). */
   rerunText?: Record<string, string>;
+  /** Fingerprint of the draft that was approved; any later change to it un-approves (Media-Review). */
+  approvedFingerprint?: string;
 }
 
 // Kept per brand (Codex review on PR #79): another brand's media never shows here.
-const mediaDraft = createBrandScopedStore<MediaDraft>();
+const mediaDraft = createBrandScopedStore<MediaDraft>(soonBrand);
 
 /** How each media type is named in a sentence ("Review your …"). */
 export const mediaKindNames: Record<MediaKind, string> = { carousel: 'carousel', card: 'image card', video: 'short video' };
@@ -30,12 +33,19 @@ export function useMediaFlow(defaults: MediaFormat[] = []) {
   const [draft, set] = mediaDraft.use();
   const formats = draft.formats ?? defaults;
   const kind = draft.kind ?? 'carousel';
+  const slides = formats.find((f) => f.id === kind)?.slides ?? [];
+  // What an approval covers: the media type, every slide's text and the export format.
+  const fingerprint = JSON.stringify([kind, slides.map((s) => s.text), draft.exportAs?.value ?? null]);
   return {
     formats,
     kind,
     exportAs: draft.exportAs,
     /** The slides of the current media type: the ones Review checks. */
-    slides: formats.find((f) => f.id === kind)?.slides ?? [],
+    slides,
+    /** Approved: this exact draft (type, text, format) was approved for this brand. */
+    approved: draft.approvedFingerprint === fingerprint,
+    // INTEGRATION: POST /api/drafts/:id/approve with the content hash, then the SAS content attestation.
+    approve: () => set({ approvedFingerprint: fingerprint }),
     rerunText: draft.rerunText ?? {},
     /** Records a checks re-run on the current slides' text. */
     rerunChecks: (slides: { id: string; text: string }[]) => set({ rerunText: { ...draft.rerunText, ...Object.fromEntries(slides.map((s) => [s.id, s.text])) } }),

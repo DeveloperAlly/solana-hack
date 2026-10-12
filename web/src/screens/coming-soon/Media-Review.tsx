@@ -20,7 +20,7 @@ import { Alert, Button, Stack, Text } from '../../ui/primitives';
 import { DataTable } from '../../ui/composites/DataTable';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import { SoonPage } from './SoonPage';
-import { SoonInlineForm } from '../../ui/domain/SoonInlineForm';
+import { InlineForm } from '../../ui/composites/InlineForm';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { useSoonRoutes } from './routes';
 import { tableState } from './tableState';
@@ -41,7 +41,6 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
   const stale = checks.some((c) => c.claims === 'stale');
   const kindLabel = mediaKindNames[media.kind];
   const [fixing, setFixing] = useState<string | null>(null);
-  const [approved, setApproved] = useState(false);
   const blocked = checks.filter((c) => checkStatus(c).blocking);
   // INTEGRATION: POST …/claims with the evidence URL, then re-run GET /api/drafts/:id/checks.
   const addSource = (checkId: string, url: string) => {
@@ -51,7 +50,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
   };
   return (
     <SoonPage header={{ title: `Review your ${kindLabel}`, intro: 'Every slide passes the same checks as a post before you can approve it.', definedIn: 'ChecksPanel D3 in the component inventory; no backend row yet (proposed in issue #51)' }}>
-      {approved ? (
+      {media.approved ? (
         // INTEGRATION: POST /api/drafts/:id/approve, then the Registrar's SAS content attestation.
         <StatePanel kind="success" title="Approved and registered" body={`Every slide passed its checks. Anyone can now check this ${kindLabel} on Verify.`} actions={<Button href={routes.publishCalendar}>Schedule it</Button>} />
       ) : (
@@ -73,7 +72,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
             actions={(r) => r.claims === 'unsupported' && r.claimId !== undefined && <Button variant="secondary" aria-label={`Add a source for slide ${r.slide}`} onClick={() => setFixing(r.id)}>Add a source</Button>}
           />
           {fixing && (
-            <SoonInlineForm
+            <InlineForm surface="card"
               label="Add a source"
               fields={[{ name: 'url', label: 'Evidence URL', type: 'url', hint: 'A page that supports the claim on this slide.', validate: httpsUrl }]}
               submitLabel="Attach source"
@@ -85,7 +84,7 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
           <Stack direction="row" gap={3} wrap>
             {/* INTEGRATION: GET /api/drafts/:id/checks on the edited slides. */}
             {stale && <Button variant="secondary" onClick={() => media.rerunChecks(media.slides)}>Re-run checks</Button>}
-            <Button onClick={() => setApproved(true)} disabled={blocked.length > 0 || state !== 'success'}>Approve and register</Button>
+            <Button onClick={media.approve} disabled={blocked.length > 0 || state !== 'success'}>Approve and register</Button>
             <Button href={routes.mediaComposer} variant="secondary">Edit slides</Button>
           </Stack>
         </Stack>

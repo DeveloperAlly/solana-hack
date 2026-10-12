@@ -3,6 +3,7 @@
 // this file never builds a path itself (screens/README.md, "Links between screens").
 import { useMemo } from 'react';
 import { useScreenHref } from '../../gallery/screenPath';
+import type { ArtboardName } from '../../config/artboards';
 
 export const soonArtboards = {
   settingsAI: 'Settings-AI',
@@ -28,7 +29,7 @@ export const soonArtboards = {
   main: 'Main',
   contentDashboard: 'Content-Dashboard',
   brandBuild: 'Brand-Build',
-} as const;
+} as const satisfies Record<string, ArtboardName>;
 
 export type SoonRoute = keyof typeof soonArtboards;
 

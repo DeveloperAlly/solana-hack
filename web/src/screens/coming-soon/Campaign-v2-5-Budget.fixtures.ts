@@ -10,7 +10,6 @@ export const campaignBudget: CampaignBudgetData = {
     { id: 'tutorial', format: 'Tutorial', where: "Ambassador's blog", payout: '50' },
   ],
   noXNote: 'No X formats: X bans paying for posts (ADR-002); the API rejects a paid X format (backend map).',
-  cap: '500',
   balance: '[n]',
   overBalance: false,
 };

@@ -18,9 +18,9 @@ import { Alert, Button, Grid, Heading, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import { SoonPage } from './SoonPage';
-import { SoonInlineForm } from '../../ui/domain/SoonInlineForm';
+import { InlineForm } from '../../ui/composites/InlineForm';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { StateView } from './StateView';
+import { StateView } from '../../ui/composites/StateView';
 import { useSoonSession } from './useSoonSession';
 import { useSoonRoutes } from './routes';
 import { email } from './validate';
@@ -51,7 +51,7 @@ export function Upgrade({ data, state = 'success' }: { data: UpgradeData; state?
               <Stack gap={4}>
                 {phase === 'failed' && <Alert tone="danger" title="Payment failed">{data.failure}</Alert>}
                 <Card variant="dashed" as="div"><Text tone="secondary">{data.cardForm}</Text></Card>
-                <SoonInlineForm
+                <InlineForm surface="card"
                   label="Billing"
                   fields={[{ name: 'email', label: 'Billing email', type: 'email', validate: email }]}
                   submitLabel={`Pay ${tier.price} and upgrade`}

@@ -18,9 +18,8 @@ import { Button, Heading, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { CheckboxRow } from '../../ui/composites/CheckboxRow';
 import { SoonPage } from './SoonPage';
-import { SoonAddForm } from '../../ui/domain/SoonAddForm';
-import { SoonStatusList } from '../../ui/domain/SoonStatusList';
-import { SoonStatusRow } from '../../ui/domain/SoonStatusRow';
+import { InlineForm } from '../../ui/composites/InlineForm';
+import { List, ListRow } from '../../ui/composites/ListRow';
 import { uniqueId } from '../../lib/id';
 import { useSoonRoutes } from './routes';
 import { soonStatus } from './status';
@@ -38,12 +37,12 @@ export function FounderProfile({ data }: { data: FounderProfileData }) {
     <SoonPage header={{ title: `Founder profile: ${data.name}`, intro: 'A person’s own kit, linked to the company. Shares the story bank; keeps its own voice.', definedIn: 'architecture §3 (Person, founder link) and §12.1 step 2a (proposed)' }}>
       <Card header={<Heading level={2} size="lg">Sources</Heading>}>
         {sources.length === 0 && <Text tone="secondary">No sources yet. Add a CV or a LinkedIn export to start this kit.</Text>}
-        <SoonStatusList label="Sources">
+        <List label="Sources">
           {sources.map((s) => (
-            <SoonStatusRow key={s.id} name={s.name} detail={s.detail} status={soonStatus[s.status]} actions={<Button variant="secondary" aria-label={`Remove ${s.name}`} onClick={() => remove(s.id)}>Remove</Button>} />
+            <ListRow key={s.id} title={s.name} detail={s.detail} status={soonStatus[s.status]} actions={<Button variant="secondary" aria-label={`Remove ${s.name}`} onClick={() => remove(s.id)}>Remove</Button>} />
           ))}
-        </SoonStatusList>
-        <SoonAddForm
+        </List>
+        <InlineForm surface="card"
           triggerLabel="Add a source"
           label="Add a source"
           fields={[
@@ -55,9 +54,9 @@ export function FounderProfile({ data }: { data: FounderProfileData }) {
         />
       </Card>
       <Card header={<Heading level={2} size="lg">Linked to</Heading>}>
-        <SoonStatusList label="Linked brands">
-          <SoonStatusRow name={data.linkedTo} actions={<Button href={routes.brandSwitcher} variant="secondary">Your brands</Button>} />
-        </SoonStatusList>
+        <List label="Linked brands">
+          <ListRow title={data.linkedTo} actions={<Button href={routes.brandSwitcher} variant="secondary">Your brands</Button>} />
+        </List>
         <CheckboxRow label="Stories you approve can be used by both kits." checked={shared} onChange={(e) => setShared(e.target.checked)} />
         <Text variant="small" tone="secondary" role="status">{shared ? 'Approved stories are shared with the linked brand kit.' : 'Stories stay in this profile only.'}</Text>
       </Card>

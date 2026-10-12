@@ -17,12 +17,11 @@
 import { Badge, Button } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { SoonPage } from './SoonPage';
-import { SoonAddForm } from '../../ui/domain/SoonAddForm';
-import { SoonStatusList } from '../../ui/domain/SoonStatusList';
-import { SoonStatusRow } from '../../ui/domain/SoonStatusRow';
+import { InlineForm } from '../../ui/composites/InlineForm';
+import { List, ListRow } from '../../ui/composites/ListRow';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { uniqueId } from '../../lib/id';
-import { StateView } from './StateView';
+import { StateView } from '../../ui/composites/StateView';
 import { useSoonSession } from './useSoonSession';
 import { useSoonRoutes } from './routes';
 import { soonStatus } from './status';
@@ -50,13 +49,13 @@ export function BrandSwitcherScreen({ data, state = 'success' }: { data: BrandSw
     <SoonPage header={{ title: 'Your brands', intro: 'Switch brand, or add another. Each brand has its own kit, posts and record.', definedIn: 'component inventory D48 BrandSwitcher, D36; architecture §3 (Brand, founder link)' }}>
       <StateView state={state} loading={{ title: 'Loading your brands', body: 'Reading the brands on your account.' }}>
         <Card>
-          <SoonStatusList label="Brands">
+          <List label="Brands">
             {brands.map((b) => (
-              <SoonStatusRow key={b.id} name={b.name} detail={b.detail} status={soonStatus[b.status]} selected={b.id === current} actions={actionFor(b)} />
+              <ListRow key={b.id} title={b.name} detail={b.detail} status={soonStatus[b.status]} selected={b.id === current} actions={actionFor(b)} />
             ))}
-          </SoonStatusList>
+          </List>
         </Card>
-        <SoonAddForm
+        <InlineForm surface="card"
           triggerLabel="Add a brand"
           label="Add a brand"
           fields={[

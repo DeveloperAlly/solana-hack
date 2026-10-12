@@ -1,16 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithRouter } from '../../test/render';
 import { expectNoAxeViolations } from '../../test/axe';
 import { examples } from '../../system/Workbench';
-import { SoonPageHeader } from './SoonPageHeader';
-import { SoonHubFrame } from './SoonHubFrame';
-import { SoonStatusList } from './SoonStatusList';
-import { SoonStatusRow } from './SoonStatusRow';
-import { SoonInlineForm } from './SoonInlineForm';
-import { SoonAddForm } from './SoonAddForm';
-import { SoonCopyButton } from './SoonCopyButton';
 import { SoonWeekCalendar } from './SoonWeekCalendar';
 import { SoonPayoutTable, payoutError } from './SoonPayoutTable';
 import { SoonSpendingCapField, capError } from './SoonSpendingCapField';
@@ -19,105 +12,7 @@ import { SoonPlanTier } from './SoonPlanTier';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
 
-// Issue #51: the Soon* domain components. Each renders, handles its interaction and has 0 axe violations.
-describe('SoonPageHeader', () => {
-  it('shows the title, the Coming soon flag and the defined-in line', async () => {
-    const { container } = renderWithRouter(<SoonPageHeader title="Claims" intro="Intro" definedIn="inventory D19" />);
-    expect(screen.getByRole('heading', { level: 1, name: 'Claims' })).toBeInTheDocument();
-    expect(screen.getByText('Coming soon')).toBeInTheDocument();
-    expect(screen.getByText('Drawn, not built. Defined in: inventory D19')).toBeInTheDocument();
-    await expectNoAxeViolations(container);
-  });
-  it('shows no flag for a hackathon screen', () => {
-    renderWithRouter(<SoonPageHeader title="Home" tag="HACKATHON" />);
-    expect(screen.queryByText('Coming soon')).not.toBeInTheDocument();
-  });
-});
-
-describe('SoonHubFrame', () => {
-  it('renders the hub shell, a working brand switcher, the header and the body', async () => {
-    const { container } = renderWithRouter(<SoonHubFrame header={{ title: 'Claims' }}><p>body</p></SoonHubFrame>);
-    expect(screen.getByRole('main')).toHaveTextContent('body');
-    await userEvent.click(screen.getByRole('button', { name: 'JamJam, switch brand' }));
-    await userEvent.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
-    expect(screen.getByRole('button', { name: 'aDNA, switch brand' })).toBeInTheDocument();
-    await expectNoAxeViolations(container);
-  });
-});
-
-describe('SoonStatusRow and SoonStatusList', () => {
-  it('lists rows with chips, actions and a selected row', async () => {
-    const onClick = vi.fn();
-    const { container } = renderWithRouter(
-      <SoonStatusList label="Rows">
-        <SoonStatusRow name="LinkedIn" detail="post as you" status={{ label: 'Not connected' }} actions={<button type="button" onClick={onClick}>Connect</button>} />
-        <SoonStatusRow name="X" selected />
-      </SoonStatusList>,
-    );
-    const list = screen.getByRole('list', { name: 'Rows' });
-    expect(within(list).getAllByRole('listitem')).toHaveLength(2);
-    expect(screen.getByText('Not connected')).toBeInTheDocument();
-    expect(within(list).getAllByRole('listitem')[1]).toHaveClass('selected');
-    await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
-    expect(onClick).toHaveBeenCalled();
-    await expectNoAxeViolations(container);
-  });
-});
-
-describe('SoonInlineForm', () => {
-  it('validates on submit, clears the error as the field is fixed, then submits trimmed values', async () => {
-    const onSubmit = vi.fn();
-    const onCancel = vi.fn();
-    const { container } = renderWithRouter(
-      <SoonInlineForm label="Add" fields={[{ name: 'name', label: 'Name', validate: (v) => (v ? null : 'Enter a name.') }]} submitLabel="Save" onSubmit={onSubmit} onCancel={onCancel} />,
-    );
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter a name.');
-    expect(onSubmit).not.toHaveBeenCalled();
-    await expectNoAxeViolations(container);
-    await userEvent.type(screen.getByLabelText('Name'), '  Acme ');
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(onSubmit).toHaveBeenCalledWith({ name: 'Acme' });
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(onCancel).toHaveBeenCalled();
-  });
-});
-
-describe('SoonAddForm', () => {
-  it('opens on the trigger, closes on submit and on cancel', async () => {
-    const onSubmit = vi.fn();
-    const { container } = renderWithRouter(<SoonAddForm triggerLabel="Add a source" label="Add a source" fields={[{ name: 'name', label: 'Source' }]} submitLabel="Add" onSubmit={onSubmit} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Add a source' }));
-    await expectNoAxeViolations(container);
-    await userEvent.type(screen.getByLabelText('Source'), 'CV');
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(onSubmit).toHaveBeenCalledWith({ name: 'CV' });
-    await userEvent.click(screen.getByRole('button', { name: 'Add a source' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.getByRole('button', { name: 'Add a source' })).toBeInTheDocument();
-  });
-});
-
-describe('SoonCopyButton', () => {
-  it('copies and says so', async () => {
-    const user = userEvent.setup();
-    const { container } = renderWithRouter(<SoonCopyButton text="hello" label="Copy" />);
-    await user.click(screen.getByRole('button', { name: 'Copy' }));
-    expect(await navigator.clipboard.readText()).toBe('hello');
-    expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Copied to the clipboard.');
-    await expectNoAxeViolations(container);
-  });
-  it('says when copying failed', async () => {
-    const user = userEvent.setup();
-    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValueOnce(new Error('denied'));
-    renderWithRouter(<SoonCopyButton text="hello" label="Copy" />);
-    await user.click(screen.getByRole('button', { name: 'Copy' }));
-    expect(screen.getByRole('button', { name: 'Copy failed' })).toBeInTheDocument();
-  });
-});
-
+// Issue #51: the Soon* domain components (the generic ones moved to shared components in #80). Each renders, handles its interaction and has 0 axe violations.
 describe('SoonWeekCalendar', () => {
   it('marks failed slots in text and lets an open slot be picked', async () => {
     const onSelect = vi.fn();
@@ -193,6 +88,6 @@ describe('SoonPlanTier', () => {
 describe('Soon* workbench examples', () => {
   it('registers an example for every Soon component', () => {
     const names = examples.map((e) => e.name);
-    for (const n of ['SoonPageHeader', 'SoonHubFrame', 'SoonStatusRow', 'SoonStatusList', 'SoonInlineForm', 'SoonAddForm', 'SoonCopyButton', 'SoonWeekCalendar', 'SoonPayoutTable', 'SoonSpendingCapField', 'SoonSlideEditor', 'SoonPlanTier']) expect(names).toContain(n);
+    for (const n of ['SoonWeekCalendar', 'SoonPayoutTable', 'SoonSpendingCapField', 'SoonSlideEditor', 'SoonPlanTier']) expect(names).toContain(n);
   });
 });

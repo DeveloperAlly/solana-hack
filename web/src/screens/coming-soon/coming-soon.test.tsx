@@ -2,12 +2,12 @@
 // /screens/<Artboard>, as in the gallery; links to screens on other pages land on a probe that shows the path.
 // axe for every screen, state and theme runs in src/gallery/gallery.test.tsx.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { screens } from './registry';
-import { resetCampaignDraft } from './useCampaignFlow';
+import { campaignStore } from '../../flows/campaign/draft';
 import { resetMediaDraft } from './useMediaFlow';
 import { resetSoonSession } from './useSoonSession';
 import { MediaReview } from './Media-Review';
@@ -43,7 +43,7 @@ const h1 = (name: string | RegExp) => screen.getByRole('heading', { level: 1, na
 
 let fetchSpy: ReturnType<typeof vi.fn>;
 beforeEach(() => {
-  resetCampaignDraft();
+  campaignStore.reset();
   resetMediaDraft();
   resetSoonSession();
   fetchSpy = vi.fn(() => { throw new Error('no network in the gallery'); });
@@ -217,60 +217,74 @@ describe('Media flow', () => {
   });
 });
 
+// Campaign v2 runs on the shared flows/campaign module: one step table, Next gated on every earlier step.
+// Steps 1 (Goal) and 3 (Success) are Superhub screens, so tests mark them complete in the shared store.
 describe('Campaign v2 flow (steps 2, 4, 5, 6 here; 1 and 3 on Superhub)', () => {
-  it('audience: Back goes to Goal; Continue needs a segment and goes to Measure', async () => {
+  it('audience: Back goes to Goal; Next needs step 1 and a segment, then goes to Success (Measure)', async () => {
     const user = at('/screens/Campaign-v2-3-Audience');
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/screens/Campaign-v2-1-Goal');
-    expect(screen.getByRole('checkbox', { name: /\[Audience segment 1\]/ })).not.toBeChecked();
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
-    await user.click(screen.getByRole('checkbox', { name: /\[Audience segment 1\]/ }));
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
-    await user.click(screen.getByRole('checkbox', { name: /\[Audience segment 1\]/ }));
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
     await user.click(screen.getByRole('checkbox', { name: /\[Audience segment 2\]/ }));
-    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    // Step 1 is not finished, so Next stays disabled and links to it.
+    expect(screen.getByRole('button', { name: 'Next: success' })).toBeDisabled();
+    expect(screen.getByRole('link', { name: 'step 1: Goal and platforms' })).toHaveAttribute('href', '/screens/Campaign-v2-1-Goal');
+    act(() => campaignStore.complete('goal'));
+    expect(screen.getByRole('checkbox', { name: /\[Audience segment 1\]/ })).not.toBeChecked();
+    await user.click(screen.getByRole('checkbox', { name: /\[Audience segment 2\]/ }));
+    expect(screen.getByRole('button', { name: 'Next: success' })).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: /\[Audience segment 2\]/ }));
+    await user.click(screen.getByRole('button', { name: 'Next: success' }));
     expect(screen.getByText('Probe: /screens/Campaign-v2-2-Measure')).toBeInTheDocument();
   });
 
+  it('a fresh deep link to Launch cannot launch: every earlier step gates it', async () => {
+    const user = at('/screens/Campaign-v2-6-Launch');
+    await user.click(screen.getByRole('checkbox', { name: 'I approve a spending cap of 500 USDC for this campaign.' }));
+    expect(screen.getByRole('button', { name: 'Launch campaign' })).toBeDisabled();
+    expect(screen.getByRole('link', { name: 'step 1: Goal and platforms' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Campaign launched' })).not.toBeInTheDocument();
+  });
+
   it('plan, budget and launch chain, carrying the draft, and launch needs the cap approved', async () => {
-    const user = at('/screens/Campaign-v2-3-Audience');
-    await user.click(screen.getByRole('checkbox', { name: /\[Audience segment 2\]/ }));
-    await user.click(screen.getByRole('button', { name: 'Continue' }));
-    // Measure (step 3) is a Superhub screen, so open step 4 directly; the draft carries over in memory.
-    cleanup();
-    const plan = at('/screens/Campaign-v2-4-Plan');
+    act(() => {
+      campaignStore.set('audience', ['seg-2']);
+      campaignStore.set('goal', { ...campaignStore.read().draft.goal, name: '[Launch week]' });
+      campaignStore.complete('goal');
+      campaignStore.complete('audience');
+      campaignStore.complete('success');
+    });
+    const user = at('/screens/Campaign-v2-4-Plan');
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/screens/Campaign-v2-2-Measure');
-    await plan.click(screen.getByRole('button', { name: 'Remove Wed' }));
+    await user.click(screen.getByRole('button', { name: 'Remove Wed' }));
     expect(screen.queryByRole('rowheader', { name: 'Wed' })).not.toBeInTheDocument();
-    await plan.click(screen.getByRole('button', { name: 'Restore removed items' }));
-    expect(screen.getByRole('rowheader', { name: 'Wed' })).toBeInTheDocument();
-    await plan.click(screen.getByRole('button', { name: 'Continue' }));
+    await user.click(screen.getByRole('button', { name: 'Remove Mon' }));
+    expect(screen.getByRole('button', { name: 'Next: people and budget' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Restore removed items' }));
+    await user.click(screen.getByRole('button', { name: 'Remove Wed' }));
+    await user.click(screen.getByRole('button', { name: 'Next: people and budget' }));
     expect(h1('New campaign: people and budget')).toBeInTheDocument();
 
     const payout = screen.getByRole('textbox', { name: 'Tutorial payout' });
-    await plan.clear(payout);
-    await plan.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(screen.getByText('Fix the payouts and the spending cap before you continue.')).toBeInTheDocument();
-    await plan.type(payout, '40');
-    await plan.clear(screen.getByLabelText('Spending cap (USDC)'));
-    await plan.type(screen.getByLabelText('Spending cap (USDC)'), '300');
-    await plan.click(screen.getByRole('button', { name: 'Continue' }));
+    await user.clear(payout);
+    expect(screen.getByRole('button', { name: 'Next: review' })).toBeDisabled();
+    await user.type(payout, '40');
+    await user.clear(screen.getByLabelText('Spending cap (USDC)'));
+    await user.type(screen.getByLabelText('Spending cap (USDC)'), '300');
+    await user.click(screen.getByRole('button', { name: 'Next: review' }));
     expect(h1('New campaign: review and launch')).toBeInTheDocument();
 
     const summary = screen.getByLabelText('Campaign summary');
     expect(within(summary).getByText('300 USDC')).toBeInTheDocument();
     expect(within(summary).getByText('[Audience segment 2]')).toBeInTheDocument();
-    expect(within(summary).getByText('[n] brand posts · [n] ambassador pieces · days: Mon, Wed')).toBeInTheDocument();
-    // State machine: steps finished in this session link back from the stepper; the current step does not.
-    const stepper = screen.getByRole('list', { name: 'Step 6 of 6' });
-    expect(within(stepper).getByRole('link', { name: /People and budget/ })).toHaveAttribute('href', '/screens/Campaign-v2-5-Budget');
-    expect(within(stepper).getByRole('link', { name: /Audience/ })).toBeInTheDocument();
+    expect(within(summary).getByText('[Launch week]')).toBeInTheDocument();
+    expect(within(summary).getByText('[n] brand posts · [n] ambassador pieces · days: Mon')).toBeInTheDocument();
+    // State machine: finished steps link back from the stepper.
+    expect(screen.getByRole('link', { name: /People and budget/ })).toHaveAttribute('href', '/screens/Campaign-v2-5-Budget');
     const launch = screen.getByRole('button', { name: 'Launch campaign' });
     expect(launch).toBeDisabled();
-    await plan.click(screen.getByRole('checkbox', { name: 'I approve a spending cap of 300 USDC for this campaign.' }));
-    await plan.click(launch);
+    await user.click(screen.getByRole('checkbox', { name: 'I approve a spending cap of 300 USDC for this campaign.' }));
+    await user.click(launch);
     expect(screen.getByRole('heading', { name: 'Campaign launched' })).toBeInTheDocument();
-    await plan.click(screen.getByRole('link', { name: 'Back' }));
+    await user.click(screen.getByRole('link', { name: 'Back' }));
     expect(h1('New campaign: people and budget')).toBeInTheDocument();
   });
 
@@ -423,11 +437,10 @@ describe('upstream values flow downstream', () => {
     expect(screen.getByRole('button', { name: 'aDNA, switch brand' })).toBeInTheDocument();
   });
 
-  it('a key saved on Settings-GetKey shows on Settings-AI; OpenRouter shows connected', async () => {
+  it('a key saved on Settings-GetKey shows on Settings-AI, with OpenRouter in use', async () => {
     const user = at('/screens/Settings-GetKey');
     await user.type(screen.getByLabelText('API key'), 'placeholder-key-1234');
     await user.click(screen.getByRole('button', { name: 'Save and test' }));
-    await user.click(screen.getByRole('button', { name: 'Connect OpenRouter' }));
     await user.click(screen.getByRole('link', { name: '← Back to AI settings' }));
     expect(screen.getByText('Key ending …1234 · added [date]')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Connect OpenRouter' })).not.toBeInTheDocument();
@@ -570,14 +583,6 @@ describe('review fixes, round 5 (Codex, PR #79)', () => {
     expect(screen.getByLabelText('Slide 1 · Hook text')).toHaveValue('JamJam hook');
   });
 
-  it('campaign drafts are kept per brand', async () => {
-    const user = at('/screens/Campaign-v2-3-Audience');
-    await user.click(screen.getByRole('checkbox', { name: /\[Audience segment 2\]/ }));
-    await user.click(screen.getByRole('button', { name: 'JamJam, switch brand' }));
-    await user.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
-    expect(screen.getByRole('checkbox', { name: /\[Audience segment 2\]/ })).not.toBeChecked();
-  });
-
   it('an untouched short video is not blocked by the carousel claim', async () => {
     const user = at('/screens/Media-Composer');
     await user.click(screen.getByRole('tab', { name: 'Short video' }));
@@ -607,5 +612,44 @@ describe('review fixes, round 5 (Codex, PR #79)', () => {
     const rows = within(screen.getByRole('list', { name: 'Model sources' })).getAllByRole('listitem');
     expect(within(rows[0]).getByText('Not connected')).toBeInTheDocument();
     expect(within(rows[1]).getByText('In use')).toBeInTheDocument();
+  });
+});
+
+describe('review fixes, round 6 (Codex, PR #79)', () => {
+  it('key and OpenRouter are one state: reconnecting after Remove shows both again', async () => {
+    const user = at('/screens/Settings-AI');
+    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(screen.getByText("No key stored. JamJam's default models are in use.")).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'Connect OpenRouter' }));
+    await user.click(screen.getByRole('button', { name: 'Connect OpenRouter' }));
+    await user.click(screen.getByRole('link', { name: '← Back to AI settings' }));
+    expect(screen.getByText('Key ending …[last 4] · added [date]')).toBeInTheDocument();
+    const rows = within(screen.getByRole('list', { name: 'Model sources' })).getAllByRole('listitem');
+    expect(within(rows[0]).getByText('In use')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('Fallback')).toBeInTheDocument();
+  });
+
+  it('a media approval is kept per brand and bound to the draft it approved', async () => {
+    const user = at('/screens/Media-Composer');
+    await user.click(screen.getByRole('tab', { name: 'Image card' }));
+    await user.click(screen.getByRole('radio', { name: 'Image set' }));
+    await user.click(screen.getByRole('button', { name: 'Check and review' }));
+    await user.click(screen.getByRole('button', { name: 'Approve and register' }));
+    expect(screen.getByRole('heading', { name: 'Approved and registered' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'JamJam, switch brand' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
+    expect(screen.queryByRole('heading', { name: 'Approved and registered' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'aDNA, switch brand' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /JamJam/ }));
+    expect(screen.getByRole('heading', { name: 'Approved and registered' })).toBeInTheDocument();
+    // Any change to the approved draft un-approves it.
+    cleanup();
+    const composer = at('/screens/Media-Composer');
+    await composer.clear(screen.getByLabelText('Slide 1 · Card text'));
+    await composer.type(screen.getByLabelText('Slide 1 · Card text'), 'New headline');
+    cleanup();
+    at('/screens/Media-Review');
+    expect(screen.queryByRole('heading', { name: 'Approved and registered' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve and register' })).toBeDisabled();
   });
 });

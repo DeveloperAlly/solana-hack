@@ -18,7 +18,7 @@ import { useState, type ReactNode } from 'react';
 import { Badge, Button, Text } from '../../ui/primitives';
 import { DataTable } from '../../ui/composites/DataTable';
 import { SoonPage } from './SoonPage';
-import { SoonInlineForm } from '../../ui/domain/SoonInlineForm';
+import { InlineForm } from '../../ui/composites/InlineForm';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { tableState } from './tableState';
 import { useSoonSession } from './useSoonSession';
@@ -66,7 +66,7 @@ export function Claims({ data, state = 'success' }: { data: ClaimsData; state?: 
         actions={(c) => actionFor[c.status](c)}
       />
       {evidenceFor && (
-        <SoonInlineForm
+        <InlineForm surface="card"
           label="Add evidence"
           fields={[{ name: 'source', label: 'Evidence', hint: 'A URL or a short description of the source that backs this claim.', validate: required('the evidence') }]}
           submitLabel="Attach and approve"

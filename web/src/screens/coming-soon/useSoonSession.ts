@@ -3,12 +3,14 @@
 // Everything except the brand choice is scoped to the active brand, so switching brand never shows another brand's
 // keys, connections, plan, claims or schedule (Codex review on PR #79).
 // INTEGRATION: each field is server state once its endpoint exists (named on each field).
-import { createStore } from './createStore';
+import { createStore, type BrandSource } from '../../lib/brandScopedStore';
 import type { SoonStatusId } from './status';
 import type { Claim, PaidPlan, StatusRowItem } from './types';
 
 /** The brand selected when none was chosen in this session (demo fixture id). */
 export const defaultBrandId = 'jamjam';
+
+export type AiSource = { source: 'default' } | { source: 'openrouter'; key: { last4: string } };
 
 /** Account-level state, shared by every brand. */
 interface AccountState {
@@ -20,10 +22,11 @@ interface AccountState {
 
 /** Per-brand state. */
 export interface BrandState {
-  /** Stored AI key, last 4 characters only; null after Remove (PUT …/ai-settings). */
-  aiKey?: { last4: string } | null;
-  /** OpenRouter connect status from Settings-GetKey (PUT …/ai-settings). */
-  openRouter?: SoonStatusId;
+  /**
+   * Which model source writes, as one object so the key and the connection can never disagree (Codex review on
+   * PR #79): JamJam's default, or OpenRouter with the stored key (last 4 characters only). PUT …/ai-settings.
+   */
+  ai?: AiSource;
   /** OpenAI-compatible endpoint added on Settings-AI (PUT …/ai-settings). */
   endpoint?: string;
   /** Publishing connection and payout wallet status by row id (connections, brands.payout_wallet). */
@@ -57,30 +60,11 @@ function setSession(patch: Partial<SoonSession>) {
   });
 }
 
-const activeBrand = () => store.read().brandId ?? defaultBrandId;
-
-/**
- * A flow store (media draft, campaign draft) kept per brand, so a draft started for one brand never shows under
- * another (Codex review on PR #79). Same shape as createStore: read, reset and use() -> [state, set].
- */
-export function createBrandScopedStore<T extends object>() {
-  const drafts = createStore<Record<string, T>>({});
-  const read = (): Partial<T> => drafts.read()[activeBrand()] ?? {};
-  const set = (patch: Partial<T>) => {
-    const brand = activeBrand();
-    drafts.set({ [brand]: { ...drafts.read()[brand], ...patch } as T });
-  };
-  return {
-    read,
-    set,
-    reset: drafts.reset,
-    use: (): [Partial<T>, (patch: Partial<T>) => void] => {
-      const [all] = drafts.use();
-      const [account] = store.use();
-      return [all[account.brandId ?? defaultBrandId] ?? {}, set];
-    },
-  };
-}
+/** The active brand, for stores kept per brand (lib/brandScopedStore). */
+export const soonBrand: BrandSource = {
+  read: () => store.read().brandId ?? defaultBrandId,
+  use: () => store.use()[0].brandId ?? defaultBrandId,
+};
 
 /** The session for the active brand, and a setter that merges a patch (brand fields go to the active brand). */
 export function useSoonSession(): [SoonSession, (patch: Partial<SoonSession>) => void] {

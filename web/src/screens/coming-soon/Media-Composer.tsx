@@ -18,7 +18,7 @@ import { Tabs } from '../../ui/composites/Tabs';
 import { SoonPage } from './SoonPage';
 import { SoonSlideEditor } from '../../ui/domain/SoonSlideEditor';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { StateView } from './StateView';
+import { StateView } from '../../ui/composites/StateView';
 import { useSoonRoutes } from './routes';
 import type { MediaComposerData, MediaKind } from './types';
 import { mediaKindTitles, useMediaFlow } from './useMediaFlow';

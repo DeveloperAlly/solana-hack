@@ -99,17 +99,18 @@ export interface PayoutRow { id: string; format: string; where: string; payout: 
 export interface CampaignBudgetData {
   payouts: PayoutRow[];
   noXNote: string;
-  cap: string;
   balance: Bracketed;
   /** Server check: the cap is above the brand wallet's USDC balance (D31 over-balance). */
   overBalance: boolean;
 }
 export interface CampaignLaunchData {
+  /** The audience segments and plan items (their fixtures), to name what earlier steps chose. */
+  segments: AudienceSegment[];
+  planItems: PlanItem[];
   goal: Bracketed;
   audience: Bracketed;
   metric: Bracketed;
   plan: Bracketed;
-  cap: string;
   balance: Bracketed;
   overBalance: boolean;
 }

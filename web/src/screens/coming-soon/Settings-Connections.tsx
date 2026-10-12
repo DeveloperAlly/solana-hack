@@ -16,11 +16,10 @@
 import { Heading, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { SoonPage } from './SoonPage';
-import { SoonStatusList } from '../../ui/domain/SoonStatusList';
-import { SoonStatusRow } from '../../ui/domain/SoonStatusRow';
+import { List, ListRow } from '../../ui/composites/ListRow';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { SettingsNav } from './SettingsNav';
-import { StateView } from './StateView';
+import { StateView } from '../../ui/composites/StateView';
 import { useSoonSession } from './useSoonSession';
 import { StatusToggleButton } from './StatusToggleButton';
 import { soonStatus, type SoonStatusId } from './status';
@@ -31,21 +30,21 @@ export function SettingsConnections({ data, state = 'success' }: { data: Setting
   const base: StatusRowItem[] = [...data.connections, { id: 'wallet', name: data.wallet.address, status: data.wallet.status }];
   const rows = base.map((r) => ({ ...r, status: session.connections?.[r.id] ?? r.status }));
   const onToggle = (id: string, next: SoonStatusId) => set({ connections: { ...session.connections, [id]: next } });
-  const row = (r: StatusRowItem) => <SoonStatusRow key={r.id} name={r.name} detail={r.detail} status={soonStatus[r.status]} actions={<StatusToggleButton row={r} onToggle={onToggle} />} />;
+  const row = (r: StatusRowItem) => <ListRow key={r.id} title={r.name} detail={r.detail} status={soonStatus[r.status]} actions={<StatusToggleButton row={r} onToggle={onToggle} />} />;
   const channels = rows.filter((r) => r.id !== 'wallet');
   const wallet = rows.filter((r) => r.id === 'wallet');
   return (
     <SoonPage header={{ title: 'Settings', intro: 'Accounts JamJam publishes to, and where ambassador payouts come from.', definedIn: 'component inventory D52; backend map, Settings › Connections; ADR-006 (wallet only for payouts)' }} nav={<SettingsNav value="connections" />}>
       <StateView state={state} loading={{ title: 'Loading connections', body: 'Checking each publishing account.' }}>
         <Card header={<Heading level={2} size="lg">Publishing</Heading>}>
-          <SoonStatusList label="Publishing connections">
+          <List label="Publishing connections">
             {channels.map(row)}
-            <SoonStatusRow name={data.fallback.name} detail={data.fallback.detail} status={soonStatus[data.fallback.status]} />
-          </SoonStatusList>
+            <ListRow title={data.fallback.name} detail={data.fallback.detail} status={soonStatus[data.fallback.status]} />
+          </List>
         </Card>
         <Card header={<Heading level={2} size="lg">Payout wallet (owner only)</Heading>}>
           <Text tone="secondary">Ambassador payouts in USDC come from this wallet. Signing in never needs a wallet.</Text>
-          <SoonStatusList label="Payout wallet">{wallet.map(row)}</SoonStatusList>
+          <List label="Payout wallet">{wallet.map(row)}</List>
           <Text variant="small" tone="secondary">Linking asks the wallet to sign a message. Only the brand owner can link, change or pay from it.</Text>
         </Card>
       </StateView>

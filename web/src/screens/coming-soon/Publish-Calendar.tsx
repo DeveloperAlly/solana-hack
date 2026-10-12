@@ -17,13 +17,12 @@ import { useState } from 'react';
 import { Alert, Button, Choice, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { SoonPage } from './SoonPage';
-import { SoonCopyButton } from '../../ui/domain/SoonCopyButton';
+import { CopyButton } from '../../ui/composites/CopyButton';
 import { SoonWeekCalendar } from '../../ui/domain/SoonWeekCalendar';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { StateView } from './StateView';
+import { StateView } from '../../ui/composites/StateView';
 import { useSchedule } from './useSchedule';
-import { SoonStatusList } from '../../ui/domain/SoonStatusList';
-import { SoonStatusRow } from '../../ui/domain/SoonStatusRow';
+import { List, ListRow } from '../../ui/composites/ListRow';
 import { useSoonRoutes } from './routes';
 import type { CalendarSlot, PublishCalendarData } from './types';
 
@@ -57,7 +56,7 @@ export function PublishCalendar({ data, state = 'success' }: { data: PublishCale
               ) : (
                 <Button href={routes.settingsConnections}>Reconnect and retry</Button>
               )}
-              <SoonCopyButton text={f.text} label="Copy and post myself" />
+              <CopyButton value={f.text} label="Copy and post myself" feedback="label" messages={{ copied: 'Copied to the clipboard.', failed: 'Could not copy. Select the text and copy it yourself.' }} />
             </Stack>
           </Stack>
         )}
@@ -75,11 +74,11 @@ export function PublishCalendar({ data, state = 'success' }: { data: PublishCale
           </Card>
         )}
         {cal.filled.length > 0 && (
-          <SoonStatusList label="Scheduled this session">
+          <List label="Scheduled this session">
             {cal.filled.map((r) => (
-              <SoonStatusRow key={r.slotId} name={r.title} detail={r.day} actions={<Button variant="secondary" aria-label={`Unschedule ${r.title}`} onClick={() => cal.unschedule(r.slotId)}>Unschedule</Button>} />
+              <ListRow key={r.slotId} title={r.title} detail={r.day} actions={<Button variant="secondary" aria-label={`Unschedule ${r.title}`} onClick={() => cal.unschedule(r.slotId)}>Unschedule</Button>} />
             ))}
-          </SoonStatusList>
+          </List>
         )}
         <Text variant="small" tone="secondary">Only approved posts can be scheduled. The published text must hash to the approved text, or it isn't registered.</Text>
       </StateView>

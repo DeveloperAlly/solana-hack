@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import type { ScreenEntry } from '../registry-types';
+import type { ArtboardName } from '../../config/artboards';
 import { SettingsAI } from './Settings-AI';
 import { SettingsGetKey } from './Settings-GetKey';
 import { SettingsConnections } from './Settings-Connections';
@@ -40,7 +41,7 @@ import { outcomeLog, outcomeLogEmpty } from './Outcome-Log.fixtures';
 const pick = <T,>(base: T, byState: Partial<Record<ScreenState, T>> = {}) => (state: ScreenState) => byState[state] ?? base;
 
 /** One entry per artboard. `key` re-mounts the screen when the demo state changes, so local state starts fresh. */
-function entry<T>(artboard: string, title: string, states: readonly ScreenState[], Screen: (p: { data: T; state?: ScreenState }) => ReturnType<typeof createElement>, data: (s: ScreenState) => T): ScreenEntry {
+function entry<T>(artboard: ArtboardName, title: string, states: readonly ScreenState[], Screen: (p: { data: T; state?: ScreenState }) => ReturnType<typeof createElement>, data: (s: ScreenState) => T): ScreenEntry {
   return { artboard, page: 'soon', title, tag: 'COMING SOON', states, render: (state) => createElement(Screen, { key: state, data: data(state), state }) };
 }
 

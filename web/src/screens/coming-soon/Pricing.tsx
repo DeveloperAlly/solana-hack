@@ -13,7 +13,8 @@
  */
 import { Container, Grid, Stack, Text } from '../../ui/primitives';
 import { PublicShell } from '../../ui/shells/PublicShell';
-import { SoonPageHeader } from '../../ui/domain/SoonPageHeader';
+import { PageHeader } from '../../ui/layouts/PageHeader';
+import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { SoonPlanTier } from '../../ui/domain/SoonPlanTier';
 import { useSoonRoutes, type SoonRoute } from './routes';
 import type { PaidPlan, PlanTier, PricingData } from './types';
@@ -30,10 +31,11 @@ export function Pricing({ data }: { data: PricingData }) {
     <PublicShell>
       <Container width="app">
         <Stack gap={6}>
-          <SoonPageHeader
+          <PageHeader
             title="Pricing"
             intro="Start free. Pay when you post every week."
-            definedIn="backend map G-BILLING; research 10 §6 price bands; tiers from the canvas (owner to decide)"
+            badges={<ComingSoonFlag tag="COMING SOON" />}
+            meta="Drawn, not built. Defined in: backend map G-BILLING; research 10 §6 price bands; tiers from the canvas (owner to decide)"
           />
           <Grid min="md" gap={5}>
             {data.tiers.map((t) => (
