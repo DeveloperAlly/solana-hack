@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link as RouterLink, useNavigate } from 'react-router';
-import { hubNav, type NavItem } from '../../config/routes';
+import { hubNav, routeTagLabels, type NavItem } from '../../config/routes';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../primitives/Button';
 import { Logo } from '../brand/Logo';
 import styles from './AppShell.module.css';
 
-const tagLabel: Record<string, string> = { 'COMING SOON': 'soon', ROADMAP: 'roadmap', EXPERIMENTAL: 'beta' };
 
 /** L1 AppShell (thin): hub top nav from M1 with tag labels, an optional brand switcher slot, sign out, and a main slot. */
 // preview: rendered inside /system, so it must not add a second <main>, skip link or nav landmark name to that page.
@@ -48,7 +47,7 @@ export function AppShell({ brandName, children, preview = false, brandSlot, nav 
                 const label = (
                   <>
                     {item.label}
-                    {tagLabel[item.tag] && <span className={styles.tag}>({tagLabel[item.tag]})</span>}
+                    {routeTagLabels[item.tag].short && <span className={styles.tag}>({routeTagLabels[item.tag].short})</span>}
                   </>
                 );
                 return (
