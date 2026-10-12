@@ -1,7 +1,7 @@
 // M1: route and nav config. Shells and nav read from here; no nav markup is hand-written.
 export type RouteTag = 'HACKATHON' | 'HACKATHON (THIN)' | 'COMING SOON' | 'EXPERIMENTAL' | 'ROADMAP';
 export type RouteSection = 'public' | 'onboarding' | 'system' | 'hub';
-export type ScreenId = 'landing' | 'workbench' | 'placeholder' | 'signin' | 'build' | 'create' | 'verify' | 'ledger' | 'home' | 'brand' | 'settings' | 'soon' | 'how';
+export type ScreenId = 'landing' | 'workbench' | 'placeholder' | 'signin' | 'build' | 'create' | 'verify' | 'ledger' | 'home' | 'brand' | 'settings' | 'soon' | 'how' | 'gallery' | 'gallery-screen';
 
 export interface RouteDef {
   path: string;
@@ -26,6 +26,9 @@ export const routes: RouteDef[] = [
   { path: '/sign-in', label: 'Sign in', section: 'onboarding', tag: 'HACKATHON', screen: 'signin' },
   { path: '/build/*', label: 'Build your brand', section: 'onboarding', tag: 'HACKATHON', screen: 'build' },
   { path: '/system', label: 'Workbench', section: 'system', tag: 'HACKATHON', screen: 'workbench' },
+  // Screen gallery (issue #46): every canvas artboard with sample data; public, read-only, no network calls.
+  { path: '/screens', label: 'Screens', section: 'system', tag: 'HACKATHON', screen: 'gallery' },
+  { path: '/screens/:artboard', label: 'Screen', section: 'system', tag: 'HACKATHON', screen: 'gallery-screen' },
 ];
 
 export interface NavItem {

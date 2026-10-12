@@ -95,6 +95,7 @@
     "border.width.default": { "group": "T6 border width", "type": "size", "value": "{borderWidth.1}" },
     "border.width.strong": { "group": "T6 border width", "type": "size", "value": "{borderWidth.2}" },
     "border.width.focus": { "group": "T6 border width", "type": "size", "value": "{borderWidth.3}" },
+    "border.width.indicator": { "group": "T6 border width", "type": "size", "value": "{borderWidth.3}" },
 
     "elevation.0": { "group": "T7 elevation", "type": "shadow", "value": "{shadow.0}" },
     "elevation.1": { "group": "T7 elevation", "type": "shadow", "value": "{shadow.1}" },
@@ -178,6 +179,8 @@
     { "fg": "action.secondary.border", "bg": "bg.subtle", "kind": "ui" },
     { "fg": "border.input", "bg": "bg.subtle", "kind": "ui" },
     { "fg": "border.strong", "bg": "bg.subtle", "kind": "ui" },
-    { "fg": "border.focus", "bg": "bg.subtle", "kind": "ui" }
+    { "fg": "border.focus", "bg": "bg.subtle", "kind": "ui" },
+    { "fg": "text.primary", "bg": "flag.highlight", "kind": "text" },
+    { "fg": "text.inverse", "bg": "action.primary.bg", "kind": "text" }
   ]
 }

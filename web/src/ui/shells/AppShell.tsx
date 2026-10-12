@@ -7,9 +7,10 @@ import styles from './AppShell.module.css';
 
 const tagLabel: Record<string, string> = { 'COMING SOON': 'soon', ROADMAP: 'roadmap', EXPERIMENTAL: 'beta' };
 
-/** L1 AppShell (thin): hub top nav from M1 with tag labels, sign out, and a main slot. */
+/** L1 AppShell (thin): hub top nav from M1 with tag labels, an optional brand switcher slot, sign out, and a main slot. */
 // preview: rendered inside /system, so it must not add a second <main>, skip link or nav landmark name to that page.
-export function AppShell({ brandName, children, preview = false }: { brandName?: string; children?: ReactNode; preview?: boolean }) {
+// brandSlot: the D48 BrandSwitcher (or any control), placed before Sign out (issue #46).
+export function AppShell({ brandName, children, preview = false, brandSlot }: { brandName?: string; children?: ReactNode; preview?: boolean; brandSlot?: ReactNode }) {
   const navigate = useNavigate();
   async function signOut() {
     await supabase?.auth.signOut();
@@ -35,6 +36,7 @@ export function AppShell({ brandName, children, preview = false }: { brandName?:
               ))}
             </ul>
           </nav>
+          {brandSlot}
           <Button variant="secondary" onClick={preview ? undefined : signOut}>Sign out</Button>
         </div>
       </header>
