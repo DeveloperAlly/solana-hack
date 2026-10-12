@@ -18,18 +18,20 @@ tags: [demo, script, colosseum]
 
 ## 1. Critical path
 
-| # | Time | Beat | Route | Status |
+Each beat lists what it depends on (the must-haves in §3), not whether it works today: live status is only in STATE.md. Check it before recording.
+
+| # | Time | Beat | Route | Depends on |
 |---|---|---|---|---|
-| 01 | 0:00–0:12 | Open on the live product | `/ (landing)` | BUILT |
-| 02 | 0:12–0:18 | Email in, no wallet | `/sign-in` | BUILT · LINK |
-| 03 | 0:18–0:38 | A fact stays only if it can be quoted | `/build/basics, then /build/sources` | NEEDS BUILD |
-| 04 | 0:38–0:55 | Short questions, a chosen voice, a strict gate | `/build/origin to /build/voice` | BUILT |
-| 05 | 0:55–1:20 | The AI drafts; I decide | `/build/purpose (Gate 1)` | BUILT · NEEDS AI KEY |
-| 06 | 1:20–1:40 | Kit v1 on Solana | `/build/kit` | BUILT |
-| 07 | 1:40–2:20 | A post in our voice, and a claim it blocks | `/create` | BUILT · TEST THE BLOCK |
-| 08 | 2:20–2:40 | Anyone can check it | `/verify (public)` | BUILT |
-| 09 | 2:40–2:50 | The public record | `/ledger (public)` | BUILT |
-| 10 | 2:50–3:00 | What's next, then the line | `/grow (coming soon), then /` | BUILT |
+| 01 | 0:00–0:12 | Open on the live product | `/ (landing)` | NO DEPENDENCY |
+| 02 | 0:12–0:18 | Email in, no wallet | `/sign-in` | EMAIL LINK |
+| 03 | 0:18–0:38 | A fact stays only if it can be quoted | `/build/basics, then /build/sources` | P0: 009 · QUOTES |
+| 04 | 0:38–0:55 | Short questions, a chosen voice, a strict gate | `/build/origin to /build/voice` | P0: 009 |
+| 05 | 0:55–1:20 | The AI drafts; I decide | `/build/purpose (Gate 1)` | P0: AI MODEL |
+| 06 | 1:20–1:40 | Kit v1 on Solana | `/build/kit` | DEVNET RPC |
+| 07 | 1:40–2:20 | A post in our voice, and a claim it blocks | `/create` | P0: BLOCK TEST |
+| 08 | 2:20–2:40 | Anyone can check it | `/verify (public)` | DEVNET RPC |
+| 09 | 2:40–2:50 | The public record | `/ledger (public)` | AFTER BEATS 06-07 |
+| 10 | 2:50–3:00 | What's next, then the line | `/grow (coming soon), then /` | NO DEPENDENCY |
 
 ## 2. Beats
 
@@ -37,7 +39,7 @@ Each beat: what must come up on screen (quoted app copy), what to say, and the r
 
 ### Beat 01 · 0:00–0:12 · Open on the live product
 
-Route `/ (landing)` · status BUILT · placeholder: wireframe Landing-v2
+Route `/ (landing)` · depends on NO DEPENDENCY · placeholder: wireframe Landing-v2
 
 **Must come up:**
 - H1: "Build your brand. Then start creating."
@@ -51,7 +53,7 @@ Route `/ (landing)` · status BUILT · placeholder: wireframe Landing-v2
 
 ### Beat 02 · 0:12–0:18 · Email in, no wallet
 
-Route `/sign-in` · status BUILT · LINK · placeholder: wireframe Onboard-1-SignIn
+Route `/sign-in` · depends on EMAIL LINK · placeholder: wireframe Onboard-1-SignIn
 
 **Must come up:**
 - H1: "Sign in to build your brand"
@@ -65,7 +67,7 @@ Route `/sign-in` · status BUILT · LINK · placeholder: wireframe Onboard-1-Sig
 
 ### Beat 03 · 0:18–0:38 · A fact stays only if it can be quoted
 
-Route `/build/basics, then /build/sources` · status NEEDS BUILD · placeholder: wireframe J1-Read
+Route `/build/basics, then /build/sources` · depends on P0: 009 · QUOTES · placeholder: wireframe J1-Read
 
 **Must come up:**
 - Basics: Brand name "JamJam", Website "jamjam.tech", "Save and continue"
@@ -79,7 +81,7 @@ Route `/build/basics, then /build/sources` · status NEEDS BUILD · placeholder:
 
 ### Beat 04 · 0:38–0:55 · Short questions, a chosen voice, a strict gate
 
-Route `/build/origin to /build/voice` · status BUILT · placeholder: wireframe BB-6-Voice
+Route `/build/origin to /build/voice` · depends on P0: 009 · placeholder: wireframe BB-6-Voice
 
 **Must come up:**
 - Alert: "Already found on your pages" with up to 3 facts
@@ -93,7 +95,7 @@ Route `/build/origin to /build/voice` · status BUILT · placeholder: wireframe 
 
 ### Beat 05 · 0:55–1:20 · The AI drafts; I decide
 
-Route `/build/purpose (Gate 1)` · status BUILT · NEEDS AI KEY · placeholder: wireframe BB-Gate1-Purpose
+Route `/build/purpose (Gate 1)` · depends on P0: AI MODEL · placeholder: wireframe BB-Gate1-Purpose
 
 **Must come up:**
 - H1: "Gate 1: purpose"
@@ -102,13 +104,13 @@ Route `/build/purpose (Gate 1)` · status BUILT · NEEDS AI KEY · placeholder: 
 - "Approve purpose" then alert "Approved": "Recorded {date, time}."
 - Cut: Gates 2 and 3 already approved
 
-**Say:** The AI drafts our purpose, and shows where each line came from: my answers, and facts from the site linked to their page. This is a decision gate. I approve it, and the approval is recorded. Positioning and voice work the same way.
+**Say:** The AI drafts our purpose, and lists the sources behind it: my answers, and facts from the site linked to their page. This is a decision gate. I approve it, and the approval is recorded. Positioning and voice work the same way.
 
 **Recording:** Needs OPENROUTER_API_KEY live (aiConfigured unconfirmed in STATE.md). Free model can return 'busy': retry, keep the best take.
 
 ### Beat 06 · 1:20–1:40 · Kit v1 on Solana
 
-Route `/build/kit` · status BUILT · placeholder: wireframe J5-Approve-Kit
+Route `/build/kit` · depends on DEVNET RPC · placeholder: wireframe J5-Approve-Kit
 
 **Must come up:**
 - H1: "JamJam kit", "Gates approved: 3 of 3"
@@ -122,7 +124,7 @@ Route `/build/kit` · status BUILT · placeholder: wireframe J5-Approve-Kit
 
 ### Beat 07 · 1:40–2:20 · A post in our voice, and a claim it blocks
 
-Route `/create` · status BUILT · TEST THE BLOCK · placeholder: wireframe Draft-Review
+Route `/create` · depends on P0: BLOCK TEST · placeholder: wireframe Draft-Review
 
 **Must come up:**
 - "What is the post about?": JamJam launch · Channel: LinkedIn · "Draft a post"
@@ -137,7 +139,7 @@ Route `/create` · status BUILT · TEST THE BLOCK · placeholder: wireframe Draf
 
 ### Beat 08 · 2:20–2:40 · Anyone can check it
 
-Route `/verify (public)` · status BUILT · placeholder: wireframe Verify-1-Match
+Route `/verify (public)` · depends on DEVNET RPC · placeholder: wireframe Verify-1-Match
 
 **Must come up:**
 - H1: "Check a post", paste the exact approved text, "Check"
@@ -151,20 +153,20 @@ Route `/verify (public)` · status BUILT · placeholder: wireframe Verify-1-Matc
 
 ### Beat 09 · 2:40–2:50 · The public record
 
-Route `/ledger (public)` · status BUILT · placeholder: wireframe Ledger
+Route `/ledger (public)` · depends on AFTER BEATS 06-07 · placeholder: wireframe Ledger
 
 **Must come up:**
 - H1: "Ledger"
 - "Brand kits (1)": "JamJam · kit v1 · {date}" with hash and Explorer link
 - "Posts (1)": "JamJam · post on kit v1 · {date}"
 
-**Say:** The public ledger lists every registered kit and post, each with its transaction.
+**Say:** The public ledger lists the latest registered kits and posts, each with its transaction.
 
 **Recording:** Record after the post is registered so both rows show.
 
 ### Beat 10 · 2:50–3:00 · What's next, then the line
 
-Route `/grow (coming soon), then /` · status BUILT · placeholder: wireframe Grow-Home
+Route `/grow (coming soon), then /` · depends on NO DEPENDENCY · placeholder: wireframe Grow-Home
 
 **Must come up:**
 - Grow: "Coming soon", "Run campaigns with ambassadors who write in your voice…"
@@ -204,7 +206,7 @@ Route `/grow (coming soon), then /` · status BUILT · placeholder: wireframe Gr
 
 **0:38** It asks short questions and shows what it already found. For voice I pick Candid founder, and I set the claims gate to strict: every claim needs evidence.
 
-**0:55** The AI drafts our purpose, and shows where each line came from: my answers, and facts from the site linked to their page. This is a decision gate. I approve it, and the approval is recorded. Positioning and voice work the same way.
+**0:55** The AI drafts our purpose, and lists the sources behind it: my answers, and facts from the site linked to their page. This is a decision gate. I approve it, and the approval is recorded. Positioning and voice work the same way.
 
 **1:20** Three gates approved. I register kit v1. JamJam's Registrar signs it on Solana devnet. The fingerprint goes on-chain; the words stay private. Here is the transaction.
 
@@ -212,6 +214,6 @@ Route `/grow (coming soon), then /` · status BUILT · placeholder: wireframe Gr
 
 **2:20** Anyone can check it. I paste the post into the public Verify page. Registered by JamJam, checked on Solana just now. Change one word, and it's not an official post.
 
-**2:40** The public ledger lists every registered kit and post, each with its transaction.
+**2:40** The public ledger lists the latest registered kits and posts, each with its transaction.
 
 **2:50** Distribution, ambassadors and analytics are next. JamJam: your brand team, in one app. Every post provably yours.

@@ -191,7 +191,7 @@ I founded Lilypad, a decentralised AI compute network, and built the original Wa
 - The brand's verified accounts sit beside the result, so a copy from another account stands out (verified accounts are next)
 
 **A6 Public Ledger.** Answers 'why should anyone trust JamJam's record'.
-- Every approved kit and post, with a Solana transaction anyone can open
+- The latest registered kits and posts, each with a Solana transaction anyone can open
 - Only hashes and ids go on-chain; the words stay private
 - No one, including JamJam, can quietly rewrite history
 
