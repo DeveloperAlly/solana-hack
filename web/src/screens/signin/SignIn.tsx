@@ -7,7 +7,19 @@ import { useAuth } from '../../lib/auth';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Onboard-1-SignIn: email, then a 6-digit code (Supabase email OTP). No wallet, no seed phrase (R26, ADR-006). */
+function linkError(hash: string): string | null {
+  const p = new URLSearchParams(hash.replace(/^#/, ''));
+  if (!p.get('error')) return null;
+  return p.get('error_code') === 'otp_expired'
+    ? 'That sign-in link has expired or was already used. Send a new one.'
+    : 'That sign-in link did not work. Send a new one.';
+}
+
+/**
+ * Onboard-1-SignIn: email, then either the emailed link or a 6-digit code (Supabase email OTP). No wallet, no seed phrase (R26, ADR-006).
+ * The hosted project's default email carries only a link (its template can't change without custom SMTP), so the link is the main route:
+ * it returns here, the client reads the session from the URL fragment (implicit flow, the supabase-js default), and the redirect below fires.
+ */
 export function SignIn() {
   const { session } = useAuth();
   const [params] = useSearchParams();
@@ -17,7 +29,8 @@ export function SignIn() {
   const [code, setCode] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // An expired or reused link comes back with the error in the fragment (Supabase redirect-URL docs, Error handling).
+  const [error, setError] = useState<string | null>(() => linkError(window.location.hash));
 
   if (session) return <Navigate to={next} replace />;
 
@@ -27,7 +40,10 @@ export function SignIn() {
     if (!EMAIL.test(email.trim())) return setError('Enter an email address like you@example.com.');
     if (!supabase) return setError('Sign-in is not configured on this build.');
     setBusy(true);
-    const { error: err } = await supabase.auth.signInWithOtp({ email: email.trim() });
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}/sign-in?next=${encodeURIComponent(next)}` },
+    });
     setBusy(false);
     if (err) return setError(err.message);
     setSent(true);
@@ -51,7 +67,7 @@ export function SignIn() {
         <Stack gap={6}>
           <Stack gap={2}>
             <Heading level={1}>Sign in to build your brand</Heading>
-            <Text tone="secondary">We email you a 6-digit code. No password, no wallet.</Text>
+            <Text tone="secondary">We email you a sign-in link. No password, no wallet.</Text>
           </Stack>
           {!supabase && <Alert tone="warning" title="Sign-in is not configured on this build" />}
           {!sent ? (
@@ -59,14 +75,14 @@ export function SignIn() {
               <Stack gap={4}>
                 <Field label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} error={error} />
                 <Button type="submit" disabled={busy}>
-                  {busy ? 'Sending…' : 'Email me a code'}
+                  {busy ? 'Sending…' : 'Email me a sign-in link'}
                 </Button>
               </Stack>
             </form>
           ) : (
             <form onSubmit={verify} noValidate>
               <Stack gap={4}>
-                <Alert tone="info">We sent a code to {email}. It can take a minute to arrive.</Alert>
+                <Alert tone="info">We sent an email to {email}. Open the link in it on this device. It can take a minute to arrive. If the email shows a 6-digit code instead, enter it here.</Alert>
                 <Field
                   label="6-digit code"
                   inputMode="numeric"

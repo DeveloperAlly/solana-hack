@@ -9,12 +9,18 @@ describe('SignIn', () => {
     renderAt(<SignIn />);
     expect(screen.getByRole('heading', { level: 1, name: 'Sign in to build your brand' })).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Email'), 'not-an-email');
-    await userEvent.click(screen.getByRole('button', { name: 'Email me a code' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Email me a sign-in link' }));
     expect(screen.getAllByRole('alert').some((a) => a.textContent?.includes('Enter an email address'))).toBe(true);
     expect(screen.getByLabelText('Email')).toHaveAttribute('aria-invalid', 'true');
   });
   it('says so when the build has no Supabase settings', () => {
     renderAt(<SignIn />);
     expect(screen.getByText('Sign-in is not configured on this build')).toBeInTheDocument();
+  });
+  it('explains an expired link when Supabase redirects back with the error in the fragment', () => {
+    window.location.hash = '#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired';
+    renderAt(<SignIn />);
+    expect(screen.getByText(/expired or was already used/)).toBeInTheDocument();
+    window.location.hash = '';
   });
 });
