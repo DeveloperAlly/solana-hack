@@ -10,7 +10,7 @@ Static files Vite copies as-is to the site root ([Vite docs: the public director
 | `brand/options/*.svg` | The three concepts drawn for #47: `jar-check.svg` (chosen), `interlocking-js.svg` and `jj-box.svg`. All use the same grid and `currentColor`. |
 | `favicon.svg` | Browser-tab icon: the mark in black on a white rounded square. A `prefers-color-scheme: dark` rule inside the SVG swaps it to white on black. |
 | `favicon-32.png` | 32 px PNG fallback for browsers without SVG favicons. |
-| `apple-touch-icon.png` | 180 px home-screen icon for iOS, square and padded (iOS rounds the corners itself). |
+| `apple-touch-icon.png` | 180 px home-screen icon for iOS: the mark on an opaque white square with a margin around it. Safari uses `apple-touch-icon.png` from `<link rel="apple-touch-icon">` or the site root ([Apple: Configuring Web Applications](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html)). |
 | `site.webmanifest` | Web app manifest: the name JamJam and the three icons. |
 
 `web/index.html` links `favicon.svg`, `favicon-32.png`, `apple-touch-icon.png` and `site.webmanifest`.
