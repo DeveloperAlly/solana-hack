@@ -26,7 +26,7 @@ import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { ApproveGate } from './ApproveGate';
 import { ApproveRegisterPanel } from './ApproveRegisterPanel';
 import { JourneyStepFrame } from './JourneyStepFrame';
-import { gateFingerprint, gateView, statusRows } from './derive';
+import { gateInputs, gateView, statusRows } from './derive';
 import { useJourneyFlow } from './useJourneyFlow';
 import type { ApproveKitData } from './types';
 
@@ -42,7 +42,7 @@ export function J5ApproveKit({ data, state = 'success' }: ApproveKitProps) {
   // Each gate as the person left it on J3 and J4 (rejected facts dropped, edits and answers used), else the fixture.
   const gates = data.gates.map((g) => gateView(g, selections, data.voice));
   // One decision per gate for every screen: an approval counts only while it matches the draft it approved.
-  const decisions = gates.map((g) => flow.gateDecision(g.id, gateFingerprint(g), g.approval));
+  const decisions = gates.map((g) => flow.gateDecision(g.id, gateInputs(g), g.approval));
   return (
     <JourneyStepFrame
       step="approveKit"
@@ -55,9 +55,9 @@ export function J5ApproveKit({ data, state = 'success' }: ApproveKitProps) {
             key={g.id}
             gate={g}
             decision={decisions[i]}
-            stale={flow.gateStale(g.id, gateFingerprint(g), g.approval)}
+            stale={flow.gateStale(g.id, gateInputs(g), g.approval)}
             approver={data.approver}
-            onDecide={(d) => (d.status === 'approved' ? actions.approveGate(g.id, d, gateFingerprint(g)) : actions.reopenGate(g.id))}
+            onDecide={(d) => (d.status === 'approved' ? actions.approveGate(g.id, d, gateInputs(g)) : actions.reopenGate(g.id))}
             onEdit={(draft) => actions.editGate(g.id, draft)}
           />
         ))}

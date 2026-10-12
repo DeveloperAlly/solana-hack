@@ -5,6 +5,7 @@
 import { useMemo } from 'react';
 import { createBrandScopedStore } from '../../lib/brandScopedStore';
 import { activeBrand } from '../brand/activeBrand';
+import { approve, isCurrent, type Approval } from '../../lib/approval';
 import { stepIndex, type CampaignStepId } from './steps';
 
 export interface CampaignDraft {
@@ -17,8 +18,8 @@ export interface CampaignDraft {
   plan: { removed: string[] };
   /** Payout per format, and the spending cap. */
   budget: { payouts: Record<string, string>; cap: string };
-  /** The review step's approval of the spending cap. */
-  approval: { capApproved: boolean };
+  /** The review step's approval of the spending cap, bound to the cap value it approved (lib/approval). */
+  approval: { cap: Approval | null };
 }
 
 /**
@@ -31,7 +32,7 @@ export const campaignDraftFixture: CampaignDraft = {
   success: { mainMetric: '', supporting: [], targets: {} },
   plan: { removed: [] },
   budget: { payouts: { linkedin: '10', tutorial: '40' }, cap: '500' },
-  approval: { capApproved: false },
+  approval: { cap: null },
 };
 
 interface FlowState {
@@ -93,3 +94,9 @@ export const campaignStore = {
     return useMemo(() => ({ ...initialState, ...scoped }), [scoped]);
   },
 };
+
+/** Whether the draft's spending cap is approved: an approval of a different cap is stale (Codex review on PR #103). */
+export const capApproved = (draft: CampaignDraft): boolean => isCurrent(draft.approval.cap, draft.budget.cap);
+
+/** The cap approval for the draft's current cap, or none. */
+export const capApproval = (draft: CampaignDraft, approved: boolean): CampaignDraft['approval'] => ({ cap: approved ? approve(draft.budget.cap) : null });

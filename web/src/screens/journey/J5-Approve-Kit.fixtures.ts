@@ -7,7 +7,8 @@
 import type { ApproveKitData } from './types';
 import { facts, ownerAnswer } from './journey.fixtures';
 import { gapsVoiceFixture } from './J4-Gaps-Voice.fixtures';
-import { ALTERNATIVES_ID, gateFingerprint, gateView } from './derive';
+import { ALTERNATIVES_ID, gateInputs, gateView } from './derive';
+import { approve } from '../../lib/approval';
 import { initialSelections } from './useJourneyFlow';
 
 const alternatives = { id: ALTERNATIVES_ID, section: 'Alternatives', status: 'found', statement: 'Pressmaster, Google Pomelli, Canva Brand Kit', note: 'From competitor research (research 10), each with its link.' } as const;
@@ -50,7 +51,7 @@ export const approveKitFixtureFailed: ApproveKitData = {
   // visit), so it goes stale like one made here.
   gates: approveKitFixture.gates.map((g) => ({
     ...g,
-    approval: { decision: { status: 'approved', by: '[approver]', at: '[time]' }, fingerprint: gateFingerprint(gateView(g, initialSelections, approveKitFixture.voice)) },
+    approval: approve(gateInputs(gateView(g, initialSelections, approveKitFixture.voice)), { status: 'approved', by: '[approver]', at: '[time]' } as const),
   })),
   registration: { reason: "[Plain-language reason, e.g. \"the network didn't confirm in time\"]", hash: '[sha256 of kit v1]', lastTry: '[time]' },
 };
