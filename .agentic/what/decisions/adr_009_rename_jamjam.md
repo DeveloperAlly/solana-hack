@@ -8,7 +8,7 @@ tags: [adr, naming, brand]
 ---
 > **Status: accepted.** The product is renamed JamJam, after its live domain jamjam.tech, and its brand look is wireframe black and white.
 
-# ADR-008: Rename to JamJam; wireframe brand
+# ADR-009: Rename to JamJam; wireframe brand
 
 ## Context
 - The app already runs on jamjam.tech, which superseded the waterlily.ai hosting ([STATE.md](../../../STATE.md), hosting decision; [PR #6](https://github.com/DeveloperAlly/solana-hack/pull/6)).
