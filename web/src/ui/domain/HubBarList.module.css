@@ -1,0 +1,9 @@
+.list { display: flex; flex-direction: column; gap: var(--wl-space-2); margin: 0; padding: 0; list-style: none; }
+.item { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; align-items: center; gap: var(--wl-space-3); font-size: var(--wl-font-size-sm); }
+.bare { grid-template-columns: minmax(0, 1fr) auto; }
+.label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.value { font-variant-numeric: tabular-nums; }
+.bar { appearance: none; width: 100%; height: var(--wl-space-2-5); border: 0; border-radius: var(--wl-radius-pill); background: var(--wl-bg-subtle); color: var(--wl-data-series-1); overflow: hidden; }
+.bar::-webkit-progress-bar { background: var(--wl-bg-subtle); border-radius: var(--wl-radius-pill); }
+.bar::-webkit-progress-value { background: var(--wl-data-series-1); border-radius: var(--wl-radius-pill); }
+.bar::-moz-progress-bar { background: var(--wl-data-series-1); border-radius: var(--wl-radius-pill); }
