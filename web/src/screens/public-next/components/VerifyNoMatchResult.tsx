@@ -1,7 +1,8 @@
-import { Button, Stack, Text } from '../../../ui/primitives';
+import { Stack, Text } from '../../../ui/primitives';
 import { VerifyResultCard } from '../../../ui/domain/VerifyResultCard';
 import { VerifyReportForm } from '../../../ui/domain/VerifyReportForm';
-import { verifyPaths } from '../paths';
+import { ScreenLink } from '../../../gallery/ScreenLink';
+import { verifyArtboards } from '../paths';
 
 /** "Not found" (canvas Verify-2-NoMatch; note n-v2: neutral wording, and the report goes to the brand owner). */
 export function VerifyNoMatchResult() {
@@ -13,7 +14,7 @@ export function VerifyNoMatchResult() {
       actions={
         <>
           <VerifyReportForm triggerLabel="Report possible impersonation" />
-          <Button href={verifyPaths.ledger} variant="secondary">Browse verified brands</Button>
+          <ScreenLink artboard={verifyArtboards.ledger} as="button" variant="secondary">Browse verified brands</ScreenLink>
         </>
       }
     >
