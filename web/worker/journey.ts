@@ -66,7 +66,7 @@ export function coverage(evidence: FactRow[]) {
   return { sections, covered, total: sections.length, ratio: sections.length ? covered / sections.length : 0 };
 }
 
-/** answer: what PUT /api/brands/:id/answers/voice saves when this sample is picked (template, 8 dials, claims gate). */
+/** answer: what PUT /api/brands/:id/answers/voice saves when this sample is picked (template, 8 dials, claims gate, sample). */
 export interface VoiceSample { template: string; label: string; text: string; answer: Record<string, string> }
 
 /**
@@ -98,7 +98,9 @@ export async function voiceSamples(env: Env, brand: { id: string; name: string }
     const body = typeof s.text === 'string' ? s.text.trim().slice(0, 800) : '';
     if (!t || !body || seen.has(t.value) || !candidates.includes(t.value)) continue;
     seen.add(t.value);
-    out.push({ template: t.value, label: t.label, text: body, answer: voiceAnswerFor(t.value) });
+    // The picked paragraph is saved as the answer's sample, as the voice form does (normaliseVoice keeps it), so the voice
+    // section is drafted from the example the owner chose, not only the template name and dials.
+    out.push({ template: t.value, label: t.label, text: body, answer: { ...voiceAnswerFor(t.value), sample: body } });
   }
   if (out.length < 3) throw new HttpError(502, 'the AI model did not return three usable samples, try again');
   return out.slice(0, 3);

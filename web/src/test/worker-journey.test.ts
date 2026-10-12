@@ -205,7 +205,7 @@ describe('voice by example (J4)', () => {
     const res = await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 });
     expect(res.status).toBe(200);
     expect((res.body.samples as { template: string }[]).map((s) => s.template)).toEqual(['friendly', 'academic', 'playful']);
-    expect((res.body.samples as { answer: Record<string, string> }[])[0].answer).toMatchObject({ template: 'friendly', claims: '4' });
+    expect((res.body.samples as { answer: Record<string, string> }[])[0].answer).toMatchObject({ template: 'friendly', claims: '4', sample: 'A paragraph about Acme in the friendly voice.' });
     expect(prompts[0].user).toContain('Acme builds bridges');
     expect(prompts[0].user).not.toContain('Secret third-party claim');
   });
