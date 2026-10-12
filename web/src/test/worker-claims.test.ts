@@ -8,7 +8,7 @@ vi.mock('../../worker/registry', () => ({
   currentBlockHeight: vi.fn(), readKitAttestation: vi.fn(), NotLanded: class extends Error {}, explorerTx: (s: string) => s,
 }));
 const { handleApi } = await import('../../worker/api');
-const { claimMapFrom } = await import('../../worker/claims');
+const { claimMapFrom, mergeSupport } = await import('../../worker/claims');
 
 type Row = Record<string, unknown>;
 let tables: Record<string, Row[]>;
@@ -82,6 +82,17 @@ describe('claims on the draft (H9)', () => {
   it('never invents support: a fact number outside the list is dropped and the claim becomes unsupported', () => {
     const map = claimMapFrom({ claims: [{ text: 'We won an award', opinion: false, facts: [9, 0, -1] }] }, [{ id: 'f1', claim: 'x', quote: null }], 1, '4');
     expect(map.items[0]).toMatchObject({ status: 'unsupported', facts: [] });
+  });
+  it('respects the claims gate: a factual claim the gate lets through is not_required, not unsupported', () => {
+    const map = claimMapFrom({ claims: [{ text: 'We love bridges', opinion: false, needsEvidence: false, facts: [] }, { text: 'Half price', opinion: false, facts: [] }] }, [], 1, '3');
+    expect(map.items.map((i) => i.status)).toEqual(['not_required', 'unsupported']);
+    expect(map.unsupported).toBe(1);
+  });
+  it('a later evidence batch can support a claim the first batch could not, as the gate does', () => {
+    let map = claimMapFrom({ claims: [{ text: 'Founded 2024', opinion: false, facts: [] }] }, [{ id: 'a', claim: 'x', quote: null }], 1, '4');
+    map = mergeSupport(map, { supports: [{ text: 'Founded 2024', facts: [1] }] }, [{ id: 'f121', claim: 'Founded in 2024', quote: 'founded in 2024' }]);
+    expect(map.items[0]).toMatchObject({ status: 'supported', facts: [{ id: 'f121' }] });
+    expect(map.unsupported).toBe(0);
   });
   it('fails closed on an unusable reply', () => {
     expect(() => claimMapFrom({ nope: true }, [], 1, '4')).toThrow();
