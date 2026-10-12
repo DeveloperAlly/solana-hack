@@ -6,7 +6,7 @@ import { vi } from 'vitest';
 import { allScreens, screenHome } from '../gallery/registry';
 import { GalleryModeContext } from '../ui/hooks/galleryMode';
 import { artboardPages, artboards } from './artboards';
-import { homeForArtboard, homeForPage, loopSteps, mobileTabFor, mobileTabs, shells, stageById, stages, tabById, type HomeId, type ShellId } from './nav';
+import { homeForArtboard, homeForPage, navForArtboard, loopSteps, mobileTabFor, mobileTabs, shells, stageById, stages, tabById, type HomeId, type ShellId } from './nav';
 
 // The one navigation (ADR-012 decision 2, PR #86; issue #90 contracts), checked against canvas v24.
 vi.mock('../lib/supabase', () => ({ supabase: null }));
@@ -49,6 +49,26 @@ describe('config/nav', () => {
     expect(homeForPage('utilities', 'Inbox-Connect')).toBe('inbox');
     expect(homeForPage('utilities', 'Upgrade')).toBe('settings');
     for (const a of artboards) expect(homeIds.has(homeForArtboard(a)!), a).toBe(true);
+  });
+
+  it('navForArtboard: home stage first, then the stage whose tab holds the board, sub-boards under their tab', () => {
+    expect(navForArtboard('Platforms')).toEqual({ stage: 'distribute', tab: 'platforms' });
+    expect(navForArtboard('Platform-Detail')).toEqual({ stage: 'distribute', tab: 'platforms' });
+    expect(navForArtboard('Badge-Embed')).toEqual({ stage: 'verify', tab: 'badge' });
+    expect(navForArtboard('Referral')).toEqual({ stage: 'grow', tab: 'referrals' });
+    expect(navForArtboard('Quests')).toEqual({ stage: 'grow', tab: 'ambassadors' });
+    expect(navForArtboard('Event-Detail')).toEqual({ stage: 'grow', tab: 'events' });
+    expect(navForArtboard('Draft-Review-PolishError')).toEqual({ stage: 'create', tab: 'drafts' });
+    expect(navForArtboard('Brain')).toEqual({ stage: 'brand', tab: 'brain' });
+    expect(navForArtboard('Post-Detail')).toEqual({ stage: 'create', tab: 'post' });
+    expect(navForArtboard('Invite-Team')).toEqual({ stage: 'grow', tab: 'team' });
+    expect(navForArtboard('Settings-Connections')).toEqual({ stage: 'distribute', tab: 'connections' });
+    expect(navForArtboard('Today')).toEqual({ stage: 'today' });
+    expect(navForArtboard('Hub-Home')).toEqual({ stage: 'today' });
+    expect(navForArtboard('J8-Hub-FirstRun')).toEqual({ stage: 'today' });
+    expect(navForArtboard('Brand-Switcher')).toEqual({ stage: 'brand' });
+    expect(navForArtboard('Quests', 'Dashboard')).toEqual({ stage: 'grow', tab: 'ambassadors' });
+    expect(() => navForArtboard('J1-Read')).toThrow(/no signed-in nav/);
   });
 
   it('throws on a stage tab the canvas does not draw', () => {

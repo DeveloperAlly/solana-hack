@@ -89,6 +89,18 @@ describe('M-Today', () => {
     expect(within(bar).getAllByRole('link').map((a) => a.textContent)).toEqual(['Today', 'Create', 'Verify', 'Grow', 'More']);
     expect(screen.queryByRole('navigation', { name: 'Brand' })).toBeNull();
   });
+
+  it('a decided item leaves the three slots for the next one-tap item and moves to Done; counts agree', async () => {
+    renderWithRouter(<MToday data={today} />);
+    const slots = () => within(screen.getByRole('list', { name: 'Needs you' })).getAllByRole('listitem');
+    expect(slots().some((li) => /Open X threads/.test(li.textContent ?? ''))).toBe(false);
+    await userEvent.click(within(slots()[0]).getByRole('button', { name: 'Approve' }));
+    expect(slots()).toHaveLength(3);
+    expect(slots().some((li) => /Open X threads/.test(li.textContent ?? ''))).toBe(true);
+    expect(within(screen.getByRole('list', { name: 'Done' })).getByText(/Your agent didn't forget/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: '6 decisions' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '3 more' })).toBeInTheDocument();
+  });
 });
 
 describe('Brain and Learn-Rules share the Brain', () => {

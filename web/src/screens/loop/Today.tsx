@@ -40,7 +40,7 @@ export function Today({ data, state = 'success' }: { data: TodayData; state?: Sc
       <PageHeader
         title={`${data.weekday}, ${data.brain.brandName}`}
         intro={<>{data.status} · <SampleFlag /></>}
-        actions={t.pending.length > 0 && <Button href="#queue">Clear {t.pending.length} decisions</Button>}
+        actions={t.needsYou.length > 0 && <Button href="#queue">Clear {t.needsYou.length} decisions</Button>}
       />
       <Card labelledBy="loop-h" header={<><Heading level={2} size="lg" id="loop-h">Where {data.brain.brandName} is in the loop</Heading><Text as="span" variant="small" tone="secondary">{t.progress} · {data.loopNote}</Text></>}>
         <StatusTimeline steps={steps} label="Loop steps" />
@@ -51,7 +51,7 @@ export function Today({ data, state = 'success' }: { data: TodayData; state?: Sc
           loading={{ title: 'Loading your decisions', body: 'Drafts, replies and suggestions are on their way.' }}
           error={{ title: "Couldn't load your decisions", body: 'The rest of Today is up to date. Nothing was approved or sent.', actions: <Button variant="secondary" href={to('Today')}>Try again</Button> }}
         >
-          <TodayQueue rows={t.shown} pending={t.pending.length} filter={{ value: t.filter, onChange: t.setFilter }} />
+          <TodayQueue rows={t.shown} pending={t.needsYou.length} done={t.done} filter={{ value: t.filter, onChange: t.setFilter }} />
         </StateView>
       </Columns>
     </LoopFrame>
