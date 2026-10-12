@@ -6,7 +6,7 @@ updated: 2026-10-12
 last_edited_by: agent
 tags: [research, competitors, onboarding, pricing]
 ---
-> **Status: active.** Detail file for segment F (provenance and is-this-official verification) of [research 10](../10_competitor_onboarding_pricing.md). Plan IDs are defined in its [baseline table](../10_competitor_onboarding_pricing.md#2-baseline-jamjams-full-build-plan). "What JamJam should steal / learn" items are proposals for the owner, not decisions.
+> **Status: active.** Detail file for segment F (provenance and is-this-official verification) of [research 10](../10_competitor_onboarding_pricing.md). Plan IDs are defined in its [baseline table](../10_competitor_onboarding_pricing.md#2-baseline-jamjams-full-build-plan). "What JamJam should steal / learn" lines are raw per-competitor observations. Many match decisions already in the repo; the reconciled list of what is actually new is [section 7 of research 10](../10_competitor_onboarding_pricing.md#7-what-jamjam-should-adopt-only-what-isnt-already-decided-proposed).
 
 # Segment F: Content provenance and "is this official" verification
 

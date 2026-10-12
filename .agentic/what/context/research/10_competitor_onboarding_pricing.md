@@ -6,7 +6,7 @@ updated: 2026-10-12
 last_edited_by: agent
 tags: [research, competitors, onboarding, pricing, landscape]
 ---
-> **Status: active.** Research input (2026-10-12). It updates [research 04](./04_brand_hub_landscape.md) with an onboarding and pricing review of 59 competitors, measured against JamJam's full build plan. Everything under "What JamJam should adopt" is **proposed**; only the owner ratifies.
+> **Status: active.** Research input (2026-10-12). It updates [research 04](./04_brand_hub_landscape.md) with an onboarding and pricing review of 59 competitors, measured against JamJam's full build plan. Everything under "What JamJam should adopt" is **proposed**, and has been checked against every decision doc in the repo; only the owner ratifies.
 
 # Competitor onboarding and pricing review
 
@@ -29,52 +29,44 @@ tags: [research, competitors, onboarding, pricing, landscape]
 
 ## 1. Summary
 
-1. **No one runs the whole loop.** None of the 59 covers Build, Run, Prove and Pay. The most any covers is two legs: Pressmaster and Typeface (Build partly, Run yes), Later (Run, plus fiat creator pay as a separate business), Kaito Studio (Run partly, Pay), and Galxe and Numbers (Prove partly, Pay). This supports the competition slide's claim (slide 9 of the [pitch deck](../pitch_deck_2026_10_06.md)).
-2. **Interview-led onboarding is no longer unique.** [ADR-002](../../decisions/adr_002_purpose_build_run_prove.md) and research 04 said no competitor runs strategy-first onboarding. That is now out of date:
-   - Google Pomelli Agent builds a brand from scratch by chat (May 2026).
-   - Branding5 runs a 7-question interview with AI-drafted answers.
-   - Pressmaster runs a 15–30 minute guided brand and voice interview.
-   - Supergrow, Edgar, Outerview and Meet Sona run voice interviews.
-
-   **What is still unique:** keeping a fact only when its supporting quote is on the source page (B2), the Evidenced / Inferred / Missing coverage map (B3), and recorded who/when/why gates on the kit (B5). See [segment A](./10_competitor_detail/a_brand_build.md#segment-takeaways) and [segment B](./10_competitor_detail/b_ai_social_voice.md#segment-takeaways).
+1. **No one runs the whole loop.** None of the 59 covers Build, Run, Prove and Pay. The most any covers is two legs: Pressmaster and Typeface (Build partly, Run), Later (Run, plus fiat creator pay as a separate business), Kaito Studio (Run partly, Pay), Galxe and Numbers (Prove partly, Pay). This supports [ADR-007](../../decisions/adr_007_pitch_positioning.md) and slide 9 of the [pitch deck](../pitch_deck_2026_10_06.md).
+2. **Competitor onboarding has converged on what the [architecture](../brand_builder_architecture.md) already specifies.**
+   - What they do: URL plus upload plus interview, confirm rather than ask, and a readiness signal (Pomelli, Canva, Pressmaster, Branding5).
+   - What none of them do: keep a fact only with its quote, show Evidenced / Inferred / Missing coverage, or gate the kit with a recorded decision.
+   - This confirms the [VC review](../vc_judge_review_2026_10_06.md)'s call (gap 3) to differentiate on evidence ([segment A](./10_competitor_detail/a_brand_build.md#segment-takeaways), [segment B](./10_competitor_detail/b_ai_social_voice.md#segment-takeaways)).
 3. **Pressmaster is the closest Build-and-Run competitor.**
    - Setup: a 5-step onboarding checklist that pays out credits. Brand and voice each have three setup modes: URL, a 15–30 minute interview, or manual entry.
    - It has a "Content Twin" readiness score, publishes to 7 networks plus blogs, and runs background agents.
    - Pricing: a free tier, then $29 to $499 a month, metered in credits.
-   - Direction: its docs say a trained Twin no longer needs every word reviewed. That is the opposite of JamJam's "a person approves everything" ([segment B](./10_competitor_detail/b_ai_social_voice.md#pressmasterai-httpswwwpressmasterai)).
+   - Direction: its docs say a trained Twin no longer needs every word reviewed. That is the opposite of [ADR-003](../../decisions/adr_003_superhub_business_model.md) principle 1 ([segment B](./10_competitor_detail/b_ai_social_voice.md#pressmasterai-httpswwwpressmasterai)).
 4. **Encypher is the closest Prove competitor for text.**
    - It says it wrote the C2PA text-signing rules (published Jan 2026).
    - Verify is free, publisher signing is free, and AI-output marking costs $99–$4,000 a month.
    - It has no Build, Run, approvals, onchain ledger or Pay.
-   - Its labels are invisible characters, which social platforms may strip (not verified per platform). JamJam's paste-text lookup against the ledger does not depend on those characters surviving ([segment F](./10_competitor_detail/f_provenance.md#encypher-new-not-in-assignment-the-closest-provenance-competitor-for-text-httpsencyphercom)).
+   - Its labels are invisible characters, which social platforms may strip (not verified per platform). JamJam's paste-text Verify does not depend on those characters surviving ([segment F](./10_competitor_detail/f_provenance.md#encypher-new-not-in-assignment-the-closest-provenance-competitor-for-text-httpsencyphercom)).
 5. **Approvals and AI replies are sold as upgrades everywhere.**
    - Approvals: Hootsuite only at $399 per user, Sprout from $299 per seat, Agorapulse multi-step only on Custom, Buffer from $10 per channel, Later from $37.50.
-   - None checks claims against the brand's evidence, runs a slop pass, or records why something was approved ([segment C](./10_competitor_detail/c_social_ops.md#segment-takeaways)).
+   - None checks claims against the brand's own evidence ([segment C](./10_competitor_detail/c_social_ops.md#segment-takeaways)).
 6. **Paying ambassadors is common; proof is not.**
    - Approval before payout is standard.
    - No core platform auto-inserts FTC disclosure: impact.com and Valen Sentinel only detect it.
-   - No platform publishes a public record of what was approved and paid.
-   - Ambassador complaints cluster on payouts (Club, SocialLadder) and on "was I ever paid" (a third-party audit of Superteam Earn) ([segment D](./10_competitor_detail/d_ambassador_payouts.md#segment-takeaways), [segment E](./10_competitor_detail/e_crypto_community.md#segment-takeaways)).
+   - No platform publishes a public record of what was approved and paid ([segment D](./10_competitor_detail/d_ambassador_payouts.md#segment-takeaways), [segment E](./10_competitor_detail/e_crypto_community.md#segment-takeaways)).
 7. **X's January 2026 ban reshaped crypto creator pay.**
    - Cookie shut down Snaps; Kaito replaced Yaps with Kaito Studio; Wallchain moved to curated campaigns.
-   - Kaito's open contest mode (Katalyst) now runs under a data agreement with X.
+   - Kaito's open contest mode now runs under a data agreement with X.
    - Galxe and Zealy still sell paid X tasks; whether that complies with X's rules is unconfirmed.
-   - JamJam's curated, off-X, per-piece payouts (Y2, Y3) match where the market moved ([segment E](./10_competitor_detail/e_crypto_community.md#context-xs-january-2026-policy-on-paying-for-posts)).
-8. **Pricing has moved downmarket in 2026.**
+   - The decided off-X, curated payouts match where the market moved ([segment E](./10_competitor_detail/e_crypto_community.md#context-xs-january-2026-policy-on-paying-for-posts)).
+8. **Pricing moved downmarket in 2026.**
    - Sprout added a $79 tier, Hootsuite a $99 tier, and GRIN went self-serve with a free plan.
-   - Agorapulse dropped its free plan and Copy.ai dropped its free plan.
-   - No-card trials are the norm: Hootsuite, Sprout, Buffer, Agorapulse, Blaze, WRITER, Pressmaster, GRIN.
-   - Card-at-trial products carry the worst review scores: Taplio has 2.1 on Trustpilot and Later has 1.3.
-9. **Watch-outs.**
-   - Hypefury and Later dropped X publishing entirely, which is a risk for R4.
-   - Story Protocol pivoted away from creator IP in June 2026, which suggests "prove" alone doesn't sell. Keep it a feature inside the paid product, as in [ADR-003](../../decisions/adr_003_superhub_business_model.md).
-   - A JamJam fee on USDC payouts will be compared with Superteam Earn's 0% commission and Roster's "no take rate".
+   - Agorapulse and Copy.ai dropped their free plans.
+   - Card-at-trial products have the worst review scores: Taplio 2.1 on Trustpilot, Later 1.3.
+   - This matters while slide 10's price is blank. A payout fee will be compared with Superteam Earn's 0% commission and Roster's "no take rate".
 
 ---
 
 ## 2. Baseline: JamJam's full build plan
 
-Every "lacks" entry is measured against these IDs, which cover live and coming-soon scope. Sources: [PRD (issue #2)](https://github.com/DeveloperAlly/solana-hack/issues/2), [mission_ui_build.md](../../../how/missions/mission_ui_build.md), [ADR-002](../../decisions/adr_002_purpose_build_run_prove.md), [ADR-003](../../decisions/adr_003_superhub_business_model.md), [ADR-006](../../decisions/adr_006_wallet_identity_split.md), [ADR-007](../../decisions/adr_007_pitch_positioning.md), [research 04](./04_brand_hub_landscape.md).
+Every "lacks" entry is measured against these IDs, which cover every tag (hackathon, experimental, coming soon, roadmap). Sources: [compendium §5](../compendium_2026_10_06.md#5-product-map-decided-structure-tags-drive-the-build), [Brand Builder architecture](../brand_builder_architecture.md), [backlog](../../../how/backlog/backlog.md), [backend map](../backend_map.md), [ADR-002](../../decisions/adr_002_purpose_build_run_prove.md), [ADR-003](../../decisions/adr_003_superhub_business_model.md), [ADR-006](../../decisions/adr_006_wallet_identity_split.md), [ADR-007](../../decisions/adr_007_pitch_positioning.md).
 
 | ID | Plan item |
 |---|---|
@@ -273,10 +265,15 @@ Named by the research agents as adjacent or new. Listed so the landscape is comp
 - **Trials.** No card is the norm: 7–30 days at Hootsuite, Sprout, Buffer, Agorapulse, Blaze, WRITER, Octolens and Syften, plus free tiers at Pressmaster, Buffer, Zealy and GRIN. Card-required trials are at Jasper, Copy.ai, Taplio and Later, and the last two have the worst review scores in their segments. Supergrow pauses the account at trial end instead of charging.
 - **Crypto onboarding adds friction.** Galxe needs a wallet and a 300 USDT/USDC deposit; Layer3 needs a 12-month token stake; Kaito and Wallchain are sales-led. Superteam Earn is the light one: a brief in under 2 minutes.
 
-**What this means for JamJam's 15-minute intake (B1, R18).** The intake is now normal, not novel. To beat it, JamJam has to:
-- show ingested facts, with their quotes, within the first minute;
-- skip what the sources answer and say so;
-- end the 15 minutes with something tangible: an approved kit v1 and a first approved draft.
+**What this means for JamJam.** The decided flow ([architecture §12.1](../brand_builder_architecture.md#121-user-flow)) already covers the strongest of these patterns:
+- URL and upload ingest;
+- per-source progress with Retry and Skip;
+- a coverage map before the interview;
+- "confirm this" where sources answer;
+- choosing voice by example;
+- empty, loading, success and error states on every screen ([component inventory](../component_inventory.md)).
+
+The only patterns not in the plan are habit and setup loops (N1–N3 in section 7).
 
 ---
 
@@ -309,75 +306,56 @@ Named by the research agents as adjacent or new. Listed so the landscape is comp
 
 ---
 
-## 7. What JamJam should adopt, and where it should do better (proposed)
+## 7. What JamJam should adopt: only what isn't already decided (proposed)
 
-All items are **proposed** for the owner to accept, defer or reject. Each names its source competitor and the plan ID it affects. None changes current hackathon scope unless the owner says so.
+Each proposal below was checked against the [compendium](../compendium_2026_10_06.md), ADR-002 to ADR-009, the [backlog](../../../how/backlog/backlog.md), the [architecture](../brand_builder_architecture.md), the [backend map](../backend_map.md), the [component inventory](../component_inventory.md), the [wireframe audit](../wireframe_audit_2026_10_06.md) and research 01–09. No repo doc covers any of them. All are **proposed**: the owner accepts, defers or rejects. None changes hackathon scope.
 
-### 7.1 Adopt: Build onboarding
-| # | Proposal | From | Plan ID |
+### 7.1 New proposals
+| # | Proposal | From | Fits |
 |---|---|---|---|
-| 1 | Three ways into the same kit on one screen: site URL, upload (guidelines PDF or deck), or guided chat | Pomelli, Canva, Pressmaster | B1, B2 |
-| 2 | Show the first ingested facts, each with its quote, within the first minute; set a time expectation per input ("URL: under a minute") | Canva, Octolens, Syften | B2 |
-| 3 | AI pre-fills each interview answer from the sources, shows the supporting quote and an Evidenced / Inferred label; some questions stay human-only (origin, goals) and the UI says why | Branding5 (pre-fill), JamJam evidence model | B1, B3 |
-| 4 | Each gate as a confirm screen ("here's what we found, confirm or edit"); voice traits as add/remove chips | Blaze | B4, B5 |
-| 5 | A readiness score that measures evidence coverage, not volume | Pressmaster Twin IQ, made honest | B3 |
-| 6 | Kit linting before Gate 3: flag contradictions between positioning, voice and messaging | Typeface | B5 |
-| 7 | Last step of kit approval: the same post with and without the voice, side by side | Jasper | B5, R1 |
-| 8 | End the 15 minutes with one approved draft post, not just a kit | Meet Sona, Blaze | R17 walkthrough |
-| 9 | A setup checklist after the kit (connect channels, first post, invite a partner), optionally with a reward | Pressmaster, Blaze, Buffer | Onboarding |
-| 10 | Shareable no-login interview links, so a co-founder or partner can add origin stories | Supergrow, Pressmaster | B1, free seats |
-| 11 | A one-click shareable brand book of the approved kit, carrying its onchain hash; a public example kit (JamJam's own) on the landing page | Pomelli, Branding5 example report | B6, P1 |
+| N1 | Shareable no-login interview links, so a co-founder, partner or customer can add origin stories and evidence | Supergrow, Pressmaster | B1; validation loop (coming soon) |
+| N2 | A weekly 10-minute "jam" habit that produces a set number of approved posts | Edgar, Outerview, Kleo | Run habit loop |
+| N3 | A post-kit setup checklist (connect channels, first post, invite a partner) | Pressmaster, Blaze, Buffer | Hub-Home |
+| N4 | A "retracted" Verify state for a withdrawn post, using SAS revocation | SAS | Verify (D34) |
+| N5 | A public page per registered item showing its version history (kit v1 to v2, edits) | Numbers asset page | Verify, Ledger |
+| N6 | Later: also emit a C2PA text label so posts verify in standard tools | Encypher (`c2pa-text` libraries) | Registry interop |
+| N7 | Later: export official accounts and ambassadors as an allowlist for takedown vendors and community moderators | Doppel, BrandShield | Official registry |
+| N8 | Publish a suggested USDC rate card per off-X format (blog, tutorial, docs, LinkedIn) | Superteam Earn, Kaito CPMs | Campaign v2 step 5 |
+| N9 | Auto-assign a welcome brief when an ambassador is approved | Roster | Ambassadors |
+| N10 | Add usage-rights duration and a terms acknowledgment to the campaign brief | Aspire | Campaign v2 |
+| N11 | Require a reason on rejection, allow resubmission, and keep the reason in the record | BrandChamp | Dashboard reject |
+| N12 | Pricing option: a one-time kit price as the entry, then a subscription for Run and Prove | Branding5 ($147, Capterra figure) | Slide 10 (blank) |
+| N13 | Pricing option: let crypto brands pay the subscription in stablecoins | Galxe | G-BILLING (open) |
+| N14 | Payout-fee wording "ambassador receives 100%, brand pays X%", justified by the public record since rivals charge 0%; and avoid credit opacity, a no-AI cheapest tier, card-on-trial auto-charge, and approvals as an upgrade | Aspire; Superteam Earn, Roster; Taplio, Later complaints | Slide 10 |
 
-### 7.2 Adopt: Run
-| # | Proposal | From | Plan ID |
-|---|---|---|---|
-| 12 | Show the banned-phrase count and voice-match score on every draft | Outerview | R2 |
-| 13 | Persistent voice rules the owner sets once (banned words, punctuation) that feed the slop pass | Typefully | R1, R2 |
-| 14 | "Rule fired: X, because Y" on every gate result | Typeface | R2 |
-| 15 | Approval steps with any-or-all approvers and expiry, plus the reason recorded; the Ledger doubles as the approval report Sprout lacks. Never auto-approve on timeout (Aspire does); remind or escalate instead | Sprout, Aspire (counter-example) | R3, B5 |
-| 16 | Per-platform preview (feed or grid) on the approval screen | Typefully, Later | R3 |
-| 17 | A weekly 10-minute "jam" ritual that produces a set number of approved posts (the name fits the brand) | Edgar | Run habit loop |
-| 18 | Import past posts as evidence for voice traits ("evidenced from 12 posts") | Taplio, Hootsuite | B2, R1 |
-| 19 | Lead finder seeded from the kit, with past mentions shown on day one | Octolens, Syften | R7 |
-| 20 | An AI-generated-content disclosure toggle in the composer | Buffer | R8 |
+### 7.2 Already in the plan (no action)
+Competitor patterns that match a decision, kept only as evidence that the plan is on target.
 
-### 7.3 Adopt: Prove
-| # | Proposal | From | Plan ID |
-|---|---|---|---|
-| 21 | Verify results as separate rows (who registered it, kit version, approver, exact or edited), never one badge | Encypher, Truepic | P3 |
-| 22 | Show close matches with a diff instead of a bare "not found" | Numbers | P3 |
-| 23 | A fourth Verify state, "retracted", using SAS revocation | SAS | P3 |
-| 24 | One public page per registered item with a version timeline (kit v1 to v2) | Numbers Asset Profile | P3 |
-| 25 | Link records: post record references the kit version and the approver record | EAS refUID | P2 |
-| 26 | Domain proof before a brand shows as "official" (the `domain_verified` field) | Encypher | P2 |
-| 27 | Publish JamJam's credential and schema IDs on Verify with a link to a third-party explorer | SAS Explorer, Solscan | P3 |
-| 28 | Later: also emit C2PA text labels so posts verify in standard tools (open-source `c2pa-text` libraries exist) | Encypher | P2 (interop) |
-| 29 | Later: export the official accounts and ambassadors as an allowlist for takedown vendors and community moderators | Doppel, BrandShield | P2 |
+| Competitor pattern | Where it's already decided |
+|---|---|
+| URL, upload or interview into one kit (Pomelli, Canva, Pressmaster) | Architecture §12.1 steps 2–5 |
+| Facts shown early, confirm instead of ask (Octolens, Branding5) | Architecture §12.1 steps 3–5 |
+| Readiness score (Pressmaster Twin IQ) | Coverage map E / I / M; component D51 |
+| Kit linting (Typeface) | Critic consistency check, architecture §2 stage 6 |
+| Choose voice by example (Jasper preview) | Architecture principle 5; D23 |
+| Banned phrases, voice-match score, rule explanations (Outerview, Typefully, Typeface) | D3 ChecksPanel; vocabulary section; Review polish |
+| Per-platform preview (Typefully, Later) | D10 PostPreview |
+| Import past posts (Taplio) | Connected social ingest, coming soon |
+| Lead finder from the kit (Octolens, Syften) | Research 07, Find your customer |
+| AI-content disclosure (Buffer) | ADR-003 principle 4; D3 AI label check |
+| Verify with record, diff and explorer link (Encypher, Numbers) | D34, backend map G-MATCH, D32 |
+| Domain proof before "official" (Encypher) | DNS check, `domain_verified` |
+| Linked records (EAS refUID) | Registrations carry kit version and approver |
+| Ambassador self-check before submit (Valen Sentinel, SocialLadder) | Amb-3 runs D3 checks |
+| Open vs invite-only campaigns (Club) | Open-to-all programme, roadmap |
+| Free partner and ambassador seats (Frontify, X affiliates) | ADR-003 |
 
-### 7.4 Adopt: Pay
-| # | Proposal | From | Plan ID |
-|---|---|---|---|
-| 30 | Escrowed USDC budget locked when the campaign is created, with automatic refund of unspent funds | Zealy, Earnout, Wallchain | Y1 |
-| 31 | A published rate card per format (blog, tutorial, docs, LinkedIn) | Superteam Earn, Kaito CPMs | Y1 |
-| 32 | Auto-assign a welcome brief when an ambassador is approved | Roster | Y1, Y2 |
-| 33 | Brief generated from the kit: deliverables, guideline checklist, usage rights, terms acknowledgment, disclosure as a locked item | Aspire | Y2 |
-| 34 | Rejection needs a reason; ambassador can resubmit; reasons go into the compliance record | BrandChamp | Y2 |
-| 35 | Ambassadors run the slop, claims and disclosure checks on their own draft before submitting | Valen Sentinel, SocialLadder | Y2, R2 |
-| 36 | Approve and pay in one action, producing a public receipt (USDC transaction plus attestation) | CreatorIQ Pay; the gap at Superteam and Club | Y3, P3 |
-| 37 | Open vs invite-only campaigns; templates for off-X formats | Club | Y1, Y2 |
+Three patterns were deliberately not proposed because they contradict decisions:
+- Escrowed budgets contradict [ADR-006](../../decisions/adr_006_wallet_identity_split.md) and the deck's "nobody prefunds".
+- One-click approve-and-pay contradicts ADR-006, which keeps approval separate from payment.
+- Voice as trait chips contradicts architecture principle 5, choose by example.
 
-### 7.5 Adopt: pricing and packaging
-| # | Proposal | From |
-|---|---|---|
-| 38 | No-card trial; Verify free forever with no account; partner and ambassador seats free (contrast: X charges $50/mo per affiliate) | Hootsuite, Encypher, Frontify, X Premium Business |
-| 39 | Avoid opaque credits, a no-AI cheapest tier, card-on-trial auto-charge, and approvals as an upgrade | Complaints about Taplio, Tweet Hunter, Later, Pressmaster, Hootsuite, Sprout |
-| 40 | State the payout fee as "ambassador receives 100%, brand pays X%", and justify it with the compliance record and public receipt, since rivals charge 0% | Aspire, Superteam Earn, Roster |
-| 41 | Option: a one-time kit price as the entry, then a subscription for Run and Prove | Branding5 |
-| 42 | For crypto brands, a stablecoin deposit as an alternative to a card | Galxe |
-
-**Inference, not sourced:** if JamJam prices its subscription (pitch deck slide 10 is still blank), the bands in section 6 suggest a solo tier around $29–49 and a brand tier around $79–149, with approvals on every tier. This is an inference from competitor prices, not a validated price; slide 10 says prices are to be set with design partners.
-
-### 7.6 Where JamJam does better (keep these in the pitch)
+### 7.3 Where JamJam does better (keep these in the pitch)
 - **Evidence:** facts only with their quote, and a coverage map. No competitor in 59 does this (B2, B3).
 - **Approval on every tier, with reasons recorded and public.** Others sell approval as an upgrade and keep the record private (B5, R3).
 - **Claims checked against the brand's own evidence.** Others at most ban phrases or score voice (R2).
@@ -388,18 +366,16 @@ All items are **proposed** for the owner to accept, defer or reject. Each names 
 
 ---
 
-## 8. Risks and corrections
+## 8. Risks not already recorded
+
+The rest is already handled in ADR-002, the VC review and the SWOT: Pomelli commoditising kits, X dependence, provenance being too thin on its own, and untested demand.
 
 | Item | Detail | Suggested action (proposed) |
 |---|---|---|
-| ADR-002 and research 04 claim about onboarding | "No competitor runs strategy-first onboarding" is no longer true (Pomelli Agent, Branding5, Pressmaster) | Owner to decide whether to amend ADR-002's context line; the differentiator becomes evidence plus coverage plus gates |
-| Pitch deck slide 9 | Pressmaster (Build partly, Run yes) and Encypher (Prove yes, for text) are the two closest rivals and are not on the slide | Owner to decide whether to add them before recording; the "nobody runs the whole loop" claim still holds |
-| Pressmaster could add citations | It already has URL extraction, interviews and a readiness score | Lead with evidence, approvals and public proof, which are hardest to copy |
-| Pomelli is free | Visual and tone kits from a URL are now free from Google | Don't compete on visuals |
-| X publishing risk | Hypefury and Later dropped X | Keep LinkedIn and off-X channels first-class (R4) |
-| Off-X paid content is unproven | Every ambassador platform is social-first | Treat Y3 as a hypothesis to test with aDNA, not a proven market |
-| Payout fee vs 0% | Superteam Earn 0%, Roster no take rate | See proposal 40 |
-| "First" / "only" claims | No Solana app for brand content was found in the SAS ecosystem, but absence of results is not proof | Say "early", not "first" or "only", unless a fuller scan is done |
+| Pitch deck slide 9 | The two closest rivals, Pressmaster (Build partly, Run) and Encypher (Prove, for text), are not on it | Owner to decide whether to add them before recording; "nobody runs the whole loop" still holds |
+| Pressmaster could add citations | It already has URL extraction, interviews and a readiness score | Lead with evidence, recorded gates and public proof, the hardest parts to copy |
+| Payout fee vs 0% | Superteam Earn charges 0%; Roster, BrandChamp and GRIN advertise no take rate | See N14 |
+| "First" on SAS | No Solana app for brand content was found in the SAS ecosystem, but absence of results is not proof | Say "early", not "first", unless a fuller scan is done |
 
 ---
 
