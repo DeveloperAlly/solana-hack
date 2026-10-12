@@ -35,7 +35,11 @@ export const COMPETITOR_CANDIDATES = 3;
 export const COMPETITOR_RESULTS = 10;
 /** Characters of each competitor page kept: enough for the owner to tell what the company does. */
 export const COMPETITOR_CHARS = 1500;
-/** Used only when a reply carries no costDollars: /search costs $7 per 1,000 requests up to 10 results (https://exa.ai/pricing). */
+/**
+ * Used only when a /search reply carries no costDollars: type auto costs $7 per 1,000 requests up to 10 results
+ * (https://exa.ai/docs/admin/pricing). Exa publishes no price for /findSimilar on that page or https://exa.ai/pricing
+ * (checked 2026-10-13), so a findSimilar reply without costDollars is recorded as unknown (null), never as this price.
+ */
 export const EXA_SEARCH_PRICE = 0.007;
 /** Bytes an Exa reply may take: the text asked for (up to 4 UTF-8 bytes a character, JSON-escaped) plus metadata. */
 export const exaSearchCap = (results: number, maxCharacters: number) => 64 * 1024 + results * (maxCharacters * 12 + 16 * 1024);
@@ -66,10 +70,14 @@ async function exaPost(endpoint: string, key: string, body: Record<string, unkno
   }
 }
 
-/** Exa's own cost estimate for the request, or the list price when the reply carries none. */
-export function exaCost(reply: ExaReply): { cost: number; estimated: boolean } {
+/**
+ * Exa's own cost estimate for the request; when the reply carries none, the endpoint's published list price, or null
+ * when it has none. The note says which was recorded.
+ */
+export function exaCost(reply: ExaReply, listPrice: number | null): { cost: number | null; note?: string } {
   const total = reply.costDollars?.total;
-  return typeof total === 'number' && Number.isFinite(total) && total >= 0 ? { cost: total, estimated: false } : { cost: EXA_SEARCH_PRICE, estimated: true };
+  if (typeof total === 'number' && Number.isFinite(total) && total >= 0) return { cost: total };
+  return listPrice === null ? { cost: null, note: 'Exa sent no cost and publishes no price for this call; the cost is recorded as unknown' } : { cost: listPrice, note: 'Exa sent no cost; the list price was recorded' };
 }
 
 /** Host of a URL without a leading "www.", lower case; null when it is not an absolute http(s) URL. */
@@ -114,8 +122,27 @@ export function resultPages(reply: ExaReply, website: string | null, opts: { per
  */
 export const joinPages = (pages: SourcePage[]) => pages.map((p) => p.text).join('\n\n');
 
-/** The brand's domain as a search hint ("jamjam.tech"), or null without a usable website. */
-const domainOf = (website: string | null) => hostOf(website && !website.includes('://') ? `https://${website}` : website);
+/** The brand's website as an absolute URL (a bare "jamjam.tech" reads as https), or null without a usable one. */
+function siteOf(website: string | null): URL | null {
+  if (!website) return null;
+  try {
+    const u = new URL(website.includes('://') ? website : `https://${website}`);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u : null;
+  } catch {
+    return null;
+  }
+}
+/**
+ * What the brand owns on the web, as Exa's include/exclude filters take it: the host, plus the path for a website set
+ * with one (github.com/acme), so a shared host's other tenants are not excluded (the same scope as urlKind in
+ * registry.ts; Exa accepts "a hostname with a path prefix": https://exa.ai/docs/reference/search, excludeDomains).
+ */
+export function ownScope(website: string | null): string | null {
+  const u = siteOf(website);
+  if (!u) return null;
+  const path = u.pathname.replace(/\/+$/, '');
+  return `${u.hostname.toLowerCase().replace(/^www\./, '')}${path}`;
+}
 
 export interface SearchInput { brandName: string; website?: string | null; description?: string | null }
 
@@ -125,21 +152,21 @@ export async function readSearch(env: SourceEnv, input: SearchInput): Promise<So
   const { trust } = factTrust('search_result');
   const name = (input.brandName ?? '').trim().slice(0, 120);
   const website = input.website?.trim() || null;
-  const fail = (code: 'invalid_input' | 'not_configured' | 'unreadable' | 'empty', reason: string, cost = 0) =>
+  const fail = (code: 'invalid_input' | 'not_configured' | 'unreadable' | 'empty', reason: string, cost: number | null = 0) =>
     ({ ok: false as const, kind: 'search_result' as const, code, reason, meta: c.meta(0, cost, 'exa') });
   if (!name) return fail('invalid_input', 'The brand needs a name before we can search the web for it.');
   if (!env.EXA_API_KEY) return fail('not_configured', 'Web search is not set up yet; add links about the brand instead.');
-  const domain = domainOf(website);
-  // The domain in the query ties results to this brand rather than another with the same name.
-  const query = domain ? `${name} (${domain})` : name;
+  const scope = ownScope(website);
+  // The website in the query ties results to this brand rather than another with the same name.
+  const query = scope ? `${name} (${scope})` : name;
   const reply = await exaPost(EXA_SEARCH, env.EXA_API_KEY, {
     query, type: 'auto', numResults: SEARCH_DEFAULTS.results,
-    ...(domain ? { excludeDomains: [domain] } : {}),
+    ...(scope ? { excludeDomains: [scope] } : {}),
     contents: { text: { maxCharacters: SEARCH_DEFAULTS.maxCharacters }, maxAgeHours: EXA_CACHE_ONLY },
   }, exaSearchCap(SEARCH_DEFAULTS.results, SEARCH_DEFAULTS.maxCharacters));
   if ('error' in reply) return fail('unreadable', `${reply.error}; try again later, or add links about the brand instead.`);
-  const { cost, estimated } = exaCost(reply);
-  if (estimated) c.notes.push('Exa sent no cost; the list price was recorded');
+  const { cost, note } = exaCost(reply, EXA_SEARCH_PRICE);
+  if (note) c.notes.push(note);
   const pages = resultPages(reply, website, { max: SEARCH_DEFAULTS.results });
   if (!pages.length) return fail('empty', 'The web search found no pages about the brand with text we can read.', cost);
   return { ok: true, kind: 'search_result', trust, title: `Web search: ${name}`, text: joinPages(pages), pages, meta: c.meta(pages.length, cost, 'exa') };
@@ -154,19 +181,21 @@ export async function readCompetitors(env: SourceEnv, input: SearchInput): Promi
   const c = clock();
   const { trust } = factTrust('competitor_page');
   const website = input.website?.trim() || null;
-  const fail = (code: 'invalid_input' | 'not_configured' | 'unreadable' | 'empty', reason: string, cost = 0) =>
+  const fail = (code: 'invalid_input' | 'not_configured' | 'unreadable' | 'empty', reason: string, cost: number | null = 0) =>
     ({ ok: false as const, kind: 'competitor_page' as const, code, reason, meta: c.meta(0, cost, 'exa') });
-  const domain = domainOf(website);
-  if (!domain) return fail('invalid_input', 'Add the brand\'s website first; competitors are found from it.');
+  const site = siteOf(website);
+  if (!site) return fail('invalid_input', 'Add the brand\'s website first; competitors are found from it.');
   if (!env.EXA_API_KEY) return fail('not_configured', 'Competitor search is not set up yet; name your alternatives yourself.');
+  const scope = ownScope(website)!;
+  // Similar to the website itself, with its path: a brand at github.com/acme is compared with acme, not with GitHub.
   const reply = await exaPost(EXA_FIND_SIMILAR, env.EXA_API_KEY, {
-    url: `https://${domain}`, numResults: COMPETITOR_RESULTS, excludeDomains: [domain],
+    url: site.toString(), numResults: COMPETITOR_RESULTS, excludeDomains: [scope],
     contents: { text: { maxCharacters: COMPETITOR_CHARS }, maxAgeHours: EXA_CACHE_ONLY },
   }, exaSearchCap(COMPETITOR_RESULTS, COMPETITOR_CHARS));
   if ('error' in reply) return fail('unreadable', `${reply.error}; try again later, or name your alternatives yourself.`);
-  const { cost, estimated } = exaCost(reply);
-  if (estimated) c.notes.push('Exa sent no cost; the list price was recorded');
+  const { cost, note } = exaCost(reply, null);
+  if (note) c.notes.push(note);
   const pages = resultPages(reply, website, { perHost: true, max: COMPETITOR_CANDIDATES });
   if (!pages.length) return fail('empty', 'No similar companies were found; name your alternatives yourself.', cost);
-  return { ok: true, kind: 'competitor_page', trust, title: `Similar to ${domain}`, text: joinPages(pages), pages, meta: c.meta(pages.length, cost, 'exa') };
+  return { ok: true, kind: 'competitor_page', trust, title: `Similar to ${scope}`, text: joinPages(pages), pages, meta: c.meta(pages.length, cost, 'exa') };
 }

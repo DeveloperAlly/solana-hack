@@ -10,8 +10,11 @@ export interface SourcePage { url: string; title: string; text: string }
 export interface SourceMeta {
   /** Pages (or documents) read. */
   pages: number;
-  /** Estimated external cost in US dollars for this read (0 when only free services were used). */
-  cost: number;
+  /**
+   * Estimated external cost in US dollars for this read (0 when only free services were used). null when it is not
+   * known: the provider reported none and publishes no price for the call (Codex review on PR #100), never a guess.
+   */
+  cost: number | null;
   /** Wall-clock time of the read, in milliseconds. */
   ms: number;
   /** Which path produced the text: exa, fetch, paste or tomarkdown. */
@@ -78,7 +81,7 @@ export function clock() {
   const notes: string[] = [];
   return {
     notes,
-    meta: (pages: number, cost: number, via?: string): SourceMeta => ({ pages, cost: Math.round(cost * 10000) / 10000, ms: Date.now() - start, via, notes }),
+    meta: (pages: number, cost: number | null, via?: string): SourceMeta => ({ pages, cost: cost === null ? null : Math.round(cost * 10000) / 10000, ms: Date.now() - start, via, notes }),
   };
 }
 

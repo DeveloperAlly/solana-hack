@@ -40,7 +40,7 @@ export interface SocialItem {
 export interface SocialParse {
   ok: true;
   platform: SocialPlatform;
-  /** Newest first; profile fields after the posts. */
+  /** Profile fields first (the owner's own description of the work, kept if a long history is cut), then posts newest first. */
   items: SocialItem[];
   /** Entries left out, by reason: reposts are someone else's words; empty entries have no text. */
   skipped: { reposts: number; empty: number; unreadable: number };
@@ -232,7 +232,7 @@ export function parseLinkedInExport(files: ExportFile[]): SocialParseResult {
     }
   }
   if (!posts.length && !profile.length) notes.push('no posts or profile text with words of your own were found');
-  return { ok: true, platform: 'linkedin', items: [...newestFirst(posts), ...profile], skipped, notes };
+  return { ok: true, platform: 'linkedin', items: [...profile, ...newestFirst(posts)], skipped, notes };
 }
 
 /** Dated items newest first, undated after them in file order (Array.prototype.sort is stable since ES2019). */

@@ -120,19 +120,20 @@ export async function listCompetitors(env: Env, brand: Pick<BrandRef, 'id'>) {
 }
 
 /**
- * The find_competitors save step: each candidate page becomes a competitor_page source (third-party), keyed by brand
- * and address so a retried step, or the same competitor found again, writes the same row and never a second one. Its
- * output is the run's: the candidates, and Exa's cost for the request (also metered on the read step's cost_usd).
+ * The find_competitors save step: the run's candidate pages replace the brand's previous candidates as one set, in one
+ * database call (spec/db/014 replace_competitor_candidates), so GET /competitors lists only the latest set (Codex review
+ * on PR #100). Rows are keyed by brand and address, so a retried step writes the same set. A run that a newer one has
+ * superseded writes nothing. Its output is the run's: the candidates, and Exa's cost for the request (null when Exa
+ * gave none; also metered on the read step's cost_usd).
  */
-export async function saveCompetitorCandidates(env: Env, run: Pick<RunRow, 'brand_id'>, read: ReadStepOutput) {
-  const now = new Date().toISOString();
+export async function saveCompetitorCandidates(env: Env, run: Pick<RunRow, 'id' | 'brand_id'>, read: ReadStepOutput) {
   const rows = await Promise.all(read.pages.map(async (p) => {
     const text = read.text.slice(p.start, p.end);
-    return { id: await stableId('competitor', run.brand_id, p.url), brand_id: run.brand_id, url: p.url, title: p.title, kind: 'competitor_page', status: 'read', source_text: text, text_excerpt: capText(text, 2000, 8000), fetched_at: now };
+    return { id: await stableId('competitor', run.brand_id, p.url), url: p.url, title: p.title, source_text: text, text_excerpt: capText(text, 2000, 8000) };
   }));
-  if (rows.length) await db.insertNew(env, 'sources', rows, 'id');
+  const current = await db.rpc<boolean>(env, 'replace_competitor_candidates', { p_brand: run.brand_id, p_run: run.id, p_rows: rows });
   const candidates: Candidate[] = rows.map((r) => ({ sourceId: r.id, url: r.url, title: r.title, excerpt: r.source_text.slice(0, EXCERPT) }));
-  return { candidates, cost: read.meta.cost };
+  return { candidates, current, cost: read.meta.cost };
 }
 
 // ------------------------------------------------------------------------------------------------ registrations

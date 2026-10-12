@@ -47,6 +47,23 @@ function recordFactConflict({ p_brand, p_slot, p_evidence, p_question }: { p_bra
   return c.id;
 }
 
+/** Same semantics as spec/db/014 replace_competitor_candidates: a superseded run writes nothing; otherwise the brand's
+ * competitor_page rows become exactly the given set, in one step. */
+function replaceCompetitorCandidates({ p_brand, p_run, p_rows }: { p_brand: string; p_run: string; p_rows: Row[] }) {
+  const mine = db.tables.runs.find((r) => r.id === p_run && r.brand_id === p_brand && r.kind === 'find_competitors');
+  if (!mine) throw new Error(`run ${p_run} is not a find_competitors run of brand ${p_brand}`);
+  if (db.tables.runs.some((r) => r.brand_id === p_brand && r.kind === 'find_competitors' && String(r.created_at) > String(mine.created_at))) return false;
+  const keep = new Set(p_rows.map((x) => x.id));
+  db.tables.sources = db.tables.sources.filter((s) => !(s.brand_id === p_brand && s.kind === 'competitor_page' && !keep.has(s.id)));
+  for (const x of p_rows) {
+    const row = { id: x.id, brand_id: p_brand, url: x.url, title: x.title, kind: 'competitor_page', status: 'read', source_text: x.source_text, text_excerpt: x.text_excerpt, fetched_at: new Date().toISOString() };
+    const prev = db.tables.sources.find((s) => s.id === x.id);
+    if (!prev) db.tables.sources.push({ created_at: new Date().toISOString(), ...row });
+    else if (prev.brand_id === p_brand && prev.kind === 'competitor_page') Object.assign(prev, row);
+  }
+  return true;
+}
+
 export function fakeDb(url: string, init: RequestInit = {}) {
   const u = new URL(url);
   const path = u.pathname.replace('/rest/v1/', '');
@@ -56,6 +73,7 @@ export function fakeDb(url: string, init: RequestInit = {}) {
   db.calls.push({ method, table: path, query: u.search });
   if (path === 'rpc/record_run_step') return recordRunStep(body);
   if (path === 'rpc/record_fact_conflict') return recordFactConflict(body);
+  if (path === 'rpc/replace_competitor_candidates') return replaceCompetitorCandidates(body);
   const rows = (db.tables[path] ??= []);
   if (method === 'GET') {
     if (Number(q.get('offset') ?? 0) > 0) return [];

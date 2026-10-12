@@ -112,7 +112,7 @@ export interface ReadStepOutput {
   truncated: boolean;
   /** For a multi-page source, where each page sits in `text` (pages cut off by the cap are left out). */
   pages: { url: string; title: string; start: number; end: number }[];
-  meta: { pages: number; cost: number; ms: number; via?: string; notes: string[] };
+  meta: { pages: number; cost: number | null; ms: number; via?: string; notes: string[] };
 }
 
 /** Reads a source with the named reader and shapes the result for a step. */

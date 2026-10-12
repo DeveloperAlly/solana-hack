@@ -361,7 +361,7 @@ describe('competitor candidates (#35): three, with sources, for the positioning 
     expect(r.status).toBe(202);
     const done = run((r.body.run as Row).id);
     expect(done).toMatchObject({ status: 'done', kind: 'find_competitors' });
-    expect(exaCalls[0]).toMatchObject({ url: EXA_FIND_SIMILAR, body: { url: 'https://jamjam.tech', excludeDomains: ['jamjam.tech'], contents: { maxAgeHours: -1 } } });
+    expect(exaCalls[0]).toMatchObject({ url: EXA_FIND_SIMILAR, body: { url: 'https://jamjam.tech/', excludeDomains: ['jamjam.tech'], contents: { maxAgeHours: -1 } } });
     const out = done.output as { candidates: { url: string; title: string; excerpt: string }[]; cost: number };
     expect(out.candidates.map((c) => c.title)).toEqual(['Rival One', 'Rival Two', 'Rival Three']);
     expect(out.candidates).toHaveLength(COMPETITOR_CANDIDATES);
@@ -383,6 +383,50 @@ describe('competitor candidates (#35): three, with sources, for the positioning 
     await api('POST', `/brands/${BRAND}/competitors`, {});
     await api('POST', `/brands/${BRAND}/competitors`, {});
     expect(db.tables.sources.filter((s) => s.kind === 'competitor_page')).toHaveLength(1);
+  });
+
+  it('a website on a shared host (github.com/acme) is compared and excluded by its path, never the whole host', async () => {
+    exaReply = () => exaOk([
+      exaResult('https://github.com/acme/tool', 'Acme\'s own repo.', 'acme/tool'),
+      exaResult('https://github.com/rival/kit', 'A rival on the same host.', 'rival/kit'),
+    ]);
+    const r = await readCompetitors(envWith, { brandName: 'Acme', website: 'https://github.com/acme' });
+    expect(exaCalls[0].body).toMatchObject({ url: 'https://github.com/acme', excludeDomains: ['github.com/acme'] });
+    expect(r.ok && r.pages!.map((p) => p.url)).toEqual(['https://github.com/rival/kit']);
+    await readSearch(envWith, { brandName: 'Acme', website: 'github.com/acme' });
+    expect(exaCalls[1].body).toMatchObject({ query: 'Acme (github.com/acme)', excludeDomains: ['github.com/acme'] });
+  });
+
+  it('Codex review on PR #100: a rerun replaces the earlier candidates as one set, so GET lists only the latest three', async () => {
+    exaReply = () => exaOk([exaResult('https://a.example/', 'A.', 'A'), exaResult('https://b.example/', 'B.', 'B'), exaResult('https://c.example/', 'C.', 'C')]);
+    await api('POST', `/brands/${BRAND}/competitors`, {});
+    exaReply = () => exaOk([exaResult('https://c.example/', 'C again.', 'C'), exaResult('https://d.example/', 'D.', 'D')]);
+    const r = await api('POST', `/brands/${BRAND}/competitors`, {});
+    expect(run((r.body.run as Row).id).output).toMatchObject({ current: true });
+    const list = await api('GET', `/brands/${BRAND}/competitors`);
+    expect((list.body.candidates as { title: string; excerpt: string }[]).map((c) => c.title).sort()).toEqual(['C', 'D']);
+    expect((list.body.candidates as { title: string; excerpt: string }[]).find((c) => c.title === 'C')!.excerpt).toBe('C again.');
+    expect(db.calls.some((c) => c.method === 'DELETE' && c.table === 'sources')).toBe(false);
+  });
+
+  it('a superseded run\'s late save writes nothing, so an older set never comes back', async () => {
+    const { saveCompetitorCandidates } = await import('../../worker/intake');
+    db.tables.runs.push({ id: 'r-old', brand_id: BRAND, kind: 'find_competitors', created_at: '2026-10-13T00:00:00.000Z' }, { id: 'r-new', brand_id: BRAND, kind: 'find_competitors', created_at: '2026-10-13T00:01:00.000Z' });
+    db.tables.sources.push({ id: 'keep', brand_id: BRAND, kind: 'competitor_page', url: 'https://new.example/', title: 'New' });
+    const read = { kind: 'competitor_page', trust: 'third_party', title: 't', text: 'Old.', truncated: false, pages: [{ url: 'https://old.example/', title: 'Old', start: 0, end: 4 }], meta: { pages: 1, cost: 0.005, ms: 1, notes: [] } };
+    const out = await saveCompetitorCandidates(envWith, { id: 'r-old', brand_id: BRAND }, read);
+    expect(out.current).toBe(false);
+    expect(db.tables.sources.filter((s) => s.kind === 'competitor_page').map((s) => s.title)).toEqual(['New']);
+  });
+
+  it('Codex review on PR #100: a findSimilar reply without costDollars records the cost as unknown, never the /search price', async () => {
+    exaReply = () => new Response(JSON.stringify({ results: [exaResult('https://rival.example/', 'Rival.', 'Rival')] }));
+    const r = await readCompetitors(envWith, { brandName: 'JamJam', website: 'https://jamjam.tech' });
+    expect(r).toMatchObject({ ok: true, meta: { cost: null } });
+    expect(r.meta.notes.join(' ')).toMatch(/recorded as unknown/);
+    const done = run((await api('POST', `/brands/${BRAND}/competitors`, {})).body.run && db.tables.runs[0].id);
+    expect(done.output).toMatchObject({ cost: null });
+    expect(db.tables.run_steps.find((s) => s.run_id === done.id && s.step === 'read')).toMatchObject({ cost_usd: null });
   });
 
   it('a brand without a website is told to add one; nothing is called', async () => {

@@ -1,4 +1,5 @@
--- Intake sources (R9 on issue #38; issues #33 and #35): competitor candidates for the positioning step. Next free number
+-- Intake sources (R9 on issue #38; issues #33 and #35): competitor candidates for the positioning step, their set
+-- replaced atomically by each run, and the find_competitors definition. Next free number
 -- after 011 (fact extraction, PR #91), 012 (issue #34) and 013 (Create); depends on 010 (workflow_defs) and 011.
 -- Documents, social exports and web search need no schema change: they are sources whose text is stored in
 -- sources.source_text (008) with their kind (009), and a source without an address keeps url '' and is named by its
@@ -6,6 +7,37 @@
 -- Must be applied before POST /api/brands/:id/competitors can start a run: without this row it answers 503 before
 -- anything is written (web/worker/engine/api.ts activeDef). Safe to re-run. Only the Worker reads and writes these
 -- tables, with the secret key; RLS is on with no policies, as in 001.
+
+-- Competitor candidates are replaced as one set (Codex review on PR #100): each run's candidates take the place of the
+-- brand's previous ones in one transaction (a PostgREST call to a function runs as one), so GET /competitors always
+-- lists the latest set, never an accumulation and never a half-written one. A run that a newer find_competitors run of
+-- the same brand has superseded writes nothing, so a late save cannot bring an older set back. Rows are keyed by brand
+-- and address (web/worker/intake.ts), so a retried save writes the same set. Returns false when superseded.
+create or replace function public.replace_competitor_candidates(p_brand uuid, p_run uuid, p_rows jsonb)
+returns boolean language plpgsql security invoker set search_path = public as $fn$
+declare
+  v_created timestamptz;
+begin
+  select created_at into v_created from public.runs where id = p_run and brand_id = p_brand and kind = 'find_competitors';
+  if v_created is null then
+    raise exception 'run % is not a find_competitors run of brand %', p_run, p_brand;
+  end if;
+  if exists (select 1 from public.runs where brand_id = p_brand and kind = 'find_competitors' and created_at > v_created) then
+    return false;
+  end if;
+  delete from public.sources
+  where brand_id = p_brand and kind = 'competitor_page'
+    and id not in (select (x->>'id')::uuid from jsonb_array_elements(p_rows) x);
+  insert into public.sources (id, brand_id, url, title, kind, status, source_text, text_excerpt, fetched_at)
+  select (x->>'id')::uuid, p_brand, x->>'url', x->>'title', 'competitor_page', 'read', x->>'source_text', x->>'text_excerpt', now()
+  from jsonb_array_elements(p_rows) x
+  on conflict (id) do update set url = excluded.url, title = excluded.title, source_text = excluded.source_text,
+    text_excerpt = excluded.text_excerpt, fetched_at = excluded.fetched_at
+    where public.sources.brand_id = p_brand and public.sources.kind = 'competitor_page';
+  return true;
+end $fn$;
+revoke all on function public.replace_competitor_candidates(uuid, uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.replace_competitor_candidates(uuid, uuid, jsonb) to service_role;
 
 -- find_competitors v1: read pages similar to the brand's website through Exa (web/worker/sources/search.ts
 -- readCompetitors), then save each as a competitor_page source (third-party; web/worker/intake.ts

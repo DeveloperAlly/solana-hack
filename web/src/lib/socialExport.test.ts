@@ -94,6 +94,9 @@ describe('LinkedIn export (Shares.csv and Profile.csv, parsed in the browser)', 
       { text: 'Melbourne, Victoria, Australia', label: 'Geo Location' },
       { text: '[COMPANY:https://jamjam.tech]', label: 'Websites' },
     ]);
+    // Profile fields come first, so a long post history cut to the read step's limit never drops them.
+    expect(r.items[0]).toMatchObject({ label: 'Headline' });
+    expect(r.items.slice(fields.length).every((i) => !i.label)).toBe(true);
     const sent = JSON.stringify(socialPayload(r));
     for (const secret of ['Ada', 'Private Street', '1980', '3011']) expect(sent).not.toContain(secret);
   });
