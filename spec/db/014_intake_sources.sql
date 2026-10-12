@@ -16,11 +16,27 @@
 -- 2026-10-12 the live database held no sources, so the index cannot meet existing duplicates
 -- (https://github.com/DeveloperAlly/solana-hack/issues/38#issuecomment-6126851174).
 create unique index if not exists sources_one_search on public.sources(brand_id) where kind = 'search_result' and status <> 'failed';
+-- The place is self-healing (Codex review on PR #100): a reservation can be left pending with no run to finish it (the
+-- reply carrying its id was lost, or the start failed after it), and a Worker cleanup cannot cover a lost reply. So,
+-- under the brand's advisory lock (the key spec/db/011 admit_run takes), a pending search_result source is reclaimed
+-- (marked failed, which frees the index) when the run that owns it has failed or been superseded, or when no run owns
+-- it and it is older than two minutes. A run owns its source through its input (runs.input sourceId, written by
+-- web/worker/engine/api.ts start() right after the reservation), so no second pointer is kept that could disagree.
+-- Two minutes: between the reservation and that input write there are two database calls in one request; two minutes
+-- is far longer than they take, and short enough that an owner who retries soon after a failure can search again.
 create or replace function public.reserve_search_source(p_brand uuid, p_title text)
 returns uuid language plpgsql security invoker set search_path = public as $fn$
 declare
   v_id uuid;
 begin
+  perform pg_advisory_xact_lock(hashtextextended('admit_run:' || p_brand::text, 0));
+  update public.sources s set status = 'failed', error = 'the web search did not start; search again'
+  where s.brand_id = p_brand and s.kind = 'search_result' and s.status = 'pending'
+    and (
+      exists (select 1 from public.runs r where r.brand_id = p_brand and r.input->>'sourceId' = s.id::text and r.status in ('failed','superseded'))
+      or (s.created_at < now() - interval '2 minutes'
+          and not exists (select 1 from public.runs r where r.brand_id = p_brand and r.input->>'sourceId' = s.id::text))
+    );
   insert into public.sources (brand_id, url, kind, status, title) values (p_brand, '', 'search_result', 'pending', p_title)
   on conflict (brand_id) where kind = 'search_result' and status <> 'failed' do nothing
   returning id into v_id;

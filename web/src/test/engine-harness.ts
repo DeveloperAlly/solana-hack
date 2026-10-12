@@ -70,8 +70,18 @@ function replaceCompetitorCandidates({ p_brand, p_run, p_rows }: { p_brand: stri
   return true;
 }
 
-/** Same semantics as spec/db/014 reserve_search_source and its unique index sources_one_search. */
+/** Same semantics as spec/db/014 reserve_search_source and its unique index sources_one_search (checked against
+ * Postgres 16): a pending reservation whose run failed or was superseded, or that no run owns after two minutes, is
+ * reclaimed first. */
+export const SEARCH_RESERVATION_TTL_MS = 2 * 60_000;
 function reserveSearchSource({ p_brand, p_title }: { p_brand: string; p_title: string }) {
+  const owner = (id: unknown) => db.tables.runs.find((r) => r.brand_id === p_brand && (r.input as Row | undefined)?.sourceId === id);
+  for (const s of db.tables.sources) {
+    if (s.brand_id !== p_brand || s.kind !== 'search_result' || s.status !== 'pending') continue;
+    const run = owner(s.id);
+    const stale = !run && Date.now() - new Date(String(s.created_at)).getTime() > SEARCH_RESERVATION_TTL_MS;
+    if (stale || (run && (run.status === 'failed' || run.status === 'superseded'))) Object.assign(s, { status: 'failed', error: 'the web search did not start; search again' });
+  }
   if (db.tables.sources.some((s) => s.brand_id === p_brand && s.kind === 'search_result' && s.status !== 'failed')) return null;
   const row = { id: uuid(), created_at: new Date().toISOString(), brand_id: p_brand, url: '', kind: 'search_result', status: 'pending', title: p_title };
   db.tables.sources.push(row);

@@ -364,6 +364,27 @@ describe('Exa search (#35): web research on the brand, third-party, never pre-ap
     expect(db.tables.sources.filter((s) => s.kind === 'search_result')).toHaveLength(1);
   });
 
+  it('Codex review on PR #100: a reservation no run owns is reclaimed after two minutes, and not before', async () => {
+    exaReply = () => exaOk([exaResult('https://news.example/jamjam', PROSE)]);
+    // A reservation whose start failed after it was made (no run ever wrote it into its input).
+    const orphan = { id: '22222222-0000-4000-8000-000000000002', brand_id: BRAND, kind: 'search_result', url: '', status: 'pending', title: 'Web search: JamJam', created_at: new Date().toISOString() };
+    db.tables.sources.push(orphan);
+    expect((await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' })).status).toBe(409);
+    orphan.created_at = new Date(Date.now() - 2 * 60_000 - 1000).toISOString();
+    const r = await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' });
+    expect(r.status).toBe(202);
+    expect(orphan).toMatchObject({ status: 'failed' });
+  });
+
+  it('Codex review on PR #100: a reservation whose run failed is reclaimed at once', async () => {
+    exaReply = () => exaOk([exaResult('https://news.example/jamjam', PROSE)]);
+    const held = { id: '22222222-0000-4000-8000-000000000003', brand_id: BRAND, kind: 'search_result', url: '', status: 'pending', title: 'Web search: JamJam', created_at: new Date().toISOString() };
+    db.tables.sources.push(held);
+    db.tables.runs.push({ id: 'dead-run', brand_id: BRAND, kind: 'extract_facts', status: 'failed', input: { sourceId: held.id }, created_at: '2000-01-01T00:00:00.000Z' });
+    expect((await api('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', reader: 'search' })).status).toBe(202);
+    expect(held).toMatchObject({ status: 'failed' });
+  });
+
   it('a failed web search does not hold the place: a new one can start', async () => {
     db.tables.sources.push({ id: '22222222-0000-4000-8000-000000000001', brand_id: BRAND, kind: 'search_result', url: '', status: 'failed', title: 'Web search: JamJam' });
     exaReply = () => exaOk([exaResult('https://news.example/jamjam', PROSE)]);
