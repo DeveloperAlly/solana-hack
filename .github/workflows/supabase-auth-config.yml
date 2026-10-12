@@ -32,9 +32,9 @@ jobs:
           test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo "::error::MISSING secret SUPABASE_ACCESS_TOKEN. Add a Supabase personal access token (https://supabase.com/dashboard/account/tokens) as a repo Actions secret."; exit 1; }
           test -n "${SUPABASE_URL:-}" || { echo "::error::MISSING variable SUPABASE_URL (the deploy workflow uses it)."; exit 1; }
           # The project ref is the subdomain of the project API URL, https://<ref>.supabase.co
-          host="${SUPABASE_URL#https://}"; host="${host%%/*}"
-          ref="${host%%.*}"
-          [[ "$host" == *.supabase.co && "$ref" =~ ^[a-z0-9]+$ ]] || { echo "::error::SUPABASE_URL is not https://<ref>.supabase.co"; exit 1; }
+          # Accept only the exact project URL (optional trailing slash); anything else is refused, never reduced.
+          [[ "$SUPABASE_URL" =~ ^https://([a-z0-9]{20})\.supabase\.co/?$ ]] || { echo "::error::SUPABASE_URL is not exactly https://<ref>.supabase.co"; exit 1; }
+          ref="${BASH_REMATCH[1]}"
           echo "PROJECT_REF=$ref" >> "$GITHUB_ENV"
 
       - name: Write the config body
