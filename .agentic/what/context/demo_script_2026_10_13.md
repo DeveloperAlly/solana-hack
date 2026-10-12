@@ -35,7 +35,7 @@ Each beat lists what it depends on (the must-haves in §3), not whether it works
 | # | Time | Beat | Route | Depends on |
 |---|---|---|---|---|
 | 01 | 0:00–0:10 | Open on the live product | `/ (landing)` | NO DEPENDENCY |
-| 02 | 0:10–0:16 | Email in, no wallet | `/sign-in` | EMAIL LINK |
+| 02 | 0:10–0:16 | Email in, no wallet | `/sign-in` | EMAIL SIGN-IN |
 | 03 | 0:16–0:36 | A fact stays only if it can be quoted | `/build/basics, then /build/sources` | P0: 009 · QUOTES |
 | 04 | 0:36–0:52 | Short questions, a chosen voice, a strict gate | `/build/origin to /build/voice` | P0: 009 |
 | 05 | 0:52–1:15 | The AI drafts; I decide | `/build/purpose (Gate 1)` | P0: AI MODEL |
@@ -66,7 +66,7 @@ Route `/ (landing)` · depends on NO DEPENDENCY · placeholder: wireframe Landin
 
 ### Beat 02 · 0:10–0:16 · Email in, no wallet
 
-Route `/sign-in` · depends on EMAIL LINK · placeholder: wireframe Onboard-1-SignIn
+Route `/sign-in` · depends on EMAIL SIGN-IN · placeholder: wireframe Onboard-1-SignIn
 
 **Must come up:**
 - H1: "Sign in to launch your brand" (PR #107)
