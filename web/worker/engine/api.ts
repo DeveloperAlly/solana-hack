@@ -1,6 +1,7 @@
 // Run API (issue #32), owner-only like every /api/brands route:
 //   POST /api/brands/:id/runs {kind, ...}  -> 202 {run}             starts a run of a startable kind (engine/kinds.ts)
 //   GET  /api/runs/:id                     -> 200 {run, steps}      status, progress and per-step traces
+//   GET  /api/brands/:id/runs?kind=K       -> 200 {runs}            that kind's runs still running or paused
 //   GET  /api/brands/:id                   -> adds activeRun        the newest running or paused run, or null
 //   POST /api/brands/:id/sources {url}     -> the extract_facts workflow (SOURCE_RUN_KIND); 201 body when done, else 409
 //                                             "still reading"
@@ -83,6 +84,12 @@ async function start(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand:
 export async function activeRun(env: Env, brandId: string) {
   const [run] = await db.select<RunRow>(env, 'runs', `${db.eq('brand_id', brandId)}&status=in.(running,paused)&select=${RUN_FIELDS}&order=created_at.desc&limit=1`);
   return run ?? null;
+}
+
+/** Runs of one kind still going for a brand, newest first, so a screen can resume following them (Create.tsx). */
+export async function activeRuns(env: Env, brandId: string, kind: string) {
+  if (!/^\w{1,60}$/.test(kind)) throw new HttpError(400, 'kind must be a run kind');
+  return db.select<RunRow>(env, 'runs', `${db.eq('brand_id', brandId)}&${db.eq('kind', kind)}&status=in.(running,paused)&select=${RUN_FIELDS}&order=created_at.desc&limit=20`);
 }
 
 /** One run and its step traces, for its owner only. A run of someone else's brand is reported as not found. */

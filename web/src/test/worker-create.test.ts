@@ -71,7 +71,7 @@ const goodReview = (post: string) => ({
   issues: [], tone: [{ dimension: 'warmth', observed: 'on' }, { dimension: 'energy', observed: 'on' }, { dimension: 'humour', observed: 'on' }],
   sexual: false, minors: false, explicitLanguage: false,
 });
-const GOOD = { body: 'Teams at 10 companies use JamJam to keep their posts honest.', claims: [{ text: 'Teams at 10 companies use JamJam', fact_ids: [F(1)] }] };
+const GOOD = { body: 'Teams at 10 companies use JamJam to keep their posts honest.', claims: [{ text: 'Teams at 10 companies use JamJam to keep their posts honest.', fact_ids: [F(1)] }] };
 const UPGRADED = { body: 'JamJam now serves 10 enterprise customers.', claims: [{ text: 'JamJam now serves 10 enterprise customers', fact_ids: [F(1)] }] };
 const SLOPPY = { body: 'We unlock proof for every post you write.', claims: [] };
 
@@ -159,8 +159,8 @@ describe('draft_post on the engine (T1, T1b): best of 3, every candidate and ver
     expect(d.verdict.passed).toBe(true);
     expect(d.bodyHash).toBe(await contentHash(GOOD.body));
     expect(d.candidates).toHaveLength(3);
-    expect(d.candidates.map((c) => c.failedGates)).toEqual([[], ['claims'], ['slop']]);
-    expect(d.claims).toEqual([{ text: 'Teams at 10 companies use JamJam', factIds: [F(1)], ok: true }]);
+    expect(d.candidates.map((c) => c.failedGates)).toEqual([[], ['claims'], ['slop', 'claims']]);
+    expect(d.claims).toEqual([{ text: GOOD.claims[0].text, factIds: [F(1)], ok: true }]);
     expect((d.why as { facts: unknown }).facts).toEqual([{ id: F(1), claim: FACTS[0].claim }]);
     expect(r.body.runId).toBeTruthy();
   });
@@ -209,6 +209,16 @@ describe('draft_post on the engine (T1, T1b): best of 3, every candidate and ver
     const r = await draft();
     expect(r.status).toBe(202);
     expect(r.body).toMatchObject({ post: null, runId: db.tables.runs[0].id, status: 'running', message: STILL_DRAFTING });
+  });
+
+  it('lists the brand\'s draft runs still going, so the screen can resume following them', async () => {
+    runOnCreate = false;
+    db.tables.engine_config.push({ key: 'draft_wait_ms', value: 0 });
+    const r = await draft();
+    const list = await call('GET', `/brands/${BRAND}/runs?kind=draft_post`);
+    expect((list.body.runs as Row[]).map((x) => [x.id, x.status, 'input' in x])).toEqual([[r.body.runId, 'running', false]]);
+    expect((await call('GET', `/brands/${BRAND}/runs?kind=extract_facts`)).body.runs).toEqual([]);
+    expect((await call('GET', `/brands/${BRAND}/runs?kind=bad%20kind`)).status).toBe(400);
   });
 
   it('a second draft while one is running starts its own run and supersedes nothing', async () => {
@@ -316,6 +326,8 @@ describe('claims gate (G2, C1): every claim resolves to usable evidence, or the 
     expect(checkClaims('JamJam now serves 10 enterprise customers.', [], facts, '4', 'JamJam').findings.map((f) => f.rule)).toEqual(['uncovered']);
     // The faithful wording passes.
     expect(checkClaims('Teams at 10 companies use JamJam.', [{ text: 'Teams at 10 companies use JamJam', fact_ids: ['f'] }], facts, '4', 'JamJam').passed).toBe(true);
+    // Declaring only part of the sentence (the number) leaves the rest unchecked, so it is refused (PR #99 review).
+    expect(checkClaims('We serve 10 enterprise customers.', [{ text: '10', fact_ids: ['f'] }], facts, '4', 'JamJam').findings.map((f) => f.rule)).toEqual(['not_in_post', 'uncovered']);
   });
 
   it('end to end: a run whose every candidate upgrades the fact saves no approvable draft, and Approve refuses it', async () => {
@@ -348,15 +360,24 @@ describe('claims gate (G2, C1): every claim resolves to usable evidence, or the 
     expect(unsupported.length).toBeGreaterThanOrEqual(10);
     expect(caught.map((i) => i.id)).toEqual(unsupported.map((i) => i.id));
     expect(caught.length / unsupported.length).toBeGreaterThanOrEqual(0.95);
-    // Precision is reported, not gated (§13.2); on these fixtures there are no false alarms.
+    // Precision is reported, not gated (§13.2): 21 of 21 unsupported caught, 0 of 14 supported flagged on this set.
+    console.info(`F6 synthetic: caught ${caught.length}/${unsupported.length}, false alarms ${falseAlarms.length}/${supported.length}`);
     expect(falseAlarms.map((i) => i.id)).toEqual([]);
+  });
+
+  it('a sentence needs evidence unless it is positively not a statement of fact (inverted on PR #99 review)', async () => {
+    const { needsEvidence } = await import('../../worker/create/claims');
+    for (const s of ['JamJam runs on Solana.', 'The product supports teams.', 'Our customers ship faster.', 'Stripe uses JamJam.']) expect([s, needsEvidence(s, '4')]).toEqual([s, true]);
+    for (const s of ['Is your brand provable?', 'Try it on your own site.', "Let's build it together.", 'We think every brand deserves proof.', "We're excited to share this.", 'We will open the beta soon.', 'jamjam.tech', '#buildinpublic']) expect([s, needsEvidence(s, '4')]).toEqual([s, false]);
+    expect([needsEvidence('We think it helps.', '5'), needsEvidence('Try it.', '5')]).toEqual([true, false]);
+    expect([needsEvidence('JamJam runs on Solana.', '3'), needsEvidence('Stripe uses JamJam.', '3'), needsEvidence('We have 40 users.', '3')]).toEqual([false, true, true]);
   });
 
   it('refuses each rule on its own: no fact, unknown fact, changed number, superlative, guarantee, not the post\'s words', () => {
     const facts = [{ id: 'f', claim: 'Every approved post is registered on Solana.', quote: null }];
     const rule = (body: string, text: string, ids: string[]) => checkClaims(body, [{ text, fact_ids: ids }], facts, '4', 'JamJam').findings.map((f) => f.rule);
     expect(rule('We registered 12 posts on Solana.', 'We registered 12 posts on Solana', [])).toContain('no_fact');
-    expect(rule('We registered posts on Solana.', 'We registered posts on Solana', ['nope'])).toEqual(['unknown_fact', 'no_fact']);
+    expect(rule('We registered posts on Solana.', 'We registered posts on Solana', ['nope'])).toEqual(['unknown_fact', 'no_fact', 'uncovered']);
     expect(rule('We registered 12 posts on Solana.', 'We registered 12 posts on Solana', ['f'])).toContain('number');
     expect(rule('The best way to register posts on Solana.', 'The best way to register posts on Solana', ['f'])).toContain('superlative');
     expect(rule('Every post is guaranteed to be registered on Solana.', 'Every post is guaranteed to be registered on Solana', ['f'])).toContain('guarantee');

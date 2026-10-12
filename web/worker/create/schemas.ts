@@ -17,7 +17,7 @@ export const DRAFT_CANDIDATE: NamedSchema = {
         items: {
           type: 'object', additionalProperties: false, required: ['text', 'fact_ids'],
           properties: {
-            text: { type: 'string', description: 'The claim, copied exactly from the post' },
+            text: { type: 'string', description: 'One whole sentence of the post that states a fact, copied exactly' },
             fact_ids: { type: 'array', items: { type: 'string' }, description: 'Ids of the facts that state this claim' },
           },
         },

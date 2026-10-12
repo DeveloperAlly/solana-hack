@@ -7,6 +7,7 @@
 import { numbersIn } from '../extract/facts';
 import { normaliseQuote } from '../quote';
 import { fold, sentences, STOP, words } from './text';
+import { CTA_VERBS } from './voice';
 
 export interface DraftClaim { text: string; fact_ids: string[] }
 export interface FactRef { id: string; claim: string; quote?: string | null }
@@ -51,11 +52,7 @@ export function namesIn(sentence: string): string[] {
 }
 
 // Named customers and partners: "Stripe uses JamJam", "trusted by Acme", "customers include Acme".
-const NAMED_CUSTOMER = /(?:^|[^\p{L}])(\p{Lu}[\p{L}\p{N}&.'-]*)\s+(?:uses?|used|trusts?|chose|picked|relies on|runs on|switched to|works with|partnered with|signed up)\b|\b(?:used by|trusted by|backed by|chosen by|loved by|(?:customers?|clients?|partners?|investors?) (?:include|including|like|such as)|including)\s+(\p{Lu}[\p{L}\p{N}&.'-]*)/u;
-// Customers, users and results stated as fact: "our customers ship twice as fast".
-const CUSTOMERS = /\b(customers?|clients?|partners?|investors?|users?|companies|brands use|teams use)\b/i;
-// Comparisons with something else: "simpler than", "more ... than", "vs".
-const COMPARISON = /\b\w+er than\b|\b(more|less|fewer)\s+\w+\s+than\b|\bvs\.?(?=\s)|\bversus\b|\bcompared (to|with)\b/i;
+const NAMED_CUSTOMER = /(?:^|[^\p{L}])(\p{Lu}[\p{L}\p{N}&.'-]*)\s+(?:uses?|used|trusts?|chose|picked|relies on|switched to|works with|partnered with|signed up)\b|\b(?:used by|trusted by|backed by|chosen by|loved by|(?:customers?|clients?|partners?|investors?) (?:include|including|like|such as)|including)\s+(\p{Lu}[\p{L}\p{N}&.'-]*)/u;
 
 /** Names a sentence presents as customers or partners (see NAMED_CUSTOMER). */
 export function namedCustomers(sentence: string): string[] {
@@ -63,35 +60,57 @@ export function namedCustomers(sentence: string): string[] {
   return m ? [(m[1] ?? m[2]).toLowerCase()] : [];
 }
 
-/**
- * Which sentences of a post state something that needs evidence under the claims gate (posts.ts CLAIMS_POLICY):
- * light (3): numbers, statistics and named customers; standard (4): every factual claim, so also customers and users,
- * results, comparisons, superlatives, firsts and guarantees; strict (5): all of that and every sentence about the brand.
- */
-export function needsEvidence(sentence: string, level: string, brandName: string): boolean {
-  const numeric = NUMBER.test(sentence) || PRICE.test(sentence);
-  const named = namedCustomers(sentence).length > 0;
-  if (level === '3') return numeric || named;
-  const risky = numeric || named || SUPERLATIVE.test(sentence) || GUARANTEE.test(sentence) || CUSTOMERS.test(sentence) || COMPARISON.test(sentence);
-  if (level === '5') return risky || new RegExp(`\\b(we|our|us|${brandName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'i').test(sentence);
-  return risky;
+/** A question: it asks, it does not state. */
+const isQuestion = (s: string) => /\?\s*["'\u2019\u201d)]*$/.test(s.trim());
+/** An imperative or call to action: it starts with a verb addressed to the reader ("Try it", "Let's build"). */
+function isImperative(s: string): boolean {
+  const w = words(s).filter((x) => !['please', 'so', 'now', 'just', 'go', 'and'].includes(x));
+  return !!w.length && (CTA_VERBS.has(w[0]) || /^(let's|lets|don't|stop|imagine|picture|meet|say|think|ask|keep|make|take|bring|tag)$/.test(w[0]));
 }
+/** A first-person opinion, feeling or intention ("We think", "I love", "we're excited", "we will"): policy 4 allows these. */
+const OPINION = /^(?:honestly,?\s+|personally,?\s+)?(?:i|we)(?:'m|'re|'ve|'d| am| are| have| would)?\s+(?:really\s+|truly\s+|so\s+|still\s+|just\s+)?(?:think|believe|feel|felt|love|hate|hope|wish|like|want|prefer|guess|suspect|wonder|care|excited|proud|glad|happy|thrilled|grateful|curious|will|plan|intend|aim|going to|love to|like to)\b|^(?:in (?:my|our) (?:view|opinion)|to (?:me|us)|for (?:me|us),)/i;
+const isOpinion = (s: string) => OPINION.test(normaliseQuote(s).trim());
+/** A fragment that states nothing: under 3 words without a number, or only links, hashtags and mentions. */
+const isFragment = (s: string) => (words(s).length < 3 && !/\d/.test(s)) || s.replace(/https?:\/\/\S+|\bwww\.\S+|\S+\.(?:com|net|org|io|tech|network|xyz|app|dev)\S*|[#@][\w-]+/gi, '').replace(/[^\p{L}\p{N}]/gu, '') === '';
 
 /**
- * Checks a candidate's declared claims against the usable facts it was given. A claim must be the post's own words, cite
- * at least one usable fact, and say no more than its facts: every number and counted noun, superlative and guarantee
- * must be in a cited fact. Every sentence that needs evidence under the gate must contain a claim that passed.
+ * Which sentences of a post need evidence under the claims gate (posts.ts CLAIMS_POLICY). Inverted on review of PR #99:
+ * a sentence needs evidence unless it is positively not a factual statement, so a new shape of claim is caught by
+ * default rather than missed until someone lists it.
+ * - light (3): any sentence with a number, statistic, price or named customer;
+ * - standard (4): every sentence except questions, imperatives and calls to action, first-person opinions, feelings
+ *   and intentions ("opinions and intentions are fine"), and fragments with nothing to state;
+ * - strict (5): every sentence except questions, imperatives and fragments.
+ */
+export function needsEvidence(sentence: string, level: string): boolean {
+  if (isFragment(sentence) || isQuestion(sentence)) return false;
+  if (level === '3') return NUMBER.test(sentence) || PRICE.test(sentence) || namedCustomers(sentence).length > 0;
+  if (isImperative(sentence)) return false;
+  if (level === '5') return true;
+  return !isOpinion(sentence);
+}
+
+/** A sentence or claim as compared: normalised, without its closing punctuation. */
+const key = (s: string) => norm(s).replace(/[\s.!?…:;,"'\u2019\u201d)]+$/u, '');
+
+/**
+ * Checks a candidate's declared claims against the usable facts it was given. A claim is one whole sentence of the post,
+ * as written (PR #99 review: a part of a sentence could leave the rest of it unchecked). It cites at least one usable
+ * fact and says no more than its facts: every number, the counted word after each number, every superlative, guarantee
+ * and name in the sentence must be in a cited fact. Every sentence that needs evidence under the gate must be a claim
+ * that passed.
  */
 export function checkClaims(body: string, declared: DraftClaim[], facts: FactRef[], level: string, brandName: string): ClaimsResult {
   const byId = new Map(facts.map((f) => [f.id, f]));
-  const post = norm(body);
+  const sentenceKeys = new Set(sentences(body).map(key));
+  const brand = new Set(words(brandName));
   const findings: ClaimFinding[] = [];
   const claims = declared.map((c) => {
     const text = c.text.trim();
     const ids = [...new Set(c.fact_ids)];
     const before = findings.length;
     const add = (rule: ClaimFinding['rule'], detail: string) => findings.push({ rule, text, detail });
-    if (!text || !post.includes(norm(text))) add('not_in_post', 'the claim is not worded as in the post');
+    if (!text || !sentenceKeys.has(key(text))) add('not_in_post', 'a claim must be one whole sentence of the post, as written');
     const unknown = ids.filter((id) => !byId.has(id));
     if (unknown.length) add('unknown_fact', `cites ${unknown.length} fact id(s) that are not usable facts`);
     const cited = ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
@@ -101,27 +120,23 @@ export function checkClaims(body: string, declared: DraftClaim[], facts: FactRef
       const have = new Set(numbersIn(support));
       const missing = numbersIn(text).filter((n) => !have.has(n));
       if (missing.length) add('number', `no cited fact states ${missing.join(', ')}`);
-      const nouns = new Set(words(support).map(fold));
+      const supportWords = new Set(words(support));
+      const nouns = new Set([...supportWords].map(fold));
       const absent = countedNouns(text).filter((n) => !nouns.has(n));
       if (absent.length) add('counted_noun', `the cited facts do not say "${absent.join(' ')}"`);
       const sup = SUPERLATIVE.exec(text)?.[0];
       if (sup && !support.includes(sup.toLowerCase())) add('superlative', `no cited fact says "${sup}"`);
       const gua = GUARANTEE.exec(text)?.[0];
       if (gua && !support.includes(gua.toLowerCase())) add('guarantee', `no cited fact says "${gua}"`);
+      // A name beside the claim ("10 companies, including Stripe") is a claim of its own and must be in a cited fact.
+      const extra = [...new Set([...namesIn(text), ...namedCustomers(text)])].filter((n) => !words(n).every((x) => brand.has(x) || supportWords.has(x)));
+      if (extra.length) add('name', `names ${extra.join(', ')}, which no cited fact mentions`);
     }
     return { text, factIds: ids, ok: findings.length === before };
   });
-  const good = claims.filter((c) => c.ok).map((c) => ({ text: norm(c.text), ids: c.factIds }));
-  const brand = brandName.toLowerCase();
+  const passed = new Set(claims.filter((c) => c.ok).map((c) => key(c.text)));
   for (const s of sentences(body)) {
-    if (!needsEvidence(s, level, brandName)) continue;
-    const covering = good.filter((g) => g.text && norm(s).includes(g.text));
-    if (!covering.length) { findings.push({ rule: 'uncovered', text: s, detail: 'states something that needs evidence, with no supported claim' }); continue; }
-    // A name added beside a supported claim ("10 companies, including Stripe") is a claim of its own: every name in a
-    // sentence that needs evidence must be in a fact its claims cite.
-    const support = new Set(words(covering.flatMap((g) => g.ids.flatMap((id) => (byId.has(id) ? [`${byId.get(id)!.claim} ${byId.get(id)!.quote ?? ''}`] : []))).join(' ')));
-    const extra = [...new Set([...namesIn(s), ...namedCustomers(s)])].filter((n) => !brand.split(/\s+/).includes(n) && !words(n).every((x) => support.has(x)));
-    if (extra.length) findings.push({ rule: 'name', text: s, detail: `names ${extra.join(', ')}, which no cited fact mentions` });
+    if (needsEvidence(s, level) && !passed.has(key(s))) findings.push({ rule: 'uncovered', text: s, detail: 'states something that needs evidence, and is not a supported claim' });
   }
   return { passed: findings.length === 0, claims, findings };
 }

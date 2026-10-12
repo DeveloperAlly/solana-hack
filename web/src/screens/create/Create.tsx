@@ -1,7 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AppShell } from '../../ui/shells/AppShell';
 import { Alert, Box, Button, Container, Field, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { api, ApiError } from '../../lib/api';
+import { followRun, runMessage, type RunView } from './followRun';
 
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
@@ -20,19 +21,6 @@ const POLICY_VERSION = 3; // must match the server's POLICY_VERSION
 const policyCurrent = (p?: { v?: number; passed: boolean; blocked?: string[]; unsupported?: string[] }) => !!p && p.v === POLICY_VERSION && p.passed && Array.isArray(p.blocked) && !p.blocked.length && Array.isArray(p.unsupported) && !p.unsupported.length;
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
 
-/** How often the screen checks a draft run that outlasted its request, and for how long at most. */
-export const RUN_POLL_MS = 1500;
-const RUN_FOLLOW_MS = 5 * 60 * 1000;
-/** Waits for a run to finish (GET /api/runs/:id); a failed run's error is thrown for the screen to show. */
-async function followRun(runId: string) {
-  for (const end = Date.now() + RUN_FOLLOW_MS; Date.now() < end; await new Promise((r) => setTimeout(r, RUN_POLL_MS))) {
-    const { run } = await api<{ run: { status: string; error: string | null } }>(`/runs/${runId}`);
-    if (run.status === 'done') return;
-    if (run.status === 'failed' || run.status === 'superseded') throw new ApiError(502, run.error ?? 'Drafting failed. Try again.');
-  }
-  throw new ApiError(504, 'Still drafting. Your post will appear in this list when it is ready.');
-}
-
 /** S5 Create (thin): draft a post in the approved voice, check it, approve it, register it. */
 export function Create() {
   const [brandId, setBrandId] = useState<string | null>(null);
@@ -44,6 +32,12 @@ export function Create() {
   const [shown, setShown] = useState(20);
   const [more, setMore] = useState(false);
   const [capped, setCapped] = useState(false);
+  // Draft runs still going, by run id, with what to say about each (followRun.ts). Read back from the server on load,
+  // so leaving and coming back resumes following them.
+  const [drafting, setDrafting] = useState<Record<string, string>>({});
+  const following = useRef(new Set<string>());
+  const gone = useRef(false);
+  useEffect(() => () => { gone.current = true; }, []);
 
   async function load(id = brandId, limit = shown) {
     if (!id) return;
@@ -58,10 +52,35 @@ export function Create() {
         if (!me.brands.length) return setError('Build your brand first, then come back to create.');
         setBrandId(me.brands[0].id);
         await load(me.brands[0].id);
+        const going = await api<{ runs?: { id: string }[] }>(`/brands/${me.brands[0].id}/runs?kind=draft_post`);
+        for (const r of going.runs ?? []) void follow(r.id, me.brands[0].id);
       })
       .catch((e) => setError(msg(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Follows one draft run to its end, then reloads the list (done) or shows its error (failed). */
+  async function follow(runId: string, id = brandId) {
+    if (following.current.has(runId)) return;
+    following.current.add(runId);
+    const update = (run: RunView) => setDrafting((d) => ({ ...d, [runId]: runMessage(run) }));
+    try {
+      const end = await followRun(runId, {
+        get: async (rid) => (await api<{ run: RunView }>(`/runs/${rid}`)).run,
+        sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+        onUpdate: update,
+        cancelled: () => gone.current,
+      });
+      if (!end) return;
+      if (end.status !== 'done') setError(end.error ?? 'Drafting failed. Try again.');
+      await load(id);
+    } catch (err) {
+      if (!gone.current) setError(msg(err));
+    } finally {
+      following.current.delete(runId);
+      if (!gone.current) setDrafting(({ [runId]: _, ...rest }) => rest);
+    }
+  }
 
   async function draft(e: FormEvent) {
     e.preventDefault();
@@ -70,10 +89,10 @@ export function Create() {
     setError(null);
     try {
       const r = await api<{ post: Post | null; runId?: string }>(`/brands/${brandId}/posts`, { body: { brief, channel } });
-      // A draft that outlasts the request comes back as a run to follow (202, no post yet); the list reloads once it ends.
-      if (!r.post && r.runId) await followRun(r.runId);
       setBrief('');
-      await load();
+      // A draft that outlasts the request comes back as a run to follow (202, no post yet); the list reloads once it ends.
+      if (!r.post && r.runId) void follow(r.runId);
+      else await load();
     } catch (err) {
       setError(msg(err));
     } finally {
@@ -99,6 +118,7 @@ export function Create() {
               </Stack>
             </form>
           )}
+          {Object.entries(drafting).map(([id, text]) => <Alert key={id} tone="info">{text}</Alert>)}
           {posts.map((p) => (
             <PostCard key={p.id} post={p} brandId={brandId!} onChange={() => load()} />
           ))}

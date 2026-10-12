@@ -107,7 +107,7 @@ export function formalityProxy(text: string): number {
   return Math.round((50 + (net / w.length) * 50) * 10) / 10;
 }
 
-const CTA_VERBS = new Set('try join sign start get book download read learn follow share comment reply subscribe register visit check see watch grab claim apply contact dm message tell send ask build create explore discover install use'.split(' '));
+export const CTA_VERBS = new Set('try join sign start get book download read learn follow share comment reply subscribe register visit check see watch grab claim apply contact dm message tell send ask build create explore discover install use'.split(' '));
 const SOFT_CTA = /\b(if you('re| are)? (curious|interested|want)|happy to|let me know|feel free|reach out|we'd love|would love to hear)\b/i;
 /** Call-to-action sentences: imperatives starting with a CTA verb (after an optional "please", "so" or "now"). */
 export function ctaCount(text: string): { direct: number; soft: number } {

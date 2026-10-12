@@ -1,5 +1,5 @@
 {
-  "about": "F6-style claims fixtures for the Create claims gate (architecture §13.1 F6, §13.2 'Unsupported claims caught: >= 95% recall'; issue #93). Synthetic: written for this PR, not labelled by the owner. Synthetic errors (changed numbers, invented customers, upgraded nouns, superlatives, guarantees, prices) are reported separately from real-draft fixtures, which do not exist yet (§13.1: F6 is mostly real drafts, labelled by hand). Each item: the usable facts, a post, the claims its writer declared, the claims level, and whether the post's claims are all supported.",
+  "about": "F6-style claims fixtures for the Create claims gate (architecture §13.1 F6, §13.2 'Unsupported claims caught: >= 95% recall'; issue #93). Synthetic: written for this PR, not labelled by the owner. Synthetic errors (changed numbers, invented customers, upgraded nouns, superlatives, guarantees, prices) are reported separately from real-draft fixtures, which do not exist yet (§13.1: F6 is mostly real drafts, labelled by hand). Each item: the usable facts, a post, the claims its writer declared, the claims level, and whether the post's claims are all supported. Rule change on PR #99 review: a declared claim is one whole sentence of the post. Under that rule the earlier fixtures s1, s2 and s5, which declared part of a sentence, were refused (3 of 8 supported items flagged); they now declare whole sentences, as the drafting prompt asks.",
   "facts": [
     {
       "id": "f-teams",
@@ -35,7 +35,7 @@
       "body": "Teams at 10 companies use JamJam to keep their posts on brand.",
       "claims": [
         {
-          "text": "Teams at 10 companies use JamJam",
+          "text": "Teams at 10 companies use JamJam to keep their posts on brand.",
           "fact_ids": [
             "f-teams"
           ]
@@ -50,7 +50,7 @@
       "body": "Every post you approve is registered on Solana, so anyone can check it.",
       "claims": [
         {
-          "text": "Every post you approve is registered on Solana",
+          "text": "Every post you approve is registered on Solana, so anyone can check it.",
           "fact_ids": [
             "f-solana"
           ]
@@ -88,7 +88,7 @@
       "body": "Founded in Melbourne in 2026, JamJam started with one question.",
       "claims": [
         {
-          "text": "Founded in Melbourne in 2026",
+          "text": "Founded in Melbourne in 2026, JamJam started with one question.",
           "fact_ids": [
             "f-founded"
           ]
@@ -329,6 +329,110 @@
       "level": "3",
       "body": "We write every post with care.",
       "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "u18",
+      "kind": "partial_claim",
+      "level": "4",
+      "body": "We serve 10 enterprise customers.",
+      "claims": [
+        {
+          "text": "10",
+          "fact_ids": [
+            "f-teams"
+          ]
+        }
+      ],
+      "expect": "unsupported",
+      "note": "Codex review on PR #99: declaring only the number"
+    },
+    {
+      "id": "u19",
+      "kind": "plain_factual",
+      "level": "4",
+      "body": "JamJam runs on Solana.",
+      "claims": [],
+      "expect": "unsupported",
+      "note": "Codex review on PR #99"
+    },
+    {
+      "id": "u20",
+      "kind": "plain_factual",
+      "level": "4",
+      "body": "The product supports teams.",
+      "claims": [],
+      "expect": "unsupported",
+      "note": "Codex review on PR #99"
+    },
+    {
+      "id": "u21",
+      "kind": "partial_claim",
+      "level": "3",
+      "body": "Teams at 10 companies and 3 banks use JamJam.",
+      "claims": [
+        {
+          "text": "Teams at 10 companies",
+          "fact_ids": [
+            "f-teams"
+          ]
+        }
+      ],
+      "expect": "unsupported"
+    },
+    {
+      "id": "s9",
+      "kind": "question",
+      "level": "4",
+      "body": "What would you post if every claim had to be true?",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s10",
+      "kind": "imperative",
+      "level": "4",
+      "body": "Try it on your own site.",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s11",
+      "kind": "opinion",
+      "level": "4",
+      "body": "We think every brand deserves proof.",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s12",
+      "kind": "intention",
+      "level": "4",
+      "body": "We will open the beta to more teams soon.",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s13",
+      "kind": "fragment",
+      "level": "4",
+      "body": "jamjam.tech",
+      "claims": [],
+      "expect": "supported"
+    },
+    {
+      "id": "s14",
+      "kind": "supported",
+      "level": "4",
+      "body": "JamJam registers each approved post on Solana.",
+      "claims": [
+        {
+          "text": "JamJam registers each approved post on Solana.",
+          "fact_ids": [
+            "f-solana"
+          ]
+        }
+      ],
       "expect": "supported"
     }
   ]

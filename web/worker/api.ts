@@ -5,7 +5,7 @@ import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type Secti
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
 import { draftChecks } from './create/checks';
-import { activeRun, draftRun, getRun, ingestSource, startRun } from './engine/api';
+import { activeRun, activeRuns, draftRun, getRun, ingestSource, startRun } from './engine/api';
 import type { WaitUntil } from './engine/executor';
 import { usableFact } from './sources/registry';
 import { approvePost, editPost, rejectPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
@@ -370,6 +370,7 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
     return json({ ...state, activeRun: run });
   }
   // POST /api/brands/:id/runs {kind, ...input} -> 202 {run}
+  if (p[3] === 'runs' && p.length === 4 && m === 'GET') return json({ runs: await activeRuns(env, brand.id, url.searchParams.get('kind') ?? '') });
   if (p[3] === 'runs' && p.length === 4 && m === 'POST') {
     const b = await body(req);
     return json({ run: await startRun(env, ctx, caller(req, user), brand, str(b.kind, 60), b) }, 202);
