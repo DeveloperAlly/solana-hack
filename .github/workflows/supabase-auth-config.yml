@@ -2,7 +2,7 @@ name: supabase-auth-config
 # One-click email setup for sign-in. Safe to re-run; each run does what it can and says what is missing.
 #   1. Supabase URL Configuration: Site URL https://jamjam.tech, redirect allow list https://jamjam.tech/**
 #      (without this the emailed link lands on the default http://localhost:3000).
-#   2. Resend sending domain auth.jamjam.tech: created if absent, verification requested, and the DNS
+#   2. Resend sending domain jamjam.tech: created if absent, verification requested, and the DNS
 #      records posted to an issue so they can be added in Cloudflare (DNS values are public by design).
 #   3. Once Resend reports the domain verified: Supabase custom SMTP through Resend, sender "JamJam",
 #      and branded sign-in emails carrying both the link and the 6-digit code.
@@ -34,10 +34,10 @@ jobs:
     env:
       SITE_URL: https://jamjam.tech
       ALLOW_LIST: https://jamjam.tech/**
-      MAIL_DOMAIN: auth.jamjam.tech
-      MAIL_FROM: no-reply@auth.jamjam.tech
+      MAIL_DOMAIN: jamjam.tech
+      MAIL_FROM: no-reply@jamjam.tech
       SENDER_NAME: JamJam
-      ISSUE_TITLE: "Email setup: DNS records for auth.jamjam.tech"
+      ISSUE_TITLE: "Email setup: DNS records for jamjam.tech"
     steps:
       - name: Check inputs
         env:
