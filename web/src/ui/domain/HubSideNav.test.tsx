@@ -24,6 +24,7 @@ describe('L7 HubSideNav', () => {
     expect(tg).toHaveAttribute('aria-pressed', 'false');
     await userEvent.click(tg);
     expect(onSelect).toHaveBeenCalledWith('tg');
+    expect(screen.getByRole('list', { name: 'Sources' })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 });

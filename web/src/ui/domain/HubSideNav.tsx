@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
 import styles from './HubSideNav.module.css';
 
@@ -41,12 +41,14 @@ function ItemBody({ item }: { item: HubSideNavItem }) {
  * filter buttons with counts or badges. Links go through the router; buttons filter in place.
  */
 export function HubSideNav({ label, sections, current, onSelect }: HubSideNavProps) {
+  const base = useId();
   return (
     <nav aria-label={label} className={styles.rail}>
       {sections.map((section, i) => (
         <div key={section.title ?? i} className={styles.section}>
-          {section.title && <h3 className={styles.title}>{section.title}</h3>}
-          <ul className={styles.list}>
+          {/* Group titles are labels, not headings, so the rail never breaks the page's heading order. */}
+          {section.title && <span id={`${base}-${i}`} className={styles.title}>{section.title}</span>}
+          <ul className={styles.list} aria-labelledby={section.title ? `${base}-${i}` : undefined}>
             {section.items.map((item) => {
               const active = item.id === current;
               const cls = [styles.item, active && styles.active].filter(Boolean).join(' ');

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Alert, Badge, Box, Button, Choice, Container, Field, Grid, Heading, Link, Stack, Text } from '../ui/primitives';
+import { Alert, Badge, Box, Button, Choice, Container, Field, Grid, Heading, Link, SelectField, Stack, Text } from '../ui/primitives';
 import { AppShell } from '../ui/shells/AppShell';
 import type { BoxBackground, BoxBorder } from '../ui/primitives/Box';
 import type { TextTone, TextVariant } from '../ui/primitives/Text';
@@ -171,6 +171,7 @@ export function Workbench() {
               <Field label="Label" hint="Hint text" value="" onChange={() => {}} />
               <Field label="With an error" error="Say what is wrong and how to fix it." value="" onChange={() => {}} />
               <Field label="Multiline" multiline rows={3} value="" onChange={() => {}} />
+              <SelectField label="Select" options={[{ value: 'a', label: 'You approve every piece' }]} value="a" onChange={() => {}} />
             </Stack>
           </Entry>
           <Entry id="C3" name="Choice">

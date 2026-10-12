@@ -5,4 +5,6 @@
 .aside { flex: 0 1 auto; display: flex; flex-direction: column; gap: var(--wl-space-half); font-size: var(--wl-font-size-sm); }
 .actions { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: var(--wl-space-2); }
 .selected { background: var(--wl-bg-subtle); box-shadow: inset var(--wl-border-width-indicator) 0 0 var(--wl-border-strong); }
+.select { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.select:focus-visible { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); }
 .unread { font-weight: var(--wl-font-weight-semibold); }
