@@ -30,12 +30,14 @@ export function GalleryScreen() {
   const state = pick(params.get('state'), entry.states);
   return (
     <div className={styles.page}>
-      <GalleryToolbar theme={theme} title={<><Link href={`/screens${q}`}>All screens</Link> / {entry.artboard}</>}>
+      {/* The screen comes first so its shell's skip link is the page's first focusable element; the gallery bar
+          follows it in the DOM and sits at the bottom of the viewport, so visual and focus order agree. */}
+      {entry.render(state)}
+      <GalleryToolbar placement="bottom" theme={theme} title={<><Link href={`/screens${q}`}>All screens</Link> / {entry.artboard}</>}>
         {/* Every gallery screen renders fixtures, so the frame says so once (Codex review on PR #66). */}
         <SampleFlag />
         <DemoStateSwitcher states={entry.states} value={state} hrefFor={(s) => withParam(params, 'state', s)} />
       </GalleryToolbar>
-      {entry.render(state)}
     </div>
   );
 }

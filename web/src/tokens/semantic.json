@@ -126,6 +126,7 @@
     "layout.page.padX": { "group": "T11 layout", "type": "size", "value": "{space.8}" },
     "layout.nav.height": { "group": "T11 layout", "type": "size", "value": "{size.64}" },
     "layout.rail.width": { "group": "T11 layout", "type": "size", "value": "{size.240}" },
+    "layout.table.maxHeight": { "group": "T11 layout", "type": "size", "value": "{size.480}" },
 
     "control.height.sm": { "group": "T12 control sizes", "type": "size", "value": "{size.36}" },
     "control.height.md": { "group": "T12 control sizes", "type": "size", "value": "{size.44}" },

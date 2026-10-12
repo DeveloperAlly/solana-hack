@@ -33,6 +33,8 @@ jobs:
       - name: Install Chromium
         run: npx --yes playwright@$(node -p "require('playwright-core/package.json').version") install --with-deps chromium
       - run: npm run proof
+      # Gallery and workbench in a real browser: axe with colour contrast on, every registered screen, state and theme.
+      - run: npm run check:gallery
       # Names only: confirms every deploy setting exists without printing a value.
       - name: Deploy settings present
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository

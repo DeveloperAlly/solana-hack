@@ -43,6 +43,7 @@ export interface DataTableProps<Row> {
   empty?: ReactNode;
   /** Shown in place of rows when state is error. */
   error?: ReactNode;
+  /** Header stays visible while the rows scroll inside a box of bounded height (token layout.table.maxHeight). */
   stickyHeader?: boolean;
   /** Filter chips above the table (C5 ToggleGroup, single select). */
   filter?: DataTableFilter<Row>;
@@ -90,7 +91,7 @@ export function DataTable<Row>({ caption, hideCaption, columns, rows, rowKey, ac
     <div className={styles.root}>
       {filter && <ToggleGroup label={filter.label} options={filter.options} value={[selected]} onChange={(v) => setFilter(v[0])} />}
       {/* The scroll box is focusable so keyboard users can scroll a wide table (axe scrollable-region-focusable). */}
-      <div className={styles.scroll} tabIndex={0} role="region" aria-label={caption}>
+      <div className={[styles.scroll, stickyHeader && styles.scrollSticky].filter(Boolean).join(' ')} tabIndex={0} role="region" aria-label={caption}>
         <table className={[styles.table, stickyHeader && styles.sticky].filter(Boolean).join(' ')} aria-busy={state === 'loading' || undefined}>
           <caption className={hideCaption ? 'wl-visually-hidden' : styles.caption}>{caption}</caption>
           <thead>
