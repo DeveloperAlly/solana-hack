@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { Container, Link } from '../ui/primitives';
 import { EmptyState } from '../ui/composites/EmptyState';
@@ -35,7 +36,11 @@ export function GalleryScreen() {
           stage, and the gallery bar sits below the stage, always in view (Codex review on PR #66), so visual and focus
           order agree. */}
       {/* Gallery mode makes the screen's shell actions inert (no sign out, no network; Codex review on PR #79). */}
-      <div className={styles.stage}><GalleryModeContext.Provider value={true}>{entry.render(state)}</GalleryModeContext.Provider></div>
+      {/* Keyed by artboard and state, so switching either one mounts the screen fresh: local state initialised from the
+          previous fixture never leaks into the next one. Two variants that share one screen component (e.g. Onboard-3b
+          and Ingest-Error), or a state switch, would otherwise keep stale rows and errors (Codex review on PR #73).
+          Flow state that must survive navigation lives in the page's flow store, not in component state. */}
+      <div className={styles.stage}><GalleryModeContext.Provider value={true}><Fragment key={`${entry.artboard}:${state}`}>{entry.render(state)}</Fragment></GalleryModeContext.Provider></div>
       <GalleryToolbar placement="bottom" theme={theme} title={<><Link href={`/screens${q}`}>All screens</Link> / {entry.artboard}</>}>
         {/* Every gallery screen renders fixtures, so the frame says so once (Codex review on PR #66). */}
         <SampleFlag />
