@@ -1,7 +1,7 @@
 /*
  * Data contract: Voice-Editor (issue #52; canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, board Voice-Editor,
  * note n-ve). Shape: VoiceEditorData in ./types.ts. Backend map §4 Create, row "Voice-Editor": `POST …/voices`,
- * `PATCH /api/voices/:id`, `POST /api/voices/:id/preview` (table voices; OpenRouter preview; safety classifier for Flirty).
+ * `PATCH /api/voices/:id`, `POST /api/voices/:id/preview` (table voices; OpenRouter preview; safety classifier for the content-policy template).
  *
  * | Field             | Source                                                                                     |
  * |-------------------|--------------------------------------------------------------------------------------------|

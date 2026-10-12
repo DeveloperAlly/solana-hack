@@ -89,14 +89,14 @@ describe('Grow (n-eq, n-er, n-pa, n-le, n-is, n-iq)', () => {
     renderScreen('Influencer-Setup');
     const create = screen.getByRole('button', { name: 'Create persona' });
     expect(create).toBeDisabled();
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Represents' }), 'Ally Haire (brand)');
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Voice' }), 'Flirty (tuned for Ally Haire)');
-    expect(screen.getByText(/AI persona of Ally Haire · Flirty \(tuned for Ally Haire\)/)).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Represents' }), '[Creator name] (brand)');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Voice' }), '[Persona voice]');
+    expect(screen.getByText(/AI persona of \[creator\] · \[Persona voice\]/)).toBeInTheDocument();
     await userEvent.click(create);
     expect(screen.getByRole('alert')).toHaveTextContent('Give the persona its own name.');
     const name = screen.getByRole('textbox', { name: 'Name' });
     await userEvent.clear(name);
-    await userEvent.type(name, 'Sidney');
+    await userEvent.type(name, 'Sample persona');
     await userEvent.click(create);
     expect(screen.getByRole('heading', { level: 1, name: '[Influencer name]: this week' })).toBeInTheDocument();
   });

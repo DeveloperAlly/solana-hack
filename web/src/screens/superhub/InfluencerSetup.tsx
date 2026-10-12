@@ -8,7 +8,7 @@
  * |-----------------|-----------------------------------------------------------------------------------------------|
  * | name, pillars   | personas draft values                                                                         |
  * | brandOptions    | The account's brands; the persona is tied to a brand and a voice (n-is 1)                     |
- * | voiceOptions    | voices of that brand (Flirty, behind its content-policy gate)                                 |
+ * | voiceOptions    | voices of that brand (a suggestive template sits behind its content-policy gate)              |
  * | avatarFrom      | The avatar creator the set comes from (n-is 3); files go to Storage                           |
  * | disclosures     | Locked on: watermark, bio label, platform AI labels, human approval (n-is 2)                  |
  * | channels        | Channels with per-channel caps from the voice                                                 |

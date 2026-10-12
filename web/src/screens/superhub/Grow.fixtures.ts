@@ -2,7 +2,8 @@
 // (issue #52). Source: wireframe canvas https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn, boards of those names, notes
 // n-eq, n-er, n-pa, n-le, n-is, n-iq (text and counts as drawn; brackets kept). Backend map rows "Engage-Queue",
 // "Leads (experimental)", "Influencer-Setup, Influencer-Queue (experimental)" (§4 Grow) and Roadmap lines
-// "Engage-Rules", "Partners" (.agentic/what/context/backend_map.md §4).
+// "Engage-Rules", "Partners" (.agentic/what/context/backend_map.md §4). The influencer persona is a fictional, bracketed
+// sample identity with neutral bracketed captions (public-repo firewall, AGENTS rule 5).
 import type { EngageQueueData, EngageRulesData, InfluencerQueueData, InfluencerSetupData, LeadsData, PartnersData } from './types';
 
 export const engageQueue: EngageQueueData = {
@@ -65,29 +66,29 @@ export const leads: LeadsData = {
 export const influencerSetup: InfluencerSetupData = {
   banner: 'Experimental · an AI persona that posts in your voice, always labelled as AI',
   name: '[Influencer name]',
-  brandOptions: [{ value: 'ally', label: 'Ally Haire (brand)' }],
-  personaOf: { ally: 'AI persona of Ally Haire' },
-  voiceOptions: [{ value: 'flirty', label: 'Flirty (tuned for Ally Haire)' }],
-  pillars: 'Writing life · behind the story · reader questions',
+  brandOptions: [{ value: 'creator', label: '[Creator name] (brand)' }],
+  personaOf: { creator: 'AI persona of [creator]' },
+  voiceOptions: [{ value: 'persona', label: '[Persona voice]' }],
+  pillars: '[Content pillar 1] · [Content pillar 2] · [Content pillar 3]',
   avatarFrom: '[avatar creator]',
   avatarTotal: '[n]',
   disclosures: [
     { id: 'watermark', label: '"AI-generated" watermark on every image and video', detail: 'Burned into the media, bottom-right.' },
-    { id: 'bio', label: 'Bio says this is an AI persona of Ally Haire', detail: 'Added to each connected profile.' },
+    { id: 'bio', label: 'Bio says this is an AI persona of [creator]', detail: 'Added to each connected profile.' },
     { id: 'labels', label: "Use each platform's own AI label where one exists" },
     { id: 'approval', label: 'You approve every post and reply' },
   ],
-  channels: 'Instagram · X · Threads · [adult-friendly platform] · suggestiveness capped per channel by the Flirty voice',
-  preview: { image: '[Avatar image]', persona: 'AI persona of Ally Haire', caption: "\"Spent tonight rewriting one kiss scene. Eleven drafts. I don't do anything halfway.\"" },
+  channels: 'Instagram · X · Threads · limits per channel come from the persona voice',
+  preview: { image: '[Avatar image]', persona: 'AI persona of [creator]', caption: "[Caption in the creator's voice]" },
 };
 
 export const influencerQueue: InfluencerQueueData = {
   banner: 'Experimental · every post below carries the AI label and waits for you',
   title: '[Influencer name]: this week',
-  subtitle: 'Flirty voice · AI persona of Ally Haire',
+  subtitle: '[Persona voice] · AI persona of [creator]',
   posts: [
-    { id: 'i1', image: '[Avatar at the writing desk]', stamped: true, channel: 'Instagram', when: 'Wed 20:00', caption: "Spent tonight rewriting one kiss scene. Eleven drafts. I don't do anything halfway.", checks: 'On-brand 93% · Slop check ✓ · AI label ✓ · within Instagram cap' },
-    { id: 'i2', image: '[Avatar, close-up, smiling]', stamped: true, channel: 'X', when: 'Thu 21:00', caption: "Tell me your favourite slow burn and I'll tell you what it says about you.", checks: 'On-brand 95% · Slop check ✓ · AI label ✓' },
+    { id: 'i1', image: '[Avatar at the writing desk]', stamped: true, channel: 'Instagram', when: 'Wed 20:00', caption: "[Caption in the creator's voice]", checks: 'On-brand [score] · Slop check ✓ · AI label ✓ · within Instagram limits' },
+    { id: 'i2', image: '[Avatar, close-up, smiling]', stamped: true, channel: 'X', when: 'Thu 21:00', caption: '[Second caption in the creator\'s voice]', checks: 'On-brand [score] · Slop check ✓ · AI label ✓' },
     { id: 'i3', image: '[Avatar image]', stamped: false, channel: 'Threads', when: 'Fri 19:00', caption: '[Caption]', checks: '[Checks after re-stamp] · AI label ✓', blockedReason: 'Blocked: watermark not found on this image. Re-stamp to continue.' },
   ],
 };
