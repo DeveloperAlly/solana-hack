@@ -65,7 +65,7 @@ Fo formality · En energy · Hu humour · Wa warmth · SL sentence length · Ja 
 | Professional | 4 | 2 | 1 | 3 | 3 | 2 | 1 | 2 | 4 |
 | Friendly | 2 | 3 | 2 | 5 | 2 | 1 | 3 | 2 | 4 |
 | Plainspoken | 2 | 2 | 2 S | 3 | 2 | 1 S | 1 | 2 | 4 |
-| Efficient | 3 | 1 | 1 | 2 | 1 | 2 | 1 | 2 | 4 |
+| Efficient | 3 | 3 (owner, 2026-10-12; was 1) | 1 | 2 | 1 | 2 | 1 | 2 | 4 |
 | Candid / Founder | 2 | 3 | 2 | 3 | 2 | 2 | 1 | 3 | 4 |
 | Playful | 1 | 4 | 5 | 4 | 2 | 1 | 4 | 2 | 3 |
 | Flirty (suggestive, never explicit) | 1 | 4 | 4 | 5 | 1 | 1 | 4 | 2 | 4 |
@@ -160,7 +160,7 @@ AIWG and Grain values converted to our 1–5 scale (v = 1 + 4x, rounded to one d
 | Efficient | 3 | 1 | 1 | 2 | 2 | AIWG `executive-brief` / Grain `executor` | 4.2 / 2.6 | 3.0 / (urgency 4.2) | n/a / 1.0 | 2.6 / 1.8 | 3.0 / n/a |
 | Candid founder | 2 | 3 | 2 | 3 | 2 | AIWG `casual-conversational` | 1.8 | 4.2 | n/a | 4.6 | 2.2 |
 
-Formality and warmth agree within about one point for Professional, Friendly and Enterprise. **Efficient disagrees on energy**: AIWG executive-brief is mid-energy and Grain executor is high-urgency, while ours is 1. That is a real calibration question for the owner. Values come from `voices/templates/*.yaml` in jmagly/aiwg and `sdk/typescript/src/presets.ts` in ReallyArtificial/grain.
+Formality and warmth agree within about one point for Professional, Friendly and Enterprise. **Efficient disagrees on energy**: AIWG executive-brief is mid-energy and Grain executor is high-urgency, while ours is 1. The owner ruled on 2026-10-12: Efficient energy is 3 (brief but not flat), and `steps.ts` carries it. Values come from `voices/templates/*.yaml` in jmagly/aiwg and `sdk/typescript/src/presets.ts` in ReallyArtificial/grain.
 
 **Templates with no external precedent, so we author them:** Academic, Plainspoken (use the 18F/GOV.UK rules), Playful, Flirty, Sales, Hype/Launch, Empathetic/Support. We also author all Hu/Em/CTA/Cl values for all 12.
 

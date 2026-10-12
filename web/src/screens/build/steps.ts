@@ -65,7 +65,7 @@ export const VOICE_TEMPLATES = [
   { value: 'professional', label: 'Professional', v: [4, 2, 1, 3, 3, 2, 1, 2, 4] },
   { value: 'friendly', label: 'Friendly', v: [2, 3, 2, 5, 2, 1, 3, 2, 4] },
   { value: 'plainspoken', label: 'Plainspoken', v: [2, 2, 2, 3, 2, 1, 1, 2, 4] },
-  { value: 'efficient', label: 'Efficient', v: [3, 1, 1, 2, 1, 2, 1, 2, 4] },
+  { value: 'efficient', label: 'Efficient', v: [3, 3, 1, 2, 1, 2, 1, 2, 4] },
   { value: 'candid_founder', label: 'Candid founder', v: [2, 3, 2, 3, 2, 2, 1, 3, 4] },
   { value: 'playful', label: 'Playful', v: [1, 4, 5, 4, 2, 1, 4, 2, 3] },
   { value: 'flirty', label: 'Flirty (suggestive, never explicit)', v: [1, 4, 4, 5, 1, 1, 4, 2, 4] },

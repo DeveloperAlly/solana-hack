@@ -12,7 +12,7 @@ tags: [backlog, product-map, component-inventory]
 
 ## How to read this
 
-**Status** (what is true on main today, checked 2026-10-12):
+**On main at 9da167b** (the status column: a dated baseline, not live status. Live status is in [STATE.md](../../../STATE.md), and each build PR updates its own row here; owner, 2026-10-12):
 - **live:** shown working on jamjam.tech with evidence linked in [STATE.md](../../../STATE.md).
 - **built:** code on main with tests, not yet shown working end to end on the live app (STATE: 0 brands, kits and posts so far).
 - **partial:** some of it is built; the row says what is missing.
@@ -45,7 +45,7 @@ A user who hits friction in onboarding leaves; a user whose first posts are not 
 
 ## 2. Onboarding and account
 
-| ID | Component | What the user gets | Status | Tag | Plan | Reuse, not rebuild | Done when | Source |
+| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
 | A1 | Email sign-in (link and code) | No password, no wallet | partial: link sign-in live; code path built (accepts 6 to 10 digits since #27), not yet exercised live | hackathon | Free | Supabase Auth, Resend SMTP | Code sign-in proven live | ADR-006, STATE blockers |
 | A2 | Landing, How it works | One value prop, "build your brand, then start creating" | built | hackathon | Free | | Playwright and axe pass (they do) | R5, `Landing.tsx` |
@@ -60,7 +60,7 @@ A user who hits friction in onboarding leaves; a user whose first posts are not 
 
 ## 3. Brand: Build your brand
 
-| ID | Component | What the user gets | Status | Tag | Plan | Reuse, not rebuild | Done when | Source |
+| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
 | B1 | Basics intake (name, type, description, goal, channel, links) | 2-minute start | built | hackathon | Free | | Brand type saved on edit; channel as a fixed select | architecture §5, #37 |
 | B2 | Start from what you have: site plus subpages, links, paste, PDF, DOCX | Does not have to retype what exists | partial: single URL ingest built (`ingest.ts`); the rest is #33 | hackathon | Free | Exa contents; Workers AI `toMarkdown` for PDF and DOCX; one adapter per source type | adna.network and a sample PDF end to end | #33, G-INGEST-1 |
@@ -87,7 +87,7 @@ A user who hits friction in onboarding leaves; a user whose first posts are not 
 
 Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Specified in [architecture §4](../../what/context/brand_builder_architecture.md#4-input-spec-per-brand-kit-section): identity, purpose, beliefs, values (card sort), positioning, value props, audience, messaging, voice attributes, tone presets, vocabulary, claims, **visual kit (13)**, **audio kit (14)**, behaviour scenarios, examples (on and off brand), governance. Done when 17 of 17 are drafted or shown as deferred with a reason.
 
-| ID | Component | What the user gets | Status | Tag | Plan | Reuse, not rebuild | Done when | Source |
+| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
 | K1 | Visual kit: logo, colours, type, read from the site's CSS and OG images | Every image and slide is on brand without a designer | spec | coming soon | Solo | Brand tokens feed the renderer (M1) | Colours and fonts extracted from the brand's own site | architecture §4 row 13; research 11 and its detail |
 | K2 | Audio kit: sonic logo, voice persona | Audio and video sound like the brand | spec | coming soon | Add-on | | | architecture §4 row 14 |
@@ -99,7 +99,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 
 ## 5. Voices, claims and gates
 
-| ID | Component | What the user gets | Status | Tag | Plan | Reuse, not rebuild | Done when | Source |
+| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
 | V1 | Voice templates (proof-of-concept rung of the voice ladder): 12 templates on 9 dimensions (8 dials plus claims strictness, which works as a gate; research 06), per-channel overrides; adopt open-source template sets where licence and format fit, author only the gaps | Picks a voice, sets dials, sets claims level | partial: 12 templates, 8 dials and claims level (the 9 dimensions) and one optional sample built (#17); per-channel overrides not built | hackathon | Free | AIWG voice-framework (MIT): profile format and 5 seed templates; Grain (MIT): graded prompt directives and channel overrides; Vale rule packs (MIT) and 18F/GOV.UK rules for linting. Author the other 7 templates and every humour, emoji, CTA and claims value | | research 06 (reusable template sources, 2026-10-12); ADR-010 |
 | V2 | Several voices per kit; voice editor with preview | Founder voice and brand voice side by side | spec | | Solo | `voices` table, `POST /voices/:id/preview` stub | | compendium §6, backend map |
@@ -118,7 +118,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 
 ## 6. Create: text and media
 
-| ID | Component | What the user gets | Status | Tag | Plan | Reuse, not rebuild | Done when | Source |
+| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
 | T1 | Brief to draft in the brand voice, with voice-fit and platform scores | A first post in a minute | partial: drafting built (`draftPost`); scores come from the same model call that writes the draft | hackathon | Free | | U4 | architecture §12.1 step 9 |
 | T1a | Measured voice-fit and platform scorers (research 06 metrics, research 03 checklist), and claims shown on the draft before approval | Scores that mean something; sees each claim's evidence | spec | accepted 2026-10-12 | Solo | Eval harness (X12) | Scorer agrees with owner ratings | research 10 §10.5 (b), (c) |
@@ -145,7 +145,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 
 ## 7. Publish and schedule
 
-| ID | Component | What the user gets | Status | Tag | Plan | Reuse, not rebuild | Done when | Source |
+| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
 | P1 | Copy, publish yourself, paste the link back | Works on any network today | built | hackathon | Free | | | Settings, `registerPost` |
 | P2 | X publishing with OAuth (tokens encrypted on the server), cost shown before posting | One click to X | spec | coming soon | Solo, X cost as Add-on | `publishToX` stub; G-SECRETS (AES-GCM) | Daily X spend capped | backend map, G-X-COST |
@@ -159,7 +159,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 
 ## 8. Grow and Inbox
 
-| ID | Component | What the user gets | Status | Tag | Plan | Reuse, not rebuild | Done when | Source |
+| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
 | R1 | Engagement assist: reply queue in the brand voice, one-click approval | Replies without writing them | spec | hackathon | Solo | reply detection by polling (pattern proven in an existing automation) | | compendium §5 |
 | R2 | Who to engage, suggested lists, scheduled posting, opt-in auto-replies | | spec | roadmap | Solo | | | compendium §5 |
@@ -179,7 +179,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 
 ## 9. Analytics and measurement
 
-| ID | Component | What the user gets | Status | Tag | Plan | Reuse, not rebuild | Done when | Source |
+| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
 | N1 | Analytics per platform and per voice | Knows what works | spec | roadmap | Solo | X own-post metrics first | | compendium §5 |
 | N2 | Metric rules: rates over impressions, never raw counts; snapshots appended, never overwritten; drafts and deleted posts kept; first 90 days shown as calibration | Numbers that do not mislead | spec | accepted 2026-10-12 | Solo | | Every displayed metric has unit, denominator and confounders | prior platform design|
@@ -189,7 +189,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 
 ## 10. Ledger, Verify and the registry
 
-| ID | Component | What the user gets | Status | Tag | Plan | Reuse, not rebuild | Done when | Source |
+| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
 | L1 | Registrar-signed SAS attestation of kit versions (hashes and ids only) | Public, checkable brand record; no wallet | partial: the Registrar-signed SAS attestation path is proven on devnet by the registry self-test; registering a real kit v1 has not yet been run live (STATE: 0 kits) | hackathon | Free | `@solana/attestation` 2.1.0 | | G-SAS, issue #4 |
 | L2 | Post registration and reconcile | Each approved post is on the record | built (`registerPost`, `reconcilePost`) | hackathon | Solo | | | #13 |
@@ -208,7 +208,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 
 ## 11. Settings and billing
 
-| ID | Component | What the user gets | Status | Tag | Plan | Reuse, not rebuild | Done when | Source |
+| ID | Component | What the user gets | On main at 9da167b | Tag | Plan | Reuse, not rebuild | Done when | Source |
 |---|---|---|---|---|---|---|---|---|
 | S1 | Settings page: publishing, AI model, proof, plan, account | Sees honestly what is on | built (status rows only) | hackathon | Free | | | `Settings.tsx` |
 | S2 | Bring your own model: OpenRouter sign-in (OAuth PKCE), Anthropic or OpenAI key, stored encrypted | Uses their own account and limits | spec | coming soon | Free and Solo | OpenRouter OAuth PKCE; G-SECRETS; `ai_settings` table | Key never returned to the browser | #37, Q4, `PUT /ai-settings` stub |
@@ -221,7 +221,7 @@ Built today: 6 (origin, purpose, positioning, audience, voice, messaging). Speci
 
 Every module has one interface, its own tests, and no JamJam-specific names inside it.
 
-| ID | Module | What it does | Status | Reuse, not rebuild | Source |
+| ID | Module | What it does | On main at 9da167b | Reuse, not rebuild | Source |
 |---|---|---|---|---|---|
 | X1 | LLM gateway | One call path for every prompt; logs model and tokens, never content | partial (`llm.ts`, `openrouter/auto`) | OpenRouter | `llm.ts`, `clients.ts` |
 | X2 | Model pool with ranking and failover | Free models scored per task on fixtures; `models` array failover; no code change to add or retire | spec | OpenRouter `/models` and `models` fallback; Jev router as an option (restrictable; data handling UNVERIFIED); NVIDIA router not used (experimental, deprecated) | #39; backend map §10 |
