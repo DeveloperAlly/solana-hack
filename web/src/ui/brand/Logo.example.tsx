@@ -1,3 +1,4 @@
+import type { WorkbenchExample } from '../../system/example';
 import { Logo } from './Logo';
 import styles from './Logo.example.module.css';
 
@@ -15,3 +16,11 @@ export function LogoExample() {
     </div>
   );
 }
+
+/** Workbench registration (picked up by /system through import.meta.glob, issue #46). */
+export const example: WorkbenchExample = {
+  id: 'Logo',
+  name: 'JamJam logo',
+  description: 'Wordmark at md, lg and xl, the mark alone, and the logo on an inverse surface.',
+  render: () => <LogoExample />,
+};

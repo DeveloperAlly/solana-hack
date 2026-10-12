@@ -11,8 +11,10 @@ import styles from './Workbench.module.css';
 import { exampleOrder, type WorkbenchExample } from './example';
 
 // Every *.example.tsx under src/ui registers itself here (issue #46): adding a component never edits this file.
-const exampleModules = import.meta.glob<{ example: WorkbenchExample }>('../ui/**/*.example.tsx', { eager: true });
-export const examples: WorkbenchExample[] = Object.values(exampleModules).map((m) => m.example).sort(exampleOrder);
+const exampleModules = import.meta.glob<{ example?: WorkbenchExample }>('../ui/**/*.example.tsx', { eager: true });
+export const examples: WorkbenchExample[] = Object.values(exampleModules)
+  .flatMap((m) => (m.example ? [m.example] : []))
+  .sort(exampleOrder);
 
 function Entry({ id, name, children }: { id: string; name: string; children: ReactNode }) {
   // id + name: some hand-written entries predate the inventory IDs (e.g. C1 Field vs inventory C1 Card).
