@@ -1,4 +1,5 @@
 import { Text } from '../../../ui/primitives';
+import { KeyValueList } from '../../../ui/composites/KeyValueList';
 import { VerifyResultCard } from '../../../ui/domain/VerifyResultCard';
 import { VerifyReceiptLink } from '../../../ui/domain/VerifyReceiptLink';
 import { formatDateTime } from '../format';
@@ -13,8 +14,15 @@ export function VerifyRetractedResult({ post }: { post: ApprovedPost }) {
         Approved {formatDateTime(post.approvedAt)}, retracted {formatDateTime(retraction?.at ?? null)}. Reason: "{retraction?.reason ?? '[reason]'}".
       </Text>
       <Text variant="small" tone="secondary">
-        Both the approval and the retraction are on the public record · <VerifyReceiptLink signature={retraction?.signature ?? null}>transactions</VerifyReceiptLink>
+        Both the approval and the retraction are on the public record.
       </Text>
+      <KeyValueList
+        label="Transactions"
+        items={[
+          { label: 'Approval', value: <VerifyReceiptLink signature={post.signature}>Approval transaction</VerifyReceiptLink> },
+          { label: 'Retraction', value: <VerifyReceiptLink signature={retraction?.signature ?? null}>Retraction transaction</VerifyReceiptLink> },
+        ]}
+      />
     </VerifyResultCard>
   );
 }

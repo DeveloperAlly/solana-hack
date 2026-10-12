@@ -7,7 +7,10 @@ import { expectNoAxeViolations } from '../../test/axe';
 import { screenStates } from '../../ui/composites/DemoStateSwitcher';
 import { screens } from './registry';
 import { verifyPaths } from './paths';
-import { adnaLaunchPost, adnaStandardPost } from './posts.fixtures';
+import { adnaLaunchPost, adnaStandardPost, jamjamRetractedPost } from './posts.fixtures';
+import { renderWithRouter } from '../../test/render';
+import { VerifyMatchResult } from './components/VerifyMatchResult';
+import { VerifyRetractedResult } from './components/VerifyRetractedResult';
 import { verifyEdited, verifyNoMatch } from './verify.fixtures';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
@@ -174,6 +177,23 @@ describe('Ledger: filter, sort, paginate and check', () => {
   it('empty state says nothing is registered', () => {
     at(`${verifyPaths.ledger}?state=empty`);
     expect(screen.getByText('JamJam has nothing registered yet.')).toBeInTheDocument();
+  });
+});
+
+describe('receipts on results (Codex review, PR #68)', () => {
+  it('a match links the approval transaction, or shows [tx] while pending', () => {
+    const { unmount } = renderWithRouter(<VerifyMatchResult post={{ ...adnaLaunchPost, signature: 'ApproveSig' }} />);
+    expect(screen.getByRole('link', { name: /Approval transaction/ })).toHaveAttribute('href', 'https://explorer.solana.com/tx/ApproveSig?cluster=devnet');
+    unmount();
+    renderWithRouter(<VerifyMatchResult post={adnaLaunchPost} />);
+    expect(screen.queryByRole('link', { name: /Approval transaction/ })).toBeNull();
+    expect(screen.getByText('[tx]')).toBeInTheDocument();
+  });
+  it('a retraction links both the approval and the retraction transactions', () => {
+    const post = { ...jamjamRetractedPost, signature: 'ApproveSig', retraction: { at: null, reason: '[reason]', signature: 'RetractSig' } };
+    renderWithRouter(<VerifyRetractedResult post={post} />);
+    expect(screen.getByRole('link', { name: /Approval transaction/ })).toHaveAttribute('href', 'https://explorer.solana.com/tx/ApproveSig?cluster=devnet');
+    expect(screen.getByRole('link', { name: /Retraction transaction/ })).toHaveAttribute('href', 'https://explorer.solana.com/tx/RetractSig?cluster=devnet');
   });
 });
 
