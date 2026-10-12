@@ -10,7 +10,7 @@ tags: [pitch, script, colosseum]
 
 # Pitch script: JamJam
 
-Total: 478 words, about 2:59 at 160 words a minute.
+Total: 479 words, about 3:00 at 160 words a minute.
 
 ## 1. Dot points per slide
 
@@ -46,7 +46,7 @@ Total: 478 words, about 2:59 at 160 words a minute.
 - No blockchain needed to write posts; needed where trust and money move
 - Trust: verified content from you and your ambassadors; verified AI persona
 - Money: USDC tips; rewards for real content, disclosed and approved
-- Agents: pay per call to use your brand; stablecoin plans
+- Monetise your voice: agents pay per call to use your voice and brand; stablecoin plans
 
 **7. Go to market** (1:47–2:06)
 - Launch in crypto, where proof matters most: impersonation +1,400%
@@ -69,9 +69,9 @@ Total: 478 words, about 2:59 at 160 words a minute.
 - Now: your brand kit
 - Next: content you approve unedited
 - Then: publish everywhere; tips and fan rewards
-- Later: agents pay for your brand
+- Later: monetise your voice
 
-**11. Team and ask** (2:45–2:59)
+**11. Team and ask** (2:45–3:00)
 - Founded Lilypad; built the original Waterlily.ai
 - Developer communities at IBM and Filecoin Foundation
 - JamJam: your brand team, in one app
@@ -100,7 +100,7 @@ Why now? AI made content free, so trust is the scarce thing. Americans reported 
 
 **6. Why Solana** · 1:20–1:47 · 72 words
 
-We don't need a blockchain to write your posts. We need one where trust and money move. Prove you own your domain and accounts once. Then your posts, ambassadors' posts and AI persona go on an open record any wallet or exchange can check, so a fake stands out. Fans tip creators in USDC, and brands reward real content, disclosed and approved. And AI agents pay per call to use your brand.
+We don't need a blockchain to write your posts. We need one where trust and money move. Prove you own your domain and accounts once. Then your posts, ambassadors' posts and AI persona go on an open record any wallet or exchange can check, so a fake stands out. Fans tip creators in USDC, and brands reward real content, disclosed and approved. And you get paid when AI agents use your voice.
 
 **7. Go to market** · 1:47–2:06 · 50 words
 
@@ -114,10 +114,10 @@ We checked fifty-nine products. The best do two of the four steps, so founders s
 
 Building your brand kit is free. Solo is thirty-nine dollars a month, Team is a hundred and ninety-nine, and we take three percent on tips and rewards. Verified posts carry a check-it badge back to JamJam, so every audience becomes our pipeline.
 
-**10. Roadmap** · 2:35–2:45 · 26 words
+**10. Roadmap** · 2:35–2:45 · 27 words
 
-The road: your brand kit, then content you approve without editing, then publishing everywhere, tips and fan rewards, and finally agents paying to use your brand.
+The road: your brand kit, then content you approve without editing, then publishing everywhere, tips and fan rewards, and finally getting paid when agents use your voice.
 
-**11. Team and ask** · 2:45–2:59 · 39 words
+**11. Team and ask** · 2:45–3:00 · 39 words
 
 I founded Lilypad, a decentralised AI compute network, and in 2023 I built the original Waterlily, AI art that paid its artists. I've built developer communities at IBM and the Filecoin Foundation. JamJam: your brand team, in one app.
