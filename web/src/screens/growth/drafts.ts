@@ -17,7 +17,7 @@ export const sampleApprover = '[approver]';
 export function lengthLabel(platformId: string, text: string): string {
   const p = findPlatform(platformId);
   const n = p ? postLength(p, text) : [...text].length;
-  return p?.limit ? `${n} of ${p.limit.max} characters` : `${n} characters`;
+  return p?.charLimit ? `${n} of ${p.charLimit.value} characters` : `${n} characters`;
 }
 
 export interface DraftSeed {

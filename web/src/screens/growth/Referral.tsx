@@ -1,5 +1,5 @@
 /*
- * Data contract: Referral (pending canvas board "Referral", page Growth; issue #82, sub-task "Refer a friend").
+ * Data contract: Referral (canvas board "Referral", v22; issue #82, sub-task "Refer a friend").
  * Backend map: no row yet. Referrals are not in the backend map or web/worker (no referrals table or endpoint), so
  * every source below is "not built yet". Shape: ReferralData in ./types.ts.
  *
@@ -18,7 +18,7 @@ import { Stack } from '../../ui/primitives';
 import { Columns } from '../../ui/layouts/Columns';
 import { StateView } from '../../ui/composites/StateView';
 import { ScreenLink } from '../../gallery/ScreenLink';
-import { LoopFrame } from './components/LoopFrame';
+import { GrowthFrame } from './components/GrowthFrame';
 import { GrowthOfferCard } from './components/GrowthOfferCard';
 import { GrowthReferralList } from './components/GrowthReferralList';
 import { GrowthReferralShare } from './components/GrowthReferralShare';
@@ -30,7 +30,7 @@ export function Referral({ data, state = 'success' }: ScreenProps<ReferralData>)
   const flow = useReferral(data);
   const preview = <ScreenLink artboard={growthArtboards.referralLanding}>See what your friend sees</ScreenLink>;
   return (
-    <LoopFrame
+    <GrowthFrame
       artboard="Referral"
       title="Refer a friend"
       tag="COMING SOON"
@@ -49,6 +49,6 @@ export function Referral({ data, state = 'success' }: ScreenProps<ReferralData>)
           </Stack>
         </Columns>
       </StateView>
-    </LoopFrame>
+    </GrowthFrame>
   );
 }

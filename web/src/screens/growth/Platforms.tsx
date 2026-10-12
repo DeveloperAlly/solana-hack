@@ -1,5 +1,5 @@
 /*
- * Data contract: Platforms (pending canvas board "Platforms", page Growth; issue #82, sub-task "Platforms page").
+ * Data contract: Platforms (canvas board "Platforms", v22; issue #82, sub-task "Platforms page").
  * Replaces the X/LinkedIn-only list in Settings-Connections. Backend map: .agentic/what/context/backend_map.md §4,
  * row "Settings › Connections" (connections table; X and LinkedIn OAuth), and §9 (external API facts). Shapes:
  * PlatformsData in ./types.ts; Platform in config/platforms.ts (M2 channel registry).
@@ -18,7 +18,7 @@
 import { Alert, Button } from '../../ui/primitives';
 import { StateView } from '../../ui/composites/StateView';
 import { EmptyState } from '../../ui/composites/EmptyState';
-import { LoopFrame } from './components/LoopFrame';
+import { GrowthFrame } from './components/GrowthFrame';
 import { GrowthPlatformControls } from './components/GrowthPlatformControls';
 import { GrowthPlatformGroup } from './components/GrowthPlatformGroup';
 import { usePlatformCatalog } from './usePlatformCatalog';
@@ -38,7 +38,7 @@ export function Platforms({ data, state = 'success' }: ScreenProps<PlatformsData
   const copy = flow.filter === 'live' ? noMatchCopy.live : noMatchCopy.search;
   const noMatch = <EmptyState title={copy.title} body={copy.body} actions={<Button variant="secondary" onClick={clear}>Show all platforms</Button>} />;
   return (
-    <LoopFrame
+    <GrowthFrame
       artboard="Platforms"
       title="Platforms"
       tag="COMING SOON"
@@ -55,6 +55,6 @@ export function Platforms({ data, state = 'success' }: ScreenProps<PlatformsData
       >
         {flow.groups.map((g) => <GrowthPlatformGroup key={g.kind} label={g.label} platforms={g.platforms} connections={flow.connections} />)}
       </StateView>
-    </LoopFrame>
+    </GrowthFrame>
   );
 }

@@ -11,11 +11,11 @@ export const quests: QuestsData = {
   ],
   submissions: [
     {
-      id: 'q-quest-answers-1', kind: 'ambassadorPost', questId: 'qst-answers', chip: 'Quest · Community answers', text: '[Creator name] answered 5 setup questions in the community',
+      id: 'q-quest-answers-1', kind: 'questSubmission', questId: 'qst-answers', chip: 'Quest · Community answers', text: '[Creator name] answered 5 setup questions in the community',
       meta: '10 USDC to their wallet on approval · disclosure present', payout: { amount: 10, unit: 'USDC' }, verified: true, disclosure: 'present', open: { label: 'Review', artboard: 'Quests' },
     },
     {
-      id: 'q-quest-answers-2', kind: 'ambassadorPost', questId: 'qst-answers', chip: 'Quest · Community answers', text: '[Creator name] answered 5 setup questions in the community',
+      id: 'q-quest-answers-2', kind: 'questSubmission', questId: 'qst-answers', chip: 'Quest · Community answers', text: '[Creator name] answered 5 setup questions in the community',
       meta: '10 USDC to their wallet on approval · disclosure missing', payout: { amount: 10, unit: 'USDC' }, verified: true, disclosure: 'missing', open: { label: 'Review', artboard: 'Quests' },
     },
   ],

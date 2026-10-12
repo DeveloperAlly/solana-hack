@@ -25,6 +25,16 @@ export interface QueueRow {
   act?: () => void;
 }
 
+/**
+ * The one "needs you" selector, read by Today and M-Today so their counts and lists agree: every undecided item
+ * (no outcome yet) needs you; of those, the one-tap ones have an action that no check blocks (the phone slots);
+ * decided items move to Done. A stale approval has no outcome, so it needs you again.
+ */
+export function selectQueue(rows: QueueRow[]) {
+  const needsYou = rows.filter((r) => !r.outcome);
+  return { needsYou, oneTap: needsYou.filter((r) => r.act && !r.gate.blocking), done: rows.filter((r) => r.outcome) };
+}
+
 /** Where a decided item stands, from the shared loop state, so a decision made on another screen shows here too. */
 function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | 'status'> {
   if (item.kind === 'learnedRule') {
@@ -57,11 +67,12 @@ function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | '
 export function useToday(data: TodayData) {
   const loop = useLoop(data);
   const [filter, setFilter] = useState<QueueFilter>('all');
-  const ctx = { brainVersion: loop.brain.version, proposal: loop.proposal };
+  const ctx = { brainVersion: loop.brain.version, proposal: loop.proposal, quest: loop.quest };
   const acts: Partial<Record<QueueKind, (item: QueueItem) => void>> = {
     draft: (i) => loop.approveItem(i.id, i.text),
     reply: (i) => loop.finish(i.id, primaryActions.reply?.done ?? ''),
-    ambassadorPost: (i) => i.kind === 'ambassadorPost' && loop.finish(i.id, `Approved. The ${i.payout.amount} ${i.payout.unit} payout is queued.`),
+    ambassadorPost: (i) => i.kind === 'ambassadorPost' && loop.paySubmission(i.id, gateFor(i, ctx), undefined, i.payout),
+    questSubmission: (i) => i.kind === 'questSubmission' && loop.paySubmission(i.id, gateFor(i, ctx), i.questId, i.payout),
     learnedRule: (i) => {
       const p = i.kind === 'learnedRule' && loop.proposal(i.proposalId);
       if (p) loop.approveProposal(p);
@@ -72,8 +83,8 @@ export function useToday(data: TodayData) {
     const meta = item.kind === 'learnedRule' ? `${item.meta} · becomes Brain v${nextBrainVersion(loop.brain.version)} if you approve` : item.meta;
     return { item: { ...item, meta }, gate: gateFor(item, ctx), ...standing(item, loop), act: act && (() => act(item)) };
   });
-  const pending = rows.filter((r) => !r.outcome);
-  const shown = rows.filter((r) => filter === 'all' || r.item.kind === filter);
+  const { needsYou, oneTap, done } = selectQueue(rows);
+  const shown = needsYou.filter((r) => filter === 'all' || r.item.kind === filter);
 
   const brand = loop.brain;
   const detail = (s: TodayData['loop'][number]) => (s.stage === 'brand' ? `Kit v${brand.kit.version} · ${brand.voices.length} voices · ${rulesWith(brand, 'active').length} active rules` : s.detail);
@@ -84,5 +95,5 @@ export function useToday(data: TodayData) {
     href: s.link,
   }));
 
-  return { loop, rows, shown, pending, filter, setFilter: (v: string) => setFilter(v as QueueFilter), steps, progress: loopProgressLabel(data.loop.map((s) => s.state)) };
+  return { loop, needsYou, oneTap, done, shown, filter, setFilter: (v: string) => setFilter(v as QueueFilter), steps, progress: loopProgressLabel(data.loop.map((s) => s.state)) };
 }

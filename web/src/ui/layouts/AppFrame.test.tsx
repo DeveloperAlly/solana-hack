@@ -54,6 +54,16 @@ describe('L11 AppFrame', () => {
     expect(regions[0]).toHaveClass('bottom');
   });
 
+  it('puts the sticky footer in a footer landmark (axe region; PR #78)', async () => {
+    const { container } = renderWithRouter(<AppFrame homeHref="/" width="phone" footer={<p>Publish is locked until the flags are fixed.</p>}><p>Body</p></AppFrame>);
+    expect(within(screen.getByRole('contentinfo')).getByText(/Publish is locked/)).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+  it('keeps the pinned row inside the banner landmark (axe region; PR #78)', async () => {
+    const { container } = renderWithRouter(<AppFrame homeHref="/" width="phone" pinned={<p>On-brand 74%</p>}><p>Body</p></AppFrame>);
+    expect(within(screen.getByRole('banner')).getByText('On-brand 74%')).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
   it('replaces the logo with a back link', () => {
     renderWithRouter(<AppFrame homeHref="/" back={{ href: '/list', label: 'Back' }} title="Detail">x</AppFrame>);
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/list');

@@ -61,6 +61,22 @@ describe('Today', () => {
   });
 });
 
+describe('Today: quest submissions pay through domain/quest.ts', () => {
+  const quest = { id: 'quest-tut', task: '[Quest task]', format: 'tutorial' as const, rewardUsdc: 50, slots: 2, paid: 1, due: null, opens: null, submissionIds: ['q-sub-1', 'q-sub-2'] };
+  const sub = (id: string, who: string) => ({ id, kind: 'questSubmission' as const, chip: 'Quest submission', text: `${who}'s tutorial is verified against your kit`, meta: '50 USDC on approval', questId: 'quest-tut', payout: { amount: 50, unit: 'USDC' as const }, verified: true, disclosure: 'present' as const, open: { label: 'Review', artboard: 'Quests' as const } });
+  const data = { ...today, quests: [quest], queue: [sub('q-sub-1', '[Creator A]'), sub('q-sub-2', '[Creator B]')] };
+
+  it('Approve is blocked once the quest slots are full, and the badge says why', async () => {
+    renderWithRouter(<Today data={data} />);
+    await userEvent.click(within(queueRow(/\[Creator A\]/)).getByRole('button', { name: 'Approve and pay' }));
+    expect(within(queueRow(/\[Creator A\]/)).getByText('Approved. The 50 USDC payout is queued.')).toBeInTheDocument();
+    const second = queueRow(/\[Creator B\]/);
+    expect(within(second).getByRole('button', { name: 'Approve and pay' })).toBeDisabled();
+    expect(within(second).getByText(/Blocked: All 2 slots are paid; the budget is reached/)).toBeInTheDocument();
+    expect(loopStore.read().questPaid['quest-tut']).toBe(2);
+  });
+});
+
 describe('M-Today', () => {
   it('shows one-tap decisions only, a more link, and the mobile tab bar', () => {
     renderWithRouter(<MToday data={today} />);
@@ -72,6 +88,18 @@ describe('M-Today', () => {
     const bar = screen.getByRole('navigation', { name: 'Main' });
     expect(within(bar).getAllByRole('link').map((a) => a.textContent)).toEqual(['Today', 'Create', 'Verify', 'Grow', 'More']);
     expect(screen.queryByRole('navigation', { name: 'Brand' })).toBeNull();
+  });
+
+  it('a decided item leaves the three slots for the next one-tap item and moves to Done; counts agree', async () => {
+    renderWithRouter(<MToday data={today} />);
+    const slots = () => within(screen.getByRole('list', { name: 'Needs you' })).getAllByRole('listitem');
+    expect(slots().some((li) => /Open X threads/.test(li.textContent ?? ''))).toBe(false);
+    await userEvent.click(within(slots()[0]).getByRole('button', { name: 'Approve' }));
+    expect(slots()).toHaveLength(3);
+    expect(slots().some((li) => /Open X threads/.test(li.textContent ?? ''))).toBe(true);
+    expect(within(screen.getByRole('list', { name: 'Done' })).getByText(/Your agent didn't forget/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: '6 decisions' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '3 more' })).toBeInTheDocument();
   });
 });
 

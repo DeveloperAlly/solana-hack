@@ -34,7 +34,7 @@ export function AdaptVersionList({ flow, slots }: { flow: AdaptFlow; slots: stri
           onApprove={() => flow.approveVersion(v.platform.id)}
         >
           <Select label={`When on ${v.platform.name}`} options={slots} value={v.slot} onValueChange={(s) => flow.setSlot(v.platform.id, s)} error={v.conflict ? `Taken by ${v.conflict}. Pick another time.` : undefined} />
-          {v.platform.limit && <Text variant="caption" tone="secondary">Limit: {v.platform.limit.source.label}</Text>}
+          {v.platform.charLimit && <Text variant="caption" tone="secondary">Limit: {v.platform.charLimit.source.label}</Text>}
         </DistributeVersionCard>
       ))}
     </Grid>

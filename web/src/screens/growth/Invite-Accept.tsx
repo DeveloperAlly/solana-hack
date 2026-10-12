@@ -1,5 +1,5 @@
 /*
- * Data contract: Invite-Accept (pending canvas board "Invite-Accept", page Growth; issue #82, sub-task "Invite a
+ * Data contract: Invite-Accept (canvas board "Invite-Accept", v22; issue #82, sub-task "Invite a
  * teammate or partner": "plus the accept-invite screen"). Backend map §3 (memberships) and §4 Roadmap, "Partners".
  * Sign-in is Supabase email code, no wallet (ADR-006). Shape: InviteAcceptData in ./types.ts.
  *

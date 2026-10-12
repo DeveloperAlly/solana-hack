@@ -21,7 +21,7 @@ import { StatTile } from '../../ui/composites/StatTile';
 import { StateView } from '../../ui/composites/StateView';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { PageHeader } from '../../ui/layouts/PageHeader';
-import { LoopPage } from './LoopPage';
+import { LoopFrame } from '../../ui/shells/LoopFrame';
 import { useLoopLinks } from './paths';
 import type { RegisteredRow, VerifyHomeData } from './types';
 
@@ -37,7 +37,7 @@ export function VerifyHome({ data, state = 'success' }: { data: VerifyHomeData; 
   const [kind, setKind] = useState('all');
   const rows = data.registered.filter((r) => kind === 'all' || r.kind === kind);
   return (
-    <LoopPage tag="COMING SOON" stage="verify" tab="proof" brandName={data.brandName}>
+    <LoopFrame artboard="Verify-Home" tag="COMING SOON" brandName={data.brandName}>
       <PageHeader
         title="Your proof"
         intro={`What ${data.brandName} has registered on Solana, and who has checked it.`}
@@ -72,6 +72,6 @@ export function VerifyHome({ data, state = 'success' }: { data: VerifyHomeData; 
           </List>
         </Card>
       </StateView>
-    </LoopPage>
+    </LoopFrame>
   );
 }

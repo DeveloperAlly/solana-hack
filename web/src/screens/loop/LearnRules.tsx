@@ -25,7 +25,7 @@ import { RuleProposal } from '../../ui/domain/RuleProposal';
 import { nextBrainVersion } from '../../domain/brain';
 import { proposalGate } from '../../domain/proposal';
 import { useLoop } from '../../flows/loop/useLoop';
-import { LoopPage } from './LoopPage';
+import { LoopFrame } from '../../ui/shells/LoopFrame';
 import { DecidedProposals } from './DecidedProposals';
 import { useLoopLinks } from './paths';
 import type { LearnRulesData } from './types';
@@ -37,7 +37,7 @@ export function LearnRules({ data, state = 'success' }: { data: LearnRulesData; 
   const version = loop.brain.version;
   const collecting = data.collecting.days < data.collecting.needed;
   return (
-    <LoopPage tag="COMING SOON" stage="learn" tab="rules" brandName={data.brain.brandName}>
+    <LoopFrame artboard="Learn-Rules" tag="COMING SOON" brandName={data.brain.brandName}>
       <PageHeader
         title="Suggested rules"
         intro="What your results say, as changes to the Brain. Nothing changes until you approve it, and every rule can be retired. Rules live in the Brain; the registered kit never changes because of one."
@@ -69,6 +69,6 @@ export function LearnRules({ data, state = 'success' }: { data: LearnRulesData; 
           <DecidedProposals proposals={loop.proposals.filter((p) => p.status === 'approved' || p.status === 'rejected')} />
         </Stack>
       </StateView>
-    </LoopPage>
+    </LoopFrame>
   );
 }

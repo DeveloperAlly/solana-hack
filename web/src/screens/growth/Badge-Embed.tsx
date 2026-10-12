@@ -1,5 +1,5 @@
 /*
- * Data contract: Badge-Embed (pending canvas board "Badge-Embed", page Growth; issue #82, sub-task "Check-it badge":
+ * Data contract: Badge-Embed (canvas board "Badge-Embed", v22; issue #82, sub-task "Check-it badge":
  * "a badge and embed screen to copy from"). Backend map §4, row "Verify-1, Verify-2, Verify-3" (registrations: only a
  * registered post can carry the badge). The badge image route is not built yet. Shape: BadgeEmbedData in ./types.ts.
  *
@@ -16,7 +16,7 @@
 import { Button } from '../../ui/primitives';
 import { Columns } from '../../ui/layouts/Columns';
 import { StateView } from '../../ui/composites/StateView';
-import { LoopFrame } from './components/LoopFrame';
+import { GrowthFrame } from './components/GrowthFrame';
 import { GrowthBadgeOptions } from './components/GrowthBadgeOptions';
 import { GrowthBadgePreview } from './components/GrowthBadgePreview';
 import { useBadgeEmbed } from './useBadge';
@@ -25,7 +25,7 @@ import type { BadgeEmbedData, ScreenProps } from './types';
 export function BadgeEmbed({ data, state = 'success' }: ScreenProps<BadgeEmbedData>) {
   const flow = useBadgeEmbed(data);
   return (
-    <LoopFrame
+    <GrowthFrame
       artboard="Badge-Embed"
       title="Check-it badge"
       tag="COMING SOON"
@@ -42,6 +42,6 @@ export function BadgeEmbed({ data, state = 'success' }: ScreenProps<BadgeEmbedDa
           <GrowthBadgeOptions posts={data.posts} flow={flow} />
         </Columns>
       </StateView>
-    </LoopFrame>
+    </GrowthFrame>
   );
 }

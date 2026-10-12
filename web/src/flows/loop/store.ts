@@ -32,9 +32,11 @@ export interface LoopState {
   approvals: Record<string, Approval>;
   /** Irreversible outcomes (sent, paid, rule approved), by item id. */
   outcomes: Record<string, string>;
+  /** Paid slots per quest after this session's approvals. */
+  questPaid: Record<string, number>;
 }
 
-const initial: LoopState = { rules: {}, history: [], proposals: {}, approvals: {}, outcomes: {} };
+const initial: LoopState = { rules: {}, history: [], proposals: {}, approvals: {}, outcomes: {}, questPaid: {} };
 
 export const loopStore = createStore<LoopState>(initial);
 

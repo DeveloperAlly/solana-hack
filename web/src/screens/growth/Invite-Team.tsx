@@ -1,5 +1,5 @@
 /*
- * Data contract: Invite-Team (pending canvas board "Invite-Team", page Growth; issue #82, sub-task "Invite a teammate
+ * Data contract: Invite-Team (canvas board "Invite-Team", v22; issue #82, sub-task "Invite a teammate
  * or partner": "an invite flow with seats and roles"; turns J8's "Invite a teammate" into a real flow). Backend map
  * §3 (memberships: seats and roles) and §4 Roadmap, "Partners" (invites become memberships; email needs SMTP).
  * Shape: TeamData in ./types.ts.
@@ -19,7 +19,7 @@ import { Card } from '../../ui/composites/Card';
 import { Columns } from '../../ui/layouts/Columns';
 import { StateView } from '../../ui/composites/StateView';
 import { ScreenLink } from '../../gallery/ScreenLink';
-import { LoopFrame } from './components/LoopFrame';
+import { GrowthFrame } from './components/GrowthFrame';
 import { GrowthInviteForm } from './components/GrowthInviteForm';
 import { GrowthSeatSummary } from './components/GrowthSeatSummary';
 import { GrowthTeamList } from './components/GrowthTeamList';
@@ -30,7 +30,7 @@ import type { ScreenProps, TeamData } from './types';
 export function InviteTeam({ data, state = 'success' }: ScreenProps<TeamData>) {
   const flow = useTeam(data);
   return (
-    <LoopFrame
+    <GrowthFrame
       artboard="Invite-Team"
       title="Invite a teammate or partner"
       tag="COMING SOON"
@@ -50,6 +50,6 @@ export function InviteTeam({ data, state = 'success' }: ScreenProps<TeamData>) {
           </Card>
         </Columns>
       </StateView>
-    </LoopFrame>
+    </GrowthFrame>
   );
 }

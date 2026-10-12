@@ -16,10 +16,10 @@ export type ClaimsResult = number | 'pending';
  */
 export function versionCheck(platform: Platform, text: string, claims: ClaimsResult): Gate {
   if (!text.trim()) return block('the version is empty');
-  const limit = platform.limit;
+  const limit = platform.charLimit;
   if (limit) {
-    const over = postLength(platform, text) - limit.max;
-    if (over > 0) return block(`${over} over ${platform.name}’s ${limit.max} limit`);
+    const over = postLength(platform, text) - limit.value;
+    if (over > 0) return block(`${over} over ${platform.name}’s ${limit.value} limit`);
   }
   if (claims === 'pending') return block('re-checking claims');
   if (claims > 0) return block(`${claims} ${claims === 1 ? 'claim has' : 'claims have'} no source`);

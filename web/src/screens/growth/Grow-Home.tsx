@@ -17,7 +17,7 @@ import { Button, Grid } from '../../ui/primitives';
 import { StatTile } from '../../ui/composites/StatTile';
 import { StateView } from '../../ui/composites/StateView';
 import { GrowAreaCard } from '../../ui/domain/GrowAreaCard';
-import { LoopFrame } from './components/LoopFrame';
+import { GrowthFrame } from './components/GrowthFrame';
 import { useGrowthLinks } from './paths';
 import { useGrowHome } from './useGrowHome';
 import type { GrowHomeData, ScreenProps } from './types';
@@ -27,7 +27,7 @@ export function GrowHome({ data, state = 'success' }: ScreenProps<GrowHomeData>)
   const links = useGrowthLinks();
   const firstRun = state === 'empty';
   return (
-    <LoopFrame artboard="Grow-Home" title="Grow your reach" tag="COMING SOON"
+    <GrowthFrame artboard="Grow-Home" title="Grow your reach" tag="COMING SOON"
       intro={`People who post for ${data.brand}, the moments that matter, and the campaigns that tie them together. All of it from your kit, all of it verified.`}
       meta="Drawn, not built. Defined in: canvas v21 Grow-Home; ADR-012. Referral offer from pitch deck v2."
       actions={<Button href={links.to('Campaign-v2-1-Goal')}>New campaign</Button>}>
@@ -45,6 +45,6 @@ export function GrowHome({ data, state = 'success' }: ScreenProps<GrowHomeData>)
           ))}
         </Grid>
       </StateView>
-    </LoopFrame>
+    </GrowthFrame>
   );
 }

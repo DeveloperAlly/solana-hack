@@ -163,6 +163,19 @@ describe('Fan tips', () => {
     expect(within(table).getByText('[your wallet]')).toBeInTheDocument();
   });
 
+  it('reopening the sheet after a sent tip starts a new tip (Codex review on PR #89)', async () => {
+    const user = at(screenPath('Tip-Sheet'));
+    await user.type(screen.getByLabelText('Amount (USDC)'), '10');
+    await user.click(screen.getByRole('button', { name: 'Review tip' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm and send' }));
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Tip aDNA in USDC' }));
+    const sheet = screen.getByRole('dialog', { name: 'Tip aDNA' });
+    expect(within(sheet).getByLabelText('Amount (USDC)')).toHaveValue('');
+    expect(within(sheet).getByRole('button', { name: 'Review tip' })).toBeDisabled();
+  });
+
   it('rejects a bad amount and closes and reopens the sheet', async () => {
     const user = at(screenPath('Tip-Sheet'));
     await user.type(screen.getByLabelText('Amount (USDC)'), '1.234');

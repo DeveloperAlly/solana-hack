@@ -22,7 +22,7 @@ import { EventSourceCard } from '../../ui/domain/EventSourceCard';
 import { GrowAreaCard } from '../../ui/domain/GrowAreaCard';
 import { eventRoles, isEventRole } from '../../domain/event';
 import { eventSourceStatus, findEventSource } from '../../config/eventSources';
-import { LoopFrame } from './components/LoopFrame';
+import { GrowthFrame } from './components/GrowthFrame';
 import { EventsControls } from './components/EventsControls';
 import { EventsPending } from './components/EventsPending';
 import { EventsTable } from './components/EventsTable';
@@ -42,7 +42,7 @@ export function Events({ data, state = 'success' }: ScreenProps<EventsData>) {
   const loaded = dataLoaded(state, true);
   const add = <Button onClick={() => flow.setAdding(true)} disabled={flow.adding}>Add an event</Button>;
   return (
-    <LoopFrame artboard="Events" title="Events" tag="COMING SOON" actions={loaded && <>{connect}{add}</>}
+    <GrowthFrame artboard="Events" title="Events" tag="COMING SOON" actions={loaded && <>{connect}{add}</>}
       intro="Every event aDNA hosts, speaks at, sponsors or attends, with the content that makes it count."
       meta="Drawn, not built. Defined in: canvas v21 Events; event sources in config/eventSources.ts.">
       {state === 'error' && <Alert tone="danger" title="Luma is disconnected">New Luma events can’t arrive until you reconnect. Events already here stay. {connect}</Alert>}
@@ -66,6 +66,6 @@ export function Events({ data, state = 'success' }: ScreenProps<EventsData>) {
           summary={data.lumaCalendar ? `${data.events.filter((e) => e.source.kind === 'luma').length} events synced from ${data.lumaCalendar} · new events arrive here to accept or skip.` : 'Not connected. Connect a calendar and its events arrive here to accept or skip.'} />
         <GrowAreaCard title="Past events, rated" body="After an event, rate it on the public events board, and see how others rated the ones you’re considering." links={[{ label: 'Events board', href: links.to(growthArtboards.eventsBoard) }]} />
       </Grid>
-    </LoopFrame>
+    </GrowthFrame>
   );
 }

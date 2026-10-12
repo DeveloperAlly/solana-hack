@@ -24,7 +24,7 @@ import { DistributeSourcePost } from '../../ui/domain/DistributeSourcePost';
 import { DistributePlatformPicker } from '../../ui/domain/DistributePlatformPicker';
 import { findPlatform, statusLabel } from '../../config/platforms';
 import { dataLoaded, listState } from './listState';
-import { LoopFrame } from './components/LoopFrame';
+import { GrowthFrame } from './components/GrowthFrame';
 import { AdaptVersionList } from './components/AdaptVersionList';
 import { growthArtboards, useGrowthLinks } from './paths';
 import { useAdapt, type VersionApproval } from './useAdapt';
@@ -43,7 +43,7 @@ export function DistributeAdapt({ data, state = 'success' }: ScreenProps<AdaptDa
   // The publish-failed error keeps the post and its versions in hand; while loading nothing is actionable.
   const loaded = dataLoaded(state, true);
   return (
-    <LoopFrame
+    <GrowthFrame
       artboard="Distribute-Adapt"
       title="Adapt and schedule"
       tag="COMING SOON"
@@ -76,6 +76,6 @@ export function DistributeAdapt({ data, state = 'success' }: ScreenProps<AdaptDa
       >
         <AdaptVersionList flow={flow} slots={data.slots} />
       </StateView>
-    </LoopFrame>
+    </GrowthFrame>
   );
 }

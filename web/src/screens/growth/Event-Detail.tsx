@@ -23,7 +23,7 @@ import { EventPeopleCard } from '../../ui/domain/EventPeopleCard';
 import { EventResultsCard } from '../../ui/domain/EventResultsCard';
 import { GrowAreaCard } from '../../ui/domain/GrowAreaCard';
 import { roleLabel } from '../../domain/event';
-import { LoopFrame } from './components/LoopFrame';
+import { GrowthFrame } from './components/GrowthFrame';
 import { EventKpis } from './components/EventKpis';
 import { EventPlan } from './components/EventPlan';
 import { eventDay, eventTime } from './eventPlan';
@@ -54,7 +54,7 @@ export function EventDetail({ data, state = 'success' }: ScreenProps<EventDetail
     </Stack>
   );
   return (
-    <LoopFrame artboard="Event-Detail" under="Events" title={e.name} tag="COMING SOON"
+    <GrowthFrame artboard="Event-Detail" under="Events" title={e.name} tag="COMING SOON"
       intro={`${eventDay(e.startsAt)} · ${eventTime(e.startsAt)} · ${e.place} · ${e.source.kind === 'luma' ? 'from Luma' : 'added by hand'} · ${role}`}
       meta="Drawn, not built. Every post goes through the same checks and approval as any draft. Defined in: canvas v21 Event-Detail."
       back={{ href: links.to(growthArtboards.events), label: 'All events' }} actions={review}>
@@ -67,6 +67,6 @@ export function EventDetail({ data, state = 'success' }: ScreenProps<EventDetail
           <EventPlan phases={flow.phases} onDraft={flow.draftItem} />
         </StateView>
       </Columns>
-    </LoopFrame>
+    </GrowthFrame>
   );
 }

@@ -18,6 +18,8 @@ export interface NavTarget {
 export interface StageTab extends NavTarget {
   id: string;
   label: string;
+  /** Other boards that show this tab as current (the canvas subnav marks it on them): steps and details of the tab. */
+  also?: readonly ArtboardName[];
 }
 
 export type LoopStageId = 'brand' | 'create' | 'distribute' | 'verify' | 'grow' | 'learn';
@@ -43,9 +45,9 @@ export const stages: readonly Stage[] = [
   {
     id: 'brand', label: 'Brand', kind: 'loop', step: 1, summary: 'Build your brand and voice', artboard: 'Brand-Build', live: '/brand',
     tabs: [
-      { id: 'kit', label: 'Kit', artboard: 'Brand-Build', live: '/brand' },
+      { id: 'kit', label: 'Kit', artboard: 'Brand-Build', live: '/brand', also: ['Kit-Export'] },
       { id: 'brain', label: 'The Brain', artboard: 'Brain' },
-      { id: 'voices', label: 'Voices', artboard: 'Voice-Templates' },
+      { id: 'voices', label: 'Voices', artboard: 'Voice-Templates', also: ['Voice-Editor'] },
       { id: 'claims', label: 'Claims', artboard: 'Claims' },
       { id: 'founder', label: 'Founder', artboard: 'Founder-Profile' },
     ],
@@ -53,15 +55,15 @@ export const stages: readonly Stage[] = [
   {
     id: 'create', label: 'Create', kind: 'loop', step: 2, summary: 'Content in your voice, every claim backed', artboard: 'Content-Dashboard', live: '/create',
     tabs: [
-      { id: 'drafts', label: 'Drafts', artboard: 'Content-Dashboard', live: '/create' },
+      { id: 'drafts', label: 'Drafts', artboard: 'Content-Dashboard', live: '/create', also: ['Content-Dashboard-Empty', 'Draft-Review', 'Draft-Review-Beautified', 'Draft-Review-PolishError'] },
       { id: 'post', label: 'Post', artboard: 'Post-Detail' },
-      { id: 'media', label: 'Media', artboard: 'Media-Composer' },
+      { id: 'media', label: 'Media', artboard: 'Media-Composer', also: ['Media-Review'] },
     ],
   },
   {
     id: 'distribute', label: 'Distribute', kind: 'loop', step: 3, summary: 'Write once, it goes everywhere', artboard: 'Platforms',
     tabs: [
-      { id: 'platforms', label: 'Platforms', artboard: 'Platforms' },
+      { id: 'platforms', label: 'Platforms', artboard: 'Platforms', also: ['Platform-Detail'] },
       { id: 'adapt', label: 'Adapt and schedule', artboard: 'Distribute-Adapt' },
       { id: 'calendar', label: 'Calendar', artboard: 'Publish-Calendar' },
       { id: 'connections', label: 'Connections', artboard: 'Settings-Connections' },
@@ -80,13 +82,13 @@ export const stages: readonly Stage[] = [
     id: 'grow', label: 'Grow', kind: 'loop', step: 5, summary: 'Ambassadors, events, campaigns', artboard: 'Grow-Home', live: '/grow',
     tabs: [
       { id: 'overview', label: 'Overview', artboard: 'Grow-Home', live: '/grow' },
-      { id: 'ambassadors', label: 'Ambassadors', artboard: 'Dashboard' },
-      { id: 'campaigns', label: 'Campaigns', artboard: 'Campaign-v2-1-Goal' },
-      { id: 'events', label: 'Events', artboard: 'Events' },
-      { id: 'engage', label: 'Engage', artboard: 'Engage-Queue' },
+      { id: 'ambassadors', label: 'Ambassadors', artboard: 'Dashboard', also: ['Dashboard-Empty', 'Quests'] },
+      { id: 'campaigns', label: 'Campaigns', artboard: 'Campaign-v2-1-Goal', also: ['Campaign-v2-2-Measure', 'Campaign-v2-3-Audience', 'Campaign-v2-4-Plan', 'Campaign-v2-5-Budget', 'Campaign-v2-6-Launch'] },
+      { id: 'events', label: 'Events', artboard: 'Events', also: ['Event-Detail'] },
+      { id: 'engage', label: 'Engage', artboard: 'Engage-Queue', also: ['Engage-Rules'] },
       { id: 'partners', label: 'Partners', artboard: 'Partners' },
       { id: 'leads', label: 'Leads', artboard: 'Leads' },
-      { id: 'influencers', label: 'Influencers', artboard: 'Influencer-Setup' },
+      { id: 'influencers', label: 'Influencers', artboard: 'Influencer-Setup', also: ['Influencer-Queue'] },
       { id: 'referrals', label: 'Referrals', artboard: 'Referral' },
       { id: 'team', label: 'Team', artboard: 'Invite-Team' },
     ],
@@ -94,7 +96,7 @@ export const stages: readonly Stage[] = [
   {
     id: 'learn', label: 'Learn', kind: 'loop', step: 6, summary: 'Learn from what works', artboard: 'Analytics', live: '/analytics',
     tabs: [
-      { id: 'results', label: 'Results', artboard: 'Analytics', live: '/analytics' },
+      { id: 'results', label: 'Results', artboard: 'Analytics', live: '/analytics', also: ['Analytics-Empty'] },
       { id: 'rules', label: 'Suggested rules', artboard: 'Learn-Rules' },
       { id: 'outcomes', label: 'Outcomes', artboard: 'Outcome-Log' },
     ],
@@ -110,9 +112,9 @@ export const stages: readonly Stage[] = [
   {
     id: 'settings', label: 'Settings', kind: 'utility', summary: 'AI model, connections, plan and team', artboard: 'Settings-AI', live: '/settings',
     tabs: [
-      { id: 'ai', label: 'AI model', artboard: 'Settings-AI', live: '/settings' },
+      { id: 'ai', label: 'AI model', artboard: 'Settings-AI', live: '/settings', also: ['Settings-GetKey'] },
       { id: 'connections', label: 'Connections', artboard: 'Settings-Connections' },
-      { id: 'plan', label: 'Plan and seats', artboard: 'Settings-Plan' },
+      { id: 'plan', label: 'Plan and seats', artboard: 'Settings-Plan', also: ['Upgrade'] },
       { id: 'team', label: 'Team', artboard: 'Invite-Team' },
     ],
   },
@@ -203,3 +205,36 @@ export function homeForArtboard(artboard: ArtboardName): HomeId | undefined {
 /** Who a screen is for, and so which shell frames it (ADR-012 decision 7): owner and team, ambassador, or public. */
 export const shells = ['app', 'ambassador', 'public'] as const;
 export type ShellId = (typeof shells)[number];
+
+/** Whether a tab opens this board, or shows as current on it. */
+const tabHolds = (tab: StageTab, artboard: ArtboardName) => tab.artboard === artboard || Boolean(tab.also?.includes(artboard));
+
+/**
+ * Boards with no stage home that still draw the signed-in nav, and the stage they mark (their canvas boards' own nav):
+ * the first-run hub J8 and Hub-Home, which Today replaced (ADR-012).
+ */
+const shownUnder: Partial<Record<ArtboardName, StageId>> = { 'J8-Hub-FirstRun': 'today', 'Hub-Home': 'today' };
+
+/** Where a signed-in board sits in the one nav: the stage it marks current, and its tab when it has one. */
+export interface BoardNav {
+  stage: StageId;
+  tab?: string;
+}
+
+/**
+ * The stage and tab a signed-in board shows as current, derived from this file and the board's home; frames read it,
+ * none hard-codes a stage. The board's home stage wins when one of its tabs holds the board (Invite-Team is Grow's
+ * Team tab); otherwise the stage whose tab holds it (the Brain, home Today, is Brand's "The Brain" tab; Post-Detail is
+ * Create's "Post"); otherwise the home stage with no tab. `under` names the board whose tab to mark, for a board the
+ * canvas draws under another. Throws for a board that draws no signed-in nav (the Journey steps).
+ */
+export function navForArtboard(artboard: ArtboardName, under: ArtboardName = artboard): BoardNav {
+  const home = homeForArtboard(artboard);
+  const homeStage = home && home !== 'first-run' ? home : shownUnder[artboard];
+  if (!homeStage) throw new Error(`nav: ${artboard} draws no signed-in nav (home ${home ?? 'none'})`);
+  const homeTab = stageById(homeStage).tabs.find((t) => tabHolds(t, under));
+  if (homeTab) return { stage: homeStage, tab: homeTab.id };
+  const owner = stages.find((s) => s.tabs.some((t) => tabHolds(t, under)));
+  if (owner) return { stage: owner.id, tab: owner.tabs.find((t) => tabHolds(t, under))?.id };
+  return { stage: homeStage };
+}

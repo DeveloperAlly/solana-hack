@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import type { Platform } from '../../../config/platforms';
-import { Badge, Button, Heading, Stack, Text } from '../../../ui/primitives';
+import { Badge, Button, Heading, Link, Stack, Text } from '../../../ui/primitives';
 import { Card } from '../../../ui/composites/Card';
 import { platformStatusChip } from '../platformStatus';
 
@@ -9,12 +9,12 @@ export interface GrowthConnectPanelProps {
   connected: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
-  /** Shown for platforms with an inbox plan (messaging connects on Inbox-Connect). */
-  messagingNote?: string;
+  /** Shown for platforms with an inbox plan: the note, and the link to the screen where messaging connects (Inbox-Connect). */
+  messaging?: { note: string; linkLabel: string; href: string };
 }
 
 /** How to connect a platform, its status, and Connect or Disconnect (a preview: nothing really connects yet). */
-export function GrowthConnectPanel({ platform, connected, onConnect, onDisconnect, messagingNote }: GrowthConnectPanelProps) {
+export function GrowthConnectPanel({ platform, connected, onConnect, onDisconnect, messaging }: GrowthConnectPanelProps) {
   const headingId = useId();
   const chip = platformStatusChip(platform);
   return (
@@ -26,7 +26,9 @@ export function GrowthConnectPanel({ platform, connected, onConnect, onDisconnec
         </Stack>
         <Text>How: {platform.connect}</Text>
         <Text variant="small" tone="secondary">Preview only: no account connects and nothing publishes until this platform is live.</Text>
-        {messagingNote && platform.plans.includes('inbox') && <Text variant="small" tone="secondary">{messagingNote}</Text>}
+        {messaging && platform.plans.includes('inbox') && (
+          <Text variant="small" tone="secondary">{messaging.note} <Link href={messaging.href}>{messaging.linkLabel}</Link></Text>
+        )}
         <div>
           {connected ? (
             <Button variant="secondary" onClick={onDisconnect}>Disconnect {platform.name}</Button>

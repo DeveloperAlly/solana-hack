@@ -1,5 +1,5 @@
 /*
- * Data contract: Referral-Landing (pending canvas board "Referral-Landing", page Growth; issue #82, sub-task "Refer a
+ * Data contract: Referral-Landing (canvas board "Referral-Landing", v22; issue #82, sub-task "Refer a
  * friend": "a landing screen for the person invited"). Backend map: no row yet (no referrals table or endpoint in
  * web/worker). Sign-in is Supabase email code (ADR-006). Shape: ReferralLandingData in ./types.ts.
  *

@@ -1,8 +1,8 @@
 // Quests: paid community tasks in USDC (canvas v24 board Quests, COMING SOON; component inventory D53 QuestCard).
 // A quest is a one-off paid task; an ambassador seat is ongoing. Submissions are checked by the same no-AI-slop pass and
 // claims gate as the brand's own posts, carry the disclosure, and go to the one approval queue (domain/queue.ts) as
-// ambassador posts with a payout, tagged with their questId: no second queue. Quests and Today share the one gate
-// (queue.ts gateFor, which applies submissionGate) and the one action, approveSubmission. Rewards go to the doer's own wallet (backend map). No paid posting
+// quest submissions (queue.ts `questSubmission`): no second queue. Quests and Today share the one gate (queue.ts
+// gateFor, which applies submissionGate) and the one action, approveSubmission. Rewards go to the doer's own wallet (backend map). No paid posting
 // on X (pitch deck "Why now").
 import type { Gate } from './approval';
 
@@ -85,34 +85,35 @@ export function questGate(d: QuestDraft): { blocking: boolean; label: string } {
 }
 
 /**
- * The quest part of a submission's gate, applied on top of the queue's own checks (domain/queue.ts gateFor). It needs the
- * full quest (Codex review on PR 102): an unknown quest blocks, a payout that is not the quest's reward blocks, and once
- * every slot is paid the budget is reached, so no further submission can be approved.
+ * The one gate for paying a submission (Codex review on PR 102), on top of the queue's own checks (verified, disclosure
+ * present). A quest submission needs its full quest: an unknown quest blocks, a payout that is not the quest's reward
+ * blocks, and once every slot is paid the budget is reached. A paid post with no quest (an ambassador seat post) has
+ * only the queue's checks.
  */
-export function submissionGate(queueGate: Gate, item: { payout: { amount: number; unit: string } }, quest: Quest | undefined): Gate {
-  if (!quest) return { blocking: true, label: 'Quest not found.' };
-  if (item.payout.unit !== 'USDC' || item.payout.amount !== quest.rewardUsdc) {
-    return { blocking: true, label: `The payout (${item.payout.amount} ${item.payout.unit}) is not this quest’s reward (${quest.rewardUsdc} USDC).` };
+export function submissionGate(queueGate: Gate, questId: string | undefined, quest: Quest | undefined, payout: { amount: number; unit: string }): Gate {
+  if (questId === undefined) return queueGate;
+  if (!quest || quest.id !== questId) return { blocking: true, label: 'Quest not found.' };
+  if (payout.unit !== 'USDC' || payout.amount !== quest.rewardUsdc) {
+    return { blocking: true, label: `The payout (${payout.amount} ${payout.unit}) is not this quest’s reward (${quest.rewardUsdc} USDC).` };
   }
   if (quest.paid >= quest.slots) return { blocking: true, label: `All ${quest.slots} ${quest.slots === 1 ? 'slot is' : 'slots are'} paid; the budget is reached.` };
   return queueGate;
 }
 
-/** The outcome a paid submission records in the loop store; Today and Quests both write and read it. */
-export const payoutOutcome = (payout: { amount: number; unit: string }): string => `Approved. The ${payout.amount} ${payout.unit} payout is queued.`;
-export const isPayoutOutcome = (outcome: string | undefined): boolean => Boolean(outcome?.startsWith('Approved. The ') && outcome.endsWith(' payout is queued.'));
+/** The result of approving a submission: the payout is queued and the slot is taken, or it was blocked and why. */
+export type SubmissionApproval = { ok: true; paid: number; outcome: string } | { ok: false; label: string };
 
 /**
- * The one action for paying a quest submission (Quests and Today call it). It resolves nothing on trust: it re-runs the
- * quest gate on the full quest over the queue gate it is given, and returns the outcome to record, or null when blocked.
- * INTEGRATION: POST /api/payouts (not built yet).
+ * The one approval action for a paid submission (quest or ambassador post). It re-runs `submissionGate` at the moment of
+ * approval on the quest it is given, so a forged pass cannot pay, then takes a slot and queues the payout. Today, Quests
+ * and every other queue call it (flows/loop/payout.ts); none builds its own payout path.
+ * INTEGRATION: POST /api/payouts (not built); the payout is USDC to the doer's own wallet (backend map).
  */
-export function approveSubmission(item: { payout: { amount: number; unit: string } }, quest: Quest | undefined, queueGate: Gate): string | null {
-  return submissionGate(queueGate, item, quest).blocking ? null : payoutOutcome(item.payout);
+export function approveSubmission(queueGate: Gate, questId: string | undefined, quest: Quest | undefined, payout: { amount: number; unit: 'USDC' }): SubmissionApproval {
+  const gate = submissionGate(queueGate, questId, quest, payout);
+  if (gate.blocking) return { ok: false, label: gate.label };
+  return { ok: true, paid: (quest?.paid ?? 0) + 1, outcome: `Approved. The ${payout.amount} ${payout.unit} payout is queued.` };
 }
 
-/** A quest with this session's payouts counted: its fixture `paid` plus its submissions approved since. */
-export function questWithPayouts(quest: Quest, submissions: { id: string; questId?: string }[], outcomes: Record<string, string>): Quest {
-  const paidNow = submissions.filter((s) => s.questId === quest.id && isPayoutOutcome(outcomes[s.id])).length;
-  return { ...quest, paid: quest.paid + paidNow };
-}
+/** A quest with this session's paid slots (the loop store's `questPaid`) over its fixture count. */
+export const questWithPaid = (quest: Quest, questPaid: Record<string, number>): Quest => ({ ...quest, paid: questPaid[quest.id] ?? quest.paid });

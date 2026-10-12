@@ -2,7 +2,7 @@
 // where every status, plan and rule cites its source. The two notes below come from canvas copy:
 // - everywhere: canvas Settings-Connections, "No connection? Copy the post, publish it yourself, paste the link back
 //   so Verify still works · Always available"; the pasted link is registerPost's publishedUrl (web/worker/api.ts).
-// - messagingNote: canvas Inbox-Connect, "Bring your messages into one inbox" (Superhub page, issue #52).
+// - messaging: canvas Inbox-Connect, "Bring your messages into one inbox" (Superhub page, issue #52).
 import { platforms } from '../../config/platforms';
 import type { PlatformDetailData, PlatformsData } from './types';
 
@@ -13,5 +13,5 @@ export const platformsCatalog: PlatformsData = { platforms, everywhere };
 export const platformDetail: PlatformDetailData = {
   platforms,
   defaultId: 'x',
-  messagingNote: 'Messages from here come into one inbox. You connect messaging on Inbox: connect sources (Superhub page, issue #52).',
+  messaging: { note: 'Messages from here come into one inbox.', linkLabel: 'Connect messaging on Inbox' },
 };

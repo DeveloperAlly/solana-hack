@@ -8,8 +8,8 @@ import type { ShellId } from '../config/nav';
  * Canvas pages, in canvas order, from the wireframe canvas v24 (canvas.json `pages`, version 1791818793-e756; canvas
  * link in issue #45). v21 and later organise the pages by the loop of ADR-012 (PR #86): Start here, Journey, the six steps,
  * then the utilities. The Archive page ("licensee") holds boards that are not in the product (issue #45, owner
- * decision 2026-10-12); its boards are not artboards (config/artboards.ts). `issue` is where the page's screens are
- * tracked (the issue #45 sub-issues; #86 for the loop boards; #82 for the Distribute boards it added).
+ * decision 2026-10-12). `issue` is where the page's screens are tracked (the issue #45 sub-issues; #86 for the loop
+ * boards; #82 for the Distribute boards it added).
  */
 export const canvasPages = [
   { id: 'loop', name: 'Start here: the loop (v4)', issue: 86 },
@@ -30,7 +30,7 @@ export type CanvasPageId = (typeof canvasPages)[number]['id'];
 export interface ScreenEntry {
   /** Canvas artboard name: the file name without `.dc.html`, e.g. "Verify-2-NoMatch". It is the gallery URL. */
   artboard: ArtboardName;
-  /** The board's canvas page. The screen's home is derived from it (config/nav.ts `homeForPage`), never written here. */
+  /** The board's canvas page: exactly config/artboards.ts `artboardPages[artboard]` (a test checks it). The screen's home is derived from it (config/nav.ts `homeForPage`), never written here. */
   page: CanvasPageId;
   /** Canvas title without the tag prefix, e.g. "Verify: not found". */
   title: string;

@@ -84,7 +84,7 @@ export function useAdapt(data: AdaptData): AdaptFlow {
     return {
       platform,
       text,
-      length: platform.limit ? { used: postLength(platform, text), max: platform.limit.max } : null,
+      length: platform.charLimit ? { used: postLength(platform, text), max: platform.charLimit.value } : null,
       check: versionCheck(platform, text, claims),
       claims,
       approval: !approval ? 'none' : fresh ? 'approved' : 'stale',

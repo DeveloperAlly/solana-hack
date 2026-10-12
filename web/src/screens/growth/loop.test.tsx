@@ -15,7 +15,7 @@ import { eventsBoard } from './board.fixtures';
 import { DistributeAdapt as AdaptScreen } from './Distribute-Adapt';
 import { adapt } from './adapt.fixtures';
 import { gateFor, type GateContext } from '../../domain/queue';
-import { approveSubmission, questWithPayouts } from '../../domain/quest';
+import { approveSubmission, questWithPaid } from '../../domain/quest';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
 
@@ -474,30 +474,29 @@ describe('Codex round 2 on PR 102', () => {
     const data = { ...quests, submissions: pending, quests: quests.quests.map((q) => (q.id === 'qst-answers' ? { ...q, slots: 3, paid: 2 } : q)) };
     render(<MemoryRouter><QuestsScreen data={data} /></MemoryRouter>);
     await user.click(within(screen.getByRole('list', { name: 'Quest submissions' })).getAllByRole('button', { name: 'Approve and pay' })[0]);
-    // Today's path: the same gateFor, given the quest slots and the shared loop store outcomes.
-    const outcomes = loopStore.read().outcomes;
-    const questOf = (o: Record<string, string>) => (id: string) => { const q = data.quests.find((x) => x.id === id); return q && questWithPayouts(q, pending, o); };
-    const ctx: GateContext = { brainVersion: '3.1', proposal: () => undefined, quest: questOf(outcomes) };
+    // Today's path: the same gateFor, given the quests with the loop store's paid slots.
+    const questOf = (paid: Record<string, number>) => (id: string) => { const q = data.quests.find((x) => x.id === id); return q && questWithPaid(q, paid); };
+    const ctx: GateContext = { brainVersion: '3.1', proposal: () => undefined, quest: questOf(loopStore.read().questPaid) };
     const gate = gateFor(pending[1], ctx);
     expect(gate).toEqual({ blocking: true, label: 'All 3 slots are paid; the budget is reached.' });
-    expect(approveSubmission(pending[1], ctx.quest!('qst-answers'), gate)).toBeNull();
+    expect(approveSubmission(gate, 'qst-answers', ctx.quest('qst-answers'), pending[1].payout).ok).toBe(false);
     // And the other way: with the slot still free, Today's approval of it uses the same action and outcome.
     const fresh: GateContext = { ...ctx, quest: questOf({}) };
-    expect(approveSubmission(pending[1], fresh.quest!('qst-answers'), gateFor(pending[1], fresh))).toBe('Approved. The 10 USDC payout is queued.');
+    expect(approveSubmission(gateFor(pending[1], fresh), 'qst-answers', fresh.quest('qst-answers'), pending[1].payout)).toEqual({ ok: true, paid: 3, outcome: 'Approved. The 10 USDC payout is queued.' });
   });
 
   it('an unknown quest, or a payout that is not the quest’s reward, is blocked in the gate and the action', () => {
     const item = { ...quests.submissions[0], disclosure: 'present' as const };
     const known = (id: string) => quests.quests.find((q) => q.id === id);
     const ctx: GateContext = { brainVersion: '3.1', proposal: () => undefined, quest: known };
+    const forged = { blocking: false, label: 'forged pass' };
     const unknown = { ...item, questId: 'qst-missing' };
     expect(gateFor(unknown, ctx)).toEqual({ blocking: true, label: 'Quest not found.' });
-    expect(approveSubmission(unknown, known('qst-missing'), { blocking: false, label: 'forged pass' })).toBeNull();
+    expect(approveSubmission(forged, 'qst-missing', known('qst-missing'), unknown.payout)).toEqual({ ok: false, label: 'Quest not found.' });
     const greedy = { ...item, payout: { amount: 500, unit: 'USDC' as const } };
-    expect(gateFor(greedy, ctx).blocking).toBe(true);
     expect(gateFor(greedy, ctx).label).toMatch(/not this quest’s reward \(10 USDC\)/);
-    expect(approveSubmission(greedy, known('qst-answers'), { blocking: false, label: 'forged pass' })).toBeNull();
-    expect(approveSubmission(item, known('qst-answers'), gateFor(item, ctx))).toBe('Approved. The 10 USDC payout is queued.');
+    expect(approveSubmission(forged, 'qst-answers', known('qst-answers'), greedy.payout).ok).toBe(false);
+    expect(approveSubmission(gateFor(item, ctx), 'qst-answers', known('qst-answers'), item.payout).ok).toBe(true);
   });
 });
 
