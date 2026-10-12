@@ -77,7 +77,10 @@ export interface FieldCoverage {
  * the owner has answered every question.
  */
 export interface StepCoverage { step: StepId; mode: 'ask' | 'confirm' | 'done'; fields: string[] }
-export type GapKind = 'missing' | 'conflict' | 'weak';
+/** A question still asked: nothing answers it, or its sources disagree. A weak stand-in (fuzzily located, or never
+ * support-checked) is not a separate question: fieldState makes it partly, pending its card, and the owner confirms or
+ * corrects it there, so it is asked once (PR #101 review). */
+export type GapKind = 'missing' | 'conflict';
 export interface GapQuestion {
   /** The field id, or `conflict:<id>`. */
   id: string;
@@ -91,7 +94,7 @@ export interface GapQuestion {
   minutes: number;
   /** Expected information gain per owner minute (rankScore). */
   score: number;
-  /** Facts behind the question: weak stand-ins, or every fact on every side of a conflict. */
+  /** Facts behind the question: every fact on every side of a conflict; empty for a missing question. */
   factIds: string[];
   conflictId?: string;
   sides?: { value: string; ids: string[] }[];
@@ -155,8 +158,8 @@ const gateWeight = (s: SectionId) => (SECTIONS[s].gate ? 2 : 1);
  */
 export const fieldValue = (f: FieldSpec) => readers(f).reduce((n, s) => n + gateWeight(s), 0) * (f.optional ? 0.5 : 1);
 
-/** How unsure the system is: nothing at all, or sources that disagree, is total; a weak stand-in is half. */
-export const UNCERTAINTY: Record<GapKind, number> = { missing: 1, conflict: 1, weak: 0.5 };
+/** How unsure the system is: nothing at all, or sources that disagree, is total. */
+export const UNCERTAINTY: Record<GapKind, number> = { missing: 1, conflict: 1 };
 /** Owner minutes to settle a conflict: one pick between quoted passages. */
 export const CONFLICT_MINUTES = 0.5;
 
@@ -273,13 +276,11 @@ export function coverageMap(input: CoverageInput): CoverageMap {
   const questions: GapQuestion[] = [];
   for (const f of fields) {
     const spec = FIELDS.find((x) => x.id === f.id)!;
-    // Weak: the only stand-ins are fuzzily located or never support-checked (read before #64), and the owner has not
-    // approved any of them, so the owner is asked rather than shown a card to confirm.
-    // Proposed facts are decided on their cards, so a question with one is never also asked as weak.
-    const weak = f.basis === 'pending confirmation' && f.factIds.every((id) => { const x = byId.get(id)!; return usableFact(x) && rank(x.confidence) < 2 && !ownerApproved(x); });
-    const kind: GapKind | null = f.basis === 'none' ? 'missing' : weak ? 'weak' : null;
+    // Only a question nothing answers is asked here. Every other state is settled where it is shown: a stand-in,
+    // weak or not, on its card (fieldState: partly, pending confirmation); a disputed one through its conflict, below.
+    const kind: GapKind | null = f.basis === 'none' ? 'missing' : null;
     if (!kind) continue;
-    questions.push({ id: f.id, kind, question: f.question, field: f.id, step: f.step, sections: [spec.asks], optional: f.optional, minutes: spec.minutes, score: rankScore(kind, fieldValue(spec), spec.minutes), factIds: kind === 'weak' ? f.factIds : [] });
+    questions.push({ id: f.id, kind, question: f.question, field: f.id, step: f.step, sections: [spec.asks], optional: f.optional, minutes: spec.minutes, score: rankScore(kind, fieldValue(spec), spec.minutes), factIds: [] });
   }
   for (const c of conflicts) {
     const facts = c.evidence_ids.map((id) => byId.get(id)).filter((x): x is CoverageFact => !!x).sort(compareFacts(contested));
@@ -298,7 +299,7 @@ export function coverageMap(input: CoverageInput): CoverageMap {
   // Highest gain per minute first; ties in interview order (§12.3 rule 2), conflicts after questions on equal score.
   const pos = (q: GapQuestion) => (q.field ? FIELDS.findIndex((f) => f.id === q.field) : FIELDS.length);
   questions.sort((a, b) => b.score - a.score || pos(a) - pos(b) || a.id.localeCompare(b.id));
-  const blocking = questions.filter((q) => q.kind !== 'weak' && !q.optional);
+  const blocking = questions.filter((q) => !q.optional);
 
   const text = fields.filter((f) => FIELDS.find((x) => x.id === f.id)!.textAnswer);
   const prefilled = text.filter((f) => f.prefilled).length;

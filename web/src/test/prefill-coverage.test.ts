@@ -100,7 +100,7 @@ describe('one rule for a question\'s state (fieldState, PR #101 review)', () => 
       conflicts: [{ id: 'c', slot: 'founded', evidence_ids: [a.id, b.id], question: 'q' }],
     }));
     for (const f of m.fields) {
-      const asked = m.questions.filter((q) => q.field === f.id && q.kind !== 'weak');
+      const asked = m.questions.filter((q) => q.field === f.id);
       expect(asked.length).toBe(f.basis === 'none' ? 1 : 0);
     }
     expect(m.questionsLeft).toBe(m.fields.filter((f) => f.basis === 'none' && !f.optional).length + 1);
@@ -182,7 +182,7 @@ describe('coverage map', () => {
     expect(field(m, 'origin.why')).toMatchObject({ status: 'needs-you', skipped: true });
     expect(m.questions.some((q) => q.step === 'origin')).toBe(false);
     expect(m.questions.find((q) => q.id === 'audience.real_people')!.optional).toBe(true);
-    expect(m.questionsLeft).toBe(m.questions.filter((q) => q.kind !== 'weak' && !q.optional).length);
+    expect(m.questionsLeft).toBe(m.questions.filter((q) => !q.optional).length);
   });
   it('readiness counts partly as half (J1 board: 3 found, 1 partly, 2 needs you -> 58%)', () => {
     const m = coverageMap(input({ answers: ALL_ANSWERS }));
@@ -224,14 +224,11 @@ describe('coverage map', () => {
     expect(m.questionsLeft).toBe(coverageMap(input()).questionsLeft - 3 + 1);
     expect(m.minutesLeft).toBe(Math.round((coverageMap(input()).minutesLeft - 3 + 0.5) * 10) / 10);
   });
-  it('a question whose only stand-ins were never support-checked or only fuzzily located is weak, asked after the missing ones', () => {
+  it('a weak stand-in (never support-checked) is pending its card, not a separate question (PR #101 review)', () => {
     const m = coverageMap(input({ evidence: [fact({ section: 'audience', match: null, confidence: null })] }));
-    expect(m.questions.find((x) => x.id === 'audience.who')!.kind).toBe('weak');
-    expect(m.questionsLeft).toBe(m.questions.filter((x) => x.kind !== 'weak' && !x.optional).length);
-    // An exact, support-checked fact is not weak: the owner confirms it on a card instead of being asked.
-    expect(coverageMap(input({ evidence: [fact({ section: 'audience' })] })).questions.some((x) => x.id === 'audience.who')).toBe(false);
-    // Nor is a fuzzily located fact the owner has approved.
-    expect(coverageMap(input({ evidence: [fact({ section: 'audience', match: 'fuzzy', confidence: 'low' })] })).questions.some((x) => x.id === 'audience.who')).toBe(false);
+    expect(field(m, 'audience.who')).toMatchObject({ status: 'partly', basis: 'pending confirmation' });
+    expect(m.questions.some((x) => x.field === 'audience.who')).toBe(false);
+    expect(m.questionsLeft).toBe(m.questions.filter((x) => !x.optional).length);
   });
   it('is deterministic: input order does not change the result, and the best stand-in comes first', () => {
     const facts = [fact({ section: 'audience' }), fact({ section: 'audience', confidence: 'high' }), fact({ section: 'purpose' })];

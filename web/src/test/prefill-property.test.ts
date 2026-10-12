@@ -76,6 +76,23 @@ describe('properties over generated brands (PR #101 review)', () => {
       for (const f of readData(s).facts) if (byId.has(f.id)) expect(reviewable(byId.get(f.id)!), `seed ${seed} ${f.id}`).toBe(true);
     }
   });
+  it('no question is both asked and carded, and the "every question is answered" summary matches the derived states (PR #101 review)', () => {
+    for (let seed = 1; seed <= CASES; seed++) {
+      const s = brandCase(seed);
+      const m = coverageMap(s);
+      const c = confirmData(s);
+      const byId = new Map((s.evidence as CoverageFact[]).map((e) => [e.id, e]));
+      const carded = c.facts.filter((f) => byId.has(f.id)).map((f) => byId.get(f.id)!);
+      for (const q of m.questions.filter((x) => x.kind !== 'conflict')) {
+        const spec = FIELDS.find((f) => f.id === q.field)!;
+        expect(carded.filter((e) => (spec.answeredBy as readonly string[]).includes(e.section)).map((e) => e.id), `seed ${seed} ${q.field}`).toEqual([]);
+      }
+      for (const q of m.questions.filter((x) => x.kind === 'conflict')) for (const id of q.factIds) expect(carded.some((e) => e.id === id), `seed ${seed}`).toBe(false);
+      const missingRequired = m.questions.filter((x) => x.kind === 'missing' && !x.optional).length;
+      expect(c.missing.status === 'found', `seed ${seed}`).toBe(missingRequired === 0);
+      expect(c.questionsLeft, `seed ${seed}`).toBe(m.questionsLeft);
+    }
+  });
   it('an assumption never stands in for a question: removing every assumption changes no question\'s state', () => {
     for (let seed = 1; seed <= CASES; seed++) {
       const s = brandCase(seed);
