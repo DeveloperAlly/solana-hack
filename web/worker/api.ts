@@ -5,6 +5,7 @@ import { canonical, GATES, isSection, SECTION_GUIDE, SECTIONS, STEPS, type Secti
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
 import { activeRun, getRun, ingestSource, startRun } from './engine/api';
+import { addSocialExport, findCompetitors, listCompetitors, uploadDocument } from './intake';
 import type { WaitUntil } from './engine/executor';
 import { usableFact } from './sources/registry';
 import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
@@ -41,7 +42,10 @@ async function brandState(env: Env, brand: Brand) {
   const f = db.eq('brand_id', brand.id);
   const [answers, sources, evidence, sections, gates, kits] = await Promise.all([
     db.select<Answer>(env, 'answers', f),
-    db.select(env, 'sources', `${f}&select=id,url,title,status,error,fetched_at&order=created_at`),
+    // The brand's own sources and pages about it. Competitor candidates (#35) are not sources the kit is built from,
+    // so they are listed apart (GET /api/brands/:id/competitors) and never enter the kit's source list. kind says what
+    // a source without an address is (an upload, an export, a web search: url '', named by its title).
+    db.select(env, 'sources', `${f}&kind=neq.competitor_page&select=id,url,kind,title,status,error,fetched_at&order=created_at`),
     // Paged: the kit snapshot records all evidence, so a response row cap must not drop any.
     db.selectAll<Evidence>(env, 'evidence', `${f}&order=created_at.asc,id.asc`),
     db.select<Section>(env, 'kit_sections', f),
@@ -392,6 +396,17 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
     const b = await body(req);
     return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20), user.id));
   }
+  // Sources converted when they are added, then read into fact extraction (intake.ts; R9 on #38, #33): a document
+  // upload and the owner's own social export. Competitor candidates for the positioning step (#35).
+  if (p[3] === 'sources' && p.length === 5 && m === 'POST' && (p[4] === 'document' || p[4] === 'social')) {
+    const r = p[4] === 'document' ? await uploadDocument(env, ctx, caller(req, user), brand, req) : await addSocialExport(env, ctx, caller(req, user), brand, req);
+    return json(r.body, r.status);
+  }
+  if (p[3] === 'competitors' && p.length === 4 && m === 'POST') {
+    const r = await findCompetitors(env, ctx, caller(req, user), brand);
+    return json(r.body, r.status);
+  }
+  if (p[3] === 'competitors' && p.length === 4 && m === 'GET') return json(await listCompetitors(env, brand));
   if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
     // Removing a source removes the facts read from it. Sections that cited them then need redrafting before the next
     // registration (registerKit refuses stale citations); kits already registered keep their own evidence snapshot.
