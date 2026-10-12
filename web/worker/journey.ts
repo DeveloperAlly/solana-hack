@@ -8,7 +8,7 @@ import { HttpError, type Env } from './env';
 import { SECTIONS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { usableFact } from './sources/registry';
-import { contrastingTemplates, nearestTemplates, templateById, voiceAnswerFor, VOICE_TEMPLATES, type VoiceTemplate } from './voice';
+import { contrastingTemplates, nearestTemplates, templateById, voiceAnswerFor, type VoiceTemplate } from './voice';
 
 /** Reading before sign-in (decision D1) uses Supabase anonymous users; these caps bound what one anonymous visitor uses. */
 export const ANON_MAX_BRANDS = 1;
@@ -109,7 +109,7 @@ const norm = (v: string) => v.toLowerCase().replace(/[^a-z]+/g, ' ').trim();
 
 /**
  * Reads the model's samples against the three offered templates; pure. Validated at run time (the reply can have any
- * shape): each entry is matched to an offered template by id, then label, then (only if it names no known template)
+ * shape): each entry is matched to an offered template by id, then label, then (only for a missing template or a generic Style N label)
  * its position in the list; entries that name an unoffered template, match nothing, repeat a template or have no text are skipped. Returns the samples in the offered order.
  */
 export function samplesFrom(raw: unknown, candidates: string[]): VoiceSample[] {
@@ -124,10 +124,10 @@ export function samplesFrom(raw: unknown, candidates: string[]): VoiceSample[] {
     if (!body) return;
     const key = typeof template === 'string' ? norm(template) : '';
     const named = offered.find((o) => norm(o.value) === key) ?? offered.find((o) => key && norm(o.label) === key);
-    // Position is a fallback only for an entry that names no known template; one naming a template that was not
-    // offered is skipped, never filed under the offered template in its slot.
-    const known = !!key && VOICE_TEMPLATES.some((o) => norm(o.value) === key || norm(o.label) === key);
-    const t = named ?? (known ? undefined : offered[i]);
+    // Unknown explicit IDs must never claim a positional slot (PR #113 discussion_r4250810746).
+    const positional = template == null || template === '' ||
+      (typeof template === 'string' && /^style [1-3]$/i.test(template.trim()) && Number(template.trim().slice(-1)) === i + 1);
+    const t = named ?? (positional ? offered[i] : undefined);
     if (t && !byTemplate.has(t.value)) byTemplate.set(t.value, body);
   });
   // The picked paragraph is saved as the answer's sample, as the voice form does (normaliseVoice keeps it), so the voice
