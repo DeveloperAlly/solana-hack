@@ -44,7 +44,8 @@ The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [A
 | [.agentic/what/context/backend_map.md](./.agentic/what/context/backend_map.md) | proposed | Backend map: endpoints, data sources, jobs and external APIs per screen; architecture gaps |
 | [spec/api/README.md](./spec/api/README.md) | proposed | Backend boilerplate stubs (comments only) and Supabase schema |
 | [.agentic/what/context/wireframe_audit_2026_10_06.md](./.agentic/what/context/wireframe_audit_2026_10_06.md) | active | Audit of the UI wireframes canvas against the spec (v1 and v2 re-review); input to the rework |
-| [.agentic/what/context/pitch_deck_2026_10_06.md](./.agentic/what/context/pitch_deck_2026_10_06.md) | draft | Pitch deck v3: slide text and sources (10 slides) |
+| [.agentic/what/context/pitch_deck_2026_10_06.md](./.agentic/what/context/pitch_deck_2026_10_06.md) | draft | Pitch deck v4: slide text and sources (11 slides) |
+| [audits/2026-10-12_pitch-vc-teardown.md](./audits/2026-10-12_pitch-vc-teardown.md) | active | VC teardown of the pitch, with an answer to each finding |
 | [.agentic/what/context/pitch_script_2026_10_12.md](./.agentic/what/context/pitch_script_2026_10_12.md) | draft | Presentation video script: bullet points per slide, then every spoken word |
 | [.agentic/what/context/gtm_2026_10_12.md](./.agentic/what/context/gtm_2026_10_12.md) | draft | Go-to-market, demand validation and distribution plan; test prices and forecast workings |
 | [.agentic/what/context/vc_judge_review_2026_10_06.md](./.agentic/what/context/vc_judge_review_2026_10_06.md) | active | VC and hackathon-judge review of the wireframes and docs; informs the deck |
