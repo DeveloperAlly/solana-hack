@@ -111,3 +111,17 @@ That is backlog phases 2 to 4 (slide 10). Competitors meter by seats or credits;
 - built developer communities at IBM and the Filecoin Foundation.
 
 The full-time question is the owner's to answer in the submission form ([#60](https://github.com/DeveloperAlly/solana-hack/issues/60)).
+
+## Owner direction (2026-10-12, after the teardown)
+The owner's answers, which the deck and script now follow:
+1. **Real usage:** the owner is building it. The pitch sells the product as it will be built; the demo video shows the live product.
+2. **Outcomes, not timings:** the pitch leads with what a founder gets ("Your brand team, in one app"), not a measured time.
+3. **Why Solana covers the future features:**
+   - verified content from the brand and its ambassadors;
+   - a verified AI persona;
+   - USDC tips;
+   - rewards for real content ("Kaito, but legal": disclosed, approved, off X);
+   - agents licensing the brand kit per call;
+   - stablecoin plans.
+4. **AI does the content; paying communities is not the point.** Ambassadors are seats in the app, with approvals, so that their content is **verified** as the brand's. Verification of content, not payment, is why they exist.
+5. **Buyer:** personal brands and founders, with the owner as the first customer. Crypto and developer communities are the launch channel.
