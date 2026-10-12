@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { hubNav, routeTagLabels, type NavItem } from '../../config/routes';
-import { mobileTabFor, mobileTabs, type StageId } from '../../config/nav';
+import { mobileTabFor, mobileTabs, stageById, type StageId } from '../../config/nav';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../primitives/Button';
 import { AppFrame } from '../layouts/AppFrame';
@@ -67,7 +67,7 @@ export function AppShell(props: AppShellProps) {
   const liveStages: Record<string, StageId> = { '/home': 'today', '/brand': 'brand', '/build': 'brand', '/create': 'create', '/distribute': 'distribute', '/verify-home': 'verify', '/grow': 'grow', '/learn': 'learn', '/analytics': 'learn', '/inbox': 'inbox', '/settings': 'settings' };
   const inferred = !gallery && !props.preview && !props.nav && !props.navHref ? liveStages[`/${pathname.split('/')[1]}`] : undefined;
   const stage = props.stage ?? inferred;
-  return stage ? <LoopShell {...props} brandSlot={props.brandSlot ?? (inferred ? <LiveBrandSwitcher /> : undefined)} stage={stage} /> : <HubShell {...props} />;
+  return stage ? <LoopShell {...props} tab={props.tab ?? (inferred ? stageById(inferred).tabs[0]?.id : undefined)} brandSlot={props.brandSlot ?? (inferred ? <LiveBrandSwitcher /> : undefined)} stage={stage} /> : <HubShell {...props} />;
 }
 
 /** Sign out, inert in preview and in the gallery. */

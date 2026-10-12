@@ -5,9 +5,10 @@ import { Alert, Box, Button, Container, Field, Heading, Link, Stack, Text } from
 import { api, ApiError } from '../../lib/api';
 import { followRun, runMessage, type RunView } from './followRun';
 
+interface ClaimMap { rev: number; partial: boolean; unsupported: number; items: { text: string; status: string; facts: { claim: string; quote: string | null }[] }[] }
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
-  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit'; policy?: { v?: number; claims: string; unsupported: string[]; blocked?: string[]; passed: boolean } };
+  checks: { claimMap?: ClaimMap; slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit'; policy?: { v?: number; claims: string; unsupported: string[]; blocked?: string[]; passed: boolean } };
   signature: string | null; published_url: string | null; rev: number;
 }
 const POLISH = [
@@ -57,6 +58,7 @@ export function Create() {
     const c = new AbortController();
     ctrl.current = c;
     setPosts([]); setDrafting({}); setBrandId(catalog.id); setError(null);
+    setBrief(''); setChannel('LinkedIn'); setBusy(false); setShown(20); setMore(false); setCapped(false);
     if (!catalog.id) { setError(catalog.error ?? 'Build your brand first, then come back to create.'); return () => c.abort(); }
     const id = catalog.id;
     api<{ runs?: { id: string }[] }>(`/brands/${id}/runs?kind=draft_post`, { signal: c.signal })
@@ -114,15 +116,19 @@ export function Create() {
   async function draft(e: FormEvent) {
     e.preventDefault();
     if (!brief.trim()) return setError('Say what the post is about.');
+    const id = brandId;
+    const signal = ctrl.current?.signal;
+    if (!id || !signal || signal.aborted || selected.current !== id) return;
+    const current = () => !signal.aborted && selected.current === id;
     setBusy(true);
     setError(null);
     try {
       await startAndFollow({ brief, channel });
-      setBrief('');
+      if (current()) setBrief('');
     } catch (err) {
-      setError(msg(err));
+      if (current()) setError(msg(err));
     } finally {
-      setBusy(false);
+      if (current()) setBusy(false);
     }
   }
 
@@ -170,6 +176,7 @@ function PostCard({ post, brandId, onChange, redraft }: { post: Post; brandId: s
   const dirty = post.status === 'drafted' && text.trim() !== post.body;
   const slop = post.checks.slop;
   const hiddenAi = post.status === 'drafted' && !slop?.passed && post.checks.source !== 'edit';
+  const claims = !dirty && post.checks.claimMap?.rev === post.rev ? post.checks.claimMap : null;
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(label);
@@ -250,6 +257,12 @@ function PostCard({ post, brandId, onChange, redraft }: { post: Post; brandId: s
           {post.status !== 'registered' && dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('save', () => api(base, { method: 'PUT', body: { body: text, rev: post.rev } }))}>Save edits</Button>}
           {hiddenAi && <Button disabled={!!busy} onClick={() => run('redraft', redraft)}>{busy === 'redraft' ? 'Drafting…' : 'Draft again'}</Button>}
           {post.status === 'drafted' && !hiddenAi && !dirty && <Button disabled={!!busy || !slop?.passed} onClick={() => run('approve', () => api(`${base}/approve`, { body: { rev: post.rev } }))}>{busy === 'approve' ? 'Approving…' : 'Approve'}</Button>}
+          {post.status === 'drafted' && !hiddenAi && !dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('claims', () => api(`${base}/claims`, { body: { rev: post.rev } }))}>{busy === 'claims' ? 'Checking claims…' : 'Check claims and evidence'}</Button>}
+          {claims && <Box padding={4} border="default" radius="box"><Stack gap={2}>
+            <Heading level={3} size="lg">Claims and evidence</Heading>
+            {claims.partial && <Alert tone="warning">The check could not cover all evidence. Approval still requires the server's full gate.</Alert>}
+            {claims.items.map((claim, i) => <Stack key={i} gap={1}><Text>{claim.text} · {claim.status.replace(/_/g, ' ')}</Text>{claim.facts.map((fact, j) => <Text key={j} variant="small">{fact.claim}{fact.quote && <> · “{fact.quote}”</>}</Text>)}</Stack>)}
+          </Stack></Box>}
           {post.status === 'registering' && (
             // A send whose outcome was unknown: the server checks Solana and finishes or reopens it.
             <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url, rev: post.rev } }))}>{busy === 'register' ? 'Checking Solana…' : 'Check registration'}</Button>
