@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { GalleryScreen } from '../../gallery/Gallery';
-import { resetBuilderFlow } from './useBuilderFlow';
+import { effectiveGates, recordDecision, resetBuilderFlow, type FlowState } from './useBuilderFlow';
 import { screenPath } from '../../gallery/screenPath';
 import { boards } from './paths';
 import { Onboard6Published } from './Onboard-6-Published';
@@ -168,6 +168,25 @@ describe('Brand Builder: screen interactions', () => {
     again.unmount();
     at(screenPath(boards.coverage));
     expect(await screen.findByRole('alert')).toHaveTextContent('voice');
+  });
+
+  it('gates: changing positioning after Gate 3 was approved makes Gate 2 and Gate 3 stale; re-approving Gate 2 leaves Gate 3 stale (Codex review on PR #73)', () => {
+    const approved = { status: 'approved', by: '[approver]', at: '[date]' } as const;
+    let s: FlowState = {
+      brand: { brandName: 'aDNA' },
+      gates: { purpose: { status: 'pending' }, positioning: { status: 'pending' }, voice: { status: 'pending' } },
+      positioningOption: 'A',
+      voice: { round1: 'B', round2: 'C' },
+      dials: { formality: 2, energy: 3, humour: 2 },
+    };
+    for (const g of ['purpose', 'positioning', 'voice'] as const) s = { ...s, gates: recordDecision(s, g, approved) };
+    expect(Object.values(effectiveGates(s)).map((d) => d.status)).toEqual(['approved', 'approved', 'approved']);
+    s = { ...s, positioningOption: 'B' };
+    expect(effectiveGates(s)).toMatchObject({ purpose: { status: 'approved' }, positioning: { status: 'stale' }, voice: { status: 'stale' } });
+    s = { ...s, gates: recordDecision(s, 'positioning', approved) };
+    expect(effectiveGates(s)).toMatchObject({ positioning: { status: 'approved' }, voice: { status: 'stale' } });
+    s = { ...s, brand: { brandName: 'aDNA Network' } };
+    expect(effectiveGates(s)).toMatchObject({ purpose: { status: 'stale' }, positioning: { status: 'stale' }, voice: { status: 'stale' } });
   });
 
   it('domain: the developer email is built from the current domain, record and causes', async () => {

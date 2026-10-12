@@ -117,17 +117,23 @@ export const resetBuilderFlow = store.reset;
 /** A gate decision as stored: an approval also keeps the fingerprint of the flow inputs it approved. */
 export type StoredDecision = GateDecision & { inputs?: string };
 
+/** The gates in dependency order: each is drafted from the ones before it (brand_builder_architecture.md, "Gates"). */
+export const gateOrder: readonly GateId[] = ['purpose', 'positioning', 'voice'];
+
 /**
- * The flow inputs each gate's draft is built from, as a fingerprint. Purpose: its answers are not held in the flow, so
- * only the brand name; Positioning: the BB-4 option and the brand name; Voice: the BB-6 picks and dials.
+ * The fingerprint of what a gate's draft is built from: its own flow inputs plus the fingerprint of the gate upstream of
+ * it, so one dependency chain makes every downstream approval stale (Codex review on PR #73: Voice sits downstream of
+ * Positioning). Own inputs: Purpose, the brand name (its answers are not held in the flow); Positioning, the BB-4
+ * option; Voice, the BB-6 picks and dials.
  */
 export function gateInputs(s: Pick<FlowState, 'brand' | 'positioningOption' | 'voice' | 'dials'>, gate: GateId): string {
-  const fingerprints: Record<GateId, unknown> = {
+  const own: Record<GateId, unknown> = {
     purpose: [s.brand.brandName ?? ''],
-    positioning: [s.positioningOption, s.brand.brandName ?? ''],
+    positioning: [s.positioningOption],
     voice: [s.voice.round1, s.voice.round2, s.dials.formality, s.dials.energy, s.dials.humour],
   };
-  return JSON.stringify(fingerprints[gate]);
+  const upstream = gateOrder[gateOrder.indexOf(gate) - 1];
+  return JSON.stringify([own[gate], upstream ? gateInputs(s, upstream) : null]);
 }
 
 /** Records a decision; an approval is bound to the inputs it approved. */
