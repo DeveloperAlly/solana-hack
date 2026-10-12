@@ -122,8 +122,9 @@ out(`J2 refusal check: the anonymous session now gets HTTP ${refused.status} for
 if (refused.status !== 404) fail('the anonymous session can still read the claimed brand');
 
 // J3: confirm. Every fact waiting for review is accepted (the person's Accept on each card).
-for (const e of state.evidence.filter((x) => x.review_status === 'proposed')) await must('approve fact', api(token, 'PATCH', `/brands/${brand.id}/evidence/${e.id}`, { review_status: 'approved' }));
+for (const e of state.evidence.filter((x) => x.origin === 'source' && x.review_status !== 'rejected' && x.owner_decision !== 'confirmed')) await must('approve fact', api(token, 'PATCH', `/brands/${brand.id}/evidence/${e.id}`, { review_status: 'approved' }));
 state = await must('brand state', api(token, 'GET', `/brands/${brand.id}`));
+if (state.evidence.some((e) => e.origin === 'source' && e.review_status !== 'rejected' && e.owner_decision !== 'confirmed')) fail('source fact confirmation did not persist');
 out(`J3 confirmed; coverage ${state.coverage.covered}/${state.coverage.total} (ratio ${state.coverage.ratio.toFixed(2)})`);
 
 function voiceOffer(reply, label, near) {
