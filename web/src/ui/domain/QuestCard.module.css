@@ -1,0 +1,15 @@
+/* D53 QuestCard: task and its state chip, terms, actions at the foot. Tokens only. */
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--wl-space-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wl-space-2);
+  margin-top: auto;
+}

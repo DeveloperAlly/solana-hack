@@ -1,0 +1,26 @@
+/* D91 DistributePlatformPicker: a bordered fieldset of checkbox rows that wrap into columns. Tokens only. */
+.picker {
+  margin: 0;
+  padding: var(--wl-space-4) var(--wl-space-5);
+  border: var(--wl-border-width-default) solid var(--wl-border-default);
+  border-radius: var(--wl-radius-box);
+  background: var(--wl-bg-surface);
+  min-width: 0;
+}
+
+.legend {
+  padding: 0 var(--wl-space-2);
+  font-size: var(--wl-font-size-sm);
+  font-weight: var(--wl-font-weight-semibold);
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--wl-space-12) * 3), 1fr));
+  gap: 0 var(--wl-space-4);
+}
+
+.footer {
+  margin-top: var(--wl-space-2);
+  font-size: var(--wl-font-size-sm);
+}

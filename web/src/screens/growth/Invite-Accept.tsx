@@ -16,7 +16,7 @@
 import { StateView } from '../../ui/composites/StateView';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import { ScreenLink } from '../../gallery/ScreenLink';
-import { GrowthPublicFrame } from './components/GrowthPublicFrame';
+import { PublicFrame } from './components/PublicFrame';
 import { GrowthInviteCard } from './components/GrowthInviteCard';
 import { growthArtboards } from './paths';
 import { useInviteAccept } from './useInviteAccept';
@@ -31,7 +31,7 @@ export function InviteAccept({ data, state = 'success' }: ScreenProps<InviteAcce
     declined: <StatePanel kind="success" title="Invite declined" body={`We told ${data.brand}. Nothing else happens.`} actions={teamLink} />,
   };
   return (
-    <GrowthPublicFrame
+    <PublicFrame
       title={`You’re invited to ${data.brand}`}
       tag="COMING SOON"
       intro="Write from the brand’s kit, in its voice. The brand approves every piece."
@@ -48,6 +48,6 @@ export function InviteAccept({ data, state = 'success' }: ScreenProps<InviteAcce
         )}
         {flow.decision !== 'pending' && decided[flow.decision]}
       </StateView>
-    </GrowthPublicFrame>
+    </PublicFrame>
   );
 }

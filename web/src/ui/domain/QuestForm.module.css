@@ -1,0 +1,19 @@
+/* D105 QuestForm: fields in two wrapping columns, the note, then Open. Tokens only. */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wl-space-4);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--wl-space-12) * 5), 1fr));
+  gap: var(--wl-space-4);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wl-space-2);
+}

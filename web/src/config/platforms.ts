@@ -11,7 +11,7 @@
 // - Connect methods named only where a repo doc names them (X and LinkedIn OAuth: backend map §9; the Discord bot and
 //   the Telegram brand bot: canvas Inbox-Connect; a feed URL for blogs: the site ingest); the rest stay bracketed.
 
-import { platformLimit } from '../lib/xLength';
+import { platformLimit, xWeightedLength } from '../lib/xLength';
 
 export const platformKinds = [
   { id: 'social', label: 'Social' },
@@ -127,6 +127,7 @@ export const platforms: Platform[] = [
       { text: 'Text posts are limited to 500 characters.', source: { label: 'Meta, Threads API overview', href: 'https://developers.facebook.com/documentation/threads/overview' } },
       { text: 'A profile can publish 250 posts through the API in any 24 hours; a carousel counts as one.', source: { label: 'Meta, Threads API overview', href: 'https://developers.facebook.com/documentation/threads/overview' } },
     ],
+    charLimit: { value: 500, source: { label: 'Meta, Threads API overview', href: 'https://developers.facebook.com/documentation/threads/overview' } },
   },
   { id: 'instagram', name: 'Instagram', kind: 'social', status: 'planned', plans: ['draft', 'publish', 'inbox', 'verify'], connect: toConfirm, rules: unsourced },
   { id: 'tiktok', name: 'TikTok', kind: 'social', status: 'planned', plans: ['draft', 'publish', 'verify'], connect: toConfirm, rules: unsourced },
@@ -169,6 +170,10 @@ export const platforms: Platform[] = [
 
 export const statusLabel = (s: PlatformStatus): string => platformStatuses.find((x) => x.id === s)!.label;
 export const kindLabel = (k: PlatformKind): string => platformKinds.find((x) => x.id === k)!.label;
+/** A post's length as the platform counts it: X's weighted count (the Worker's rule, lib/xLength), else code points. */
+export function postLength(platform: Pick<Platform, 'id'>, text: string): number {
+  return platformLimit(platform.id) !== null ? xWeightedLength(text) : [...text].length;
+}
 export const findPlatform = (id: string | null | undefined): Platform | undefined => platforms.find((p) => p.id === id);
 /** The hard character limit of a post on this platform, or null where it has none (a blog) or none is known. */
 export const charLimitFor = (id: string | null | undefined): number | null => findPlatform(id)?.charLimit?.value ?? null;

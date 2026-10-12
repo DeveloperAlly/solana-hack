@@ -1,4 +1,4 @@
-import type { Gate } from '../../domain/approval';
+import type { Gate } from '../../lib/approval';
 import { primaryActions, type QueueItem as QueueEntry } from '../../domain/queue';
 import { Badge } from '../primitives/Badge';
 import { Button } from '../primitives/Button';

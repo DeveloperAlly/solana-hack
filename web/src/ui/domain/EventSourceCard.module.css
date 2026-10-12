@@ -1,0 +1,26 @@
+/* D96 EventSourceCard: facts as a small list, each with its source. Tokens only. */
+.head,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wl-space-2);
+}
+
+.head {
+  justify-content: space-between;
+}
+
+.facts {
+  margin: 0;
+  padding-left: var(--wl-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--wl-space-1);
+  font-size: var(--wl-font-size-xs);
+  color: var(--wl-text-secondary);
+}
+
+.source {
+  font-style: italic;
+}
