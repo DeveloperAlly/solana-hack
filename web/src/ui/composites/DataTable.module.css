@@ -1,4 +1,19 @@
+.root { display: flex; flex-direction: column; gap: var(--wl-space-3); }
 .scroll { overflow-x: auto; max-width: 100%; }
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wl-space-1);
+  min-height: var(--wl-control-target-min);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.sort:hover { text-decoration: underline; }
+.arrow { font-size: var(--wl-font-size-xs); }
 .scroll:focus-visible { outline: var(--wl-border-width-focus) solid var(--wl-border-focus); outline-offset: var(--wl-space-half); }
 .table { width: 100%; border-collapse: collapse; font-size: var(--wl-font-size-md); }
 .caption { text-align: left; font-weight: var(--wl-font-weight-semibold); padding-bottom: var(--wl-space-2); }
