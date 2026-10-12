@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { ConfirmData, EvidenceStatus, FactDecision, FactRecord, GapsVoiceData, JourneyCoverage, JourneyFact, JourneySource, ReadData, SourceStatus } from '../../worker/prefill/contract';
-import type { GapsData } from '../../worker/prefill/journey';
+import type { ConflictView, FactView } from '../../worker/extract/journey';
+import type { ConfirmDataWithConflicts, GapsData, JourneyConflict } from '../../worker/prefill/journey';
 
 // The Journey contract (issue #34; coordination comment on #38: the Journey screens in PR #75 are the shape this API
 // serves). The objects below are the UI's own fixtures, copied verbatim from branch ui/48-journey at e4d945b:
@@ -95,7 +96,13 @@ describe('the Worker serves the Journey contract of PR #75 exactly', () => {
     expectTypeOf<JourneySource>().toEqualTypeOf<{ id: string; label: string; status: SourceStatus; facts?: number; reason?: string }>();
     expectTypeOf<JourneyFact>().toEqualTypeOf<{ id: string; section: string; status: EvidenceStatus; statement: string; quote?: string; source?: { label: string; url?: string }; note?: string }>();
   });
-  it('the gaps endpoint is GapsVoiceData without the voice rounds, plus the ranked questions', () => {
+  it('fact extraction\'s fact view (extract/journey.ts, PR #91) is the same JourneyFact, so facts pass through unchanged', () => {
+    expectTypeOf<FactView>().toEqualTypeOf<JourneyFact>();
+    expectTypeOf<ConflictView>().toEqualTypeOf<JourneyConflict>();
+    // The one proposed addition to #75's ConfirmData (posted on #75): its conflicts, each with every side.
+    expectTypeOf<ConfirmDataWithConflicts>().toEqualTypeOf<ConfirmData & { conflicts: { question: JourneyFact; sides: JourneyFact[] }[] }>();
+  });
+  it('the gaps are GapsVoiceData without the voice rounds, plus the ranked questions', () => {
     expectTypeOf<Omit<GapsData, 'questions'>>().toEqualTypeOf<Omit<GapsVoiceData, 'voice'>>();
     const { voice: _voice, ...gaps } = gapsVoiceFixture;
     const served: GapsData = { ...gaps, questions: [] };

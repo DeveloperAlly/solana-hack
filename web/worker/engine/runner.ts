@@ -5,6 +5,7 @@
 import { db } from '../db';
 import { HttpError, safeError, type Env } from '../env';
 import { runStep, resolve, WRITES, type RunState, type StepContext } from './steps';
+import { loadTaskModels, type TaskModels } from '../models';
 import type { Progress, RetrySpec, RunRow, StepProgress, StepSpec, StepTrace, WorkflowSpec } from './types';
 
 /** The subset of the Workflows step API the runner uses (https://developers.cloudflare.com/workflows/build/workers-api/#step). */
@@ -113,7 +114,7 @@ export async function runWorkflow(env: Env, runId: string, step: StepApi, deps: 
   }
   const { run, spec } = loaded;
   if (run.status !== 'running' && run.status !== 'paused') return;
-  const state: RunState = { input: run.input ?? {}, steps: {}, prompts: loaded.prompts };
+  const state: RunState = { input: run.input ?? {}, steps: {}, prompts: loaded.prompts, models: loaded.models };
   const ctx: StepContext = { env, run, state };
   let at = 0;
   try {
@@ -152,7 +153,16 @@ function load(env: Env, runId: string, step: StepApi, deps: RunnerDeps) {
       if (!p) throw deps.nonRetryable(encodeError(500, 'fail', `prompt ${key} is missing`));
       prompts[key] = p.version;
     }
-    return { run, spec: def.spec, prompts };
+    // Each llm step's models are fixed here too (models.ts): a run never mixes configs, and a judge's family rule is
+    // checked once, before any model is called. An unusable config fails the run without retrying.
+    const tasks = [...new Set(def.spec.steps.flatMap((s) => (s.type === 'llm' ? [s.prompt] : s.type === 'map' && s.step.type === 'llm' ? [s.step.prompt] : [])))];
+    let models: TaskModels;
+    try {
+      models = await loadTaskModels(env, tasks);
+    } catch (e) {
+      throw deps.nonRetryable(encodeError(500, 'fail', (e as Error).message));
+    }
+    return { run, spec: def.spec, prompts, models };
   });
 }
 

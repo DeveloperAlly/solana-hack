@@ -10,27 +10,32 @@ import { stableId } from '../ids';
 import { readPage } from '../ingest';
 import { isSection, SECTIONS } from '../kit';
 import { chat, parseJson } from '../llm';
+import { sameModel, type TaskModels } from '../models';
 import { MAX_QUOTE, normalisePage, quoteOnPage } from '../quote';
 import { schemaError, type NamedSchema } from '../schema';
 import { capText, readSource } from './readers';
 import { loadPrompt, render } from './prompts';
 import { factTrust, urlKind } from '../sources/registry';
-import { FACT_FIELDS, FIELD_PROMPT } from '../prefill/route';
-import { closePendingSource, prefillDrafts, recordReadMeta, routeCandidates, saveFactFields } from '../prefill/steps';
 import type { RunRow, StepSpec, StepTrace } from './types';
 
 export { capText } from './readers';
 
 export interface StepContext { env: Env; run: RunRow; state: RunState }
 /** What a run has so far: its input and the output of every finished step, by step id. */
-export interface RunState { input: Record<string, unknown>; steps: Record<string, unknown>; prompts: Record<string, number> }
+export interface RunState {
+  input: Record<string, unknown>;
+  steps: Record<string, unknown>;
+  prompts: Record<string, number>;
+  /** Models per task (prompt key), fixed when the run loads (models.ts); a task without an entry uses the gateway default. */
+  models?: TaskModels;
+}
 export type StepResult = { output: unknown; trace: Partial<StepTrace> };
 
 /** Constants a definition may reference as $const.NAME. */
-const CONSTS: Record<string, unknown> = { MAX_QUOTE, SECTIONS: Object.keys(SECTIONS).join(', '), SLOTS: SLOT_PROMPT, MAX_FACTS_PER_CHUNK, FIELDS: FIELD_PROMPT };
+const CONSTS: Record<string, unknown> = { MAX_QUOTE, SECTIONS: Object.keys(SECTIONS).join(', '), SLOTS: SLOT_PROMPT, MAX_FACTS_PER_CHUNK };
 
 /** Reply schemas an 'llm' step can name (types.ts LlmStep.schema). */
-export const SCHEMAS: Record<string, NamedSchema> = { extracted_facts: EXTRACTED_FACTS, support_verdicts: SUPPORT_VERDICTS, fact_fields: FACT_FIELDS };
+export const SCHEMAS: Record<string, NamedSchema> = { extracted_facts: EXTRACTED_FACTS, support_verdicts: SUPPORT_VERDICTS };
 
 /** Resolves "$input.a", "$steps.id.a.b" or "$const.NAME"; any other string is a literal. */
 export function resolve(ref: string, state: RunState): unknown {
@@ -111,12 +116,6 @@ export const WRITES: Record<string, (ctx: StepContext, args: Record<string, unkn
   /** Extracted facts for one source, with trust, review, confidence and conflicts (extract/save.ts; issue #64). */
   save_extracted_facts: async ({ env, run }, { sourceId, read, facts, droppedAlign, droppedSupport }) =>
     saveExtractedFacts(env, run, { sourceId: asText(sourceId), read: read as ReadOutput, facts: list<Candidate>(facts), dropped: addDropped(droppedAlign as Dropped, droppedSupport as Dropped) }),
-  // Prefill (issue #34; prefill/steps.ts): page offsets for the Journey, routing facts to questions, drafts, cleanup.
-  record_read_meta: (ctx, a) => recordReadMeta(ctx, a as { sourceId: unknown; read: unknown }),
-  route_candidates: (ctx, a) => routeCandidates(ctx, a as { size: unknown; max_batches: unknown }),
-  save_fact_fields: (ctx, a) => saveFactFields(ctx, a as { facts: unknown; batches: unknown; replies: unknown }),
-  prefill_drafts: (ctx, a) => prefillDrafts(ctx, a as { saved: unknown; routed: unknown }),
-  close_pending_source: (ctx, a) => closePendingSource(ctx, a as { sourceId: unknown; error: unknown }),
   mark_source_failed: async ({ env, run }, { sourceId, error }) => {
     await db.update(env, 'sources', `${db.eq('id', asText(sourceId))}&${db.eq('brand_id', run.brand_id)}`, { status: 'failed', error: asText(error) || 'reading the page failed' });
     return null;
@@ -143,8 +142,15 @@ export async function runStep(spec: Exclude<StepSpec, { type: 'map' }>, ctx: Ste
       const schema = spec.schema === undefined ? undefined : SCHEMAS[spec.schema];
       if (spec.schema !== undefined && !schema) throw new HttpError(500, `unknown reply schema ${spec.schema}`);
       // Token counts are recorded when OpenRouter reports usage, null otherwise; never guessed.
-      const r = await chat(ctx.env, system, user, schema ? { schema } : {});
-      const trace = { prompt_key: p.key, prompt_version: p.version, prompt_hash: p.hash, model: r.model, tokens_in: r.usage?.promptTokens ?? null, tokens_out: r.usage?.completionTokens ?? null };
+      const task = state.models?.[spec.prompt];
+      const r = await chat(ctx.env, system, user, { ...(schema ? { schema } : {}), ...(task ? { models: task } : {}) });
+      const trace = { prompt_key: p.key, prompt_version: p.version, prompt_hash: p.hash, model: r.model || null, tokens_in: r.usage?.promptTokens ?? null, tokens_out: r.usage?.completionTokens ?? null };
+      // A configured task uses only a reply from one of its own models, so the family rule (models.ts) holds for the
+      // model that actually answered. Anything else is refused (5xx, so the step is retried) and recorded as such.
+      if (task && !task.some((m) => sameModel(m, r.model))) {
+        console.error('llm reply from an unlisted model', { task: spec.prompt, model: r.model });
+        throw new HttpError(502, `the reply came from ${r.model || 'an unnamed model'}, which is not configured for ${spec.prompt}`);
+      }
       if (!schema) return { output: spec.json ? parseJson<unknown>(r.text) : { text: r.text }, trace };
       // A schema-bound reply is used only if it conforms in full; otherwise the step fails (5xx, so it is retried) and
       // nothing from that reply is kept. The log names the schema and the path that failed, never the content.

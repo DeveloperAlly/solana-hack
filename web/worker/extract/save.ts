@@ -5,6 +5,7 @@
 import { db } from '../db';
 import type { Env } from '../env';
 import { stableId } from '../ids';
+import { capText } from '../engine/readers';
 import { factTrust, SOURCE_TYPES, type ReviewStatus, type SourceKind } from '../sources/registry';
 import type { RunRow } from '../engine/types';
 import type { MatchType } from './align';
@@ -12,7 +13,25 @@ import { confidenceOf, factKey, findConflicts, normText, sourceKey, type Confide
 import type { Candidate, Dropped } from './pipeline';
 
 /** The read step's output (engine/readers.ts), as far as saving needs it. */
-export interface ReadOutput { kind: string; url?: string; title: string; text: string; truncated: boolean }
+export interface ReadOutput { kind: string; url?: string; title: string; text: string; truncated: boolean; pages?: { url: string; title: string; start: number; end: number }[] }
+
+/** Longest page address stored (spec/db/011 evidence_page_url_check): the sitemaps protocol's URL limit
+ * (https://www.sitemaps.org/protocol.html, "must be less than 2,048 characters"). */
+export const MAX_PAGE_URL = 2047;
+/** Longest page title stored, in characters (code points, as Postgres char_length counts them); a title is display
+ * text, so a longer one is cut, never inside a character (spec/db/011 evidence_page_title_check). */
+export const MAX_PAGE_TITLE = 200;
+
+/**
+ * The page of a multi-page read that holds the quote at [start, end), so a fact links to the exact page it is on.
+ * Null when no single page holds it (a single-page source, or a quote across a page boundary): the fact then links to
+ * its source. A page address too long to store is left out rather than cut, because a cut address is another page.
+ */
+export function pageOf(read: ReadOutput, start: number, end: number): { url: string; title: string } | null {
+  const p = (read.pages ?? []).find((x) => x.start <= start && end <= x.end);
+  if (!p || p.url.length > MAX_PAGE_URL) return null;
+  return { url: p.url, title: Array.from(p.title).slice(0, MAX_PAGE_TITLE).join('') };
+}
 
 type Live = StoredFact & { confidence: string | null };
 const LIVE_FIELDS = 'id,source_id,section,claim,slot,slot_value,match,review_status,trust,confidence';
@@ -67,17 +86,19 @@ export async function saveExtractedFacts(env: Env, run: Pick<RunRow, 'id' | 'bra
   const byId = new Map(a.facts.map((f, i) => [mine[i].id, f]));
   const rows = mine.map((m) => {
     const f = byId.get(m.id)!;
+    const page = pageOf(a.read, f.start, f.end);
     return {
       id: m.id, brand_id: brand, source_id: sid, section: f.section, claim: f.claim, quote: f.quote, origin: 'source',
       trust, review_status: initialReviewFor(trust, f.match, contested.has(m.id)),
       quote_start: f.start, quote_end: f.end, match: f.match, confidence: conf.get(m.id), slot: m.slot, slot_value: m.slot_value, run_id: run.id,
+      page_url: page?.url ?? null, page_title: page?.title ?? null,
     };
   });
   // Rows already present (a retried step) are left alone, so a review the owner made in between is never reverted.
   if (rows.length) await db.insertNew(env, 'evidence', rows, 'id');
   const text = a.read.text;
   await db.update(env, 'sources', `${db.eq('id', sid)}&${db.eq('brand_id', brand)}`, {
-    status: 'read', kind, title: a.read.title, text_excerpt: text.slice(0, 2000), source_text: text, fetched_at: new Date().toISOString(),
+    status: 'read', kind, title: a.read.title, text_excerpt: capText(text, 2000, 8000), source_text: text, fetched_at: new Date().toISOString(),
     ...(a.read.url ? { url: a.read.url.slice(0, 500) } : {}), error: null,
   });
 

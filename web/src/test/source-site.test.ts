@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MAX_SITE_REQUESTS, readSite, siteUrl, SITE_DEFAULTS } from '../../worker/sources/site';
-import { pageLinks } from '../../worker/ingest';
-import { allowedBy, normalisePath, parseRobots, readCapped, ROBOTS_MAX_BYTES, ruleMatches } from '../../worker/sources/robots';
+import { exaReplyCap, MAX_SITE_REQUESTS, readSite, siteUrl, SITE_DEFAULTS } from '../../worker/sources/site';
+import { MAX_BYTES, pageLinks, readCapped, readPage } from '../../worker/ingest';
+import { allowedBy, normalisePath, parseRobots, ROBOTS_MAX_BYTES, ruleMatches } from '../../worker/sources/robots';
 
 // Site adapter (issue #33). Exa and the site are mocked; each test sets what they answer. Any call to Cloudflare's
 // page renderer is recorded too, to show none is made.
@@ -176,8 +176,12 @@ describe('site adapter: trust follows the brand website (PR #63 review)', () => 
   it('a subdomain of the website is owned; a redirect off the website is classified on where it landed', async () => {
     stub({ page: () => html('Docs', LONG) });
     expect(await readSite({}, 'https://docs.jamjam.tech/', { website: 'www.jamjam.tech' })).toMatchObject({ ok: true, kind: 'site', trust: 'owned' });
-    stub({ exa: exaSite([{ url: 'https://elsewhere.test/', title: 'Elsewhere', text: LONG }]) });
-    expect(await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/go', { website: 'jamjam.tech' })).toMatchObject({ ok: true, kind: 'page', trust: 'third_party' });
+    // The link redirects off the site; our own reader follows the redirect, and Exa is asked for where it landed.
+    stub({
+      page: (u) => (u === 'https://jamjam.tech/go' ? new Response(null, { status: 302, headers: { location: 'https://elsewhere.test/' } }) : html('Elsewhere', LONG)),
+      exa: exaSite([{ url: 'https://elsewhere.test/', title: 'Elsewhere', text: LONG }]),
+    });
+    expect(await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/go', { website: 'jamjam.tech' })).toMatchObject({ ok: true, kind: 'page', trust: 'third_party', url: 'https://elsewhere.test/', meta: { via: 'exa' } });
   });
   it('a path-scoped website on a shared host owns only its own path (PR #63 urlKind)', async () => {
     stub({ exa: exaSite([{ url: 'https://github.com/acme', title: 'acme', text: LONG }, { url: 'https://github.com/acme/brand', title: 'brand', text: `ours ${LONG}` }, { url: 'https://github.com/other', title: 'other', text: `theirs ${LONG}` }]) });
@@ -211,6 +215,107 @@ describe('site adapter: untrusted Exa output', () => {
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/');
     expect(r).toMatchObject({ ok: true, title: 'a.test' });
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://a.test/']);
+  });
+});
+
+describe('site adapter: Exa results are used only for the page they were asked for (PR #71 review)', () => {
+  it('does not take a home-page result labelled with another address; the page is read directly', async () => {
+    stub({
+      exa: () => new Response(JSON.stringify({ results: [{ url: 'https://jamjam.tech/old-launch', title: 'Old launch', text: `Stale launch copy. ${LONG}`, extras: { links: [] } }] })),
+      page: () => html('JamJam', `Current home page. ${LONG}`),
+    });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/', { website: 'jamjam.tech', subpages: 0 });
+    expect(r).toMatchObject({ ok: true, url: 'https://jamjam.tech/', meta: { via: 'fetch' } });
+    expect(r.ok && r.text).toContain('Current home page.');
+    expect(r.ok && r.text).not.toContain('Stale launch copy.');
+  });
+  it('files each subpage result under the address it was asked for, and reads a page whose result is for another address itself', async () => {
+    stub({
+      exa: (_u, init) => {
+        const body = JSON.parse(String(init?.body)) as { urls: string[]; extras?: unknown };
+        if (body.extras) return new Response(JSON.stringify({ results: [{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG, extras: { links: ['https://jamjam.tech/about', 'https://jamjam.tech/pricing'] } }] }));
+        // Reordered, and the /about entry is a stale copy of a page at another address.
+        return new Response(JSON.stringify({ results: [
+          { url: 'https://jamjam.tech/pricing', title: 'Pricing', text: `Free plan. ${LONG}` },
+          { url: 'https://jamjam.tech/about-us-2019', title: 'About (2019)', text: `Old team page. ${LONG}` },
+        ] }));
+      },
+      page: (u) => (u === 'https://jamjam.tech/about' ? html('About', `Our team today. ${LONG}`) : new Response('', { status: 200 })),
+    });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/', { website: 'jamjam.tech' });
+    if (!r.ok || r.kind === 'document') throw new Error('expected a site read');
+    const byUrl = Object.fromEntries(r.pages!.map((p) => [p.url, p.text]));
+    expect(Object.keys(byUrl).sort()).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/about', 'https://jamjam.tech/pricing']);
+    expect(byUrl['https://jamjam.tech/about']).toContain('Our team today.');
+    expect(byUrl['https://jamjam.tech/pricing']).toContain('Free plan.');
+    expect(r.text).not.toContain('Old team page.');
+  });
+});
+
+/** A response body of `total` bytes, produced on demand, that records how much of it was read. */
+function bigBody(total: number, fill: string, chunk = 64 * 1024) {
+  const seen = { pulled: 0, cancelled: false };
+  const bytes = new TextEncoder().encode(fill.repeat(Math.ceil(chunk / fill.length)).slice(0, chunk));
+  const body = new ReadableStream<Uint8Array>({
+    pull(c) {
+      if (seen.pulled >= total) return c.close();
+      const n = Math.min(chunk, total - seen.pulled);
+      seen.pulled += n;
+      c.enqueue(bytes.slice(0, n));
+    },
+    cancel() { seen.cancelled = true; },
+  });
+  return { body, seen };
+}
+
+describe('readers: every response body is read to a bound, then cancelled (PR #71 review)', () => {
+  it(`reads at most ${MAX_BYTES} bytes of a page`, async () => {
+    const big = bigBody(8 * MAX_BYTES, '<p>JamJam helps brands prove what they say.</p>');
+    stub({ page: () => new Response(big.body, { headers: { 'content-type': 'text/html' } }) });
+    const p = await readPage('https://a.test/');
+    expect(p.text.length).toBeLessThanOrEqual(MAX_BYTES);
+    expect(big.seen.pulled).toBeLessThan(MAX_BYTES + 4 * 64 * 1024);
+    expect(big.seen.cancelled).toBe(true);
+  });
+  it('refuses an Exa reply larger than the request allows, without reading it whole, and reads the page directly', async () => {
+    const cap = exaReplyCap(1, SITE_DEFAULTS.maxCharacters, 100);
+    const big = bigBody(8 * cap, '{"results":[');
+    stub({ exa: () => new Response(big.body), page: () => html('JamJam', LONG) });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/', { subpages: 0 });
+    expect(r).toMatchObject({ ok: true, meta: { via: 'fetch' } });
+    expect(r.meta.notes.join(' ')).toContain('Exa sent a reply larger than the request allows');
+    expect(big.seen.pulled).toBeLessThan(cap + 4 * 64 * 1024);
+    expect(big.seen.cancelled).toBe(true);
+  });
+  it('keeps a whole UTF-8 character at the cut, never half of one', async () => {
+    // "é" is two bytes; a cap of 3 bytes falls inside the second one.
+    const { readText } = await import('../../worker/ingest');
+    expect(await readText(new Response('a\u00E9\u00E9'), 4)).toBe('a\u00E9');
+    expect(await readText(new Response('\uFEFFhi'))).toBe('hi');
+  });
+});
+
+describe('readPage: text as a browser shows it (PR #71 review)', () => {
+  const read = async (body: string, type = 'text/html') => {
+    stub({ page: () => new Response(body, { headers: { 'content-type': type } }) });
+    return readPage('https://a.test/', undefined, true);
+  };
+  it('takes the document title, not an svg icon title, and none from hidden content', async () => {
+    expect((await read(`<html><body><svg><title>Menu icon</title></svg><p>${LONG}</p></body></html>`)).title).toBe('a.test');
+    expect((await read(`<template><title>Draft</title></template><title>JamJam &amp; friends</title><p>${LONG}</p>`)).title).toBe('JamJam & friends');
+  });
+  it('keeps text a browser moves out of an unclosed head', async () => {
+    expect((await read(`<html><head><meta charset="utf-8"><p>${LONG}`)).text).toBe(LONG);
+  });
+  it('shows hidden="until-found" content and an open dialog, which a reader can see', async () => {
+    const p = await read(`<div hidden="until-found">Found text.</div><dialog open>Open dialog.</dialog><p>${LONG}</p>`);
+    expect(p.text).toContain('Found text.');
+    expect(p.text).toContain('Open dialog.');
+  });
+  it('takes a plain-text file as its own text, markup characters and all', async () => {
+    const p = await read(`Use <b> for bold &amp; more. ${LONG}`, 'Text/Plain; charset=utf-8');
+    expect(p.text).toBe(`Use <b> for bold &amp; more. ${LONG}`);
+    expect(p.links).toEqual([]);
   });
 });
 
@@ -288,10 +393,12 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
   it('checks robots.txt of each origin a page comes from, including an apex-to-www redirect (PR #67 review)', async () => {
     const calls = stub({
       robots: (u) => new Response(u.startsWith('https://www.jamjam.tech') ? 'User-agent: *\nDisallow: /team\n' : ''),
+      // The apex redirects to www; our own reader follows it before Exa is asked for anything.
+      page: (u) => (u === 'https://jamjam.tech/' ? new Response(null, { status: 301, headers: { location: 'https://www.jamjam.tech/' } }) : html('JamJam', LONG)),
       exa: exaSite([{ url: 'https://www.jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://www.jamjam.tech/team', title: 'Team', text: `people ${LONG}` }, { url: 'https://www.jamjam.tech/about', title: 'About', text: `about ${LONG}` }]),
     });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/', { website: 'jamjam.tech' });
-    expect(r).toMatchObject({ ok: true, kind: 'site', trust: 'owned' });
+    expect(r).toMatchObject({ ok: true, kind: 'site', trust: 'owned', meta: { via: 'exa' } });
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://www.jamjam.tech/', 'https://www.jamjam.tech/about']);
     expect(calls.filter((c) => c.url.endsWith('/robots.txt')).map((c) => c.url)).toEqual(['https://jamjam.tech/robots.txt', 'https://www.jamjam.tech/robots.txt']);
   });

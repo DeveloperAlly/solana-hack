@@ -4,7 +4,7 @@
 import type { Env } from '../../worker/env';
 import { sha256Hex } from '../../worker/env';
 import type { StepApi } from '../../worker/engine/runner';
-import { SEED_DEFS, SEED_PROMPTS } from '../../worker/engine/seed';
+import { SEED_CONFIG, SEED_DEFS, SEED_PROMPTS } from '../../worker/engine/seed';
 
 export type Row = Record<string, unknown>;
 /** Brand ids are UUIDs (api.ts ownBrand). */
@@ -47,6 +47,25 @@ function recordFactConflict({ p_brand, p_slot, p_evidence, p_question }: { p_bra
   return c.id;
 }
 
+/** Same semantics as spec/db/011 resolve_fact_conflict (checked against Postgres 16 for #34): the kept facts approved,
+ * every other non-owner fact on the conflict rejected, the conflict closed with who and when; refused when the brand
+ * has no such conflict or it is already resolved, or when p_keep names a fact not on it. */
+function resolveFactConflict({ p_brand, p_conflict, p_keep, p_by }: { p_brand: string; p_conflict: string; p_keep: string[]; p_by: string }) {
+  const c = (db.tables.fact_conflicts ?? []).find((x) => x.id === p_conflict && x.brand_id === p_brand);
+  if (!c) throw new Error('PT404');
+  if (c.status !== 'open') throw new Error('PT409');
+  const ids = c.evidence_ids as string[];
+  if (!(p_keep ?? []).every((k) => ids.includes(k))) throw new Error('P0001');
+  let n = 0;
+  for (const e of db.tables.evidence ?? []) {
+    if (e.brand_id !== p_brand || !ids.includes(e.id as string) || e.trust === 'owner_answer') continue;
+    e.review_status = (p_keep ?? []).includes(e.id as string) ? 'approved' : 'rejected';
+    n++;
+  }
+  Object.assign(c, { status: 'resolved', resolved_by: p_by, resolved_at: new Date().toISOString() });
+  return n;
+}
+
 export function fakeDb(url: string, init: RequestInit = {}) {
   const u = new URL(url);
   const path = u.pathname.replace('/rest/v1/', '');
@@ -56,6 +75,7 @@ export function fakeDb(url: string, init: RequestInit = {}) {
   db.calls.push({ method, table: path, query: u.search });
   if (path === 'rpc/record_run_step') return recordRunStep(body);
   if (path === 'rpc/record_fact_conflict') return recordFactConflict(body);
+  if (path === 'rpc/resolve_fact_conflict') return resolveFactConflict(body);
   const rows = (db.tables[path] ??= []);
   if (method === 'GET') {
     if (Number(q.get('offset') ?? 0) > 0) return [];
@@ -83,7 +103,7 @@ export async function seedTables(extra: Record<string, Row[]> = {}) {
   db.calls = [];
   db.tables = {
     brands: [{ id: BRAND, owner_id: 'u', name: 'JamJam', type: 'company' }],
-    sources: [], evidence: [], runs: [], run_steps: [], engine_config: [], fact_conflicts: [],
+    sources: [], evidence: [], runs: [], run_steps: [], engine_config: SEED_CONFIG.map((c) => structuredClone(c)), fact_conflicts: [],
     workflow_defs: SEED_DEFS.map((spec) => ({ id: spec.id, version: spec.version, spec, status: 'active' })),
     prompt_versions: await Promise.all(SEED_PROMPTS.map(async (p) => ({ ...p, status: 'active', hash: 'sha256:' + (await sha256Hex(p.body)) }))),
     ...extra,

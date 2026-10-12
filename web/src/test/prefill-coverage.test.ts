@@ -1,179 +1,170 @@
 import { describe, expect, it } from 'vitest';
 import { STEPS as SCREEN_STEPS } from '../screens/build/steps';
 import { SECTIONS } from '../../worker/kit';
-import { coverageMap, factStatus, fieldValue, rankScore, type CoverageFact, type CoverageInput } from '../../worker/prefill/coverage';
-import { FIELDS, fieldById, readers, sectionLabel } from '../../worker/prefill/fields';
-import { applyRoutes, FACT_FIELDS, quoteChecks, routeBatches } from '../../worker/prefill/route';
-import { schemaError } from '../../worker/schema';
+import { coverageMap, evidences, fieldValue, rankScore, statusAccuracy, type CoverageFact, type CoverageInput } from '../../worker/prefill/coverage';
+import { FIELDS, fieldById, readers } from '../../worker/prefill/fields';
 
 // The coverage map and its ranking (issue #34; architecture §6.1 "Coverage map", §12.3 rule 1). Pure functions, so
-// every case is built by hand: a fact is owned or third-party, approved or proposed, exact or fuzzy, and routed to a
-// question (spec/db/012 evidence.field) or not.
+// every case is built by hand from evidence rows as they are stored (spec/db/001, 009, 011).
 
 let n = 0;
 const fact = (over: Partial<CoverageFact> = {}): CoverageFact => ({
   id: `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`,
   source_id: 's1', section: 'origin', claim: `claim ${n}`, quote: `quote ${n}`, origin: 'source', trust: 'owned',
-  review_status: 'approved', match: 'exact', confidence: 'medium', slot: null, slot_value: null, quote_start: n * 10, quote_end: n * 10 + 5,
-  field: null, decision: null, ...over,
+  review_status: 'approved', match: 'exact', confidence: 'medium', slot: null, slot_value: null, ...over,
 });
-const input = (over: Partial<CoverageInput> = {}): CoverageInput => ({ facts: [], answers: [], conflicts: [], ownedWords: 0, ...over });
-const field = (m: ReturnType<typeof coverageMap>, id: string) => m.fields.find((f) => f.id === id)!;
-const section = (m: ReturnType<typeof coverageMap>, id: string) => m.sections.find((s) => s.id === id)!;
+const input = (over: Partial<CoverageInput> = {}): CoverageInput => ({ evidence: [], answers: [], conflicts: [], ...over });
+type Cov = ReturnType<typeof coverageMap>;
+const field = (m: Cov, id: string) => m.fields.find((f) => f.id === id)!;
+const section = (m: Cov, id: string) => m.sections.find((s) => s.section === id)!;
+const ALL_ANSWERS: CoverageInput['answers'] = [
+  { step: 'origin', data: { why: 'a', broken: 'b', first_win: 'c' }, skipped: false },
+  { step: 'golden_circle', data: { what: 'a', how: 'b', why: 'c' }, skipped: false },
+  { step: 'alternatives', data: { instead: 'a', edge: 'b' }, skipped: false },
+];
 
 describe('interview fields (prefill/fields.ts)', () => {
   it('are exactly the Build screen\'s questions, keyed as the screen saves them, plus the voice step', () => {
     const screen = SCREEN_STEPS.filter((s) => s.kind === 'questions' && s.questions).flatMap((s) => s.questions!.map((q) => `${s.answerStep}.${q.key}`));
-    expect(FIELDS.filter((f) => f.routable).map((f) => f.id)).toEqual(screen);
+    expect(FIELDS.filter((f) => f.textAnswer).map((f) => f.id)).toEqual(screen);
     expect(FIELDS.map((f) => f.id)).toContain('voice.template');
     expect(fieldById('audience.real_people')!.optional).toBe(true);
     // Minutes come from the screen's step minutes (architecture §5), shared between the step's questions.
     expect(fieldById('origin.why')!.minutes).toBe(1);
     expect(fieldById('alternatives.edge')!.minutes).toBe(1.5);
   });
-  it('only lets a question be answered by kit sections that exist, and names the sections that read it', () => {
-    for (const f of FIELDS) for (const s of f.answeredBy) expect(Object.keys(SECTIONS)).toContain(s);
+  it('names real kit sections, and the sections that read each question (kit.ts SECTIONS.from)', () => {
+    for (const f of FIELDS) for (const s of [...f.answeredBy, f.asks]) expect(Object.keys(SECTIONS)).toContain(s);
     expect(readers(fieldById('golden_circle.what')!)).toEqual(['purpose', 'positioning', 'messaging']);
     expect(readers(fieldById('origin.why')!)).toEqual(['origin', 'purpose']);
-    expect(sectionLabel('positioning')).toBe('Positioning · Gate 2');
-    expect(sectionLabel('origin')).toBe('Origin story');
+    // Never inferred: alternatives come from competitor research or the owner, real people only from the owner (§4).
+    expect(fieldById('alternatives.instead')!.answeredBy).toEqual([]);
+    expect(fieldById('audience.real_people')!.answeredBy).toEqual([]);
   });
 });
 
-describe('fact status (architecture §12.3 rule 1)', () => {
+describe('§12.3 rule 1: Evidenced is a high-confidence owned fact or a direct owner answer', () => {
   const none = new Set<string>();
-  it('an owned fact is found only at high confidence (exact, two independent sources); one source is partly found', () => {
-    expect(factStatus(fact({ confidence: 'high' }), none)).toBe('found');
-    expect(factStatus(fact({ confidence: 'medium' }), none)).toBe('partly');
-    expect(factStatus(fact({ confidence: 'low', match: 'fuzzy', review_status: 'proposed' }), none)).toBe('partly');
+  it('an owned fact evidences its section only at high confidence (an exact quote from two independent sources)', () => {
+    expect(evidences(fact({ confidence: 'high' }), none)).toBe(true);
+    expect(evidences(fact({ confidence: 'medium' }), none)).toBe(false);
+    expect(evidences(fact({ trust: 'third_party', confidence: 'high', review_status: 'proposed' }), none)).toBe(false);
   });
-  it('the owner\'s acceptance counts as their answer; a fact outside the allow-list is only shown for review', () => {
-    expect(factStatus(fact({ decision: 'accepted' }), none)).toBe('found');
-    expect(factStatus(fact({ trust: 'third_party', review_status: 'approved' }), none)).toBe('found');
-    expect(factStatus(fact({ trust: 'third_party', review_status: 'proposed', confidence: 'high' }), none)).toBe('partly');
+  it('the owner\'s own statement in a kit section, and a fact the owner approved, count as the owner\'s answer', () => {
+    expect(evidences(fact({ origin: 'owner_answer', trust: 'owner_answer', section: 'positioning', quote: null }), none)).toBe(true);
+    // An interview answer row is filed under its step, not a kit section: it counts through the answers, not here.
+    expect(evidences(fact({ origin: 'owner_answer', trust: 'owner_answer', section: 'golden_circle' }), none)).toBe(false);
+    expect(evidences(fact({ trust: 'third_party', review_status: 'approved' }), none)).toBe(true);
+    expect(evidences(fact({ match: 'fuzzy', confidence: 'low', review_status: 'approved' }), none)).toBe(true);
   });
-  it('a fact in an open conflict needs the owner', () => {
+  it('nothing outside the allow-list (ADR-011) and nothing disputed evidences anything', () => {
+    expect(evidences(fact({ confidence: 'high', review_status: 'rejected' }), none)).toBe(false);
+    expect(evidences(fact({ confidence: 'high', review_status: null }), none)).toBe(false);
     const f = fact({ confidence: 'high' });
-    expect(factStatus(f, new Set([f.id]))).toBe('needs-you');
+    expect(evidences(f, new Set([f.id]))).toBe(false);
   });
 });
 
 describe('coverage map', () => {
-  it('with nothing read, every question needs the owner and readiness is 0', () => {
+  it('with nothing read, every section and question needs the owner and readiness is 0', () => {
     const m = coverageMap(input());
+    expect(m.sections.every((s) => s.status === 'needs-you')).toBe(true);
     expect(m.fields.every((f) => f.status === 'needs-you')).toBe(true);
-    expect(m.coverage).toEqual({ found: 0, partly: 0, needsYou: 6, percent: 0 });
+    expect([m.found, m.partly, m.needsYou, m.percent]).toEqual([0, 0, 6, 0]);
     expect(m.steps.every((s) => s.mode === 'ask')).toBe(true);
     expect(m.prefill).toEqual({ fields: 10, prefilled: 0, percent: 0 });
   });
-  it('a routed, usable fact prefills its question; only the allow-list counts (ADR-011)', () => {
-    const owned = fact({ field: 'origin.why' });
-    const proposed = fact({ field: 'origin.broken', trust: 'third_party', review_status: 'proposed' });
-    const m = coverageMap(input({ facts: [owned, proposed] }));
-    expect(field(m, 'origin.why')).toMatchObject({ status: 'partly', prefilled: true, factIds: [owned.id] });
-    // The third-party fact is a candidate the owner can accept, but backs nothing yet.
-    expect(field(m, 'origin.broken')).toMatchObject({ status: 'needs-you', prefilled: false, factIds: [proposed.id] });
-    expect(m.questions.find((q) => q.id === 'origin.broken')).toMatchObject({ kind: 'missing', factIds: [proposed.id] });
+  it('statuses are exactly #75\'s EvidenceStatus values', () => {
+    const m = coverageMap(input({ evidence: [fact()], answers: ALL_ANSWERS }));
+    for (const x of [...m.sections, ...m.fields]) expect(['found', 'partly', 'needs-you']).toContain(x.status);
   });
-  it('rejected facts, owner-answer rows and facts with no quote never prefill', () => {
-    const m = coverageMap(input({ facts: [
-      fact({ field: 'origin.why', review_status: 'rejected' }),
-      fact({ field: 'origin.why', origin: 'owner_answer', trust: 'owner_answer' }),
-      fact({ field: 'origin.why', quote: null }),
+  it('one exact quote from one site is partly found: a section is found at high confidence or with an owner answer', () => {
+    const m = coverageMap(input({ evidence: [fact({ section: 'origin' })] }));
+    expect(section(m, 'origin')).toMatchObject({ status: 'partly', basis: 'facts to confirm', facts: 1, usable: 1 });
+    expect(section(coverageMap(input({ evidence: [fact({ section: 'origin', confidence: 'high' })] })), 'origin')).toMatchObject({ status: 'found', basis: 'high-confidence fact' });
+    const answered = coverageMap(input({ answers: [{ step: 'origin', data: { why: 'a' }, skipped: false }] }));
+    expect(section(answered, 'origin')).toMatchObject({ status: 'found', basis: 'owner answer' });
+  });
+  it('a section\'s facts stand in for the questions they can answer, as prefilled, never as found', () => {
+    const f = fact({ section: 'positioning' });
+    const m = coverageMap(input({ evidence: [f] }));
+    for (const id of ['golden_circle.what', 'golden_circle.how', 'alternatives.edge']) expect(field(m, id)).toMatchObject({ status: 'partly', prefilled: true, factIds: [f.id] });
+    // Never inferred from the brand's own copy.
+    expect(field(m, 'alternatives.instead')).toMatchObject({ status: 'needs-you', prefilled: false });
+  });
+  it('only the allow-list stands in: proposed, rejected and unquoted facts and owner rows do not prefill', () => {
+    const m = coverageMap(input({ evidence: [
+      fact({ trust: 'third_party', review_status: 'proposed' }),
+      fact({ review_status: 'rejected' }),
+      fact({ quote: null }),
+      fact({ origin: 'owner_answer', trust: 'owner_answer', section: 'origin', quote: null }),
     ] }));
-    expect(field(m, 'origin.why')).toMatchObject({ status: 'needs-you', factIds: [] });
+    expect(field(m, 'origin.broken')).toMatchObject({ status: 'needs-you', factIds: [] });
+    // The proposed fact counts in the section's facts but is not usable; the rejected one is not counted at all.
+    expect(section(m, 'origin')).toMatchObject({ facts: 3, usable: 2 });
   });
   it('the owner\'s answer finds a question and confirms it; a fully answered step is done', () => {
     const m = coverageMap(input({ answers: [{ step: 'origin', data: { why: 'a', broken: 'b', first_win: 'c' }, skipped: false }] }));
     expect(field(m, 'origin.why')).toMatchObject({ status: 'found', confirmed: true, answer: 'a', prefilled: false });
     expect(m.steps.find((s) => s.step === 'origin')!.mode).toBe('done');
-    expect(section(m, 'origin').status).toBe('found');
   });
-  it('a step whose every question is prefilled becomes "confirm"; one with a gap stays "ask"', () => {
-    const facts = ['origin.why', 'origin.broken', 'origin.first_win', 'alternatives.instead'].map((f) => fact({ field: f }));
-    const m = coverageMap(input({ facts }));
+  it('a step whose every question is prefilled or answered becomes "confirm"; one with a gap stays "ask"', () => {
+    const m = coverageMap(input({ evidence: [fact({ section: 'origin' })] }));
     expect(m.steps.find((s) => s.step === 'origin')!.mode).toBe('confirm');
-    expect(m.steps.find((s) => s.step === 'alternatives')!.mode).toBe('ask');
-    // Accepting every prefilled fact of a step finishes it.
-    const accepted = coverageMap(input({ facts: facts.map((f) => ({ ...f, decision: 'accepted' })) }));
-    expect(accepted.steps.find((s) => s.step === 'origin')!.mode).toBe('done');
+    // alternatives.instead is never inferred, so that step is asked.
+    expect(coverageMap(input({ evidence: [fact({ section: 'positioning' })] })).steps.find((s) => s.step === 'alternatives')!.mode).toBe('ask');
   });
   it('a skipped step is not asked again, and an optional question never blocks', () => {
     const m = coverageMap(input({ answers: [{ step: 'origin', data: {}, skipped: true }] }));
     expect(field(m, 'origin.why')).toMatchObject({ status: 'needs-you', skipped: true });
     expect(m.questions.some((q) => q.step === 'origin')).toBe(false);
-    const real = m.questions.find((q) => q.id === 'audience.real_people')!;
-    expect(real.optional).toBe(true);
+    expect(m.questions.find((q) => q.id === 'audience.real_people')!.optional).toBe(true);
     expect(m.questionsLeft).toBe(m.questions.filter((q) => q.kind !== 'weak' && !q.optional).length);
   });
-  it('sections roll up from the questions their drafter reads; readiness counts partly as half (J1 board: 3, 1, 2 -> 58%)', () => {
-    const answers: CoverageInput['answers'] = [
-      { step: 'origin', data: { why: 'a', broken: 'b', first_win: 'c' }, skipped: false },
-      { step: 'golden_circle', data: { what: 'a', how: 'b', why: 'c' }, skipped: false },
-      { step: 'alternatives', data: { instead: 'a', edge: 'b' }, skipped: false },
-    ];
-    const m = coverageMap(input({ answers }));
-    // origin, purpose and positioning are found; messaging reads the audience and voice steps too, so it is partly.
-    expect(m.sections.map((s) => [s.id, s.status])).toEqual([
+  it('readiness counts partly as half (J1 board: 3 found, 1 partly, 2 needs you -> 58%)', () => {
+    const m = coverageMap(input({ answers: ALL_ANSWERS }));
+    // origin, purpose and positioning are answered; messaging is drafted from purpose and positioning (§4 row 8).
+    expect(m.sections.map((s) => [s.section, s.status])).toEqual([
       ['origin', 'found'], ['purpose', 'found'], ['positioning', 'found'], ['audience', 'needs-you'], ['voice', 'needs-you'], ['messaging', 'partly'],
     ]);
-    expect(m.coverage).toEqual({ found: 3, partly: 1, needsYou: 2, percent: 58 });
+    expect(section(m, 'messaging').basis).toBe('drafted from other sections');
+    expect([m.found, m.partly, m.needsYou, m.percent]).toEqual([3, 1, 2, 58]);
+    expect([m.covered, m.total, m.ratio]).toEqual([4, 6, 4 / 6]);
   });
-  it('a section with usable facts but no routed question is partly found, not missing', () => {
-    const m = coverageMap(input({ facts: [fact({ section: 'messaging', field: 'none' })] }));
-    expect(section(m, 'messaging').status).toBe('partly');
-  });
-  it('voice: the owner\'s pick finds it; 300 words of the brand\'s own text make it partly found (§4 row 9)', () => {
-    expect(field(coverageMap(input({ ownedWords: 299 })), 'voice.template').status).toBe('needs-you');
-    expect(field(coverageMap(input({ ownedWords: 300 })), 'voice.template').status).toBe('partly');
-    expect(field(coverageMap(input({ answers: [{ step: 'voice', data: { template: 'plainspoken' }, skipped: false }] })), 'voice.template')).toMatchObject({ status: 'found', confirmed: true });
-  });
-  it('a conflict (B3a) makes its question need the owner, with both sides and every fact on each', () => {
-    const a = fact({ field: 'origin.first_win', slot: 'founded', slot_value: '2019', review_status: 'proposed' });
-    const b = fact({ field: 'origin.first_win', slot: 'founded', slot_value: '2020', trust: 'third_party', review_status: 'proposed', source_id: 's2' });
-    const c = fact({ field: 'origin.first_win', slot: 'founded', slot_value: '2020', trust: 'third_party', review_status: 'proposed', source_id: 's3' });
-    const m = coverageMap(input({ facts: [a, b, c], conflicts: [{ id: 'c1', slot: 'founded', evidence_ids: [a.id, b.id, c.id], question: 'Your sources disagree. Which is right?' }] }));
-    expect(field(m, 'origin.first_win')).toMatchObject({ status: 'needs-you', conflictIds: ['c1'] });
+  it('a conflict (B3a) keeps its section from found and becomes one question with both sides', () => {
+    const a = fact({ slot: 'founded', slot_value: '2019', confidence: 'high', review_status: 'proposed' });
+    const b = fact({ slot: 'founded', slot_value: '2020', trust: 'third_party', review_status: 'proposed', source_id: 's2' });
+    const c = fact({ slot: 'founded', slot_value: '2020', trust: 'third_party', review_status: 'proposed', source_id: 's3' });
+    const m = coverageMap(input({ evidence: [a, b, c], conflicts: [{ id: 'c1', slot: 'founded', evidence_ids: [a.id, b.id, c.id], question: 'Your sources disagree. Which is right?', status: 'open' }] }));
+    expect(section(m, 'origin')).toMatchObject({ status: 'partly', basis: 'disputed' });
     const q = m.questions.find((x) => x.kind === 'conflict')!;
-    expect(q).toMatchObject({ id: 'conflict:c1', field: 'origin.first_win', conflictId: 'c1', question: 'Your sources disagree. Which is right?' });
-    expect(q.sides).toEqual([{ value: '2019', ids: [a.id] }, { value: '2020', ids: [b.id, c.id] }]);
-    // Not asked twice: the conflict replaces the "missing" question for that field.
-    expect(m.questions.filter((x) => x.field === 'origin.first_win')).toHaveLength(1);
-    expect(section(m, 'origin').status).not.toBe('found');
-  });
-  it('a conflict on facts routed to no question still reaches the owner, valued by its section', () => {
-    const a = fact({ field: 'none', slot: 'founded', slot_value: '2019' });
-    const b = fact({ field: 'none', slot: 'founded', slot_value: '2020', trust: 'third_party', review_status: 'proposed' });
-    const m = coverageMap(input({ facts: [a, b], conflicts: [{ id: 'c2', slot: 'founded', evidence_ids: [a.id, b.id], question: 'q' }] }));
-    const q = m.questions.find((x) => x.kind === 'conflict')!;
-    expect(q.field).toBeUndefined();
-    expect(q.score).toBe(rankScore('conflict', 1, 0.5));
+    expect(q).toMatchObject({ id: 'conflict:c1', conflictId: 'c1', sections: ['origin'], question: 'Your sources disagree. Which is right?' });
+    expect(q.sides).toEqual([{ value: '2019', ids: [a.id] }, { value: '2020', ids: [b.id, c.id].sort() }]);
     expect(m.questionsLeft).toBeGreaterThan(0);
+    // Even an owner answer does not make a disputed section found until the owner settles the dispute.
+    const answered = coverageMap(input({ evidence: [a, b], answers: [{ step: 'origin', data: { why: 'x' }, skipped: false }], conflicts: [{ id: 'c1', slot: 'founded', evidence_ids: [a.id, b.id], question: 'q' }] }));
+    expect(section(answered, 'origin')).toMatchObject({ status: 'partly', basis: 'disputed' });
+    // A resolved conflict asks nothing.
+    const done = coverageMap(input({ evidence: [a, b, c], conflicts: [{ id: 'c1', slot: 'founded', evidence_ids: [a.id, b.id, c.id], question: 'q', status: 'resolved' }] }));
+    expect(done.questions.some((x) => x.kind === 'conflict')).toBe(false);
   });
-  it('a question backed only by unscored facts (read before #64) is weak, asked after the missing ones', () => {
-    const weakFact = fact({ field: 'golden_circle.what', match: null, confidence: null });
-    const m = coverageMap(input({ facts: [weakFact] }));
-    const q = m.questions.find((x) => x.id === 'golden_circle.what')!;
-    expect(q.kind).toBe('weak');
+  it('a question whose only stand-ins were never support-checked or only fuzzily located is weak, asked after the missing ones', () => {
+    const m = coverageMap(input({ evidence: [fact({ section: 'audience', match: null, confidence: null })] }));
+    expect(m.questions.find((x) => x.id === 'audience.who')!.kind).toBe('weak');
     expect(m.questionsLeft).toBe(m.questions.filter((x) => x.kind !== 'weak' && !x.optional).length);
-    // An exact single-source fact is not weak: the owner confirms it on a card instead.
-    expect(coverageMap(input({ facts: [fact({ field: 'golden_circle.what' })] })).questions.some((x) => x.id === 'golden_circle.what')).toBe(false);
-    // A fuzzily located owned fact is approved only by the owner (extract/save.ts initialReviewFor), so it is found.
-    expect(field(coverageMap(input({ facts: [fact({ field: 'golden_circle.what', match: 'fuzzy', confidence: 'low' })] })), 'golden_circle.what').status).toBe('found');
+    // An exact, support-checked fact is not weak: the owner confirms it on a card instead of being asked.
+    expect(coverageMap(input({ evidence: [fact({ section: 'audience' })] })).questions.some((x) => x.id === 'audience.who')).toBe(false);
   });
-  it('is deterministic: input order does not change the result', () => {
-    const facts = [fact({ field: 'origin.why' }), fact({ field: 'origin.why', confidence: 'high' }), fact({ field: 'audience.who' })];
-    expect(coverageMap(input({ facts: [...facts].reverse() }))).toEqual(coverageMap(input({ facts })));
-    // Best fact first: the high-confidence one.
-    expect(field(coverageMap(input({ facts })), 'origin.why').factIds[0]).toBe(facts[1].id);
+  it('is deterministic: input order does not change the result, and the best stand-in comes first', () => {
+    const facts = [fact({ section: 'audience' }), fact({ section: 'audience', confidence: 'high' }), fact({ section: 'purpose' })];
+    expect(coverageMap(input({ evidence: [...facts].reverse() }))).toEqual(coverageMap(input({ evidence: facts })));
+    expect(field(coverageMap(input({ evidence: facts })), 'audience.who').factIds[0]).toBe(facts[1].id);
   });
 });
 
 describe('ranking: expected information gain per owner minute (§6.1, MediQ)', () => {
   it('values a question by the sections that read it, gated sections twice, optional ones half', () => {
-    // golden_circle is read by purpose (gate), positioning (gate) and messaging: 2 + 2 + 1.
     expect(fieldValue(fieldById('golden_circle.what')!)).toBe(5);
-    // origin is read by origin and purpose (gate): 1 + 2.
     expect(fieldValue(fieldById('origin.why')!)).toBe(3);
     expect(fieldValue(fieldById('audience.real_people')!)).toBe(fieldValue(fieldById('audience.who')!) / 2);
   });
@@ -182,55 +173,32 @@ describe('ranking: expected information gain per owner minute (§6.1, MediQ)', (
     const scores = m.questions.map((q) => q.score);
     expect([...scores].sort((a, b) => b - a)).toEqual(scores);
     // Golden Circle questions feed two gates and take 40 seconds each: asked first.
-    expect(m.questions.slice(0, 3).map((q) => q.id)).toEqual(['golden_circle.what', 'golden_circle.how', 'golden_circle.why']);
-    expect(m.questions[3].id).toBe('origin.why');
+    expect(m.questions.slice(0, 4).map((q) => q.id)).toEqual(['golden_circle.what', 'golden_circle.how', 'golden_circle.why', 'origin.why']);
     // The optional question (half value) and the voice pick (three minutes) tie at 1; interview order puts voice last.
     expect(m.questions.slice(-2).map((q) => q.id)).toEqual(['audience.real_people', 'voice.template']);
   });
-  it('asks only about missing, weak or conflicting questions: a found one is never asked', () => {
-    const m = coverageMap(input({ facts: [fact({ field: 'origin.why', confidence: 'high' })] }));
-    expect(field(m, 'origin.why').status).toBe('found');
-    expect(m.questions.some((q) => q.field === 'origin.why')).toBe(false);
+  it('asks only about missing, weak or conflicting questions: an answered or prefilled one is not asked', () => {
+    const m = coverageMap(input({ evidence: [fact({ section: 'origin' })], answers: [{ step: 'audience', data: { who: 'x' }, skipped: false }] }));
+    expect(m.questions.some((q) => q.field === 'origin.why' || q.field === 'audience.who')).toBe(false);
+  });
+  it('a conflict is valued by its sections and takes half a minute', () => {
+    const a = fact({ section: 'purpose', slot: 'founded', slot_value: '1' });
+    const b = fact({ section: 'purpose', slot: 'founded', slot_value: '2' });
+    const m = coverageMap(input({ evidence: [a, b], conflicts: [{ id: 'c', slot: 'founded', evidence_ids: [a.id, b.id], question: 'q' }] }));
+    expect(m.questions.find((q) => q.kind === 'conflict')!.score).toBe(rankScore('conflict', 2, 0.5));
   });
 });
 
-describe('routing facts to questions (prefill/route.ts)', () => {
-  const text = 'We started because margins were thin. Cafes waited two weeks.';
-  const a = { id: 'e1', source_id: 's1', section: 'origin', claim: 'Margins were thin.', quote: 'We started because margins were thin.', quote_start: 0, quote_end: 37 };
-  const b = { id: 'e2', source_id: 's1', section: 'audience', claim: 'Cafes waited.', quote: 'Cafes waited two weeks.', quote_start: 38, quote_end: 61 };
-  it('sends the model local ids, sections and claims only, in batches, and reports what it could not fit', () => {
-    const out = routeBatches([a, b], 1, 1);
-    expect(out.count).toBe(1);
-    expect(out.skipped).toBe(1);
-    expect(JSON.parse(out.batches[0].text)).toEqual([{ id: 'f1', section: 'origin', claim: 'Margins were thin.' }]);
-    expect(out.batches[0].text).not.toContain('e1');
+describe('measures (architecture §6.1 and §13.2)', () => {
+  it('prefill: the share of text questions filled from evidence (#34 gate: >= 70% on aDNA)', () => {
+    const m = coverageMap(input({ evidence: ['origin', 'purpose', 'positioning', 'audience'].map((s) => fact({ section: s })) }));
+    // Everything but the two questions only the owner can answer: 8 of 10.
+    expect(m.prefill).toEqual({ fields: 10, prefilled: 8, percent: 80 });
   });
-  it('keeps a route only to a question the fact\'s section can answer, with a quote that checks', () => {
-    const { batches } = routeBatches([a, b], 5, 2);
-    const out = applyRoutes([a, b], batches, [{ routes: [{ id: 'f1', field: 'origin.why' }, { id: 'f2', field: 'origin.why' }] }], () => text);
-    expect(out.routes).toEqual([{ id: 'e1', field: 'origin.why' }, { id: 'e2', field: 'none' }]);
-    expect(out.dropped).toEqual({ wrong_section: 1 });
-    // The stored quote no longer matches its source text: never routed.
-    const moved = applyRoutes([a], batches, [{ routes: [{ id: 'f1', field: 'origin.why' }] }], () => `x${text}`);
-    expect(moved.routes).toEqual([{ id: 'e1', field: 'none' }]);
-    expect(moved.dropped).toEqual({ quote_failed: 1 });
-  });
-  it('leaves a fact with no verdict, or two different ones, unrouted for the next read', () => {
-    const { batches } = routeBatches([a, b], 5, 2);
-    const out = applyRoutes([a, b], batches, [{ routes: [{ id: 'f1', field: 'origin.why' }, { id: 'f1', field: 'origin.broken' }, { id: 'f9', field: 'origin.why' }] }], () => text);
-    expect(out.routes).toEqual([]);
-    expect(out.dropped).toEqual({ not_routed: 2 });
-  });
-  it('checks quotes by their stored offsets, or through the shared normaliser when there are none', () => {
-    expect(quoteChecks(a, text)).toBe(true);
-    expect(quoteChecks({ ...a, quote_start: 1 }, text)).toBe(false);
-    expect(quoteChecks({ quote: 'We STARTED because margins were thin', quote_start: null, quote_end: null }, text)).toBe(true);
-    expect(quoteChecks({ quote: 'we started because margins were fat', quote_start: null, quote_end: null }, text)).toBe(false);
-    expect(quoteChecks(a, null)).toBe(false);
-  });
-  it('the reply schema allows only real question ids or none', () => {
-    expect(schemaError(FACT_FIELDS.schema, { routes: [{ id: 'f1', field: 'origin.why' }] })).toBeNull();
-    expect(schemaError(FACT_FIELDS.schema, { routes: [{ id: 'f1', field: 'voice.template' }] })).toMatch(/not one of the allowed/);
-    expect(schemaError(FACT_FIELDS.schema, { routes: [{ id: 'f1', field: 'none', confidence: 1 }] })).toMatch(/not allowed/);
+  it('field-status accuracy against gold labels (F2 gate: >= 90%), scoring only what is labelled', () => {
+    const m = coverageMap(input({ evidence: [fact({ section: 'origin' })] }));
+    const acc = statusAccuracy(m, { 'origin.why': 'partly', 'alternatives.instead': 'needs-you', origin: 'found', 'not.a.field': 'found' });
+    expect(acc).toMatchObject({ scored: 3, correct: 2, accuracy: 2 / 3, wrong: [{ id: 'origin', gold: 'found', got: 'partly' }] });
+    expect(statusAccuracy(m, {}).accuracy).toBeNull();
   });
 });

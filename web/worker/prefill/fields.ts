@@ -1,11 +1,11 @@
 // The interview fields the coverage map scores (issue #34; backlog B4, B5, B6). One field is one question of the guided
 // interview: the question steps of the Build screen (web/src/screens/build/steps.ts, imported here so the Worker and
 // the screen cannot disagree on a key), plus the voice step. Each field says which kit sections read it (kit.ts
-// SECTIONS.from, the drafter's inputs) and which kit sections' facts may answer it (the routing allow-list).
+// SECTIONS.from, the drafter's inputs) and which kit sections' facts can stand in for its answer.
 // Architecture §4 (input spec per section) and §5 (minimum viable intake):
 // https://github.com/DeveloperAlly/solana-hack/blob/main/.agentic/what/context/brand_builder_architecture.md#4-input-spec-per-brand-kit-section
 import { STEPS as SCREEN_STEPS } from '../../src/screens/build/steps';
-import { GATES, SECTIONS, STEPS, type SectionId } from '../kit';
+import { SECTIONS, STEPS, type SectionId } from '../kit';
 
 export type StepId = Exclude<(typeof STEPS)[number], 'basics'>;
 
@@ -16,34 +16,49 @@ export interface FieldSpec {
   key: string;
   /** The question as the Build screen asks it. */
   question: string;
-  /** Kit sections whose extracted facts may answer this question. A route to any other section's fact is refused. */
+  /** Kit sections whose facts stand in for an answer until the owner gives one (empty: only the owner can answer). */
   answeredBy: readonly SectionId[];
+  /** The kit section this question asks for (§5: origin; Golden Circle why -> purpose, what and how -> positioning;
+   * alternatives and edge -> positioning; audience; voice). An answer to it is a direct owner answer for that section
+   * (§12.3 rule 1). Messaging has no question of its own: §5 drafts it from the others. */
+  asks: SectionId;
   /** Optional on the screen ("Optional." hint): asked, but never counted as blocking. */
   optional: boolean;
   /** Owner minutes to answer: the step's minutes in architecture §5, shared between its questions. */
   minutes: number;
-  /** Facts can prefill it. The voice step is picked by example (§1 principle 5), never prefilled from a fact. */
-  routable: boolean;
+  /** An interview question with a text answer. The voice step is picked by example instead (§1 principle 5). */
+  textAnswer: boolean;
 }
 
 /**
- * Which kit sections' facts may answer each question. Extraction tags facts with a kit section (extract/schemas.ts),
- * and §4 says where each section is inferred from; a question is answerable by the sections whose content it asks for:
- * origin questions by origin and purpose facts (§4 row 2, "Why does this exist? What was broken?"); the Golden Circle
- * by purpose, positioning and messaging facts (§5 step 3); alternatives and edge by positioning facts (§4 row 5,
- * "What would people use if you didn't exist?" "What can you do that they can't?"); audience by audience facts (§4 row 7).
+ * Which kit sections' facts stand in for each question until the owner answers it, following the "Infer from" and
+ * "Ask (only if missing)" columns of §4:
+ * - origin questions: origin facts, and purpose facts for "why" (§4 row 2 asks "Why does this exist? What was broken?");
+ * - the Golden Circle: positioning and messaging facts for what and how, purpose facts for why (§5 step 3);
+ * - "What can only you do?": positioning facts (§4 row 5, inferred from the site hero and comparison pages);
+ * - "Whose opinion matters most?": audience facts (§4 row 7, inferred from site copy).
+ * Two questions are never inferred: "What do people use instead of you?" (§4 row 5: when it is not answered, competitor
+ * research drafts the options, backlog B2 and #35; the brand's own positioning copy is not an answer to it) and "Name 1
+ * to 3 real people" (§4 row 7: real customers or fans come from the owner; without them personas are assumptions).
  */
 const ANSWERED_BY: Record<string, readonly SectionId[]> = {
   'origin.why': ['origin', 'purpose'],
-  'origin.broken': ['origin', 'purpose'],
-  'origin.first_win': ['origin', 'positioning', 'messaging'],
-  'golden_circle.what': ['positioning', 'messaging', 'purpose'],
-  'golden_circle.how': ['positioning', 'messaging'],
-  'golden_circle.why': ['purpose', 'origin', 'messaging'],
-  'alternatives.instead': ['positioning'],
-  'alternatives.edge': ['positioning', 'messaging'],
+  'origin.broken': ['origin'],
+  'origin.first_win': ['origin'],
+  'golden_circle.what': ['positioning', 'messaging'],
+  'golden_circle.how': ['positioning'],
+  'golden_circle.why': ['purpose'],
+  'alternatives.instead': [],
+  'alternatives.edge': ['positioning'],
   'audience.who': ['audience'],
-  'audience.real_people': ['audience'],
+  'audience.real_people': [],
+};
+
+const ASKS: Record<string, SectionId> = {
+  'origin.why': 'origin', 'origin.broken': 'origin', 'origin.first_win': 'origin',
+  'golden_circle.what': 'positioning', 'golden_circle.how': 'positioning', 'golden_circle.why': 'purpose',
+  'alternatives.instead': 'positioning', 'alternatives.edge': 'positioning',
+  'audience.who': 'audience', 'audience.real_people': 'audience',
 };
 
 const stepMinutes = (answerStep: string) => SCREEN_STEPS.find((s) => s.answerStep === answerStep)?.minutes ?? 0;
@@ -57,17 +72,17 @@ export const FIELDS: readonly FieldSpec[] = [
       key: q.key,
       question: q.label,
       answeredBy: ANSWERED_BY[`${s.answerStep}.${q.key}`] ?? [],
+      asks: ASKS[`${s.answerStep}.${q.key}`] ?? 'messaging',
       optional: /^Optional\b/.test(q.hint ?? ''),
       minutes: stepMinutes(s.answerStep!) / s.questions!.length,
-      routable: true,
+      textAnswer: true,
     })),
   ),
   // The voice step has no free-text questions: the owner picks a template and sample (§5 step 6, "Voice by example").
-  { id: 'voice.template', step: 'voice', key: 'template', question: 'How should it sound? Pick the sample that sounds like you.', answeredBy: ['voice'], optional: false, minutes: stepMinutes('voice'), routable: false },
+  { id: 'voice.template', step: 'voice', key: 'template', question: 'How should it sound? Pick the sample that sounds like you.', answeredBy: ['voice'], asks: 'voice', optional: false, minutes: stepMinutes('voice'), textAnswer: false },
 ];
 
-export const FIELD_IDS = FIELDS.map((f) => f.id);
-export const ROUTABLE_FIELDS = FIELDS.filter((f) => f.routable);
+export const TEXT_FIELDS = FIELDS.filter((f) => f.textAnswer);
 export const fieldById = (id: string | null | undefined) => FIELDS.find((f) => f.id === id);
 
 /** Kit sections that read a field: the sections whose drafter takes its step as input (kit.ts SECTIONS.from). */
@@ -76,17 +91,3 @@ export const readers = (f: Pick<FieldSpec, 'step'>): SectionId[] =>
 
 /** The fields a kit section's drafter reads. */
 export const sectionFields = (s: SectionId) => FIELDS.filter((f) => (SECTIONS[s].from as readonly string[]).includes(f.step));
-
-/** "Positioning · Gate 2": the kit section label the Journey cards show (web/src/ui/domain/JourneyFactCard.tsx). */
-export function sectionLabel(s: string): string {
-  if (!(s in SECTIONS)) return s;
-  const id = s as SectionId;
-  const gate = SECTIONS[id].gate;
-  return gate ? `${SECTIONS[id].title} · Gate ${GATES.indexOf(gate) + 1}` : SECTIONS[id].title;
-}
-
-/**
- * Words of the brand's own text needed before its voice can be profiled from it: Writer needs at least 300 words
- * (research 02, "Sample sizes for voice extraction"; architecture §4 row 9, "Corpus profiling (needs 300–500+ words)").
- */
-export const VOICE_MIN_WORDS = 300;

@@ -6,7 +6,7 @@ import { isSection } from '../kit';
 import { MAX_QUOTE, normaliseMapped, normaliseQuote } from '../quote';
 import { alignQuote, fuzzyBudget, type MatchType } from './align';
 import { chunkText, type ChunkOptions } from './chunk';
-import { factKey, MAX_CLAIM, MAX_VALUE, numbersSupported, SLOTS, type Slot } from './facts';
+import { factKey, MAX_CLAIM, MAX_VALUE, normText, numbersSupported, SLOTS, type Slot } from './facts';
 
 /** What a reply to the extraction prompt holds per fact (extract/schemas.ts EXTRACTED_FACTS). */
 export interface ExtractedFact { section: string; claim: string; quote: string; slot: string; value: string }
@@ -51,12 +51,13 @@ export function chunkSource(text: string, options: Partial<ChunkOptions>, maxChu
 }
 
 /**
- * Align step: every proposed fact's quote located in the source (align.ts), its number guard applied, and facts that
- * are the same fact (same slot and value, or the same claim: facts.ts factKey) merged, so each is support-checked
- * once. Facts that only share a passage are not merged here: two claims read from one passage can differ in meaning,
- * and a false one must not decide for a true one, so they are merged after the support check (decideFacts). A slot
- * whose value is not in the passage is cleared to 'none', so a value the source does not state can never raise or
- * settle a conflict.
+ * Align step: every proposed fact's quote located in the source (align.ts) and its number guard applied. Only the same
+ * claim on the same located passage (one sentence seen by two overlapping chunks) is merged here, because the judge
+ * would be asked exactly the same question twice. Different claims for the same fact (the same slot and value), and the
+ * same claim on different passages, all go to the support check: an overclaim or a passage that does not support the
+ * claim must never stand in for a true reading (Codex review on PR #91). Those are merged after the check
+ * (decideFacts). A slot whose value is not in the passage is cleared to 'none', so a value the source does not state
+ * can never raise or settle a conflict.
  */
 export function alignFacts(text: string, chunks: { start: number; end: number }[], replies: ({ facts?: ExtractedFact[] } | null)[]) {
   const page = normaliseMapped(text);
@@ -79,12 +80,11 @@ export function alignFacts(text: string, chunks: { start: number; end: number }[
       let value = slot === 'none' ? '' : f.value.trim();
       if (slot !== 'none' && (!value || !normaliseQuote(at.text).includes(normaliseQuote(value)))) { slot = 'none'; value = ''; }
       if (!numbersSupported(`${claim} ${value}`, at.text)) { drop(dropped, 'number_not_in_quote'); continue; }
-      const key = factKey({ section: f.section, claim, slot, slot_value: value });
+      const key = `${factKey({ section: f.section, claim, slot: 'none', slot_value: '' })}|${slot}|${normText(value)}|${at.start}|${at.end}`;
       const same = byKey.get(key);
       if (same) {
-        if (same.start !== at.start || same.end !== at.end) same.passages++;
-        // An exact passage replaces a fuzzily located one for the same fact.
-        if (same.match === 'fuzzy' && at.match === 'exact') Object.assign(same, { quote: at.text, start: at.start, end: at.end, match: at.match, ratio: at.ratio });
+        // The same passage, located exactly by one reading and fuzzily by another: keep the exact match type.
+        if (same.match === 'fuzzy' && at.match === 'exact') Object.assign(same, { match: at.match, ratio: at.ratio });
         continue;
       }
       const c: Candidate = { id: `f${facts.length + 1}`, section: f.section, claim, slot, value, quote: at.text, start: at.start, end: at.end, match: at.match, ratio: at.ratio, chunk: j, passages: 1 };
@@ -112,8 +112,11 @@ export function supportBatches(facts: Candidate[], size: number, maxBatches: num
 
 /**
  * Decide step: only facts the support check marked supported are kept. A fact with no verdict, or with contradictory
- * verdicts, is dropped: it is never approved by default. Supported facts read from the same passage for the same
- * section and slot (the same sentence seen in two overlapping chunks, worded twice) are then merged into the first.
+ * verdicts, is dropped: it is never approved by default. Supported facts are then merged into one when they are the
+ * same fact (the same slot and value, or the same claim: facts.ts factKey), or when they read the same passage for the
+ * same section and slot (one sentence worded twice). The first supported reading is kept, unless a later one located
+ * its passage exactly and the kept one only fuzzily: then the exact reading replaces it whole (claim, quote and
+ * offsets stay a checked pair). `passages` counts the distinct passages that stated the fact.
  */
 export function decideFacts(facts: Candidate[], batches: { ids: string[] }[], replies: ({ verdicts?: { id: string; supported: boolean }[] } | null)[]) {
   const verdict = new Map<string, boolean | 'mixed'>();
@@ -126,19 +129,31 @@ export function decideFacts(facts: Candidate[], batches: { ids: string[] }[], re
     }
   });
   const dropped: Dropped = {};
-  const bySpan = new Map<string, Candidate>();
+  const kept: Candidate[] = [];
+  const spans: Set<string>[] = [];
+  const at = new Map<string, number>();
+  const keysOf = (f: Candidate) => [`fact|${factKey({ section: f.section, claim: f.claim, slot: f.slot, slot_value: f.value })}`, `span|${f.section}|${f.slot}|${f.value}|${f.start}|${f.end}`];
   let merged = 0;
-  const kept = facts.filter((f) => {
+  for (const f of facts) {
     const v = verdict.get(f.id);
     if (v !== true) {
       drop(dropped, v === undefined || v === 'mixed' ? 'not_checked' : 'unsupported');
-      return false;
+      continue;
     }
-    const span = `${f.section}|${f.slot}|${f.value}|${f.start}|${f.end}`;
-    if (bySpan.has(span)) { merged++; return false; }
-    bySpan.set(span, f);
-    return true;
-  });
+    const keys = keysOf(f);
+    const i = keys.map((k) => at.get(k)).find((x) => x !== undefined);
+    if (i === undefined) {
+      kept.push({ ...f });
+      spans.push(new Set([`${f.start}|${f.end}`]));
+      for (const k of keys) at.set(k, kept.length - 1);
+      continue;
+    }
+    merged++;
+    spans[i].add(`${f.start}|${f.end}`);
+    if (kept[i].match === 'fuzzy' && f.match === 'exact') kept[i] = { ...f };
+    for (const k of keys) if (!at.has(k)) at.set(k, i);
+  }
+  kept.forEach((f, i) => { f.passages = spans[i].size; });
   return { facts: kept, dropped, merged };
 }
 

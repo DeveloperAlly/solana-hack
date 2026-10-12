@@ -1,6 +1,7 @@
 -- Fact extraction (issue #64; architecture §6.1 "Fact extraction with quote check"; backlog B3 and B3a): where each
 -- stored quote sits in its source, how it matched, the computed confidence, the single-valued slot a fact fills, the
--- run that produced it, and one open question per contradiction for the owner. Next free number after
+-- run that produced it, one open question per contradiction for the owner and the call that resolves it, and the
+-- pinned models for extraction and its support judge (engine_config task_models). Next free number after
 -- 010_workflow_engine.sql (PR #70), which this depends on (runs, prompt_versions, workflow_defs).
 -- Must be applied before the extract_facts workflow can run: the seed at the end is the only place its definition and
 -- prompts exist, so on a database without this migration POST /api/brands/:id/runs {kind: "extract_facts"} is refused
@@ -12,7 +13,9 @@
 -- was only used to find the passage); confidence computed from match type and independent sources (high / medium /
 -- low, architecture §3), never asked of the model; slot and slot_value for single-valued facts that can contradict
 -- (web/worker/extract/facts.ts SLOTS); run_id, so every fact traces to the run, prompt versions and models that
--- produced it (run_steps). All nullable: rows written by ingest_url and owner answers leave them empty.
+-- produced it (run_steps); page_url and page_title, the page of a multi-page source (a site's home page plus subpages)
+-- that holds the quote, so the fact links to the exact page anyone can check it on. All nullable: rows written by
+-- ingest_url and owner answers leave them empty.
 alter table public.evidence add column if not exists quote_start int;
 alter table public.evidence add column if not exists quote_end int;
 alter table public.evidence add column if not exists match text;
@@ -20,8 +23,16 @@ alter table public.evidence add column if not exists confidence text;
 alter table public.evidence add column if not exists slot text;
 alter table public.evidence add column if not exists slot_value text;
 alter table public.evidence add column if not exists run_id uuid references public.runs(id) on delete set null;
+alter table public.evidence add column if not exists page_url text;
+alter table public.evidence add column if not exists page_title text;
 do $$ begin
   alter table public.evidence add constraint evidence_quote_span_check check (quote_start is null or (quote_start >= 0 and quote_end >= quote_start));
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter table public.evidence add constraint evidence_page_url_check check (page_url is null or char_length(page_url) <= 2047);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter table public.evidence add constraint evidence_page_title_check check (page_title is null or char_length(page_title) <= 200);
 exception when duplicate_object then null; end $$;
 do $$ begin
   alter table public.evidence add constraint evidence_match_check check (match is null or match in ('exact','fuzzy'));
@@ -74,6 +85,39 @@ end $fn$;
 -- Functions in public are callable through the API by default; only the Worker's secret key (service_role) may call this.
 revoke all on function public.record_fact_conflict(uuid, text, uuid[], text) from public, anon, authenticated;
 grant execute on function public.record_fact_conflict(uuid, text, uuid[], text) to service_role;
+
+-- Resolves a conflict atomically, for the owner's answer (issue #34 serves the question and calls this): the facts in
+-- p_keep become approved, every other fact on the conflict becomes rejected, and the conflict is closed with who
+-- decided and when. p_keep may be empty (no side is right; the owner's own answer is saved as owner_answer evidence by
+-- the caller). Owner answers listed on a conflict keep their standing, as in record_fact_conflict. Errors map to HTTP
+-- statuses through PostgREST's PTxyz codes (https://docs.postgrest.org/en/stable/references/errors.html): 404 when the
+-- brand has no such conflict, 409 when it is already resolved, 400 when p_keep names a fact not on it. Returns the
+-- number of facts whose review status it set.
+create or replace function public.resolve_fact_conflict(p_brand uuid, p_conflict uuid, p_keep uuid[], p_by uuid)
+returns int language plpgsql security invoker set search_path = public as $fn$
+declare v_ids uuid[]; v_status text; v_n int;
+begin
+  select evidence_ids, status into v_ids, v_status from public.fact_conflicts where id = p_conflict and brand_id = p_brand for update;
+  if not found then raise sqlstate 'PT404' using message = 'no such conflict for this brand'; end if;
+  if v_status <> 'open' then raise sqlstate 'PT409' using message = 'this conflict is already resolved'; end if;
+  if not (coalesce(p_keep, '{}') <@ v_ids) then raise exception 'p_keep names a fact that is not on this conflict'; end if;
+  update public.evidence set review_status = case when id = any(coalesce(p_keep, '{}')) then 'approved' else 'rejected' end
+  where brand_id = p_brand and id = any(v_ids) and trust <> 'owner_answer';
+  get diagnostics v_n = row_count;
+  update public.fact_conflicts set status = 'resolved', resolved_by = p_by, resolved_at = now(), updated_at = now() where id = p_conflict;
+  return v_n;
+end $fn$;
+revoke all on function public.resolve_fact_conflict(uuid, uuid, uuid[], uuid) from public, anon, authenticated;
+grant execute on function public.resolve_fact_conflict(uuid, uuid, uuid[], uuid) to service_role;
+
+-- Models per task (web/worker/models.ts; the value mirrors web/worker/engine/seed.ts EXTRACT_MODELS, and
+-- worker-extract.test.ts fails if they drift apart): the extractor and its support judge, from different model
+-- families (architecture §13.3). One shared row, key 'task_models': this migration adds its two tasks and keeps any key
+-- already there (jsonb || keeps the right-hand value on a shared key), so owner edits survive a re-run and other
+-- migrations can add their tasks to the same row the same way.
+insert into public.engine_config (key, value) values
+  ('task_models', $cfg${"extract.facts":["nvidia/nemotron-3-super-120b-a12b:free","apodex/apodex-1.1-mini:free"],"extract.check_support":["dots-studio/dots-3-note-preview:free","liquid/lfm-2.5-2.6b:free"]}$cfg$::jsonb)
+on conflict (key) do update set value = excluded.value || public.engine_config.value, updated_at = now();
 
 -- Seed: the two prompts and the extract_facts definition. Source of truth after this migration is these rows;
 -- web/worker/engine/seed.ts mirrors them for tests (worker-extract.test.ts fails if they drift apart).

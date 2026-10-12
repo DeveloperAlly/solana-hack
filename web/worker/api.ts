@@ -7,8 +7,6 @@ import { registerKitAttestation, registrarFromSecret } from './registry';
 import { activeRun, getRun, ingestSource, startRun } from './engine/api';
 import type { WaitUntil } from './engine/executor';
 import { usableFact } from './sources/registry';
-import { handlePrefill } from './prefill/api';
-import { decideFact, parseRecord } from './prefill/decide';
 import { approvePost, draftPost, editPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
 
 /** The most posts the Create list will show; older ones stay in the database. */
@@ -299,15 +297,13 @@ const REVIEWABLE = ['owned', 'third_party'];
  * only once approved; any reviewable fact can be rejected. Returns the sections citing the fact when it stops being
  * usable, since registration now refuses them until redrafted or the fact is approved again.
  */
-export async function reviewEvidence(env: Env, brand: Brand, id: string, decision: string, record: Record<string, unknown> = {}) {
+export async function reviewEvidence(env: Env, brand: Brand, id: string, decision: string) {
   if (decision !== 'approved' && decision !== 'rejected') throw new HttpError(400, 'review_status must be approved or rejected');
   const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
   const [row] = await db.select<Evidence>(env, 'evidence', f);
   if (!row) throw new HttpError(404, 'fact not found');
   if (!REVIEWABLE.includes(row.trust ?? '')) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
-  // `record` carries the Journey's decision fields (who decided, when, and how: prefill/decide.ts, spec/db/012) in the
-  // same write as the review status, so the two never disagree.
-  const [updated] = await db.update<Evidence>(env, 'evidence', f, { ...record, review_status: decision });
+  const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision });
   if (decision === 'approved') return { evidence: updated, stale: [] as string[] };
   const sections = await db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
   return { evidence: updated, stale: sections.filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };
@@ -354,9 +350,6 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
   }
   if (p[1] !== 'brands' || !p[2]) return json({ error: 'not found' }, 404);
   const brand = await ownBrand(env, user, p[2]);
-  // Prefill, coverage and the Journey screens (issue #34; prefill/api.ts).
-  const prefill = await handlePrefill(req, env, ctx, user, brand, p, () => body(req));
-  if (prefill) return prefill;
 
   if (p.length === 3 && m === 'GET') {
     // activeRun: the newest running or paused run, so a reload shows its progress (issue #32).
@@ -386,13 +379,9 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
     return json(await saveAnswer(env, brand, step, data, b.skipped === true));
   }
   // PATCH /api/brands/:id/evidence/:eid  {review_status: 'approved' | 'rejected'} -> {evidence, stale}
-  //                                      {decision: 'accepted' | 'edited' | 'rejected', edit?} -> {evidence, stale, answer?}
-  // The second body is the Journey's FactRecord (J3-Confirm, #34): the same review, plus who decided and how
-  // (prefill/decide.ts); an edit becomes the owner's answer to the question the fact was routed to.
   if (p[3] === 'evidence' && p.length === 5 && m === 'PATCH') {
     if (!/^[0-9a-f-]{36}$/i.test(p[4])) throw new HttpError(404, 'fact not found');
     const b = await body(req);
-    if ('decision' in b) return json(await decideFact(env, user, brand, p[4], parseRecord(b)));
     return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20)));
   }
   if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {

@@ -2,7 +2,7 @@
 // It stands in for the F1 brand snapshots and F2 gold labels of architecture §13.1 until the owner's exist (the aDNA
 // snapshot and its labels are not in the repo; issue #65), so these tests prove the pipeline's rules and wiring, not
 // model accuracy. Each proposal says what the stub extraction model returns for a chunk containing `when`, and the
-// hand labels say what the stub support judge and the stub router answer; both stubs throw on any claim without a label.
+// hand labels say what the stub support judge answers; it throws on any claim without a label.
 
 const filler = (topic: string, n: number) => Array.from({ length: n }, (_, i) => `Note ${i + 1} on ${topic}: every order is roasted, packed and logged the same day it is placed.`).join(' ');
 
@@ -65,19 +65,3 @@ export const SUPPORT: Record<string, boolean> = Object.fromEntries(PROPOSALS.map
 
 /** The claims extraction may keep: every proposal whose quote is on its page and whose claim the passage supports. */
 export const TRUE_CLAIMS = new Set(PROPOSALS.filter((x) => SUPPORT[x.claim] && !/500 cafes/.test(x.claim)).map((x) => x.claim));
-
-/** Router labels: the question each claim answers. */
-export const ROUTES: Record<string, string> = {
-  'Tidewater helps small coffee roasters sell direct to cafes.': 'golden_circle.what',
-  'Tidewater takes no cut of the sale, unlike wholesale brokers.': 'golden_circle.how',
-  'Roasters sell through brokers and spreadsheets today.': 'alternatives.instead',
-  'Only Tidewater ships same-day roast batches to cafes across Victoria.': 'alternatives.edge',
-  'Tidewater says "Fresh roast, fair price."': 'none',
-  'Tidewater started because roasters lost a third of their margin to middlemen.': 'origin.why',
-  'Before Tidewater, cafes waited two weeks for fresh beans.': 'origin.broken',
-  'Harbour Lane, the first cafe customer, switched in its first month.': 'origin.first_win',
-  'Tidewater was founded in 2019.': 'none',
-  'Tidewater believes great coffee should reward the people who roast it.': 'golden_circle.why',
-  'Tidewater is built for independent roasters with fewer than ten staff.': 'audience.who',
-  'Tidewater was founded in 2020.': 'none',
-};
