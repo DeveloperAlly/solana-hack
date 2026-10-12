@@ -34,7 +34,7 @@ export function AmbStatusTimeline({ steps, orientation = 'horizontal', label = '
           <span className={styles.label}>
             {s.label}
             {s.state === 'done' && <Icon name="check" size="sm" />}
-            <span className="wl-visually-hidden"> ({spoken[s.state]})</span>
+            {' '}<span className="wl-visually-hidden">({spoken[s.state]})</span>
           </span>
           {(s.note || s.action) && (
             <span className={styles.note}>

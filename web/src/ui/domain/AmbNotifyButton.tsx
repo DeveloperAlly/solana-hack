@@ -12,7 +12,7 @@ export function AmbNotifyButton({ brand, on, onToggle }: AmbNotifyButtonProps) {
   return (
     <Button variant={on ? 'primary' : 'secondary'} aria-pressed={on} onClick={onToggle}>
       {on ? "We'll email you" : 'Notify me'}
-      <span className="wl-visually-hidden"> about {brand}</span>
+      {' '}<span className="wl-visually-hidden">about {brand}</span>
     </Button>
   );
 }

@@ -9,10 +9,11 @@ import styles from './AmbShell.module.css';
  * Mobile ambassador shell (canvas M-* frames, 390 px wide): top bar with the logo and balance or a back link and title,
  * an optional pinned bar, the scrolling body, an optional sticky bottom bar and the tab bar. Part of AmbShell.
  */
-export function AmbMobileShell({ nav, active, homeHref, account, signInHref, flag, back, title, tabs = false, pinned, footer, children }: Omit<AmbShellProps, 'device'>) {
+export function AmbMobileShell({ nav, active, homeHref, account, signInHref, flag, back, title, tabs = false, pinned, footer, preview = false, children }: Omit<AmbShellProps, 'device'>) {
+  const Body = preview ? 'div' : 'main';
   return (
-    <div className={styles.mobile}>
-      <a className={styles.skip} href="#main">Skip to content</a>
+    <div className={`${styles.mobile} ${preview ? styles.preview : ''}`}>
+      {!preview && <a className={styles.skip} href="#main">Skip to content</a>}
       <header className={styles.topbar}>
         {back ? (
           <RouterLink to={back.href} className={styles.back} aria-label={back.label}><span aria-hidden="true">←</span></RouterLink>
@@ -24,9 +25,9 @@ export function AmbMobileShell({ nav, active, homeHref, account, signInHref, fla
         {!back && <span className={styles.end}><AmbAccountChip account={account} signInHref={signInHref} withName={false} /></span>}
       </header>
       {pinned && <div className={styles.pinned}>{pinned}</div>}
-      <main id="main" tabIndex={-1} className={styles.body}>{children}</main>
+      <Body id={preview ? undefined : 'main'} tabIndex={preview ? undefined : -1} className={styles.body}>{children}</Body>
       {footer && <div className={styles.footer}>{footer}</div>}
-      {tabs && <AmbTabBar items={nav} active={active} />}
+      {tabs && <AmbTabBar items={nav} active={active} label={preview ? 'Ambassador preview, mobile' : 'Ambassador'} />}
     </div>
   );
 }

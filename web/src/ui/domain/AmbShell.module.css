@@ -12,6 +12,8 @@
 .links { display: flex; flex-wrap: wrap; gap: var(--wl-space-2) var(--wl-space-7); margin: 0; padding: 0; list-style: none; }
 .main { padding: var(--wl-space-8) 0; }
 .main:focus, .body:focus { outline: none; }
+/* Workbench preview: no full-height frame, and an outline so the shell reads as a framed sample. */
+.preview { min-height: 0; border: var(--wl-border-width-default) solid var(--wl-border-subtle); }
 
 .mobile {
   display: flex;

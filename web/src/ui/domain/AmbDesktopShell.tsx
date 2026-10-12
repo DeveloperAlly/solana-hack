@@ -6,14 +6,15 @@ import type { AmbShellProps } from './AmbShell';
 import styles from './AmbShell.module.css';
 
 /** Desktop ambassador shell (canvas Amb-* ".nav"): logo, Campaigns / My posts / Earnings, balance chip; main below. Part of AmbShell. */
-export function AmbDesktopShell({ nav, active, homeHref, account, signInHref, flag, children }: Omit<AmbShellProps, 'device'>) {
+export function AmbDesktopShell({ nav, active, homeHref, account, signInHref, flag, preview = false, children }: Omit<AmbShellProps, 'device'>) {
+  const Body = preview ? 'div' : 'main';
   return (
-    <div className={styles.desktop}>
-      <a className={styles.skip} href="#main">Skip to content</a>
+    <div className={`${styles.desktop} ${preview ? styles.preview : ''}`}>
+      {!preview && <a className={styles.skip} href="#main">Skip to content</a>}
       <header className={styles.topnav}>
         <RouterLink to={homeHref} className={styles.logo}><Logo /></RouterLink>
         {flag}
-        <nav aria-label="Ambassador" className={styles.navlinks}>
+        <nav aria-label={preview ? 'Ambassador preview, desktop' : 'Ambassador'} className={styles.navlinks}>
           <ul className={styles.links}>
             {nav.map((item) => (
               <li key={item.id}>
@@ -24,9 +25,9 @@ export function AmbDesktopShell({ nav, active, homeHref, account, signInHref, fl
         </nav>
         <AmbAccountChip account={account} signInHref={signInHref} />
       </header>
-      <main id="main" tabIndex={-1} className={styles.main}>
+      <Body id={preview ? undefined : 'main'} tabIndex={preview ? undefined : -1} className={styles.main}>
         <Container width="app">{children}</Container>
-      </main>
+      </Body>
     </div>
   );
 }

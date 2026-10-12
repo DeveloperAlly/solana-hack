@@ -34,6 +34,8 @@ export interface AmbShellProps {
   pinned?: ReactNode;
   /** Mobile: sticky bottom bar (Join, Publish; canvas notes n-m2, n-m3). */
   footer?: ReactNode;
+  /** Rendered inside another page (the /system workbench): no skip link, and the body is a div, not a second <main>. */
+  preview?: boolean;
   children?: ReactNode;
 }
 

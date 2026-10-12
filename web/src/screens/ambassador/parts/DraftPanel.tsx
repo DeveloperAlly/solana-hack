@@ -31,7 +31,7 @@ export function DraftPanel({ draft, charLimit, generating }: DraftPanelProps) {
               <li key={`${i}-${h.length}`}>
                 <Stack direction="row" gap={3} align="center" justify="between" wrap>
                   <Text variant="small" truncate>{h.split('\n')[0]}</Text>
-                  <Button variant="secondary" onClick={() => draft.restore(i)}>Restore<span className="wl-visually-hidden"> version {i + 1}</span></Button>
+                  <Button variant="secondary" onClick={() => draft.restore(i)}>Restore{' '}<span className="wl-visually-hidden">version {i + 1}</span></Button>
                 </Stack>
               </li>
             ))}

@@ -18,7 +18,7 @@ export function CampaignAction({ campaign, detailHref, notified, onNotify }: Cam
   if (!campaign.hasDetail) {
     return (
       <Button variant="secondary" disabled>
-        View<span className="wl-visually-hidden"> {campaign.title} (not open yet)</span>
+        View{' '}<span className="wl-visually-hidden">{campaign.title} (not open yet)</span>
       </Button>
     );
   }
