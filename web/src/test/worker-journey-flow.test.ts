@@ -86,12 +86,13 @@ const FACTS = [
   { section: 'messaging', claim: 'Invented award', quote: 'Acme won the Global Bridge Award' },
 ];
 const POST_BODY = 'Acme builds bridges for small towns, designed and built by one team. Talk to us about yours.';
-function model(system: string): unknown {
+function model(system: string, user: string): unknown {
   if (system.includes('You extract facts')) return { facts: FACTS };
   if (system.includes('You draft one section')) return { body: 'Acme builds bridges for small towns, designed and built by one team.', citations: [] };
   if (system.includes('You show a brand owner')) {
-    const round2 = /these three templates: ([a-z_, ]+)/.exec(system)?.[1].split(', ');
-    return { samples: (round2 ?? ['plainspoken', 'friendly', 'professional']).map((t) => ({ template: t, text: `Acme builds bridges for small towns, in the ${t} voice.` })) };
+    const offered = [...user.matchAll(/^\d+\. ([a-z_]+):/gm)].map((match) => match[1]);
+    expect(offered).toHaveLength(3);
+    return { samples: offered.map((t) => ({ template: t, text: `Acme builds bridges for small towns, in the ${t} voice.` })) };
   }
   if (system.includes('You write one social post')) return { body: POST_BODY, voiceFit: 82, platform: 75, notes: [] };
   if (system.includes('You check one social post')) return { unsupported: [], sexual: false, minors: false, explicitLanguage: false };
@@ -106,8 +107,8 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (url: string | URL, init?: RequestInit) => {
     const u = String(url);
     if (u.startsWith('https://openrouter.ai')) {
-      const system = (JSON.parse(String(init!.body)).messages as { content: string }[])[0].content;
-      return new Response(JSON.stringify({ model: 'openrouter/free', choices: [{ message: { content: JSON.stringify(model(system)) } }] }));
+      const [system, user] = (JSON.parse(String(init!.body)).messages as { content: string }[]).map((message) => message.content);
+      return new Response(JSON.stringify({ model: 'openrouter/free', choices: [{ message: { content: JSON.stringify(model(system, user)) } }] }));
     }
     if (u === 'https://db.test/auth/v1/user') {
       const t = new Headers(init?.headers).get('authorization')?.slice(7) ?? '';

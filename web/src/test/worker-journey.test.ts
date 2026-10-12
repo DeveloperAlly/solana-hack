@@ -218,6 +218,7 @@ describe('voice by example (J4)', () => {
     const res = await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 });
     expect(res.status).toBe(200);
     expect((res.body.samples as { template: string }[]).map((s) => s.template)).toEqual(offer);
+    expect((res.body.samples as { text: string }[]).map((s) => s.text)).toEqual(offer.map((id) => sample(id).text));
     expect((res.body.samples as { answer: Record<string, string> }[])[0].answer).toMatchObject({ template: offer[0], sample: `A paragraph about Acme in the ${offer[0]} voice.` });
     for (const id of offer) expect(prompts[0].user).toContain(id);
     expect(prompts[0].user).toContain('Acme builds bridges');
