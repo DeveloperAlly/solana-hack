@@ -154,27 +154,31 @@ export async function findCompetitors(env: Env, ctx: WaitUntil | undefined, call
 export interface Candidate { sourceId: string; url: string; title: string; excerpt: string }
 const EXCERPT = 300;
 
-/** GET /api/brands/:id/competitors: stored candidates, newest first, each with its page as the source. */
+/**
+ * GET /api/brands/:id/competitors: the candidates of the brand's latest find_competitors run that finished (spec/db/014
+ * competitor_candidates, the only read path), each with its page as the source. A run still going, or one that failed,
+ * never replaces a finished set (Codex review on PR #100).
+ */
 export async function listCompetitors(env: Env, brand: Pick<BrandRef, 'id'>) {
-  const rows = await db.select<{ id: string; url: string; title: string | null; text_excerpt: string | null }>(env, 'sources', `${db.eq('brand_id', brand.id)}&${db.eq('kind', 'competitor_page')}&select=id,url,title,text_excerpt,created_at&order=created_at.desc,id.desc&limit=50`);
-  return { candidates: rows.map((r): Candidate => ({ sourceId: r.id, url: r.url, title: r.title ?? r.url, excerpt: (r.text_excerpt ?? '').slice(0, EXCERPT) })) };
+  const rows = await db.rpc<{ id: string; url: string; title: string | null; text_excerpt: string | null; run_id: string }[]>(env, 'competitor_candidates', { p_brand: brand.id });
+  return { candidates: rows.map((r): Candidate => ({ sourceId: r.id, url: r.url, title: r.title ?? r.url, excerpt: (r.text_excerpt ?? '').slice(0, EXCERPT) })), runId: rows[0]?.run_id ?? null };
 }
 
 /**
- * The find_competitors save step: the run's candidate pages replace the brand's previous candidates as one set, in one
- * database call (spec/db/014 replace_competitor_candidates), so GET /competitors lists only the latest set (Codex review
- * on PR #100). Rows are keyed by brand and address, so a retried step writes the same set. A run that a newer one has
- * superseded writes nothing. Its output is the run's: the candidates, and Exa's cost for the request (null when Exa
- * gave none; also metered on the read step's cost_usd).
+ * The find_competitors save step: the run's own candidates, inserted as competitor_page sources tagged with its run
+ * (spec/db/014 save_competitor_candidates). Rows are keyed by run and address, so a retried step writes nothing new,
+ * and a save never decides about another run's set: which set is shown is decided at read time (listCompetitors). Its
+ * output is the run's: the candidates, and Exa's cost for the request (null when Exa gave none; also metered on the
+ * read step's cost_usd).
  */
 export async function saveCompetitorCandidates(env: Env, run: Pick<RunRow, 'id' | 'brand_id'>, read: ReadStepOutput) {
   const rows = await Promise.all(read.pages.map(async (p) => {
     const text = read.text.slice(p.start, p.end);
-    return { id: await stableId('competitor', run.brand_id, p.url), url: p.url, title: p.title, source_text: text, text_excerpt: capText(text, 2000, 8000) };
+    return { id: await stableId('competitor', run.id, p.url), url: p.url, title: p.title, source_text: text, text_excerpt: capText(text, 2000, 8000) };
   }));
-  const current = await db.rpc<boolean>(env, 'replace_competitor_candidates', { p_brand: run.brand_id, p_run: run.id, p_rows: rows });
+  await db.rpc<number>(env, 'save_competitor_candidates', { p_brand: run.brand_id, p_run: run.id, p_rows: rows });
   const candidates: Candidate[] = rows.map((r) => ({ sourceId: r.id, url: r.url, title: r.title, excerpt: r.source_text.slice(0, EXCERPT) }));
-  return { candidates, current, cost: read.meta.cost };
+  return { candidates, cost: read.meta.cost };
 }
 
 // ------------------------------------------------------------------------------------------------ registrations

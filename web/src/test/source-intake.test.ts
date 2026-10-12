@@ -539,13 +539,6 @@ describe('competitor candidates (#35): three, with sources, for the positioning 
     expect((brand.body.sources as Row[]).some((s) => s.kind === 'competitor_page')).toBe(false);
   });
 
-  it('a second run finding the same competitors writes no second row for them', async () => {
-    exaReply = () => exaOk([exaResult('https://rival-one.example/', 'Rival One makes brand kits.', 'Rival One')]);
-    await api('POST', `/brands/${BRAND}/competitors`, {});
-    await api('POST', `/brands/${BRAND}/competitors`, {});
-    expect(db.tables.sources.filter((s) => s.kind === 'competitor_page')).toHaveLength(1);
-  });
-
   it('a website on a shared host (github.com/acme) is compared and excluded by its path, never the whole host', async () => {
     exaReply = () => exaOk([
       exaResult('https://github.com/acme/tool', 'Acme\'s own repo.', 'acme/tool'),
@@ -556,46 +549,6 @@ describe('competitor candidates (#35): three, with sources, for the positioning 
     expect(r.ok && r.pages!.map((p) => p.url)).toEqual(['https://github.com/rival/kit']);
     await readSearch(envWith, { brandName: 'Acme', website: 'github.com/acme' });
     expect(exaCalls[1].body).toMatchObject({ query: 'Acme (github.com/acme)', excludeDomains: ['github.com/acme'] });
-  });
-
-  it('Codex review on PR #100: a rerun replaces the earlier candidates as one set, so GET lists only the latest three', async () => {
-    exaReply = () => exaOk([exaResult('https://a.example/', 'A.', 'A'), exaResult('https://b.example/', 'B.', 'B'), exaResult('https://c.example/', 'C.', 'C')]);
-    await api('POST', `/brands/${BRAND}/competitors`, {});
-    exaReply = () => exaOk([exaResult('https://c.example/', 'C again.', 'C'), exaResult('https://d.example/', 'D.', 'D')]);
-    const r = await api('POST', `/brands/${BRAND}/competitors`, {});
-    expect(run((r.body.run as Row).id).output).toMatchObject({ current: true });
-    const list = await api('GET', `/brands/${BRAND}/competitors`);
-    expect((list.body.candidates as { title: string; excerpt: string }[]).map((c) => c.title).sort()).toEqual(['C', 'D']);
-    expect((list.body.candidates as { title: string; excerpt: string }[]).find((c) => c.title === 'C')!.excerpt).toBe('C again.');
-    expect(db.calls.some((c) => c.method === 'DELETE' && c.table === 'sources')).toBe(false);
-  });
-
-  it('a superseded run\'s late save writes nothing, so an older set never comes back', async () => {
-    const { saveCompetitorCandidates } = await import('../../worker/intake');
-    db.tables.runs.push({ id: 'r-old', brand_id: BRAND, kind: 'find_competitors', status: 'running', created_at: '2026-10-13T00:00:00.000Z' }, { id: 'r-new', brand_id: BRAND, kind: 'find_competitors', status: 'running', created_at: '2026-10-13T00:01:00.000Z' });
-    db.tables.sources.push({ id: 'keep', brand_id: BRAND, kind: 'competitor_page', url: 'https://new.example/', title: 'New' });
-    const read = { kind: 'competitor_page', trust: 'third_party', title: 't', text: 'Old.', truncated: false, pages: [{ url: 'https://old.example/', title: 'Old', start: 0, end: 4 }], meta: { pages: 1, cost: 0.005, ms: 1, notes: [] } };
-    const out = await saveCompetitorCandidates(envWith, { id: 'r-old', brand_id: BRAND }, read);
-    expect(out.current).toBe(false);
-    expect(db.tables.sources.filter((s) => s.kind === 'competitor_page').map((s) => s.title)).toEqual(['New']);
-    // Equal timestamps: (created_at, id) is a total order, so only one of the two runs is the latest.
-    db.tables.runs.push({ id: 'r-twin-a', brand_id: BRAND, kind: 'find_competitors', status: 'running', created_at: '2026-10-13T00:02:00.000Z' }, { id: 'r-twin-b', brand_id: BRAND, kind: 'find_competitors', status: 'running', created_at: '2026-10-13T00:02:00.000Z' });
-    expect((await saveCompetitorCandidates(envWith, { id: 'r-twin-a', brand_id: BRAND }, read)).current).toBe(false);
-    expect((await saveCompetitorCandidates(envWith, { id: 'r-twin-b', brand_id: BRAND }, read)).current).toBe(true);
-  });
-
-  it('Codex review on PR #100: a newer run that is only reserved, failed or was superseded never costs an older run its save', async () => {
-    const { saveCompetitorCandidates } = await import('../../worker/intake');
-    const read = { kind: 'competitor_page', trust: 'third_party', title: 't', text: 'Old.', truncated: false, pages: [{ url: 'https://old.example/', title: 'Old', start: 0, end: 4 }], meta: { pages: 1, cost: 0.005, ms: 1, notes: [] } };
-    db.tables.runs.push({ id: 'r-older', brand_id: BRAND, kind: 'find_competitors', status: 'superseded', created_at: '2026-10-13T00:00:00.000Z' });
-    for (const status of ['reserved', 'failed', 'superseded']) {
-      db.tables.runs = db.tables.runs.filter((r) => r.id !== 'r-newer');
-      db.tables.runs.push({ id: 'r-newer', brand_id: BRAND, kind: 'find_competitors', status, created_at: '2026-10-13T00:01:00.000Z' });
-      expect({ status, current: (await saveCompetitorCandidates(envWith, { id: 'r-older', brand_id: BRAND }, read)).current }).toEqual({ status, current: true });
-    }
-    db.tables.runs.find((r) => r.id === 'r-newer')!.status = 'running';
-    expect((await saveCompetitorCandidates(envWith, { id: 'r-older', brand_id: BRAND }, read)).current).toBe(false);
-    expect(db.tables.sources.filter((x) => x.kind === 'competitor_page').map((x) => x.title)).toEqual(['Old']);
   });
 
   it('Codex review on PR #100: a findSimilar reply without costDollars records the cost as unknown, never the /search price', async () => {
@@ -644,6 +597,44 @@ describe('competitor candidates (#35): three, with sources, for the positioning 
     const compRun = run((c.body.run as Row).id);
     expect(compRun.status).toBe('failed');
     expect(db.tables.run_steps.find((x) => x.run_id === compRun.id && x.step === 'read')).toMatchObject({ outcome: 'error', cost_usd: 0.009 });
+  });
+
+  it('Codex review on PR #100: the candidates shown are the latest finished run\'s; a newer run still going, or one that fails, never hides them', async () => {
+    const list = async () => ((await api('GET', `/brands/${BRAND}/competitors`)).body.candidates as { title: string }[]).map((c) => c.title).sort();
+    exaReply = () => exaOk([exaResult('https://a.example/', 'A.', 'A'), exaResult('https://b.example/', 'B.', 'B')]);
+    await api('POST', `/brands/${BRAND}/competitors`, {});
+    expect(await list()).toEqual(['A', 'B']);
+    // A newer run fails: the older finished set is still the one shown.
+    exaReply = () => new Response('{}', { status: 400 });
+    const failed = await api('POST', `/brands/${BRAND}/competitors`, {});
+    expect(run((failed.body.run as Row).id).status).toBe('failed');
+    expect(await list()).toEqual(['A', 'B']);
+    // A newer run whose rows are saved but which has not finished: still the older set.
+    const { saveCompetitorCandidates } = await import('../../worker/intake');
+    db.tables.runs.push({ id: 'r-going', brand_id: BRAND, kind: 'find_competitors', status: 'running', created_at: new Date(Date.now() + 1000).toISOString() });
+    await saveCompetitorCandidates(envWith, { id: 'r-going', brand_id: BRAND }, { kind: 'competitor_page', trust: 'third_party', title: 't', text: 'G.', truncated: false, pages: [{ url: 'https://g.example/', title: 'G', start: 0, end: 2 }], meta: { pages: 1, cost: 0, ms: 1, notes: [] } });
+    expect(await list()).toEqual(['A', 'B']);
+    // Once it finishes, its set is the one shown.
+    db.tables.runs.find((r) => r.id === 'r-going')!.status = 'done';
+    expect(await list()).toEqual(['G']);
+    // A newer run that finishes replaces the shown set, and its save prunes sets that can never be shown again.
+    exaReply = () => exaOk([exaResult('https://c.example/', 'C.', 'C')]);
+    db.tables.runs.find((r) => r.id === 'r-going')!.created_at = new Date(Date.now() - 1000).toISOString();
+    await api('POST', `/brands/${BRAND}/competitors`, {});
+    expect(await list()).toEqual(['C']);
+    const third = await api('POST', `/brands/${BRAND}/competitors`, {});
+    expect(run((third.body.run as Row).id).status).toBe('done');
+    expect(db.tables.sources.filter((x) => x.kind === 'competitor_page' && ['A', 'B', 'G'].includes(String(x.title)))).toHaveLength(0);
+  });
+
+  it('a retried save of the same run writes no second row; each run keeps its own rows', async () => {
+    const { saveCompetitorCandidates } = await import('../../worker/intake');
+    db.tables.runs.push({ id: 'r-one', brand_id: BRAND, kind: 'find_competitors', status: 'running', created_at: new Date().toISOString() });
+    const read = { kind: 'competitor_page', trust: 'third_party', title: 't', text: 'R.', truncated: false, pages: [{ url: 'https://r.example/', title: 'R', start: 0, end: 2 }], meta: { pages: 1, cost: 0, ms: 1, notes: [] } };
+    await saveCompetitorCandidates(envWith, { id: 'r-one', brand_id: BRAND }, read);
+    await saveCompetitorCandidates(envWith, { id: 'r-one', brand_id: BRAND }, read);
+    expect(db.tables.sources.filter((x) => x.kind === 'competitor_page')).toHaveLength(1);
+    expect(db.tables.sources[0]).toMatchObject({ run_id: 'r-one' });
   });
 
   it('a brand without a website is told to add one; nothing is called', async () => {

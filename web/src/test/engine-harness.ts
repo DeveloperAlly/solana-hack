@@ -51,24 +51,35 @@ function recordFactConflict({ p_brand, p_slot, p_evidence, p_question }: { p_bra
   return c.id;
 }
 
-/** Same semantics as spec/db/014 replace_competitor_candidates (checked against Postgres 16 with two sessions): a run
- * writes unless a newer find_competitors run of the brand, by (created_at, id), is live (running, paused or done); its
- * set replaces the brand's competitor_page rows in one step. Single-threaded here, as the per-brand advisory lock makes
- * it in Postgres. */
-function replaceCompetitorCandidates({ p_brand, p_run, p_rows }: { p_brand: string; p_run: string; p_rows: Row[] }) {
-  const mine = db.tables.runs.find((r) => r.id === p_run && r.brand_id === p_brand && r.kind === 'find_competitors');
-  if (!mine) throw new Error(`run ${p_run} is not a find_competitors run of brand ${p_brand}`);
-  const newer = (r: Row) => String(r.created_at) > String(mine.created_at) || (String(r.created_at) === String(mine.created_at) && String(r.id) > String(mine.id));
-  if (db.tables.runs.some((r) => r.brand_id === p_brand && r.kind === 'find_competitors' && ['running', 'paused', 'done'].includes(String(r.status)) && newer(r))) return false;
-  const keep = new Set(p_rows.map((x) => x.id));
-  db.tables.sources = db.tables.sources.filter((s) => !(s.brand_id === p_brand && s.kind === 'competitor_page' && !keep.has(s.id)));
+const runOrder = (a: Row, b: Row) => String(a.created_at).localeCompare(String(b.created_at)) || String(a.id).localeCompare(String(b.id));
+/** The brand's latest find_competitors run whose status is 'done', by (created_at, id). */
+const latestDoneCompetitors = (brand: string) => db.tables.runs.filter((r) => r.brand_id === brand && r.kind === 'find_competitors' && r.status === 'done').sort(runOrder).at(-1);
+
+/** Same semantics as spec/db/014 save_competitor_candidates (checked against Postgres 16): insert this run's rows,
+ * keyed by id (a retry inserts nothing), then prune the rows of runs older than the brand's latest done run. */
+function saveCompetitorCandidates({ p_brand, p_run, p_rows }: { p_brand: string; p_run: string; p_rows: Row[] }) {
+  if (!db.tables.runs.some((r) => r.id === p_run && r.brand_id === p_brand && r.kind === 'find_competitors')) throw new Error(`run ${p_run} is not a find_competitors run of brand ${p_brand}`);
+  let inserted = 0;
   for (const x of p_rows) {
-    const row = { id: x.id, brand_id: p_brand, url: x.url, title: x.title, kind: 'competitor_page', status: 'read', source_text: x.source_text, text_excerpt: x.text_excerpt, fetched_at: new Date().toISOString() };
-    const prev = db.tables.sources.find((s) => s.id === x.id);
-    if (!prev) db.tables.sources.push({ created_at: new Date().toISOString(), ...row });
-    else if (prev.brand_id === p_brand && prev.kind === 'competitor_page') Object.assign(prev, row);
+    if (db.tables.sources.some((s) => s.id === x.id)) continue;
+    db.tables.sources.push({ id: x.id, created_at: new Date().toISOString(), brand_id: p_brand, run_id: p_run, url: x.url, title: x.title, kind: 'competitor_page', status: 'read', source_text: x.source_text, text_excerpt: x.text_excerpt, fetched_at: new Date().toISOString() });
+    inserted++;
   }
-  return true;
+  const done = latestDoneCompetitors(p_brand);
+  if (done) {
+    db.tables.sources = db.tables.sources.filter((s) => {
+      if (s.brand_id !== p_brand || s.kind !== 'competitor_page') return true;
+      const owner = db.tables.runs.find((r) => r.id === s.run_id);
+      return !owner || runOrder(owner, done) >= 0;
+    });
+  }
+  return inserted;
+}
+
+/** Same semantics as spec/db/014 competitor_candidates: the rows of the brand's latest done find_competitors run. */
+function competitorCandidates({ p_brand }: { p_brand: string }) {
+  const done = latestDoneCompetitors(p_brand);
+  return done ? db.tables.sources.filter((s) => s.brand_id === p_brand && s.kind === 'competitor_page' && s.run_id === done.id) : [];
 }
 
 /** Same semantics as spec/db/014 reserve_search_source and its unique index sources_one_search (checked against
@@ -189,7 +200,8 @@ export function fakeDb(url: string, init: RequestInit = {}) {
   db.calls.push({ method, table: path, query: u.search });
   if (path === 'rpc/record_run_step') return recordRunStep(body);
   if (path === 'rpc/record_fact_conflict') return recordFactConflict(body);
-  if (path === 'rpc/replace_competitor_candidates') return replaceCompetitorCandidates(body);
+  if (path === 'rpc/save_competitor_candidates') return saveCompetitorCandidates(body);
+  if (path === 'rpc/competitor_candidates') return competitorCandidates(body);
   if (path === 'rpc/reserve_search_source') return reserveSearchSource(body);
   if (path === 'rpc/admit_run') return admitRun(body);
   if (path === 'rpc/resolve_fact_conflict') return resolveFactConflict(body);

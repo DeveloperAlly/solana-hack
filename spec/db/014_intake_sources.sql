@@ -1,5 +1,5 @@
 -- Intake sources (R9 on issue #38; issues #33 and #35): one web search per brand held by the database, competitor
--- candidates for the positioning step with their set replaced atomically by each run, and the find_competitors
+-- candidates for the positioning step (written per run, read from the latest done run), and the find_competitors
 -- definition. Next free number
 -- after 011 (fact extraction, PR #91), 012 (issue #34) and 013 (Create); depends on 010 (workflow_defs) and 011.
 -- Documents, social exports and web search add no columns: they are sources whose text is stored in
@@ -45,43 +45,61 @@ end $fn$;
 revoke all on function public.reserve_search_source(uuid, text) from public, anon, authenticated;
 grant execute on function public.reserve_search_source(uuid, text) to service_role;
 
--- Competitor candidates are replaced as one set (Codex review on PR #100): each run's candidates take the place of the
--- brand's previous ones in one transaction, so GET /competitors always lists the latest set, never an accumulation and
--- never a half-written one. A run writes unless a newer find_competitors run of the brand is live (running, paused or
--- done): a newer run that is only reserved, or that failed or was superseded, never blocks it, so an abandoned or
--- failed newer start cannot cost an older run its result. Runs are ordered by (created_at, id), a total order, so
--- equal timestamps never both count as newest. The brand's run bookkeeping is serialised by one transaction-scoped
--- advisory lock per brand, the key spec/db/011 admit_run takes ('admit_run:' || brand): a save waits for an admission
--- in progress and the reverse, and two overlapping saves cannot interleave. Each call takes that one lock and no
--- other, so the two functions cannot deadlock. Rows are keyed by brand and address (web/worker/intake.ts), so a
--- retried save writes the same set. Returns false when a newer live run exists (nothing written).
-create or replace function public.replace_competitor_candidates(p_brand uuid, p_run uuid, p_rows jsonb)
-returns boolean language plpgsql security invoker set search_path = public as $fn$
+-- Competitor candidates (Codex review on PR #100): no save decides whether to keep or discard a set, since any such
+-- decision depends on how another run ends. Instead:
+-- - Write: each find_competitors run inserts its own candidates as competitor_page sources tagged with its run_id. Rows
+--   are keyed by run and address (web/worker/intake.ts), so a retried save writes nothing new; a save never removes
+--   another run's rows that could still be shown.
+-- - Read: competitor_candidates(brand) returns the candidates of the brand's latest find_competitors run whose status
+--   is 'done', by (created_at, id), a total order. It is the only read path (GET /api/brands/:id/competitors). A run
+--   that is reserved, running, failed or superseded is never shown, and never hides an older done set.
+-- - Cleanup: after inserting, a save prunes the rows of runs older than the brand's latest done run. Those rows can
+--   never be shown again (a later done run is always newer), so pruning changes no read; it keeps the table to one
+--   visible set plus the sets of runs not yet done, rather than every set a brand ever fetched.
+alter table public.sources add column if not exists run_id uuid references public.runs(id) on delete cascade;
+create index if not exists sources_competitor_run on public.sources(brand_id, run_id) where kind = 'competitor_page';
+
+create or replace function public.save_competitor_candidates(p_brand uuid, p_run uuid, p_rows jsonb)
+returns int language plpgsql security invoker set search_path = public as $fn$
 declare
-  v_created timestamptz;
+  v_inserted int;
+  v_done_at timestamptz;
+  v_done_id uuid;
 begin
-  perform pg_advisory_xact_lock(hashtextextended('admit_run:' || p_brand::text, 0));
-  select created_at into v_created from public.runs where id = p_run and brand_id = p_brand and kind = 'find_competitors';
-  if v_created is null then
+  if not exists (select 1 from public.runs where id = p_run and brand_id = p_brand and kind = 'find_competitors') then
     raise exception 'run % is not a find_competitors run of brand %', p_run, p_brand;
   end if;
-  if exists (select 1 from public.runs r where r.brand_id = p_brand and r.kind = 'find_competitors'
-             and r.status in ('running','paused','done') and (r.created_at, r.id) > (v_created, p_run)) then
-    return false;
-  end if;
-  delete from public.sources
-  where brand_id = p_brand and kind = 'competitor_page'
-    and id not in (select (x->>'id')::uuid from jsonb_array_elements(p_rows) x);
-  insert into public.sources (id, brand_id, url, title, kind, status, source_text, text_excerpt, fetched_at)
-  select (x->>'id')::uuid, p_brand, x->>'url', x->>'title', 'competitor_page', 'read', x->>'source_text', x->>'text_excerpt', now()
+  insert into public.sources (id, brand_id, run_id, url, title, kind, status, source_text, text_excerpt, fetched_at)
+  select (x->>'id')::uuid, p_brand, p_run, x->>'url', x->>'title', 'competitor_page', 'read', x->>'source_text', x->>'text_excerpt', now()
   from jsonb_array_elements(p_rows) x
-  on conflict (id) do update set url = excluded.url, title = excluded.title, source_text = excluded.source_text,
-    text_excerpt = excluded.text_excerpt, fetched_at = excluded.fetched_at
-    where public.sources.brand_id = p_brand and public.sources.kind = 'competitor_page';
-  return true;
+  on conflict (id) do nothing;
+  get diagnostics v_inserted = row_count;
+  select d.created_at, d.id into v_done_at, v_done_id from public.runs d
+  where d.brand_id = p_brand and d.kind = 'find_competitors' and d.status = 'done'
+  order by d.created_at desc, d.id desc limit 1;
+  if v_done_id is not null then
+    delete from public.sources s
+    using public.runs old
+    where s.brand_id = p_brand and s.kind = 'competitor_page' and old.id = s.run_id
+      and (old.created_at, old.id) < (v_done_at, v_done_id);
+  end if;
+  return v_inserted;
 end $fn$;
-revoke all on function public.replace_competitor_candidates(uuid, uuid, jsonb) from public, anon, authenticated;
-grant execute on function public.replace_competitor_candidates(uuid, uuid, jsonb) to service_role;
+revoke all on function public.save_competitor_candidates(uuid, uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.save_competitor_candidates(uuid, uuid, jsonb) to service_role;
+
+create or replace function public.competitor_candidates(p_brand uuid)
+returns setof public.sources language sql stable security invoker set search_path = public as $fn$
+  select s.* from public.sources s
+  where s.brand_id = p_brand and s.kind = 'competitor_page'
+    and s.run_id = (
+      select r.id from public.runs r
+      where r.brand_id = p_brand and r.kind = 'find_competitors' and r.status = 'done'
+      order by r.created_at desc, r.id desc limit 1)
+  order by s.created_at, s.id;
+$fn$;
+revoke all on function public.competitor_candidates(uuid) from public, anon, authenticated;
+grant execute on function public.competitor_candidates(uuid) to service_role;
 
 -- find_competitors v1: read pages similar to the brand's website through Exa (web/worker/sources/search.ts
 -- readCompetitors), then save each as a competitor_page source (third-party; web/worker/intake.ts
