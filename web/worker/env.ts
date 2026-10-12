@@ -14,8 +14,6 @@ export interface Env {
   // Source adapters (worker/sources, issue #33). All optional: each adapter says what it did without them.
   EXA_API_KEY?: string; // secret: Exa contents for the site adapter; without it the site adapter reads the home page directly
   AI?: SourceEnv['AI']; // Workers AI binding (wrangler.jsonc "ai"), for document conversion
-  CF_ACCOUNT_ID?: string; // with CF_BROWSER_TOKEN: Browser Run rendered Markdown for script-only sites (optional)
-  CF_BROWSER_TOKEN?: string; // secret
 }
 
 export const json = (body: unknown, status = 200) =>

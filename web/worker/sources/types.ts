@@ -14,7 +14,7 @@ export interface SourceMeta {
   cost: number;
   /** Wall-clock time of the read, in milliseconds. */
   ms: number;
-  /** Which path produced the text: exa, fetch, rendered, paste or tomarkdown. */
+  /** Which path produced the text: exa, fetch, paste or tomarkdown. */
   via?: string;
   /** Plain notes on fallbacks taken, for the run log and the person (for example "Exa is not configured"). */
   notes: string[];
@@ -68,9 +68,6 @@ export interface SourceEnv {
   EXA_API_KEY?: string;
   /** Workers AI binding (wrangler.jsonc "ai"), for document conversion. */
   AI?: { toMarkdown(files: { name: string; blob: Blob }[]): Promise<ConversionResult[] | ConversionResult> };
-  /** Cloudflare account id and an API token with "Browser Run - Edit", for rendered Markdown of script-only sites. */
-  CF_ACCOUNT_ID?: string;
-  CF_BROWSER_TOKEN?: string;
 }
 
 /** Times an adapter and records its notes, so every result carries the same meta. */

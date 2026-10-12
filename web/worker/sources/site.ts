@@ -1,13 +1,15 @@
 import { readPage, resolveRedirects } from '../ingest';
 import { factTrust, urlKind } from './registry';
-import { fetchRobots, robotsAllows, USER_AGENT, type RobotsCheck } from './robots';
+import { fetchRobots, robotsAllows, type RobotsCheck } from './robots';
 import { clock, type SourceEnv, type SourcePage, type SourceResult } from './types';
 
 /**
  * Site adapter (issue #33; architecture §6.1 "Source ingestion", accepted 2026-10-12):
- * robots.txt check, then one Exa /contents call for the home page plus about 8 key subpages, falling back to a plain
- * fetch of the home page (ingest.ts readPage), then Cloudflare's rendered Markdown for script-only sites, then a
- * "paste instead" result. Pure: no database, no model calls, never throws.
+ * robots.txt check, then Exa for the home page and about 8 key subpages, falling back to a plain fetch of the home page
+ * (ingest.ts readPage), then a "paste instead" result. Pure: no database, no model calls, never throws.
+ * There is no browser-rendering fallback: a browser follows a page's own client-side navigations (meta refresh,
+ * scripts) before anything can check them against robots.txt, so it cannot keep the robots guarantee (PR #71 review).
+ * Exa reads script-only sites itself.
  * https://github.com/DeveloperAlly/solana-hack/blob/main/.agentic/what/context/brand_builder_architecture.md#61-component-design-and-evaluation-accepted-2026-10-12
  */
 export interface SiteOptions {
@@ -139,31 +141,6 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (
   return { pages, cost };
 }
 
-// Cloudflare Browser Run /markdown renders the page in a browser and returns Markdown: POST
-// /accounts/{account_id}/browser-rendering/markdown with {url}, Bearer token with "Browser Run - Edit"; reply
-// {success, result} (https://developers.cloudflare.com/api/resources/browser_rendering/subresources/markdown/methods/create/,
-// https://developers.cloudflare.com/browser-rendering/rest-api/markdown-endpoint/). The Workers Free plan lists Quick
-// Actions limits of 1 request every 10 seconds and 10 browser minutes a day
-// (https://developers.cloudflare.com/browser-rendering/limits/), so it is a last resort, used only when configured.
-async function viaRendered(env: SourceEnv, url: URL): Promise<{ text: string; finalUrl?: string } | { error: string }> {
-  if (!env.CF_ACCOUNT_ID || !env.CF_BROWSER_TOKEN) return { error: 'rendered Markdown is not configured' };
-  try {
-    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(env.CF_ACCOUNT_ID)}/browser-rendering/markdown`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${env.CF_BROWSER_TOKEN}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ url: url.toString(), userAgent: USER_AGENT }),
-      signal: AbortSignal.timeout(60_000),
-    });
-    if (!res.ok) return { error: res.status === 429 ? 'the page renderer is at its limit for now' : `the page renderer answered HTTP ${res.status}` };
-    // meta.finalUrl is the address the browser ended on after redirects (API reference above).
-    const data = (await res.json()) as { success?: unknown; result?: unknown; meta?: { finalUrl?: unknown } } | null;
-    const text = data?.success === true ? str(data.result).trim() : '';
-    return text.length >= 40 ? { text, finalUrl: str(data?.meta?.finalUrl) || undefined } : { error: 'the rendered page has almost no readable text' };
-  } catch {
-    return { error: 'the page renderer did not answer in time' };
-  }
-}
-
 /** Reads a brand's website: home page plus key subpages. */
 export async function readSite(env: SourceEnv, raw: string, options: SiteOptions = {}): Promise<SourceResult> {
   const opts = { ...SITE_DEFAULTS, ...options };
@@ -227,6 +204,9 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   // Which of the home page's links to read: on the same site as the home page, ranked by the key-page terms, and only
   // those whose every redirect hop robots.txt allows, checked before any of them is requested (PR #71 review).
   const pick = async (links: URL[]) => {
+    // A third-party page is read on its own. Its host can be shared by unrelated tenants (github.com/acme and
+    // github.com/rival), so its links are not followed (PR #71 review; registry urlKind path scoping).
+    if (kindOf(url.toString()) === 'page') return [];
     const seen = new Set<string>([url.toString()]);
     const candidates: URL[] = [];
     for (const raw of links) {
@@ -288,29 +268,6 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     c.notes.push(`direct read failed: ${fetchError}`);
   }
 
-  // 3. Rendered Markdown, for sites that only show text after their scripts run. The browser follows HTTP redirects
-  // itself, so the link's redirects are resolved here first, hop by hop with robots.txt checked before each fetch, and
-  // the browser is given an address that does not redirect (PR #71 review). A navigation the page's own scripts make
-  // cannot be checked beforehand; if the browser ends on an address robots.txt disallows, its text is not used.
-  let target = url;
-  if (env.CF_ACCOUNT_ID && env.CF_BROWSER_TOKEN) {
-    const resolved = await gated(url);
-    if (!resolved) {
-      c.notes.push('rendered read skipped: the link redirects to an address robots.txt does not let us read, or could not be followed');
-      return { ok: false, kind: kindOf(url.toString()), code: 'unreadable', reason: `We could not read ${url.hostname} (${fetchError}). Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0, cost) };
-    }
-    target = resolved;
-  }
-  const rendered = await viaRendered(env, target);
-  if ('text' in rendered) {
-    const final = absoluteUrl(rendered.finalUrl) ?? target;
-    const kept = await admit([{ url: final.toString(), title: final.hostname, text: rendered.text }]);
-    if (kept.length) return ok(kept, cost, 'rendered');
-    c.notes.push('rendered page refused: it ended on an address its robots.txt does not let us read');
-  } else {
-    c.notes.push(rendered.error);
-  }
-
-  // 4. Nothing worked: ask for the text instead.
+  // 3. Nothing worked: ask for the text instead.
   return { ok: false, kind: kindOf(url.toString()), code: 'unreadable', reason: `We could not read ${url.hostname} (${fetchError}). Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0, cost) };
 }

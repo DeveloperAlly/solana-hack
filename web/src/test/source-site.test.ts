@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readSite, siteUrl, SITE_DEFAULTS } from '../../worker/sources/site';
 import { allowedBy, normalisePath, parseRobots, readCapped, ROBOTS_MAX_BYTES } from '../../worker/sources/robots';
 
-// Site adapter (issue #33). Exa, the site and the page renderer are mocked; each test sets what they answer.
+// Site adapter (issue #33). Exa and the site are mocked; each test sets what they answer. Any call to Cloudflare's
+// page renderer is recorded too, to show none is made.
 type Handler = (url: string, init?: RequestInit) => Response | Promise<Response>;
 function stub(routes: { robots?: Handler; exa?: Handler; page?: Handler; render?: Handler }) {
   const calls: { url: string; body?: unknown }[] = [];
@@ -75,14 +76,14 @@ describe('site adapter: Exa first', () => {
       robots: () => new Response('User-agent: *\nDisallow: /private\n'),
       exa: exaSite([{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://jamjam.tech/private/plan', title: 'Plan', text: 'secret' }]),
     });
-    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/');
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://jamjam.tech/', { website: 'jamjam.tech' });
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/']);
     expect(r.meta.notes.join(' ')).toMatch(/robots\.txt disallows/);
     expect(JSON.stringify(calls.filter((c) => c.url.startsWith('https://api.exa.ai/')).map((c) => c.body))).not.toContain('/private');
   });
   it('estimates cost from Exa pricing when the reply has no cost', async () => {
     stub({ exa: exaSite([{ url: 'https://a.test/', title: 'A', text: LONG }, { url: 'https://a.test/b', title: 'B', text: 'b' }], null) });
-    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/');
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/', { website: 'a.test' });
     expect(r.meta.cost).toBe(0.002);
   });
 });
@@ -108,6 +109,13 @@ describe('site adapter: trust follows the brand website (PR #63 review)', () => 
     expect(await readSite({}, 'https://github.com/other', { website: 'github.com/acme' })).toMatchObject({ ok: true, kind: 'page', trust: 'third_party' });
     stub({ page: () => html('Docs', LONG) });
     expect(await readSite({}, 'https://docs.github.com/', { website: 'github.com/acme' })).toMatchObject({ ok: true, kind: 'page' });
+  });
+  it('reads a third-party page on its own, never following links to other tenants of its host (PR #71 review)', async () => {
+    const calls = stub({ exa: exaSite([{ url: 'https://github.com/acme', title: 'acme', text: LONG }, { url: 'https://github.com/rival/about', title: 'rival', text: 'theirs' }, { url: 'https://github.com/acme/about', title: 'about', text: 'ours' }]) });
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://github.com/acme', { website: 'jamjam.tech' });
+    expect(r).toMatchObject({ ok: true, kind: 'page', trust: 'third_party' });
+    expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://github.com/acme']);
+    expect(calls.filter((c) => c.url.startsWith('https://api.exa.ai/'))).toHaveLength(1);
   });
   it('drops subpages off the website, so one result never mixes owned and third-party text', async () => {
     const calls = stub({ exa: exaSite([{ url: 'https://jamjam.tech/', title: 'JamJam', text: LONG }, { url: 'https://partner.test/jamjam', title: 'Partner', text: 'claims' }]) });
@@ -137,10 +145,6 @@ describe('site adapter: provider replies of the wrong shape (PR #71 review)', ()
       if (r.ok) expect(typeof r.title).toBe('string');
     }
   });
-  it('never throws on a renderer reply of the wrong type', async () => {
-    stub({ page: () => new Response('<html><body></body></html>', { headers: { 'content-type': 'text/html' } }), render: () => new Response(JSON.stringify({ success: true, result: 12345, meta: { finalUrl: 9 } })) });
-    expect(await readSite({ CF_ACCOUNT_ID: 'a', CF_BROWSER_TOKEN: 't' }, 'https://spa.test/')).toMatchObject({ ok: false, code: 'unreadable' });
-  });
 });
 
 describe('site adapter: fallbacks', () => {
@@ -157,17 +161,17 @@ describe('site adapter: fallbacks', () => {
     expect(r).toMatchObject({ ok: true, meta: { via: 'fetch' } });
     expect(r.meta.notes.join(' ')).toMatch(/Exa answered HTTP 402/);
   });
-  it('uses rendered Markdown for a script-only page, when the renderer is configured', async () => {
-    const calls = stub({ page: () => html('App', '<script>x</script>'), render: () => new Response(JSON.stringify({ success: true, result: `# App\n\n${LONG}` })) });
-    const r = await readSite({ CF_ACCOUNT_ID: 'acc', CF_BROWSER_TOKEN: 't' }, 'https://app.test/');
-    expect(r).toMatchObject({ ok: true, meta: { via: 'rendered' } });
-    expect(calls.find((c) => c.url.startsWith('https://api.cloudflare.com/'))?.url).toBe('https://api.cloudflare.com/client/v4/accounts/acc/browser-rendering/markdown');
+  it('has no browser-rendering fallback: a script-only page without Exa asks for a paste (PR #71 review)', async () => {
+    const calls = stub({ page: () => html('App', '<script>x</script>') });
+    const r = await readSite({}, 'https://app.test/');
+    expect(r).toMatchObject({ ok: false, code: 'unreadable', reason: expect.stringContaining('Paste the key text') });
+    expect(calls.some((c) => c.url.startsWith('https://api.cloudflare.com/'))).toBe(false);
   });
   it('asks for a paste when every path fails, and never throws', async () => {
     stub({ page: () => new Response('nope', { status: 503 }) });
     const r = await readSite({}, 'https://down.test/');
     expect(r).toMatchObject({ ok: false, code: 'unreadable', reason: expect.stringContaining('Paste the key text') });
-    expect(r.meta.notes.join(' ')).toMatch(/rendered Markdown is not configured/);
+    expect(r.meta.notes.join(' ')).toMatch(/direct read failed/);
   });
   it('refuses what is not a web address', async () => {
     for (const bad of ['javascript:alert(1)', 'ftp://x.test/', 'https://x.test:8080/', '']) {
@@ -241,23 +245,6 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     });
     expect(await readSite({}, 'https://a.test/go')).toMatchObject({ ok: false, code: 'unreadable' });
     expect(rel.map((c) => c.url)).not.toContain('https://a.test/private/x');
-  });
-  it('gives the page renderer an address that no longer redirects, and never one robots.txt disallows (PR #71 review)', async () => {
-    const env = { CF_ACCOUNT_ID: 'acct', CF_BROWSER_TOKEN: 't' };
-    const calls = stub({
-      robots: (u) => new Response(u.startsWith('https://blocked.test') ? 'User-agent: *\nDisallow: /\n' : ''),
-      page: (u) => (u.startsWith('https://open.test') ? new Response(null, { status: 302, headers: { location: 'https://blocked.test/app' } }) : html('B', LONG)),
-      render: () => new Response(JSON.stringify({ success: true, result: LONG })),
-    });
-    expect(await readSite(env, 'https://open.test/')).toMatchObject({ ok: false, code: 'unreadable' });
-    expect(calls.some((c) => c.url.startsWith('https://api.cloudflare.com/'))).toBe(false);
-    expect(calls.map((c) => c.url)).not.toContain('https://blocked.test/app');
-    const ok = stub({
-      page: (u) => (u === 'https://spa.test/' ? new Response(null, { status: 301, headers: { location: 'https://spa.test/home' } }) : new Response('<html><body><div id="root"></div></body></html>', { headers: { 'content-type': 'text/html' } })),
-      render: () => new Response(JSON.stringify({ success: true, result: LONG })),
-    });
-    expect(await readSite(env, 'https://spa.test/')).toMatchObject({ ok: true, url: 'https://spa.test/home', meta: { via: 'rendered' } });
-    expect(ok.find((c) => c.url.startsWith('https://api.cloudflare.com/'))?.body).toMatchObject({ url: 'https://spa.test/home' });
   });
   it('reads a robots.txt with CR-only line endings (RFC 9309 §2.2; PR #71 review)', async () => {
     expect(allowedBy(parseRobots('User-agent: *\rDisallow: /\r'), '/page')).toBe(false);
