@@ -18,6 +18,9 @@ function matches(row: Row, q: URLSearchParams) {
     if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(k)) continue;
     if (v.startsWith('eq.') && String(row[k]) !== v.slice(3)) return false;
     if (v.startsWith('in.(') && !v.slice(4, -1).split(',').includes(String(row[k]))) return false;
+    // PostgREST `is.null` and array containment `cs.{a,b}` (https://docs.postgrest.org/en/stable/references/api/tables_views.html#operators).
+    if (v === 'is.null' && row[k] !== null && row[k] !== undefined) return false;
+    if (v.startsWith('cs.{') && !v.slice(4, -1).split(',').every((x) => Array.isArray(row[k]) && (row[k] as unknown[]).includes(x))) return false;
   }
   return true;
 }

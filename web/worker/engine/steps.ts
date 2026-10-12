@@ -15,6 +15,8 @@ import { schemaError, type NamedSchema } from '../schema';
 import { capText, readSource } from './readers';
 import { loadPrompt, render } from './prompts';
 import { factTrust, urlKind } from '../sources/registry';
+import { FACT_FIELDS, FIELD_PROMPT } from '../prefill/route';
+import { closePendingSource, prefillDrafts, recordReadMeta, routeCandidates, saveFactFields } from '../prefill/steps';
 import type { RunRow, StepSpec, StepTrace } from './types';
 
 export { capText } from './readers';
@@ -25,10 +27,10 @@ export interface RunState { input: Record<string, unknown>; steps: Record<string
 export type StepResult = { output: unknown; trace: Partial<StepTrace> };
 
 /** Constants a definition may reference as $const.NAME. */
-const CONSTS: Record<string, unknown> = { MAX_QUOTE, SECTIONS: Object.keys(SECTIONS).join(', '), SLOTS: SLOT_PROMPT, MAX_FACTS_PER_CHUNK };
+const CONSTS: Record<string, unknown> = { MAX_QUOTE, SECTIONS: Object.keys(SECTIONS).join(', '), SLOTS: SLOT_PROMPT, MAX_FACTS_PER_CHUNK, FIELDS: FIELD_PROMPT };
 
 /** Reply schemas an 'llm' step can name (types.ts LlmStep.schema). */
-export const SCHEMAS: Record<string, NamedSchema> = { extracted_facts: EXTRACTED_FACTS, support_verdicts: SUPPORT_VERDICTS };
+export const SCHEMAS: Record<string, NamedSchema> = { extracted_facts: EXTRACTED_FACTS, support_verdicts: SUPPORT_VERDICTS, fact_fields: FACT_FIELDS };
 
 /** Resolves "$input.a", "$steps.id.a.b" or "$const.NAME"; any other string is a literal. */
 export function resolve(ref: string, state: RunState): unknown {
@@ -109,6 +111,12 @@ export const WRITES: Record<string, (ctx: StepContext, args: Record<string, unkn
   /** Extracted facts for one source, with trust, review, confidence and conflicts (extract/save.ts; issue #64). */
   save_extracted_facts: async ({ env, run }, { sourceId, read, facts, droppedAlign, droppedSupport }) =>
     saveExtractedFacts(env, run, { sourceId: asText(sourceId), read: read as ReadOutput, facts: list<Candidate>(facts), dropped: addDropped(droppedAlign as Dropped, droppedSupport as Dropped) }),
+  // Prefill (issue #34; prefill/steps.ts): page offsets for the Journey, routing facts to questions, drafts, cleanup.
+  record_read_meta: (ctx, a) => recordReadMeta(ctx, a as { sourceId: unknown; read: unknown }),
+  route_candidates: (ctx, a) => routeCandidates(ctx, a as { size: unknown; max_batches: unknown }),
+  save_fact_fields: (ctx, a) => saveFactFields(ctx, a as { facts: unknown; batches: unknown; replies: unknown }),
+  prefill_drafts: (ctx, a) => prefillDrafts(ctx, a as { saved: unknown; routed: unknown }),
+  close_pending_source: (ctx, a) => closePendingSource(ctx, a as { sourceId: unknown; error: unknown }),
   mark_source_failed: async ({ env, run }, { sourceId, error }) => {
     await db.update(env, 'sources', `${db.eq('id', asText(sourceId))}&${db.eq('brand_id', run.brand_id)}`, { status: 'failed', error: asText(error) || 'reading the page failed' });
     return null;

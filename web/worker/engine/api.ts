@@ -1,6 +1,6 @@
 // Run API (issue #32), owner-only like every /api/brands route:
 //   POST /api/brands/:id/runs {kind, ...}  -> 202 {run}             starts a run of a startable kind (ingest_url,
-//                                                                  extract_facts)
+//                                                                  extract_facts, read_brand)
 //   GET  /api/runs/:id                     -> 200 {run, steps}      status, progress and per-step traces
 //   GET  /api/brands/:id                   -> adds activeRun        the newest running or paused run, or null
 //   POST /api/brands/:id/sources {url}     -> the ingest_url workflow; same 201 body when done, else 409 "still reading"
@@ -40,6 +40,17 @@ const KINDS: Record<string, (env: Env, brand: BrandRef, body: Record<string, unk
   extract_facts: async (env, brand, body) => {
     const url = typeof body.url === 'string' ? body.url.trim().slice(0, 500) : '';
     if (!url) throw new HttpError(400, 'a link is required');
+    const website = brand.website ?? null;
+    const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url, status: 'pending', kind: urlKind(url, website) });
+    return { reader: 'site', url, sourceId: src.id, brandName: brand.name, website };
+  },
+  /**
+   * "Read my brand" (issue #34): the brand's website, or the link given, read and extracted as extract_facts does,
+   * then routed to the interview questions, with drafts for the gated sections it supports (seed.ts READ_BRAND).
+   */
+  read_brand: async (env, brand, body) => {
+    const url = (typeof body.url === 'string' && body.url.trim() ? body.url : brand.website ?? '').trim().slice(0, 500);
+    if (!url) throw new HttpError(400, 'add your website, or a link to read');
     const website = brand.website ?? null;
     const [src] = await db.insert<{ id: string }>(env, 'sources', { brand_id: brand.id, url, status: 'pending', kind: urlKind(url, website) });
     return { reader: 'site', url, sourceId: src.id, brandName: brand.name, website };
