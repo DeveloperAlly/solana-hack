@@ -54,10 +54,14 @@ interface FactRow { id: string; section: string; claim: string; quote: string | 
 /**
  * Coverage over the kit sections (canvas J1 and J3: Found / Partly found / Needs you). Found: at least two facts that
  * may enter a kit. Partly: at least one fact not rejected (including facts still waiting for review). Needs you: none.
+ * A fact counts for a section when it is filed under that section, or under an interview step the section is drafted
+ * from (kit.ts SECTIONS[s].from), the same inputs draftSection uses. Basics (name, website) feeds every section and
+ * says nothing about any one of them, so it never counts.
  */
 export function coverage(evidence: FactRow[]) {
   const sections = (Object.keys(SECTIONS) as SectionId[]).map((section) => {
-    const own = evidence.filter((e) => e.section === section && e.review_status !== 'rejected');
+    const steps = (SECTIONS[section].from as readonly string[]).filter((s) => s !== 'basics');
+    const own = evidence.filter((e) => (e.section === section || steps.includes(e.section)) && e.review_status !== 'rejected');
     const usable = own.filter((e) => usableFact(e)).length;
     const status: CoverageStatus = usable >= 2 ? 'found' : own.length ? 'partly' : 'needs-you';
     return { section, title: SECTIONS[section].title, status, facts: own.length, usable };

@@ -340,9 +340,16 @@ export async function reviewEvidence(env: Env, brand: Brand, id: string, decisio
   if (!row) throw new HttpError(404, 'fact not found');
   if (!REVIEWABLE.includes(row.trust ?? '')) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
   const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision });
-  if (decision === 'approved') return { evidence: updated, stale: [] as string[] };
-  const sections = await db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
-  return { evidence: updated, stale: sections.filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };
+  const sections = () => db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
+  if (decision === 'approved') {
+    // Restoring a source fact the owner had reworded retires the rewording (journey.ts editFact), so a kit never holds
+    // both versions; sections that cited the rewording are stale and must be redrafted.
+    const [correction] = await db.select<{ id: string }>(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('edited_from', id)}&select=id&limit=1`);
+    if (!correction) return { evidence: updated, stale: [] as string[] };
+    await db.del(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('id', correction.id)}`);
+    return { evidence: updated, stale: (await sections()).filter((s) => (s.citations ?? []).includes(correction.id)).map((s) => s.section) };
+  }
+  return { evidence: updated, stale: (await sections()).filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };
 }
 
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */

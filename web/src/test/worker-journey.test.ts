@@ -185,9 +185,16 @@ describe('coverage over the kit sections (J1, J3)', () => {
       fact('b', 'origin', { review_status: 'rejected' }),
     ] as never);
     const by = Object.fromEntries(c.sections.map((s) => [s.section, s.status]));
-    expect(by).toMatchObject({ purpose: 'found', audience: 'partly', origin: 'needs-you', voice: 'needs-you' });
-    expect(c.covered).toBe(2);
+    // audience is also an interview step that messaging is drafted from, so messaging is partly found too.
+    expect(by).toMatchObject({ purpose: 'found', audience: 'partly', messaging: 'partly', origin: 'needs-you', voice: 'needs-you' });
+    expect(c.covered).toBe(3);
     expect(c.total).toBe(6);
+  });
+  it('credits interview answers to the sections drafted from them, never basics', () => {
+    const answer = (step: string) => fact('b', step, { trust: 'owner_answer', origin: 'owner_answer', quote: null });
+    const by = Object.fromEntries(coverage([answer('golden_circle'), answer('golden_circle'), answer('basics')] as never).sections.map((s) => [s.section, s.status]));
+    // golden_circle feeds purpose, positioning and messaging (kit.ts SECTIONS.from); basics feeds every section but counts for none.
+    expect(by).toMatchObject({ purpose: 'found', positioning: 'found', messaging: 'found', origin: 'needs-you', audience: 'needs-you', voice: 'needs-you' });
   });
   it('is returned on GET /api/brands/:id', async () => {
     const b = brandRow('p-1');
@@ -319,6 +326,18 @@ describe('editing a fact (J3 Edit)', () => {
     expect(again.body.stale).toEqual(['origin']);
     const live = new Set(tables.evidence.map((e) => e.id));
     expect(live.has(editId)).toBe(false);
+  });
+  it('approving the original source fact again retires its correction', async () => {
+    const b = brandRow('p-1');
+    const f = fact(b.id, 'origin', { trust: 'third_party', review_status: 'proposed' });
+    tables.brands = [b];
+    tables.evidence = [f];
+    const first = await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${f.id}`, { claim: 'Owner wording' });
+    const editId = (first.body.evidence as { id: string }).id;
+    tables.kit_sections = [{ brand_id: b.id, section: 'origin', citations: [editId], status: 'approved', body: 'x' }];
+    const back = await call('perm', 'PATCH', `/api/brands/${b.id}/evidence/${f.id}`, { review_status: 'approved' });
+    expect(back.body.stale).toEqual(['origin']);
+    expect(tables.evidence.filter((e) => e.review_status === 'approved').map((e) => e.id)).toEqual([f.id]);
   });
   it('refuses an empty edit, an unknown fact and an owner answer', async () => {
     const b = brandRow('p-1');
