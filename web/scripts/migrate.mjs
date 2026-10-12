@@ -43,13 +43,23 @@ export function migrationFiles(names) {
  * written for.
  */
 export function planMigrations(files, applied) {
-  const done = new Set();
+  // A file is applied only when its full name is recorded. A recorded name with the same number but another slug
+  // (hotfix_010 against 010_workflow_engine.sql) is a conflict to resolve by hand, never taken as applied, since the
+  // Management API does not constrain names (PR #87 review).
+  const recorded = new Map();
   for (const a of applied) {
-    const m = /_(\d{3})$/.exec(String(a?.name ?? ''));
-    if (m) done.add(m[1]);
+    const name = String(a?.name ?? '');
+    const m = /_(\d{3})$/.exec(name);
+    if (m) recorded.set(m[1], [...(recorded.get(m[1]) ?? []), name]);
+  }
+  const done = new Set();
+  for (const f of files) {
+    const names = recorded.get(f.number) ?? [];
+    if (names.includes(f.name)) done.add(f.number);
+    else if (names.length) throw new Error(`migration ${f.number} is recorded as ${names.join(', ')}, not ${f.name}; resolve by hand`);
   }
   const todo = files.filter((f) => !done.has(f.number));
-  const highestDone = [...done].sort().at(-1);
+  const highestDone = [...recorded.keys()].sort().at(-1);
   const early = todo.find((f) => highestDone && f.number < highestDone);
   if (early) throw new Error(`migration ${early.file} is missing but a later one (${highestDone}) is recorded; apply it by hand after review`);
   const numbers = files.map((f) => f.number);
