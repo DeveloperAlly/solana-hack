@@ -10,7 +10,7 @@ tags: [submission, pitch, capture, proof]
 
 # Original pitch capture and video export
 
-**Reviewable file:** [JamJam pitch MP4](./jamjam-pitch-synthetic-review.mp4).
+**Reviewable file:** [JamJam pitch MP4](../../../../web/public/submission/pitch.mp4).
 
 **Narration disclosure:** this review export uses the built-in synthetic **Karen (en_AU)** voice at 180 words/minute. It is not a recording of Alison. Every spoken word comes from the existing approved script; no voice cloning or pitch rewriting occurred. The source visuals, including their sales language, are captured as-is.
 
@@ -19,7 +19,7 @@ tags: [submission, pitch, capture, proof]
 - Original [approved Claude artifact](https://claude.ai/artifact/4QPRrRAXx8VF4PsKf5qZ8d): “JamJam: build, create, prove,” 24 slides (12 main plus 12 appendix). Only the existing script's 12 timed main slides appear in the video; the original appendix remains untouched and available for Q&A.
 - Source viewer frame revision: `1791825040-4463`; runtime manifest `manifest.8e95a1ce6076990b.json`, observed during the read-only capture on 13 October 2026.
 - Screenshots came directly from the original viewer's selected `[data-slide-surface]`, at a 2560 × 1600 browser viewport. Each PNG is 2364 × 1329. No slide was recreated, reworded or visually redesigned.
-- Existing [pitch script](../pitch_script_2026_10_12.md): exactly **441 spoken words** from its “Full script” section, split by its 12 existing beats. The source file's SHA-256 is `a7c1e3f69e0b20b72eb60274a690af017c94a8497f005e9eda2f99d46730560b`.
+- Existing [pitch script](https://github.com/DeveloperAlly/solana-hack/blob/791d01bf40d6cada78b1885ba314a2fd33fea3ad/.agentic/what/context/pitch_script_2026_10_12.md): exactly **441 spoken words** from its “Full script” section, split by its 12 existing beats. The source file's SHA-256 is `a7c1e3f69e0b20b72eb60274a690af017c94a8497f005e9eda2f99d46730560b`.
 
 ## Export acceptance
 

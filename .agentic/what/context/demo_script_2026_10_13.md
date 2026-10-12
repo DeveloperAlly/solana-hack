@@ -6,7 +6,7 @@ updated: 2026-10-13
 last_edited_by: agent
 tags: [demo, script, colosseum, release]
 ---
-> **Status: draft.** Recording runbook for a product demo of at most three minutes. Live readiness lives only in [STATE.md](../../../STATE.md). Delivery: [#114](https://github.com/DeveloperAlly/solana-hack/issues/114), master [#38](https://github.com/DeveloperAlly/solana-hack/issues/38). The separate [pitch script](./pitch_script_2026_10_12.md) and deck retain the owner's sales voice and require explicit authorization to edit.
+> **Status: draft.** Recording runbook for a product demo of at most three minutes. Live readiness lives only in [STATE.md](../../../STATE.md). Delivery: [#114](https://github.com/DeveloperAlly/solana-hack/issues/114), master [#38](https://github.com/DeveloperAlly/solana-hack/issues/38). The separate [pitch script](https://github.com/DeveloperAlly/solana-hack/blob/791d01bf40d6cada78b1885ba314a2fd33fea3ad/.agentic/what/context/pitch_script_2026_10_12.md) and deck retain the owner's sales voice and require explicit authorization to edit.
 
 # Demo script: JamJam, live core and full vision
 
@@ -20,11 +20,11 @@ Use the deployed release revision that the orchestrator has rehearsed. Record re
 
 | Time | Screen and action | Voice-over |
 |---|---|---|
-| 0:00–0:08 | Landing at jamjam.tech; Build my brand | This is JamJam: your brand team, in one app. I'll build our voice, create a post, and prove what we approved on Solana. Waits are cut. |
+| 0:00–0:08 | Landing at jamjam.tech; Read my site | This is JamJam: your brand team, in one app. I'll build our voice, create a post, and prove what we approved on Solana. Waits are cut. |
 | 0:08–0:15 | Actual email sign-in; hide inbox and private account details | I sign in with email. No password, no wallet. |
 | 0:15–0:35 | Build or integrated Journey: JamJam, jamjam.tech; read the site; show one fact with its quote and source | I give it our website. It reads what we say about ourselves and keeps the supporting quote beside each fact. Our own words are the starting point. |
 | 0:35–0:50 | One interview question; chosen voice and strict claims setting | A few questions fill the gaps. I choose our voice and set the claims gate to strict. |
-| 0:50–1:10 | Draft purpose; show evidence; approve purpose, positioning and voice | JamJam drafts the kit. I review the source, edit what needs changing, and approve the decisions. The AI does the first draft; I keep the final say. |
+| 0:50–1:10 | Draft purpose; show evidence; approve purpose, positioning, voice and the supporting kit sections | JamJam drafts the kit. I review the source, edit what needs changing, and approve the decisions. The AI does the first draft; I keep the final say. |
 | 1:10–1:25 | Register kit; actual success and devnet explorer transaction | Our approved kit gets a fingerprint on Solana. The words stay off chain. Here's the transaction. |
 | 1:25–2:00 | Create LinkedIn launch post; add unsupported claim; show refusal; remove claim; approve; register post | Now a launch post in our voice. Watch what happens when I add “Used by ten thousand brands.” We have no evidence for that. JamJam blocks approval. I remove it, approve the post, and register the version we chose. |
 | 2:00–2:25 | Public Verify: exact approved text succeeds; substantive word change fails; brief Ledger view | Anyone can check that text against our approved version on Solana. Change a word, and it no longer matches. The public ledger carries the record. This checks approved content; domain and account verification come next. |

@@ -51,6 +51,7 @@ The JamJam product and its Colosseum Crypto World's Fair submission. Purpose: [A
 | [.agentic/what/context/links.md](./.agentic/what/context/links.md) | active | Working links: wireframes, deck, PRD, research |
 | [audits/2026-10-13_engineering-release-readiness.md](./audits/2026-10-13_engineering-release-readiness.md) | active | Engineering release audit; separates code evidence from approved sales pitch |
 | [audits/2026-10-13_wireframe-coverage.md](./audits/2026-10-13_wireframe-coverage.md) | active | Coverage of all 125 exported wireframe boards |
+| [.agentic/what/context/submission-assets/pitch_export_proof.md](./.agentic/what/context/submission-assets/pitch_export_proof.md) | draft | Original-slide MP4 export and narration disclosure |
 | [.agentic/what/context/submission-assets/recording_cues.md](./.agentic/what/context/submission-assets/recording_cues.md) | draft | Recording cues from the unchanged approved pitch |
 | [.agentic/what/context/submission-assets/jamjam-logo.png](./.agentic/what/context/submission-assets/jamjam-logo.png) | active | Exact deployed JamJam mark for submission |
 | [.agentic/what/context/submission_checklist_2026_10_13.md](./.agentic/what/context/submission_checklist_2026_10_13.md) | draft | Submission assets and acceptance evidence |

@@ -50,6 +50,6 @@ These timings are copied from the existing script, not a new pitch.
 
 The original read-only deck was captured through a headed Playwright session. The public viewer's Download control was disabled, so the capture uses its rendered source slide surface without changing content. That named browser session was explicitly closed.
 
-An actual [MP4 review export](./jamjam-pitch-synthetic-review.mp4) now combines the 12 original main slides with the exact 441-word approved script. Its narration is the standard synthetic Karen (en_AU) voice, not Alison's voice. Duration, source revision, codecs, hashes and slide timings are in the [export proof](./pitch_export_proof.md). The pitch deck, mirror, script and appendix remain unchanged.
+An actual [MP4 review export](../../../../web/public/submission/pitch.mp4) now combines the 12 original main slides with the exact 441-word approved script. Its narration is the standard synthetic Karen (en_AU) voice, not Alison's voice. Duration, source revision, codecs, hashes and slide timings are in the [export proof](./pitch_export_proof.md). The pitch deck, mirror, script and appendix remain unchanged.
 
 The orchestrator independently checks playback and audio before choosing the upload. Public video URLs and portal receipt still need actual acceptance evidence; they are not inferred from this local export.
