@@ -39,7 +39,7 @@ last_edited_by: agent
 - Helius devnet RPC (G-RPC) and a funded OpenRouter key: the owner reports adding both to the deploy secrets (2026-10-08, in a working session, so there is no public record to link). The deploy workflow cannot prove it (the RPC falls back to the public endpoint and a missing OpenRouter key is skipped), The live `/api/health` reports `rpcConfigured: true` and the self-test passes on devnet ([self-test on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118094002)); `aiConfigured` is not yet confirmed. The Registrar is `E6nY1Wzgish68uZNeJDJKk2wAUWmYwG8yXSZeTSuDvMG`.
 
 ## Blockers
-- None open on the critical path. Sign-in email closed 2026-10-12: the [auth config run](https://github.com/DeveloperAlly/solana-hack/actions/runs/38207926808) set custom SMTP through Resend, and [PR #27](https://github.com/DeveloperAlly/solana-hack/pull/27) accepts the 8-digit code.
+- S0 check (2), email sign-in with a code, is not yet exercised live ([mission S0 row](./.agentic/how/missions/mission_ui_build.md)). Sign-in by link works ([sign-in proof on issue #4](https://github.com/DeveloperAlly/solana-hack/issues/4#issuecomment-6118522618)), after the [auth config run](https://github.com/DeveloperAlly/solana-hack/actions/runs/38207926808) set custom SMTP through Resend; the app accepts the 8-digit code since [PR #27](https://github.com/DeveloperAlly/solana-hack/pull/27). Owner action: sign in once on https://jamjam.tech by entering the code.
 
 ## Proposed (awaiting owner)
 - ADR-005: UI in React on design tokens (one file changes the look); components are built slice by slice, when a screen first needs them (owner, 2026-10-06), not as a library up front; Vite chosen (owner, 2026-10-06).
