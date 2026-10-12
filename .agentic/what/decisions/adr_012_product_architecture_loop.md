@@ -11,7 +11,7 @@ tags: [adr, product, information-architecture, navigation, ui]
 # ADR-012: Product architecture, one loop around a Brain
 
 ## Context
-- **Owner's model (2026-10-13, recorded in [issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90)).** The complete system is a process:
+- **Owner's model (2026-10-13 Melbourne time, which is 2026-10-12 UTC; recorded in [issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90)).** The complete system is a process:
   1. build your brand and voice;
   2. create content;
   3. distribute everywhere;
