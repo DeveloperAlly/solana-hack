@@ -9,7 +9,7 @@ import { RETIRED_BY, SEED_CONFIG, SEED_DEFS, SEED_PROMPTS } from '../../worker/e
 export type Row = Record<string, unknown>;
 /** Brand ids are UUIDs (api.ts ownBrand). */
 export const BRAND = 'bbbbbbbb-0000-4000-8000-000000000001';
-export const db: { tables: Record<string, Row[]>; calls: { method: string; table: string; query: string }[] } = { tables: {}, calls: [] };
+export const db: { tables: Record<string, Row[]>; calls: { method: string; table: string; query: string }[]; failInside?: string } = { tables: {}, calls: [] };
 let nextId = 0;
 const uuid = () => `00000000-0000-4000-8000-${String(++nextId).padStart(12, '0')}`;
 
@@ -76,6 +76,54 @@ function admitRun(a: { p_brand: string; p_kind: string; p_version: number; p_exe
 }
 
 const utcDay = () => new Date().toISOString().slice(0, 10);
+
+/** One transaction: every table as it was if fn throws. db.failInside, when set, throws at that named point. */
+function atomically<T>(fn: () => T): T {
+  const before = structuredClone(db.tables);
+  try {
+    return fn();
+  } catch (e) {
+    for (const k of Object.keys(db.tables)) delete db.tables[k];
+    Object.assign(db.tables, before);
+    throw e;
+  }
+}
+const failPoint = (name: string) => { if (db.failInside === name) throw pt(500, `failed inside ${name}`); };
+
+/** Same semantics as spec/db/011 save_extraction (checked against Postgres 16): insert (existing ids left alone), the
+ * insert trigger's rederive, confidence across sources, then the source marked read. */
+function saveExtraction({ p_run, p_brand, p_source, p_rows, p_source_patch }: { p_run: string; p_brand: string; p_source: string; p_rows: Row[]; p_source_patch: Row }) {
+  if (!db.tables.runs.some((r) => r.id === p_run && r.brand_id === p_brand)) throw pt(404, 'no such run');
+  if (!db.tables.sources.some((x) => x.id === p_source && x.brand_id === p_brand)) throw pt(404, 'no such source');
+  const added: Row[] = [];
+  for (const r of p_rows) {
+    if (db.tables.evidence.some((e) => e.id === r.id)) continue;
+    const row: Row = { ...r, brand_id: p_brand, source_id: p_source, origin: 'source', run_id: p_run, confidence: null, created_at: new Date().toISOString() };
+    db.tables.evidence.push(row);
+    added.push(row);
+  }
+  rederiveFor(added);
+  failPoint('conflicts');
+  const keys = new Set(p_rows.map((r) => r.fact_key));
+  const checked = db.tables.evidence.filter((e) => e.brand_id === p_brand && (e.match === 'exact' || e.match === 'fuzzy') && (e.review_status === 'proposed' || e.review_status === 'approved'));
+  const n = new Map<unknown, Set<unknown>>();
+  for (const e of checked) if (keys.has(e.fact_key)) n.set(e.fact_key, (n.get(e.fact_key) ?? new Set()).add(e.source_key ?? `source:${e.source_id ?? e.id}`));
+  for (const e of checked) {
+    const k = n.get(e.fact_key)?.size;
+    if (k === undefined) continue;
+    e.confidence = e.match === 'exact' ? (k >= 2 ? 'high' : 'medium') : k >= 2 ? 'medium' : 'low';
+  }
+  failPoint('confidence');
+  const src = db.tables.sources.find((x) => x.id === p_source)!;
+  Object.assign(src, { status: 'read', error: null, fetched_at: new Date().toISOString(), kind: p_source_patch.kind ?? src.kind, title: p_source_patch.title ?? src.title, text_excerpt: p_source_patch.text_excerpt, source_text: p_source_patch.source_text, url: p_source_patch.url || src.url });
+  const ids = new Set(p_rows.map((r) => r.id));
+  const mine = db.tables.evidence.filter((e) => ids.has(e.id));
+  return {
+    facts: mine.filter((e) => e.review_status !== 'rejected').length,
+    needsReview: mine.filter((e) => e.review_status === 'proposed').length,
+    conflicts: (db.tables.fact_conflicts ?? []).filter((c) => c.brand_id === p_brand && c.status === 'open' && (c.evidence_ids as string[]).some((id) => ids.has(id))).length,
+  };
+}
 /** Same semantics as spec/db/011 consume_metered (checked against Postgres 16). */
 function consumeMetered({ p_run, p_n }: { p_run: string; p_n: number }) {
   const run = db.tables.runs.find((r) => r.id === p_run);
@@ -171,6 +219,7 @@ export function fakeDb(url: string, init: RequestInit = {}) {
   if (path === 'rpc/record_fact_conflict') return recordFactConflict(body);
   if (path === 'rpc/admit_run') return admitRun(body);
   if (path === 'rpc/consume_metered') return consumeMetered(body);
+  if (path === 'rpc/save_extraction') return atomically(() => saveExtraction(body));
   if (path === 'rpc/resolve_fact_conflict') return resolveFactConflict(body);
   if (path === 'rpc/delete_source') {
     // Same semantics as spec/db/011 delete_source: 404 when missing; the facts, then the source, then the conflicts re-derived.
@@ -197,6 +246,10 @@ export function fakeDb(url: string, init: RequestInit = {}) {
   }
   if (method === 'PATCH') {
     const hit = rows.filter((r) => matches(r, q));
+    // Same semantics as spec/db/011 refuse_disputed_approval (a before-update trigger on evidence).
+    if (path === 'evidence' && body.review_status === 'approved') {
+      for (const r of hit) if (r.review_status !== 'approved' && (db.tables.fact_conflicts ?? []).some((c) => c.brand_id === r.brand_id && c.status === 'open' && (c.evidence_ids as string[]).includes(r.id as string))) throw pt(409, 'other sources disagree with this fact: resolve the disagreement first');
+    }
     const reviewed = hit.filter((r) => 'review_status' in body && r.review_status !== body.review_status);
     hit.forEach((r) => Object.assign(r, body));
     if (path === 'evidence') rederiveFor(reviewed);
@@ -222,6 +275,7 @@ const retired = new Set(Object.values(RETIRED_BY).flat().map((d) => `${d.id}@${d
 export async function seedTables(extra: Record<string, Row[]> = {}) {
   nextId = 0;
   db.calls = [];
+  db.failInside = undefined;
   db.tables = {
     brands: [{ id: BRAND, owner_id: 'u', name: 'JamJam', type: 'company' }],
     sources: [], evidence: [], runs: [], run_steps: [], metered_usage: [], engine_config: SEED_CONFIG.map((c) => structuredClone(c)), fact_conflicts: [],

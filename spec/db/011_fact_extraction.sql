@@ -29,6 +29,10 @@ alter table public.evidence add column if not exists page_title text;
 -- slot_key: the comparable form of slot_value (web/worker/extract/facts.ts normText), written by the Worker, so the
 -- database can tell whether the facts left on a conflict still disagree (reconcile_fact_conflicts below).
 alter table public.evidence add column if not exists slot_key text;
+-- fact_key and source_key: which facts are the same fact (extract/facts.ts factKey) and which sources are independent
+-- (sourceKey: one per host), written by the Worker, so the database computes confidence (save_extraction below).
+alter table public.evidence add column if not exists fact_key text;
+alter table public.evidence add column if not exists source_key text;
 do $$ begin
   alter table public.evidence add constraint evidence_quote_span_check check (quote_start is null or (quote_start >= 0 and quote_end >= quote_start));
 exception when duplicate_object then null; end $$;
@@ -103,6 +107,24 @@ do $$ begin
 end $$;
 create unique index if not exists fact_conflicts_one_open on public.fact_conflicts(brand_id, slot) where status = 'open';
 alter table public.fact_conflicts enable row level security;
+
+-- A fact on a side of an open conflict reaches 'approved' only through resolve_fact_conflict (Codex review on PR #91,
+-- P1 4250250002): a direct approval (the evidence review route) is refused with 409, so the owner is told why, and no
+-- side of a live disagreement is ever usable. resolve_fact_conflict closes the conflict before it sets the sides, and
+-- rederive_conflicts restores reviews only on a conflict it has just closed, so neither is refused.
+create or replace function public.refuse_disputed_approval()
+returns trigger language plpgsql security invoker set search_path = public as $fn$
+begin
+  if new.review_status = 'approved' and old.review_status is distinct from 'approved'
+     and exists (select 1 from public.fact_conflicts fc where fc.brand_id = new.brand_id and fc.status = 'open' and new.id = any(fc.evidence_ids)) then
+    raise sqlstate 'PT409' using message = 'other sources disagree with this fact: resolve the disagreement first';
+  end if;
+  return new;
+end $fn$;
+drop trigger if exists evidence_refuse_disputed_approval on public.evidence;
+create trigger evidence_refuse_disputed_approval before update of review_status on public.evidence
+  for each row execute function public.refuse_disputed_approval();
+revoke all on function public.refuse_disputed_approval() from public, anon, authenticated;
 
 -- Slot labels for the question text, the same as web/worker/extract/facts.ts SLOTS (worker-extract.test.ts checks).
 create table if not exists public.fact_slots (slot text primary key, label text not null);
@@ -408,6 +430,54 @@ grant execute on function public.consume_metered(uuid, int) to service_role;
 insert into public.engine_config (key, value) values
   ('task_models', $cfg${"extract.facts":["nvidia/nemotron-3-super-120b-a12b:free","apodex/apodex-1.1-mini:free"],"extract.check_support":["dots-studio/dots-3-note-preview:free","liquid/lfm-2.5-2.6b:free"]}$cfg$::jsonb)
 on conflict (key) do update set value = excluded.value || public.engine_config.value, updated_at = now();
+
+-- The save step of extract_facts as one transaction (Codex review on PR #91, P1 4250249994): the run's facts are
+-- inserted (ids are stable per source, claim and offsets, so a retried save inserts nothing twice and never reverts an
+-- owner's review), the insert trigger re-derives every slot they touch (conflicts), confidence is recomputed for every
+-- fact that shares a fact_key with them (extract/facts.ts confidenceOf: exact and 2+ independent sources high, exact
+-- medium, fuzzy and 2+ medium, fuzzy low), and the source is marked read with its text. Any failure rolls all of it
+-- back, so a failed save leaves nothing behind. p_rows: evidence rows as the Worker builds them (save.ts); p_source:
+-- {kind, title, text_excerpt, source_text, url?}. Returns {facts, needsReview, conflicts} for the run's own facts.
+create or replace function public.save_extraction(p_run uuid, p_brand uuid, p_source uuid, p_rows jsonb, p_source_patch jsonb)
+returns jsonb language plpgsql security invoker set search_path = public as $fn$
+declare v_ids uuid[]; v_keys text[]; v_out jsonb;
+begin
+  if not exists (select 1 from public.runs where id = p_run and brand_id = p_brand) then raise sqlstate 'PT404' using message = 'no such run'; end if;
+  if not exists (select 1 from public.sources where id = p_source and brand_id = p_brand) then raise sqlstate 'PT404' using message = 'no such source'; end if;
+  insert into public.evidence (id, brand_id, source_id, section, claim, quote, origin, trust, review_status, quote_start, quote_end,
+    match, slot, slot_value, slot_key, fact_key, source_key, run_id, page_url, page_title)
+  select r.id, p_brand, p_source, r.section, r.claim, r.quote, 'source', r.trust, r.review_status, r.quote_start, r.quote_end,
+    r.match, r.slot, r.slot_value, r.slot_key, r.fact_key, r.source_key, p_run, r.page_url, r.page_title
+  from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb)) as r(id uuid, section text, claim text, quote text, trust text, review_status text,
+    quote_start int, quote_end int, match text, slot text, slot_value text, slot_key text, fact_key text, source_key text, page_url text, page_title text)
+  on conflict (id) do nothing;
+  v_ids := array(select (x->>'id')::uuid from jsonb_array_elements(coalesce(p_rows, '[]'::jsonb)) x);
+  v_keys := array(select distinct x->>'fact_key' from jsonb_array_elements(coalesce(p_rows, '[]'::jsonb)) x where x->>'fact_key' is not null);
+  update public.evidence e set confidence = c.conf
+  from (
+    select e2.id, case when e2.match = 'exact' then case when k.n >= 2 then 'high' else 'medium' end
+                       else case when k.n >= 2 then 'medium' else 'low' end end as conf
+    from public.evidence e2
+    join (select fact_key, count(distinct coalesce(source_key, 'source:' || coalesce(source_id::text, id::text))) as n from public.evidence
+          where brand_id = p_brand and match in ('exact','fuzzy') and review_status in ('proposed','approved') and fact_key = any(v_keys)
+          group by fact_key) k on k.fact_key = e2.fact_key
+    where e2.brand_id = p_brand and e2.match in ('exact','fuzzy') and e2.review_status in ('proposed','approved')
+  ) c
+  where e.id = c.id and e.confidence is distinct from c.conf;
+  update public.sources set status = 'read', error = null, fetched_at = now(),
+    kind = coalesce(p_source_patch->>'kind', kind), title = coalesce(p_source_patch->>'title', title),
+    text_excerpt = p_source_patch->>'text_excerpt', source_text = p_source_patch->>'source_text',
+    url = coalesce(nullif(p_source_patch->>'url', ''), url)
+  where id = p_source and brand_id = p_brand;
+  select jsonb_build_object(
+    'facts', count(*) filter (where e.review_status <> 'rejected'),
+    'needsReview', count(*) filter (where e.review_status = 'proposed'),
+    'conflicts', (select count(*) from public.fact_conflicts fc where fc.brand_id = p_brand and fc.status = 'open' and fc.evidence_ids && v_ids))
+  into v_out from public.evidence e where e.id = any(v_ids);
+  return v_out;
+end $fn$;
+revoke all on function public.save_extraction(uuid, uuid, uuid, jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.save_extraction(uuid, uuid, uuid, jsonb, jsonb) to service_role;
 
 -- Seed: the two prompts and the extract_facts definition. Source of truth after this migration is these rows;
 -- web/worker/engine/seed.ts mirrors them for tests (worker-extract.test.ts fails if they drift apart).

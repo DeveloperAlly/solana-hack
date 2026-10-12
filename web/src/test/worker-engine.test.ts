@@ -150,13 +150,12 @@ describe('ingest runs on the engine (POST /api/brands/:id/sources)', () => {
     expect(steps('read')).toHaveLength(1); // not retried: the link will not change
   });
 
-  it('does not wait for a run still going: answers non-2xx "still reading" with the run to follow (PR #70 review)', async () => {
+  it('does not wait for a run still going: answers 202 with the run to follow (PR #70 review; PR #99 review: the drafting contract)', async () => {
     runOnCreate = false;
     const r = await addSource({ url: 'https://example.com' });
-    // The shipped Your links step shows the error text of any non-2xx and reloads the list; a 2xx without facts would
-    // read "undefined facts" (Build.tsx), so this must not be 2xx.
-    expect(r.status).toBe(409);
-    expect(r.body).toMatchObject({ error: STILL_READING, runId: run().id, sourceId: db.tables.sources[0].id, status: 'running', progress: { done: 0, total: 4 } });
+    expect(r.status).toBe(202);
+    expect(r.body).toMatchObject({ message: STILL_READING, runId: run().id, sourceId: db.tables.sources[0].id, status: 'running', progress: { done: 0, total: 4 } });
+    expect(r.body).not.toHaveProperty('error');
     expect(r.body).not.toHaveProperty('facts');
     expect(db.tables.sources[0].status).toBe('pending');
     // The run carries on in the background, and the source is read.
@@ -164,11 +163,11 @@ describe('ingest runs on the engine (POST /api/brands/:id/sources)', () => {
     expect([run().status, db.tables.sources[0].status]).toEqual(['done', 'read']);
   });
 
-  it('a paused run answers with its message, still non-2xx', async () => {
+  it('a paused run answers 202 with its message', async () => {
     runOnCreate = false;
     onCreate = (id) => Object.assign(db.tables.runs.find((r) => r.id === id)!, { status: 'paused', resume_at: '2026-10-13T00:00:00.000Z', progress: { steps: [], done: 1, total: 4, message: 'This run continues at 00:00 UTC.' } });
     const r = await addSource({ url: 'https://example.com' });
-    expect(r).toMatchObject({ status: 409, body: { error: 'This run continues at 00:00 UTC.', status: 'paused', resume_at: '2026-10-13T00:00:00.000Z' } });
+    expect(r).toMatchObject({ status: 202, body: { message: 'This run continues at 00:00 UTC.', status: 'paused', resume_at: '2026-10-13T00:00:00.000Z' } });
   });
 
   it('a run already done answers 201 with facts, as before', async () => {
