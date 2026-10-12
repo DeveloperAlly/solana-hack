@@ -286,7 +286,7 @@ Named by the research agents as adjacent or new. Listed so the landscape is comp
 |---|---|---|
 | Free and verify-only | $0 | Pomelli (beta), Buffer Free, Typefully Free, Zealy Free, GRIN Free, Encypher verify and publisher signing, Superteam Earn (0%) |
 | Solo AI voice and posting | $20–49/mo | Pressmaster Starter $29/user, Supergrow Pro $39, Edgar $49, Tweet Hunter Grow $49, Meet Sona $20, Copy.ai Chat $24–29 |
-| Premium solo | $69–99/mo | Taplio Growth $69, Jasper Pro $59–69/seat, Kleo $99, Outerview Pro €99 |
+| Premium solo | $59–99/mo | Taplio Growth $69, Jasper Pro $59–69/seat, Kleo $99, Outerview Pro €99 |
 | SMB brand-to-publishing | $79–149/mo | Blaze $79/$149, Sprout Essentials $79/seat (no inbox), Agorapulse $79/user, Hootsuite Standard $99/user |
 | Team and approvals | $165–499/mo, or $199–399 per seat | Supergrow Teams $199, Meet Sona Team $165, Pressmaster Agency $199/$499, Sprout Professional $299/seat, Hootsuite Advanced $399/user |
 | Ambassador platforms | $520–2,750/mo, or quote | BrandChamp $520–2,750, Roster $599+, Club, SocialLadder and Aspire about $2,000+ (third party) |
