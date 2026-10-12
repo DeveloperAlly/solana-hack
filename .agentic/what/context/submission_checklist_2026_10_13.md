@@ -16,15 +16,15 @@ Target submission time is **4:00 pm Melbourne, 13 October 2026**, leaving a buff
 
 | Portal item | Existing source | Remaining action / owner |
 |---|---|---|
-| Product name and description | [README](../../../README.md), existing [GTM](./gtm_2026_10_12.md) §1 | Ally: paste and tailor to the portal's length limit; retain the sales voice |
-| Chain and tools | README Architecture | Orchestrator: confirm the shipped stack and devnet designation; Ally: enter it |
-| Team background | GTM §9; [#60](https://github.com/DeveloperAlly/solana-hack/issues/60) | Ally: confirm biography, team members and actual location; add teammates to the portal if relevant |
+| Product name and description | [README](../../../README.md), existing [GTM](./gtm_2026_10_12.md) §1 | Codex: fill from existing copy within the portal's length limit; retain the sales voice |
+| Chain and tools | README Architecture | Codex: confirm the shipped stack/devnet designation and fill the field |
+| Team background | GTM §9; [#60](https://github.com/DeveloperAlly/solana-hack/issues/60) | Codex: populate the recorded biography and account fields; isolate any genuinely missing identity/location detail |
 | Logo / graphic | [Exact deployed JamJam wordmark PNG](./submission-assets/jamjam-logo.png), 368 × 72 | Codex: supply this existing mark to the portal; use the approved deck mark if its original asset becomes accessible |
-| Repository | [DeveloperAlly/solana-hack](https://github.com/DeveloperAlly/solana-hack) | Orchestrator: identify release SHA; Ally: paste public repository URL |
-| Presentation video, 2–3 minutes | Existing deck and [pitch script](./pitch_script_2026_10_12.md) from [#69](https://github.com/DeveloperAlly/solana-hack/pull/69) | Ally: record, export, upload and supply a playable link; deck, mirror and script are locked against agent edits without explicit authorization |
-| Demo video, at most 3 minutes | [Revised demo runbook](./demo_script_2026_10_13.md) | Orchestrator: provide rehearsed release; Ally: record, edit waits, export, upload and supply link |
-| GTM, demand and distribution | Existing GTM §§3–8 | Ally: reuse the existing copy; confirm any form-specific wording or final commercial terms herself |
-| Prior development / eligibility | [Official requirements](https://colosseum.com/hackathon) | Ally: disclose relevant pre-existing development and confirm account/competition eligibility |
+| Repository | [DeveloperAlly/solana-hack](https://github.com/DeveloperAlly/solana-hack) | Codex: identify release SHA and enter the public repository URL |
+| Presentation video, 2–3 minutes | Existing deck and [pitch script](./pitch_script_2026_10_12.md) from [#69](https://github.com/DeveloperAlly/solana-hack/pull/69) | Codex: capture, export, upload and validate; Ally provides narration or an existing recording where needed; deck, mirror and script are locked against agent edits without explicit authorization |
+| Demo video, at most 3 minutes | [Revised demo runbook](./demo_script_2026_10_13.md) | Codex: capture the rehearsed release, edit waits, export, upload and validate; narration uses the demo runbook |
+| GTM, demand and distribution | Existing GTM §§3–8 | Codex: fill from existing GTM; commercial changes remain owner decisions |
+| Prior development / eligibility | [Official requirements](https://colosseum.com/hackathon) | Codex: prepare disclosure from repo history; account holder confirms eligibility attestations where required |
 
 No new pitch deck, GTM, branding package or demo application is requested. Pitch suggestions remain separate comments requiring owner authorization before edits. This checklist is document-only and does not alter the [wireframe specification](https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn).
 
@@ -59,7 +59,7 @@ This is the artifact acceptance record for [#114](https://github.com/DeveloperAl
 
 The tracked-file inventory of [PR #69's asset revision `791d01b`](https://github.com/DeveloperAlly/solana-hack/tree/791d01b) contains no MP4, MOV or WebM recording and no standalone logo SVG, PNG, JPEG, PDF or PPTX. Its image files are product proof screenshots under `web/proof/`. This package now adds an exact deployed wordmark capture, linked above. The script's Claude deck URL is a presentation reference, not an uploaded presentation-video URL. No final public video links are recorded in this package. This check covers repository files; owner-held files and the portal need separate confirmation.
 
-## Owner actions still requiring completion evidence
+## Remaining acceptance evidence
 
 The following are **not verified by this document**: a final portal logo upload; recorded/exported videos; public video URLs; confirmed team location and portal membership; completed portal fields; an accepted submission receipt. Existing drafts are inputs, not proof that these actions happened.
 
@@ -80,9 +80,9 @@ Fill these only when evidence exists; do not replace blanks with assumptions.
 |---|---|
 | Release SHA / deploy run | Pending release handoff |
 | Kit / post devnet transactions | Pending real-core rehearsal |
-| Pitch URL / exported duration | Pending owner recording and upload |
-| Demo URL / exported duration | Pending owner recording and upload |
+| Pitch URL / exported duration | Pending recording export and upload evidence |
+| Demo URL / exported duration | Pending recording export and upload evidence |
 | Logo selected / portal upload | Exact deployed wordmark PNG prepared; portal upload unverified |
-| Portal submission confirmation / time | Pending owner submission |
+| Portal submission confirmation / time | Pending authenticated submission evidence |
 
 If upload or portal access blocks submission, escalate the exact error immediately. A code freeze does not prevent asset preparation, and an asset problem does not justify reopening the feature backlog.
