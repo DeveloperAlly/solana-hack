@@ -79,9 +79,12 @@ export function modelPost(raw: unknown): { body: string; voiceFit: unknown; plat
 // Drafting runs on the engine as the draft_post workflow (create/ops.ts, engine/api.ts draftRun; issue #93): best of 3
 // candidates, each judged by evaluators that did not write it. The single call that wrote and scored its own draft is gone.
 
+/** The longest a post may be, in characters: what edits keep, polish refuses beyond, and drafting refuses beyond. */
+export const MAX_POST_CHARS = 4000;
+
 export async function editPost(env: Env, post: Post, body: string, user?: User) {
   if (post.status === 'registered' || post.status === 'registering') throw new HttpError(409, post.status === 'registered' ? 'a registered post cannot change; draft a new one' : 'this post is being registered and cannot change');
-  const text = body.trim().slice(0, 4000);
+  const text = body.trim().slice(0, MAX_POST_CHARS);
   if (!text) throw new HttpError(400, 'the post cannot be empty');
   // Scores belonged to the old text; a person's edit is shown even if it fails the slop check (only approval is blocked).
   const checks: Checks = { ...post.checks, slop: slopCheck(text), voiceFit: null, platform: null, notes: [], source: 'edit', history: pushHistory(post), lastAction: 'edit', policy: undefined };
@@ -212,7 +215,7 @@ export async function polishPost(env: Env, post: Post, action: string) {
   const out = modelPost(parseJson<unknown>(text));
   let body = action === 'review' ? post.body : out.body.trim();
   // Refused, not cut: truncating would drop words (or qualifiers) and the scores would describe text we did not keep.
-  if (body.length > 4000) throw new HttpError(422, 'the polished post came back longer than 4,000 characters, so nothing was saved; try again or edit it yourself');
+  if (body.length > MAX_POST_CHARS) throw new HttpError(422, 'the polished post came back longer than 4,000 characters, so nothing was saved; try again or edit it yourself');
   // The accessible variant is guaranteed, not requested: styled Unicode letters are mapped back to plain ones.
   const modelBody = body;
   if (action === 'beautify_accessible') body = plainLetters(body);

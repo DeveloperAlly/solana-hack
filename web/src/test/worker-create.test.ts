@@ -169,6 +169,36 @@ describe('draft_post on the engine (T1, T1b): best of 3, every candidate and ver
     expect(r.body.runId).toBeTruthy();
   });
 
+  it('refuses a candidate over 4,000 characters before evaluating it; it is never reviewed or shown', async () => {
+    const long = { body: `${'Plain words. '.repeat(308)}End.`, claims: [] };
+    expect(long.body.length).toBe(4008);
+    drafts = { 1: long, 2: GOOD, 3: SLOPPY };
+    const post = (await draft()).body.post as PostOut;
+    expect(post.body).toBe(GOOD.body);
+    const c0 = post.checks.draft.candidates[0] as Row & { evaluators: Record<string, unknown>; passed: boolean };
+    expect([Object.keys(c0.evaluators), c0.passed]).toEqual([['length'], false]);
+    // Only the two candidates within the limit were sent for review.
+    expect(llm('review_findings').map((c) => (JSON.parse(c.user) as { post: string }).post).sort()).toEqual([GOOD.body, SLOPPY.body].sort());
+  });
+
+  it('when every candidate is over the limit, the run fails and nothing is saved', async () => {
+    const long = { body: 'x'.repeat(4001), claims: [] };
+    drafts = { 1: long, 2: long, 3: long };
+    const r = await draft();
+    expect(r.status).toBe(422);
+    expect(db.tables.posts.filter((p) => p.status === 'drafted')).toHaveLength(0);
+  });
+
+  it('saves exactly the text that was evaluated: the post and every candidate row, byte for byte', async () => {
+    const spaced = { ...GOOD, body: `  ${GOOD.body}\n` };
+    drafts = { 1: spaced, 2: UPGRADED, 3: SLOPPY };
+    const post = (await draft()).body.post as PostOut;
+    // Evaluation reads the trimmed text (evaluators.ts evalInput); that is what is stored.
+    expect(post.body).toBe(GOOD.body);
+    expect((db.tables.post_candidates as Row[]).map((c) => c.body)).toEqual([GOOD.body, UPGRADED.body, SLOPPY.body]);
+    expect(post.checks.draft.bodyHash).toBe(await contentHash(post.body));
+  });
+
   it('stores every candidate with its scores, verdict, models, prompt versions, exemplar ids and spec version (§6.2)', async () => {
     const post = (await draft()).body.post as PostOut;
     const rows = db.tables.post_candidates as (Row & { idx: number; chosen: boolean; verdict: { passed: boolean }; model: string; judge_model: string; prompt_versions: unknown; retrieved: { posts: { id: string }[] }; spec: { version: string } })[];

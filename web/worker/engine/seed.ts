@@ -172,8 +172,8 @@ export const DRAFT_POST: WorkflowSpec = {
       },
     },
     { id: 'reviewers', type: 'read', label: 'Reading who reviewed', op: 'trace_models', args: { step: 'review' } },
-    { id: 'decide', type: 'code', label: 'Choosing the best candidate', fn: 'decide_draft', args: { evaluators: 'review,review_claims,policy,tone', candidates: '$steps.draft', measured: '$steps.measure', reviews: '$steps.review', spec: '$steps.context.spec', channel: '$steps.context.channel', brandName: '$steps.context.brandName', generators: '$steps.writers.generators', judges: '$steps.reviewers.models', facts: '$steps.retrieve.facts', claims: '$steps.context.policy.claims', template: '$steps.context.policy.template' } },
-    { id: 'save', type: 'write', label: 'Saving the draft and every candidate', op: 'save_draft', args: { input: '$input', context: '$steps.context', retrieve: '$steps.retrieve', candidates: '$steps.draft', decision: '$steps.decide', generators: '$steps.writers.generators', judges: '$steps.reviewers.models' } },
+    { id: 'decide', type: 'code', label: 'Choosing the best candidate', fn: 'decide_draft', args: { evaluators: 'review,review_claims,policy,tone', candidates: '$steps.draft', measured: '$steps.measure', items: '$steps.writers.items', reviews: '$steps.review', spec: '$steps.context.spec', channel: '$steps.context.channel', brandName: '$steps.context.brandName', generators: '$steps.writers.generators', judges: '$steps.reviewers.models', facts: '$steps.retrieve.facts', claims: '$steps.context.policy.claims', template: '$steps.context.policy.template' } },
+    { id: 'save', type: 'write', label: 'Saving the draft and every candidate', op: 'save_draft', args: { input: '$input', context: '$steps.context', retrieve: '$steps.retrieve', candidates: '$steps.draft', decision: '$steps.decide', generators: '$steps.writers.generators' } },
   ],
   output: '$steps.save',
 };

@@ -7,7 +7,7 @@ import { stableId } from '../ids';
 import { CLAIMS_POLICY, contentHash, FLIRTY_NOTE, slopCheck } from '../posts';
 import type { StepContext } from '../engine/steps';
 import { evidenceSentences, type DraftClaim, type FactRef } from './claims';
-import { MAX_BODY, named, pick, runAll, verdictOf, type EvalInput, type ReviewFindings, type Results } from './evaluators';
+import { EVALUATORS, named, pick, runAll, verdictOf, withinLength, type EvalInput, type ReviewFindings, type Results } from './evaluators';
 import { factDocs, loadCorpus, rankCorpus, RETRIEVE_DEFAULTS, type FactInput, type Ranked } from './retrieve';
 import { directives, toneTargets, VOICE_BANDS_VERSION, voiceSpec, type VoiceMeasure, type VoiceSpec } from './voice';
 import type { ClaimsResult } from './claims';
@@ -87,9 +87,10 @@ export const CREATE_READS: Record<string, (ctx: StepContext, args: Record<string
     const generators = await traceModels(ctx, 'draft');
     const given = list<{ id: string; claim: string; quote: string | null }>(facts).map((f) => ({ id: f.id, claim: f.claim, quote: f.quote }));
     // The sentences the reviewer must rule on: those code finds needing evidence under the kit's claims gate (claims.ts).
-    const items = list<{ body: string }>(candidates).map((c, idx) => {
+    // Only candidates within the length are reviewed; one over it is refused before evaluation (measure_drafts).
+    const items = list<{ body: string }>(candidates).flatMap((c, idx) => {
       const post = asText(c?.body).trim();
-      return { idx, input: JSON.stringify({ post, sentences: evidenceSentences(post, asText(claims)), facts: given }) };
+      return withinLength(post) ? [{ idx, input: JSON.stringify({ post, sentences: evidenceSentences(post, asText(claims)), facts: given }) }] : [];
     });
     return { generators, items };
   },
@@ -119,7 +120,12 @@ export const CREATE_CODE: Record<string, (args: Record<string, unknown>) => unkn
   /** The code evaluators the definition names, on every candidate (evaluators.ts). */
   measure_drafts: (a) => {
     const evals = named(a.evaluators, 'code');
-    return list<{ body: string; claims: DraftClaim[] }>(a.candidates).map((c) => runAll(evals, evalInput(c, a)));
+    // Length is a hard gate before evaluation (PR #99 review): a candidate over the maximum gets only its length result,
+    // is never reviewed (review_inputs) or chosen (decide_draft), and is stored whole, as written.
+    return list<{ body: string; claims: DraftClaim[] }>(a.candidates).map((c) => {
+      const input = evalInput(c, a);
+      return withinLength(input.body) ? runAll(evals, input) : runAll([EVALUATORS.length], input);
+    });
   },
   /**
    * The model evaluators the definition names, from each candidate's independent review, merged with the code results;
@@ -129,15 +135,22 @@ export const CREATE_CODE: Record<string, (args: Record<string, unknown>) => unkn
     const evals = named(a.evaluators, 'model');
     const drafts = list<{ body: string; claims: DraftClaim[] }>(a.candidates);
     const gens = list<string | null>(a.generators);
-    const judges = list<string | null>(a.judges);
-    const reviews = list<ReviewFindings | null>(a.reviews);
-    const results = list<Results>(a.measured).map((m, idx) => ({ ...m, ...runAll(evals, { ...evalInput(drafts[idx], a), review: reviews[idx] ?? null, generator: gens[idx] ?? null, judge: judges[idx] ?? null }) }));
+    // Reviews and their models come in the order of the review items, which hold only candidates within the length.
+    const items = list<{ idx: number }>(a.items);
+    const byIdx = <T>(v: T[]) => new Map(items.map((it, k) => [it.idx, v[k]]));
+    const reviews = byIdx(list<ReviewFindings | null>(a.reviews));
+    const judges = byIdx(list<string | null>(a.judges));
+    const results = list<Results>(a.measured).map((m, idx) => (withinLength(evalInput(drafts[idx], a).body)
+      ? { ...m, ...runAll(evals, { ...evalInput(drafts[idx], a), review: reviews.get(idx) ?? null, generator: gens[idx] ?? null, judge: judges.get(idx) ?? null }) }
+      : m));
     const verdicts = results.map((r, idx) => verdictOf(idx, r));
-    return { chosen: pick(verdicts), verdicts, results };
+    const eligible = verdicts.filter((v) => withinLength(evalInput(drafts[v.idx], a).body));
+    if (!eligible.length) throw new HttpError(422, 'every candidate came back longer than 4,000 characters, so nothing was saved; draft again');
+    return { chosen: pick(eligible), verdicts, results, judges: verdicts.map((v) => judges.get(v.idx) ?? null) };
   },
 };
 
-type Decision = { chosen: number; verdicts: ReturnType<typeof verdictOf>[]; results: Results[] };
+type Decision = { chosen: number; verdicts: ReturnType<typeof verdictOf>[]; results: Results[]; judges: (string | null)[] };
 
 export const CREATE_WRITES: Record<string, (ctx: StepContext, args: Record<string, unknown>) => Promise<unknown>> = {
   /**
@@ -152,9 +165,10 @@ export const CREATE_WRITES: Record<string, (ctx: StepContext, args: Record<strin
     const drafts = list<{ body: string; claims: DraftClaim[] }>(args.candidates);
     const decision = args.decision as Decision;
     const gens = list<string | null>(args.generators);
-    const judges = list<string | null>(args.judges);
+    const judges = decision.judges;
     const chosen = decision.chosen;
-    const body = asText(drafts[chosen]?.body).trim().slice(0, MAX_BODY);
+    // Exactly the text that was evaluated (evalInput: trimmed), never cut: the stored post is what its verdicts describe.
+    const body = asText(drafts[chosen]?.body).trim();
     const postId = await stableId(run.id, 'post');
     const v = decision.verdicts[chosen];
     const res = decision.results[chosen];
@@ -162,7 +176,7 @@ export const CREATE_WRITES: Record<string, (ctx: StepContext, args: Record<strin
     // Evaluator results without their bulky detail, for the list of candidates.
     const brief = (r: Results) => Object.fromEntries(Object.entries(r).map(([id, x]) => [id, { pass: x.pass, status: x.status, version: x.version, score: x.score ?? null, reasons: x.reasons.slice(0, 8), model: x.model ?? null }]));
     const summary = drafts.map((d, idx) => ({
-      idx, body: asText(d?.body).trim().slice(0, MAX_BODY), model: gens[idx] ?? null, judge: judges[idx] ?? null,
+      idx, body: asText(d?.body).trim(), model: gens[idx] ?? null, judge: judges[idx] ?? null,
       voiceFit: decision.verdicts[idx].voiceFit, platformFit: decision.verdicts[idx].platformFit,
       passed: decision.verdicts[idx].passed, failedGates: decision.verdicts[idx].failedGates, reasons: decision.verdicts[idx].reasons.slice(0, 12),
       evaluators: brief(decision.results[idx]),
@@ -205,7 +219,7 @@ export const CREATE_WRITES: Record<string, (ctx: StepContext, args: Record<strin
     })));
     // The post and every candidate in one transaction (spec/db/013 save_draft): a failed candidate write leaves no post
     // without its audit rows (PR #99 review).
-    await db.rpc(env, 'save_draft', { p_post: { id: postId, brand_id: run.brand_id, brief: asText(input.brief).slice(0, 1000), channel: asText(input.channel) || null, body, checks, status: 'drafted', model: gens[chosen] ?? null, kit_version: context.kitVersion }, p_candidates: rows });
+    await db.rpc(env, 'save_draft', { p_post: { id: postId, brand_id: run.brand_id, brief: asText(input.brief), channel: asText(input.channel) || null, body, checks, status: 'drafted', model: gens[chosen] ?? null, kit_version: context.kitVersion }, p_candidates: rows });
     return { postId, chosen, passed: v.passed };
   },
 };

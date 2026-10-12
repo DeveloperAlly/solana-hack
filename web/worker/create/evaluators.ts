@@ -12,12 +12,15 @@
 // Tone and content findings are tracked (content is gated at approval by policyCheck). The voice-fit bands are
 // uncalibrated (voice.ts), so voice fit is tracked. Without a review there is no verdict (fail closed).
 import { differentFamily } from '../models';
-import { policyVerdict, slopCheck } from '../posts';
+import { MAX_POST_CHARS, policyVerdict, slopCheck } from '../posts';
 import { checkClaims, evidenceSentences, key as sentenceKey, type DraftClaim, type FactRef } from './claims';
 import { lintPlatform } from './platform';
 import { measureVoice, type VoiceSpec } from './voice';
 
-export const MAX_BODY = 4000;
+/** One maximum for a post's length (posts.ts MAX_POST_CHARS). Platform limits are platform.ts hard rules. */
+export const MAX_BODY = MAX_POST_CHARS;
+/** True when a candidate is within the maximum: anything longer is refused before any evaluator runs (ops.ts). */
+export const withinLength = (body: string) => !!body.trim() && body.trim().length <= MAX_BODY;
 
 export interface EvaluatorOutput { pass: boolean; score?: number | null; reasons: string[]; model?: string | null; detail?: unknown }
 
