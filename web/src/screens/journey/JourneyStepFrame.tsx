@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { PublicShell } from '../../ui/shells/PublicShell';
 import { WizardLayout } from '../../ui/layouts/WizardLayout';
-import { Badge, Link } from '../../ui/primitives';
+import { Alert, Badge, Link } from '../../ui/primitives';
 import { useJourneyHref, useNavHref, type JourneyStepId } from './paths';
 import { useJourneyFlow } from './useJourneyFlow';
 
@@ -35,7 +35,7 @@ export function JourneyStepFrame({ step, title, intro, footer, error, children }
         title={title}
         intro={intro}
         footer={footer}
-        error={error}
+        error={error ?? (flow.error && <Alert tone="danger">{flow.error}</Alert>)}
       >
         {children}
       </WizardLayout>

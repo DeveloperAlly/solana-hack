@@ -5,6 +5,7 @@
  * survive moving between the /screens/<Artboard> routes in one visit. Nothing is preselected and nothing is sent; each
  * action names the endpoint that will persist it once the flow is wired.
  */
+import { createContext, useContext } from 'react';
 import { createStore } from '../../lib/createStore';
 import type { GateDecision } from '../../ui/domain/DecisionGate';
 import { journeySteps, useJourneyHref, type JourneyStepId } from './paths';
@@ -117,7 +118,19 @@ const actions = {
   approvePost: (post: ApprovedPost) => update(() => ({ post })),
 };
 
-export type JourneyActions = typeof actions;
+export type JourneyActions = { [K in keyof typeof actions]: (...args: Parameters<(typeof actions)[K]>) => void | Promise<void> } & {
+  verifyCode?: (code: string) => Promise<void>;
+  finishGaps?: () => Promise<void>;
+};
+export interface JourneyLiveFlow {
+  selections: JourneySelections;
+  actions: JourneyActions;
+  busy?: boolean;
+  error?: string;
+  status?: string;
+}
+/** Live routes supply server-backed actions. Gallery routes retain their no-network store. */
+export const JourneyFlowContext = createContext<JourneyLiveFlow | null>(null);
 
 /** J4 is finished when both questions are answered and the voice is set: a round 2 pick, or one sentence. */
 export const voiceDone = (s: JourneySelections) => {
@@ -135,7 +148,9 @@ const kitStatus = (s: JourneySelections, index: number) => (s.kitRegistered === 
 
 /** Step position and links for a numbered step (J1 to J7); Main and J8 call it without a step for the selections. */
 export function useJourneyFlow(step?: JourneyStepId) {
-  const selections = store.use()[0];
+  const previewSelections = store.use()[0];
+  const live = useContext(JourneyFlowContext);
+  const selections = live?.selections ?? previewSelections;
   const to = useJourneyHref();
   const index = step ? journeySteps.findIndex((s) => s.id === step) : -1;
   const next = journeySteps[index + 1];
@@ -143,7 +158,10 @@ export function useJourneyFlow(step?: JourneyStepId) {
     steps: journeySteps.map((s) => ({ label: s.label })),
     index,
     estimate: journeySteps[index]?.estimate,
-    status: kitStatus(selections, index),
+    status: live?.status ?? kitStatus(selections, index),
+    live: Boolean(live),
+    busy: live?.busy ?? false,
+    error: live?.error,
     /** The next step, or the first-run hub after the last one. */
     nextHref: to(next?.id ?? 'hub'),
     /** Done steps link back to their screen. */
@@ -163,6 +181,6 @@ export function useJourneyFlow(step?: JourneyStepId) {
       const approval = approvalOf(selections, id, loaded);
       return Boolean(approval && approval.fingerprint !== fingerprint);
     },
-    actions,
+    actions: (live?.actions ?? actions) as JourneyActions,
   };
 }
