@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Gate } from '../../domain/approval';
-import { nextBrainVersion, rulesWith } from '../../domain/brain';
+import { rulesWith } from '../../domain/brain';
+import { proposalNote } from '../../domain/proposal';
 import { gateFor, primaryActions, type DraftItem, type QueueItem, type QueueKind } from '../../domain/queue';
 import { approveSubmission, payoutOutcome, questWithPayouts } from '../../domain/quest';
 import { stageById } from '../../config/nav';
@@ -71,10 +72,9 @@ function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | '
 export function useToday(data: TodayData) {
   const loop = useLoop(data);
   const [filter, setFilter] = useState<QueueFilter>('all');
-  const submissions = data.queue.flatMap((i) => (i.kind === 'ambassadorPost' ? [{ id: i.id, questId: i.questId }] : []));
   const quest = (id: string) => {
     const q = data.quests?.find((x) => x.id === id);
-    return q && questWithPayouts(q, submissions, loop.outcomes);
+    return q && questWithPayouts(q, loop.payouts);
   };
   const ctx = { brainVersion: loop.brain.version, proposal: loop.proposal, quest };
   const acts: Partial<Record<QueueKind, (item: QueueItem) => void>> = {
@@ -86,7 +86,7 @@ export function useToday(data: TodayData) {
       if (i.kind !== 'ambassadorPost') return;
       const gate = gateFor(i, ctx);
       const outcome = i.questId ? approveSubmission(i, quest(i.questId), gate) : !gate.blocking && payoutOutcome(i.payout);
-      if (outcome) loop.finish(i.id, outcome);
+      if (outcome) loop.pay({ questId: i.questId, submissionId: i.id, amount: i.payout.amount, unit: i.payout.unit }, outcome);
     },
     learnedRule: (i) => {
       const p = i.kind === 'learnedRule' && loop.proposal(i.proposalId);
@@ -95,7 +95,8 @@ export function useToday(data: TodayData) {
   };
   const rows: QueueRow[] = data.queue.map((item) => {
     const act = acts[item.kind];
-    const meta = item.kind === 'learnedRule' ? `${item.meta} · becomes Brain v${nextBrainVersion(loop.brain.version)} if you approve` : item.meta;
+    const p = item.kind === 'learnedRule' ? loop.proposal(item.proposalId) : undefined;
+    const meta = p ? `${item.meta} · ${proposalNote(p, loop.brain.version)}` : item.meta;
     return { item: { ...item, meta }, gate: gateFor(item, ctx), ...standing(item, loop), act: act && (() => act(item)) };
   });
   const { needsYou, oneTap, done } = selectQueue(rows);

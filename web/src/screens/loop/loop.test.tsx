@@ -72,6 +72,8 @@ describe('Today', () => {
     expect(within(queueRow(/Open X threads/)).getByText(/becomes Brain v3.2 if you approve/)).toBeInTheDocument();
     await userEvent.click(within(queueRow(/Open X threads/)).getByRole('button', { name: 'Approve rule' }));
     expect(within(queueRow(/Open X threads/)).getByText(/active in Brain v3.2; the kit is unchanged/)).toBeInTheDocument();
+    expect(within(queueRow(/Open X threads/)).getByText(/active in Brain v3.2$/)).toBeInTheDocument();
+    expect(within(queueRow(/Open X threads/)).queryByText(/if you approve/)).toBeNull();
     const draft = queueRow(/Your agent didn't forget/);
     expect(within(draft).getByText(/approval went stale/)).toBeInTheDocument();
     expect(within(draft).getByRole('button', { name: 'Approve' })).toBeEnabled();
@@ -90,7 +92,17 @@ describe('Today: quest submissions (ambassador posts with a questId) pay through
     const second = queueRow(/\[Creator B\]/);
     expect(within(second).getByRole('button', { name: 'Approve and pay' })).toBeDisabled();
     expect(within(second).getByText(/Blocked: All 2 slots are paid; the budget is reached/)).toBeInTheDocument();
-    expect(Object.keys(loopStore.read().outcomes)).toEqual(['q-sub-1']);
+    expect(loopStore.read().payouts.map((p) => p.submissionId)).toEqual(['q-sub-1']);
+  });
+
+  it('a paid slot stays used after its submission leaves the queue; the next one is blocked when that was the last slot', async () => {
+    const { rerender } = renderWithRouter(<Today data={data} />);
+    await userEvent.click(within(queueRow(/\[Creator A\]/)).getByRole('button', { name: 'Approve and pay' }));
+    rerender(<MemoryRouter><Today data={{ ...data, queue: [sub('q-sub-2', '[Creator B]')] }} /></MemoryRouter>);
+    const row = queueRow(/\[Creator B\]/);
+    expect(within(row).getByRole('button', { name: 'Approve and pay' })).toBeDisabled();
+    expect(within(row).getByText(/Blocked: All 2 slots are paid/)).toBeInTheDocument();
+    expect(loopStore.read().payouts).toEqual([expect.objectContaining({ questId: 'quest-tut', submissionId: 'q-sub-1', amount: 50 })]);
   });
 
   it('a submission whose quest is not found is blocked ("Quest not found"), never paid as a seat post', async () => {

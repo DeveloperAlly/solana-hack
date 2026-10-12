@@ -1,5 +1,5 @@
 import type { BrainRule } from '../../domain/brain';
-import { proposalGate } from '../../domain/proposal';
+import { proposalGate, proposalNote } from '../../domain/proposal';
 import { Badge, Button, Text } from '../../ui/primitives';
 import { DataTable } from '../../ui/composites/DataTable';
 import type { LoopFlow } from '../../flows/loop/useLoop';
@@ -18,6 +18,11 @@ const fromLine = (r: BrainRule) => [r.evidence.map((e) => e.label).join(', '), r
 export function BrainRules({ loop }: { loop: LoopFlow }) {
   const { links } = useLoopLinks();
   const proposalFor = (r: BrainRule) => loop.proposals.find((p) => p.ruleId === r.id);
+  // A learned rule's line is its proposal's (domain/proposal.ts proposalNote); a retired rule says when it was retired.
+  const fromCell = (r: BrainRule) => {
+    const p = proposalFor(r);
+    return p && r.status !== 'retired' ? `${r.evidence.map((e) => e.label).join(', ')} · ${proposalNote(p, loop.brain.version)}` : fromLine(r);
+  };
   function action(r: BrainRule) {
     const p = proposalFor(r);
     if (r.status === 'suggested' && p) {
@@ -37,7 +42,7 @@ export function BrainRules({ loop }: { loop: LoopFlow }) {
       columns={[
         { key: 'text', header: 'Rule', rowHeader: true },
         { key: 'appliesTo', header: 'Applies to' },
-        { key: 'from', header: 'From', cell: fromLine },
+        { key: 'from', header: 'From', cell: fromCell },
         { key: 'status', header: 'Status', cell: (r) => <Badge tone={statusBadge[r.status].tone}>{statusBadge[r.status].label}</Badge> },
       ]}
       actions={action}

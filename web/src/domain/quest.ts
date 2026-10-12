@@ -111,8 +111,20 @@ export function approveSubmission(item: { payout: { amount: number; unit: string
   return submissionGate(queueGate, item, quest).blocking ? null : payoutOutcome(item.payout);
 }
 
-/** A quest with this session's payouts counted: its fixture `paid` plus its submissions approved since. */
-export function questWithPayouts(quest: Quest, submissions: { id: string; questId?: string }[], outcomes: Record<string, string>): Quest {
-  const paidNow = submissions.filter((s) => s.questId === quest.id && isPayoutOutcome(outcomes[s.id])).length;
-  return { ...quest, paid: quest.paid + paidNow };
+/** One payout, its own record (kept in the brand-scoped loop store): slots used are counted from these, never from a queue. */
+export interface PayoutRecord {
+  /** The quest it was paid from; absent for an ambassador seat post. */
+  questId?: string;
+  submissionId: string;
+  amount: number;
+  unit: string;
+  at: string;
+}
+
+/**
+ * A quest with this session's payouts counted: its fixture `paid` plus the payout records made from it. Counting from
+ * the records, not the current queue, keeps a slot used after its submission leaves the queue (Codex review on PR 111).
+ */
+export function questWithPayouts(quest: Quest, payouts: readonly PayoutRecord[]): Quest {
+  return { ...quest, paid: quest.paid + payouts.filter((p) => p.questId === quest.id).length };
 }

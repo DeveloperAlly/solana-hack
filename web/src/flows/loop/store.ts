@@ -9,6 +9,7 @@ import { activeBrand } from '../brand/activeBrand';
 import type { PersonApproval } from '../../domain/approval';
 import type { BrainChange, RuleStatus } from '../../domain/brain';
 import type { ProposalStatus } from '../../domain/proposal';
+import type { PayoutRecord } from '../../domain/quest';
 
 export interface RuleChange {
   status: RuleStatus;
@@ -19,7 +20,7 @@ export interface ProposalChange {
   status?: ProposalStatus;
   /** Re-judged against this Brain version. */
   brainVersion?: string;
-  decided?: { at: string };
+  decided?: { at: string; version?: string };
 }
 
 export interface LoopState {
@@ -33,9 +34,11 @@ export interface LoopState {
   approvals: Record<string, PersonApproval>;
   /** Irreversible outcomes (sent, paid, rule approved), by item id. */
   outcomes: Record<string, string>;
+  /** Every payout made, as its own record; quest slots are counted from these (domain/quest.ts). */
+  payouts: PayoutRecord[];
 }
 
-const initial: LoopState = { rules: {}, history: [], proposals: {}, approvals: {}, outcomes: {} };
+const initial: LoopState = { rules: {}, history: [], proposals: {}, approvals: {}, outcomes: {}, payouts: [] };
 
 /**
  * One loop state per brand, on the one active brand (flows/brand): the Brain version, proposals, approvals, history

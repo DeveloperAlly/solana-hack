@@ -3,6 +3,7 @@
 // that wrote it, changes nothing until the owner approves it, and names the Brain version it was judged against.
 import type { Gate } from './approval';
 import type { ArtboardName } from '../config/artboards';
+import { nextBrainVersion } from './brain';
 
 /** Where the signal came from (ADR-012 runtime section). */
 export type SignalSource = 'edit-to-rule' | 'approvals' | 'outcome' | 'platform-metrics';
@@ -33,8 +34,8 @@ export interface Proposal {
   /** The Brain version it was judged against. */
   brainVersion: string;
   status: ProposalStatus;
-  /** When it was decided (decided proposals). */
-  decided?: { at: string };
+  /** When it was decided, and the Brain version an approval made (decided proposals). */
+  decided?: { at: string; version?: string };
 }
 
 /**
@@ -45,4 +46,18 @@ export function proposalGate(p: Proposal, brainVersion: string): Gate {
   if (p.status === 'approved' || p.status === 'rejected') return { blocking: true, label: `Already ${p.status}.` };
   if (p.brainVersion !== brainVersion) return { blocking: true, label: `Judged against Brain v${p.brainVersion}; the Brain is now v${brainVersion}. Check it again before approving.` };
   return { blocking: false, label: `Checked against Brain v${brainVersion}.` };
+}
+
+/**
+ * The one line that says where a proposal stands, from its status (Today, Learn-Rules and the Brain all read it): a
+ * pending one says what approving does; an approved one is active in the Brain version it made; a rejected one says so.
+ */
+export function proposalNote(p: Pick<Proposal, 'status' | 'decided'>, brainVersion: string): string {
+  const notes: Record<ProposalStatus, () => string> = {
+    pending: () => `becomes Brain v${nextBrainVersion(brainVersion)} if you approve`,
+    trial: () => `on trial for half of new drafts; becomes Brain v${nextBrainVersion(brainVersion)} if you approve`,
+    approved: () => `active in Brain v${p.decided?.version ?? brainVersion}`,
+    rejected: () => 'rejected',
+  };
+  return notes[p.status]();
 }

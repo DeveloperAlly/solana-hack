@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { approve, isStale } from '../lib/approval';
 import { nextBrainVersion } from './brain';
 import { approvalState, lifecycleSteps } from './post';
-import { proposalGate } from './proposal';
+import { proposalGate, proposalNote } from './proposal';
+import { questWithPayouts } from './quest';
 import { checksGate, gateFor } from './queue';
 import { liveStepCount, loopProgressLabel } from './loop';
 import { adnaPosts } from './fixtures/posts';
@@ -79,5 +80,22 @@ describe('domain: loop progress counts live steps, not a position', () => {
   it('the current step counts as live; not-started steps do not', () => {
     expect(liveStepCount(['live', 'live', 'live', 'live', 'current', 'not-started'])).toBe(5);
     expect(liveStepCount(['not-started', 'not-started'])).toBe(0);
+  });
+});
+
+describe('domain: one note per proposal status', () => {
+  it('pending says what approval does, approved names its Brain version, rejected says so', () => {
+    expect(proposalNote({ status: 'pending' }, '3.2')).toBe('becomes Brain v3.3 if you approve');
+    expect(proposalNote({ status: 'trial' }, '3.2')).toBe('on trial for half of new drafts; becomes Brain v3.3 if you approve');
+    expect(proposalNote({ status: 'approved', decided: { at: '13 Oct', version: '3.2' } }, '3.3')).toBe('active in Brain v3.2');
+    expect(proposalNote({ status: 'rejected', decided: { at: '13 Oct' } }, '3.2')).toBe('rejected');
+  });
+});
+
+describe('domain: quest slots are counted from payout records', () => {
+  it('a payout record keeps its slot used whatever the queue holds', () => {
+    const quest = { id: 'q', task: 't', format: 'tutorial' as const, rewardUsdc: 50, slots: 2, paid: 1, due: null, opens: null, submissionIds: [] };
+    expect(questWithPayouts(quest, []).paid).toBe(1);
+    expect(questWithPayouts(quest, [{ questId: 'q', submissionId: 's1', amount: 50, unit: 'USDC', at: '13 Oct' }, { submissionId: 'seat', amount: 10, unit: 'USDC', at: '13 Oct' }]).paid).toBe(2);
   });
 });
