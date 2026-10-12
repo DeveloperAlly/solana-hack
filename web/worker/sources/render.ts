@@ -1,4 +1,4 @@
-import { fetchPage, MAX_BYTES, pageLinks, readable, USER_AGENT, type FetchGate } from '../ingest';
+import { fetchHop, MAX_BYTES, pageLinks, readable, USER_AGENT, type FetchGate } from '../ingest';
 
 /**
  * Rendered reading for script-only sites (architecture §6.1 "Source ingestion": "fall back to a plain fetch, then
@@ -11,10 +11,11 @@ import { fetchPage, MAX_BYTES, pageLinks, readable, USER_AGENT, type FetchGate }
  * every request stalls until it is continued, answered or aborted, and a redirect is issued as a new request
  * (https://pptr.dev/api/puppeteer.httprequest), so each hop is checked too:
  *
- * - Every top-level page load (the first one, a redirect, a meta refresh, a script navigation) is fetched by our own
- *   reader (ingest.ts fetchPage), which checks robots.txt before each hop and identifies as JamJamBot. The browser is
- *   handed that response, so it never fetches a page itself. A redirect is answered as a redirect, which comes back
- *   as a new request and is checked again.
+ * - Every top-level page load (the first one, a redirect, a meta refresh, a script navigation) is checked against
+ *   robots.txt and fetched one hop at a time by our own reader (ingest.ts fetchHop), as JamJamBot, with the cookies
+ *   the browser holds for it. The browser is handed that response, headers included, so it never fetches a page
+ *   itself. A redirect is handed over as the redirect it is, cookies and all, and the browser's next request for the
+ *   new address comes back here, is checked again and costs another request from the budget (PR #71 review).
  * - Scripts, stylesheets and data requests go out only after robots.txt for their address allows them, from at most
  *   MAX_ORIGINS origins and MAX_REQUESTS requests a page.
  * - Everything not needed for text is refused without a fetch: images, media, fonts, beacons, prefetches, frames.
@@ -42,6 +43,8 @@ export interface RenderPage {
   setRequestInterception(enabled: boolean): Promise<void>;
   on(event: 'request', handler: (request: InterceptedRequest) => void): unknown;
   mainFrame(): unknown;
+  /** Cookies the browser would send to these addresses (Page.cookies in @cloudflare/puppeteer 1.4.0). */
+  cookies(...urls: string[]): Promise<{ name: string; value: string }[]>;
   goto(url: string, options: { waitUntil: 'networkidle0'; timeout: number }): Promise<unknown>;
   url(): string;
   title(): Promise<string>;
@@ -80,6 +83,15 @@ export const RENDER_CSP = "frame-src 'none'; child-src 'none'; worker-src 'none'
 const NO_SOCKETS = `(() => { for (const k of ['WebSocket', 'WebTransport', 'RTCPeerConnection', 'webkitRTCPeerConnection']) { try { Object.defineProperty(globalThis, k, { value: undefined, configurable: false, writable: false }); } catch {} } })();`;
 // Text as readPage takes it: scripts, styles, navigation and footers left out. Read after the links are taken.
 const PAGE_TEXT = `(() => { for (const el of document.querySelectorAll('script,style,noscript,svg,nav,footer,template')) el.remove(); return document.body ? document.body.innerText : ''; })()`;
+
+/** A response's headers for the browser: transfer headers left out, Set-Cookie once per value. */
+function forwarded(res: Response): Record<string, string | string[]> {
+  const headers: Record<string, string | string[]> = {};
+  res.headers.forEach((value, name) => { if (!NOT_FORWARDED.has(name.toLowerCase())) headers[name.toLowerCase()] = value; });
+  const cookies = res.headers.getSetCookie();
+  if (cookies.length) headers['set-cookie'] = cookies;
+  return headers;
+}
 
 const tidy = (text: string) => text.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
 
@@ -151,19 +163,30 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
     if (type === 'document') {
       // Only the page itself; a frame is refused (and blocked by the CSP as well).
       if (req.frame() !== page.mainFrame()) return void (await refuse());
+      if (!(await gate(u))) return void (await refuse());
       if (budget.left <= 0) return void (await refuse());
       budget.left--;
-      let fetched: { res: Response; url: URL };
+      const jar = await page.cookies(u.toString());
+      let res: Response;
       try {
-        fetched = await fetchPage(u, gate);
+        res = await fetchHop(u, jar.length ? { cookie: jar.map((c) => `${c.name}=${c.value}`).join('; ') } : {});
       } catch {
         return void (await refuse());
       }
-      const { res, url: landed } = fetched;
-      if (landed.toString() !== u.toString()) {
+      const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+      if (location) {
         await res.body?.cancel().catch(() => undefined);
-        // Answered as a redirect: the browser asks for the new address, which comes back here and is checked again.
-        return void (req.isInterceptResolutionHandled() || (await req.respond({ status: 302, headers: { location: landed.toString() } })));
+        let next: URL;
+        try {
+          next = new URL(location, u);
+        } catch {
+          return void (await refuse());
+        }
+        if (!readable(next)) return void (await refuse());
+        // One hop only: the browser follows it with a new request, which comes back here and is checked again.
+        const headers = forwarded(res);
+        headers.location = next.toString();
+        return void (req.isInterceptResolutionHandled() || (await req.respond({ status: res.status, headers })));
       }
       const contentType = res.headers.get('content-type') ?? '';
       if (!/text\/html/.test(contentType)) {
@@ -179,10 +202,7 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
       // The page's other headers go with it, cookies included, so the scripts that follow see the state the site set
       // for them, as a visitor's browser would (RFC 6265 §3: https://www.rfc-editor.org/rfc/rfc6265#section-3)
       // (PR #71 review).
-      const headers: Record<string, string | string[]> = {};
-      res.headers.forEach((value, name) => { if (!NOT_FORWARDED.has(name.toLowerCase())) headers[name.toLowerCase()] = value; });
-      const cookies = res.headers.getSetCookie();
-      if (cookies.length) headers['set-cookie'] = cookies;
+      const headers = forwarded(res);
       headers['content-security-policy'] = csp;
       return void (req.isInterceptResolutionHandled() || (await req.respond({ status: res.status, contentType, headers, body })));
     }

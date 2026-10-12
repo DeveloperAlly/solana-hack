@@ -14,13 +14,17 @@ const ROBOTS: Record<string, string> = {
   'https://evil.test': 'User-agent: *\nDisallow: /\n',
 };
 let fetched: string[] = [];
-function network(site: Site) {
+let sentCookies: Record<string, string> = {};
+function network(site: Site | ((url: string) => Site[string] | undefined)) {
   fetched = [];
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+  sentCookies = {};
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     fetched.push(url);
+    const cookie = (init?.headers as Record<string, string> | undefined)?.cookie;
+    if (cookie) sentCookies[url] = cookie;
     const u = new URL(url);
     if (u.pathname === '/robots.txt') return new Response(ROBOTS[u.origin] ?? '', { status: ROBOTS[u.origin] === undefined ? 404 : 200 });
-    const page = site[url];
+    const page = typeof site === 'function' ? site(url) : site[url];
     if (!page) return new Response('', { status: 404 });
     return new Response(page.body ?? '', { status: page.status ?? 200, headers: page.headers ?? { 'content-type': 'text/html' } });
   }));
@@ -53,6 +57,12 @@ function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' |
       let handler: ((r: InterceptedRequest) => void) | null = null;
       let current = 'about:blank';
       let html = '';
+      // The browser's cookie jar: filled from Set-Cookie on the responses it is handed.
+      const jar = new Map<string, string>();
+      const keep = (o: Outcome) => {
+        const set = o.headers?.['set-cookie'];
+        for (const c of Array.isArray(set) ? set : set ? [set] : []) { const [nv] = c.split(';'); const i = nv.indexOf('='); jar.set(nv.slice(0, i).trim(), nv.slice(i + 1).trim()); }
+      };
       const issue = (url: string, type: string, frame: 'main' | 'child' = 'main') => new Promise<Outcome>((resolve) => {
         let handled = false;
         const done = (o: Omit<Outcome, 'url' | 'type'>) => {
@@ -76,10 +86,11 @@ function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' |
       // Loads a top-level document the way a browser does: follow a 302 answer, then show the page.
       const navigate = async (url: string): Promise<boolean> => {
         let target = url;
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 1000; i++) {
           const o = await issue(target, 'document');
           if (o.how !== 'respond') return false;
-          if (o.status === 302) { target = new URL(String(o.headers!.location), target).toString(); continue; }
+          keep(o);
+          if (o.status! >= 300 && o.status! < 400) { target = new URL(String(o.headers!.location), target).toString(); continue; }
           current = target;
           html = o.body ?? '';
           return true;
@@ -93,12 +104,14 @@ function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' |
         setRequestInterception: async () => undefined,
         on: (_e, h) => { handler = h; },
         mainFrame: () => main,
+        cookies: async () => [...jar].map(([name, value]) => ({ name, value })),
         async goto(url) {
           if (!(await navigate(url))) throw Object.assign(new Error('net::ERR_BLOCKED_BY_CLIENT'), { name: 'Error' });
           await after(async (u, type, frame) => {
             if (type === 'document' && frame !== 'child') {
               const o = await issue(u, 'document');
-              if (o.how === 'respond' && o.status !== 302) { current = u; html = o.body ?? ''; }
+              if (o.how === 'respond') keep(o);
+              if (o.how === 'respond' && !(o.status! >= 300 && o.status! < 400)) { current = u; html = o.body ?? ''; }
               return o;
             }
             return issue(u, type, frame);
@@ -189,7 +202,24 @@ describe('renderer: robots.txt before every request the browser makes', () => {
     const b = fakeBrowser();
     const page = await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/old'));
     expect(page).toMatchObject({ url: 'https://a.test/new' });
-    expect(b.outcomes.map((o) => [o.url, o.how, o.status])).toEqual([['https://a.test/old', 'respond', 302], ['https://a.test/new', 'respond', 200]]);
+    expect(b.outcomes.map((o) => [o.url, o.how, o.status])).toEqual([['https://a.test/old', 'respond', 301], ['https://a.test/new', 'respond', 200]]);
+  });
+  it('hands a redirect over with its cookies, and sends them on the next hop (PR #71 review)', async () => {
+    network({ 'https://a.test/old': { status: 302, headers: [['location', '/new'], ['set-cookie', 'consent=yes; Path=/']] }, 'https://a.test/new': { body: APP } });
+    const b = fakeBrowser();
+    expect(await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/old'))).toMatchObject({ url: 'https://a.test/new' });
+    expect(b.outcomes[0].headers!['set-cookie']).toEqual(['consent=yes; Path=/']);
+    expect(sentCookies['https://a.test/new']).toBe('consent=yes');
+  });
+  it('charges every redirect hop to the page budget (PR #71 review)', async () => {
+    // /hop0 redirects 15 times before reaching the page, and the page's script navigates back to /hop0 again and again.
+    network((url) => {
+      const n = Number(new URL(url).pathname.slice(4));
+      return n < 15 ? { status: 302, headers: { location: `/hop${n + 1}` } } : { body: APP };
+    });
+    const b = fakeBrowser(async (issue) => { for (let i = 0; i < 40; i++) await issue('https://a.test/hop0', 'document'); });
+    await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/hop0'));
+    expect(fetched.filter((u) => !u.endsWith('/robots.txt')).length).toBeLessThanOrEqual(MAX_REQUESTS);
   });
   it('never fetches a redirect hop robots.txt disallows, and reads nothing', async () => {
     network({ 'https://a.test/old': { status: 301, headers: { location: '/private/x' } }, 'https://a.test/private/x': { body: APP } });

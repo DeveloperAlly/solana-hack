@@ -71,20 +71,42 @@ export function readableText(markdown: string, name: string, declaredPages: numb
   let i = 2;
   for (; i < lines.length && lines[i].trim() !== '## Contents'; i++) if (lines[i].trim() && !lines[i].startsWith('- ')) return whole;
   if (i >= lines.length) return whole;
-  let pages = 0;
+  const content = lines.slice(i + 1);
+  const headingOf = (line: string) => {
+    const m = /^### Page (\d{1,5})$/.exec(line.trim());
+    return m ? Number(m[1]) : null;
+  };
+  const seen = new Map<number, number>();
+  for (const line of content) {
+    const n = headingOf(line);
+    if (n !== null) seen.set(n, (seen.get(n) ?? 0) + 1);
+  }
+  const limit = declaredPages ?? Number.POSITIVE_INFINITY;
+  // A "### Page N" line is taken as the converter's page break only when nothing else could be: it is the next number
+  // in sequence, within the page count the PDF declares, and it appears exactly once. A number that appears more than
+  // once may be the document's own text, and the output carries nothing that says which copy is the break, so every
+  // copy is kept as text and that boundary is left unknown (its page's text joins the page before) rather than guessed
+  // (PR #71 review). Later breaks still count: a skipped number is passed over only when it is one of these ambiguous ones.
+  const isBreak = (n: number, last: number) => {
+    if (n <= last || n > limit || seen.get(n) !== 1) return false;
+    for (let k = last + 1; k < n; k++) if ((seen.get(k) ?? 0) < 2) return false;
+    return true;
+  };
+  let last = 0;
   const body: string[] = [];
   // Text per page, so a page number can be checked against the page it is on; text before "### Page 1" joins page 1.
   const perPage: string[][] = [[]];
-  for (const line of lines.slice(i + 1)) {
-    if (line.trim() === `### Page ${pages + 1}` && (declaredPages === null || pages < declaredPages)) {
-      pages++;
-      if (pages > 1) perPage.push([]);
+  for (const line of content) {
+    const n = headingOf(line);
+    if (n !== null && isBreak(n, last)) {
+      if (last > 0) perPage.push([]);
+      last = n;
       continue;
     }
     body.push(line);
     perPage[perPage.length - 1].push(line);
   }
-  return { body: body.join('\n').trim(), pages: pages || 1, wrapped: true, pageTexts: perPage.map((x) => x.join('\n').trim()) };
+  return { body: body.join('\n').trim(), pages: declaredPages ?? (last || 1), wrapped: true, pageTexts: perPage.map((x) => x.join('\n').trim()) };
 }
 
 export async function readDocument(env: SourceEnv, input: DocumentInput): Promise<SourceResult> {

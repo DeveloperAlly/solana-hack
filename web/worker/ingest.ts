@@ -28,6 +28,18 @@ export type FetchGate = (url: URL) => Promise<boolean>;
 export const readable = (u: URL) => (u.protocol === 'https:' || u.protocol === 'http:') && (!u.port || u.port === '80' || u.port === '443');
 
 /**
+ * One request, redirects not followed (redirect: 'manual'), as JamJamBot, with a timeout. The single place every
+ * reader's request goes out from, so identity and limits are the same everywhere.
+ */
+export async function fetchHop(url: URL, headers: Record<string, string> = {}): Promise<Response> {
+  try {
+    return await fetch(url.toString(), { signal: AbortSignal.timeout(12000), headers: { ...headers, 'user-agent': USER_AGENT }, redirect: 'manual' });
+  } catch {
+    throw new HttpError(502, 'the site did not answer in time');
+  }
+}
+
+/**
  * Fetches a page. With a gate, redirects are followed one hop at a time (redirect: 'manual', supported by Workers:
  * https://developers.cloudflare.com/workers/runtime-apis/request/) and the gate is asked before each fetch, so an
  * address robots.txt disallows is never requested, not merely discarded after download (PR #71 review). Without a gate,
@@ -46,12 +58,7 @@ export async function fetchPage(url: URL, gate?: FetchGate): Promise<{ res: Resp
   let current = url;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     if (!(await gate(current))) throw new HttpError(403, 'the link leads to an address its robots.txt does not let us read');
-    let res: Response;
-    try {
-      res = await fetch(current.toString(), { ...init, redirect: 'manual' });
-    } catch {
-      throw new HttpError(502, 'the site did not answer in time');
-    }
+    const res = await fetchHop(current);
     const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
     if (!location) return { res, url: current };
     await res.body?.cancel().catch(() => undefined);
