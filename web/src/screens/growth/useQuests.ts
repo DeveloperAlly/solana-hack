@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Gate } from '../../lib/approval';
 import { gateFor, type AmbassadorPostItem, type GateContext } from '../../domain/queue';
 import {
-  approveSubmission, budgetCap, emptyQuestDraft, isQuestFormat, parseReward, parseSlots, questWithPayouts, questState,
+  approveSubmission, budgetCap, emptyQuestDraft, paidCount, isQuestFormat, parseReward, parseSlots, questWithPayouts, questState,
   type Quest, type QuestDraft, type QuestState,
 } from '../../domain/quest';
 import { useLoop } from '../../flows/loop/useLoop';
@@ -46,8 +46,9 @@ export interface QuestsFlow {
 function terms(q: Quest, waiting: number): string {
   const due = q.due ? `due ${q.due}` : 'ongoing';
   if (q.opens) return `${q.rewardUsdc} USDC each · ${q.slots} slots · opens ${q.opens}`;
-  if (q.paid >= q.slots) return `${q.rewardUsdc} USDC each · ${q.paid} of ${q.slots} paid · ${budgetCap(q.rewardUsdc, q.slots)} USDC cap reached`;
-  return `${q.rewardUsdc} USDC each · ${q.slots - q.paid} of ${q.slots} slots left${waiting ? ` · ${waiting} submitted` : ''} · ${due}`;
+  const paid = paidCount(q);
+  if (paid >= q.slots) return `${q.rewardUsdc} USDC each · ${paid} of ${q.slots} paid · ${budgetCap(q.rewardUsdc, q.slots)} USDC cap reached`;
+  return `${q.rewardUsdc} USDC each · ${q.slots - paid} of ${q.slots} slots left${waiting ? ` · ${waiting} submitted` : ''} · ${due}`;
 }
 
 /** Quests flow state (one hook): quests with their state, submissions as items of the one queue, the new-quest form. */
@@ -64,7 +65,10 @@ export function useQuests(data: QuestsData): QuestsFlow {
   const ctx: GateContext = { brainVersion: loop.brain.version, proposal: loop.proposal, quest: (id) => questOf(id, loop.payouts) };
   // A decided submission shows its gate as it stood when it was decided: without its own payout record, never re-run
   // without its quest (Codex review on PR 102).
-  const atDecision = (itemId: string): GateContext => ({ ...ctx, quest: (id) => questOf(id, loop.payouts.filter((p) => p.submissionId !== itemId)) });
+  const atDecision = (itemId: string): GateContext => ({
+    ...ctx,
+    quest: (id) => { const q = questOf(id, loop.payouts); return q && { ...q, paidSubmissionIds: q.paidSubmissionIds.filter((s) => s !== itemId) }; },
+  });
   const quests = all.map((q) => {
     const quest = questWithPayouts(q, loop.payouts);
     const waiting = data.submissions.filter((s) => s.questId === q.id && !decided(s.id)).length;
@@ -90,7 +94,7 @@ export function useQuests(data: QuestsData): QuestsFlow {
       const reward = parseReward(d.reward);
       const slots = parseSlots(d.slots);
       if (!d.task.trim() || !isQuestFormat(d.format) || reward === null || slots === null) return;
-      const quest: Quest = { id: uniqueId('qst'), task: d.task.trim(), format: d.format, rewardUsdc: reward, slots, paid: 0, due: d.due ? eventDay(d.due) : null, opens: null };
+      const quest: Quest = { id: uniqueId('qst'), task: d.task.trim(), format: d.format, rewardUsdc: reward, slots, paidSubmissionIds: [], due: d.due ? eventDay(d.due) : null, opens: null };
       set({ questsAdded: [quest, ...session.questsAdded] });
       setForm(null);
     },

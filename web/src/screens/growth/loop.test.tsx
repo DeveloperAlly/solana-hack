@@ -423,7 +423,7 @@ describe('Quests: slots cap approvals (Codex review on PR #102)', () => {
   it('with one slot left and two pending submissions, approving one blocks the other', async () => {
     const user = userEvent.setup();
     const pending = quests.submissions.map((s) => ({ ...s, disclosure: 'present' as const }));
-    const data = { ...quests, submissions: pending, quests: quests.quests.map((q) => (q.id === 'qst-answers' ? { ...q, slots: 3, paid: 2 } : q)) };
+    const data = { ...quests, submissions: pending, quests: quests.quests.map((q) => (q.id === 'qst-answers' ? { ...q, slots: 3, paidSubmissionIds: ['[paid-1]', '[paid-2]'] } : q)) };
     render(<MemoryRouter><QuestsScreen data={data} /></MemoryRouter>);
     const list = screen.getByRole('list', { name: 'Quest submissions' });
     const [first, second] = within(list).getAllByRole('button', { name: 'Approve and pay' });
@@ -493,7 +493,7 @@ describe('Codex round 2 on PR 102', () => {
   it('a slot filled from Quests blocks Today’s Approve for the other submission (one gate, one action)', async () => {
     const user = userEvent.setup();
     const pending = quests.submissions.map((s) => ({ ...s, disclosure: 'present' as const }));
-    const data = { ...quests, submissions: pending, quests: quests.quests.map((q) => (q.id === 'qst-answers' ? { ...q, slots: 3, paid: 2 } : q)) };
+    const data = { ...quests, submissions: pending, quests: quests.quests.map((q) => (q.id === 'qst-answers' ? { ...q, slots: 3, paidSubmissionIds: ['[paid-1]', '[paid-2]'] } : q)) };
     render(<MemoryRouter><QuestsScreen data={data} /></MemoryRouter>);
     await user.click(within(screen.getByRole('list', { name: 'Quest submissions' })).getAllByRole('button', { name: 'Approve and pay' })[0]);
     // Today's path: the same gateFor, given the quests counted from the loop store's payout records.
