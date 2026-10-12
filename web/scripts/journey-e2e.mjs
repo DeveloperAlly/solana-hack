@@ -5,7 +5,8 @@
 // Run: node scripts/journey-e2e.mjs
 // Env:  BASE_URL (default https://jamjam.tech), SITE (default https://adna.network), SUPABASE_URL,
 //       SUPABASE_PUBLISHABLE_KEY (public), SUPABASE_SECRET_KEY (Actions secret; used only to create the saved test
-//       account, standing in for the emailed code a person types at J2), PROOF_FILE (optional output path).
+//       account, standing in for the emailed code a person types at J2), PROOF_FILE (optional output path),
+//       RECORD_DEMO (optional output directory: real persisted-result playback, WebM and safe proof).
 // Sources: anonymous sign-in POST /auth/v1/signup with no email or phone, and password sign-in
 //   POST /auth/v1/token?grant_type=password (supabase.com/docs/guides/auth/auth-anonymous; Auth API);
 //   admin create user POST /auth/v1/admin/users with the secret key on the apikey header only
@@ -26,9 +27,10 @@ const out = (line) => { const l = `[+${((Date.now() - t0) / 1000).toFixed(1)}s] 
 const fail = (msg) => { out(`FAIL: ${msg}`); finish(1); };
 function finish(code) {
   const total = Date.now() - t0;
-  out(`total ${(total / 1000).toFixed(1)}s (limit ${MAX_MS / 1000}s): ${total <= MAX_MS ? 'within' : 'OVER'}`);
+  const limit = MAX_MS + (process.env.RECORD_DEMO ? 2 * 60 * 1000 : 0);
+  out(`total ${(total / 1000).toFixed(1)}s (limit ${limit / 1000}s, including optional playback): ${total <= limit ? 'within' : 'OVER'}`);
   if (process.env.PROOF_FILE) writeFileSync(process.env.PROOF_FILE, log.join('\n') + '\n');
-  process.exit(code || (total <= MAX_MS ? 0 : 1));
+  process.exit(code || (total <= limit ? 0 : 1));
 }
 if (!SB || !PK || !SK) fail('SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY and SUPABASE_SECRET_KEY are required');
 
@@ -173,5 +175,13 @@ if (!v.official) fail('Verify did not answer Official for the registered text');
 const edited = await must('verify edited', req(`${BASE}/api/verify`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: approved.post.body + ' (edited)' }) }));
 out(`J7 refusal check, edited text: official=${edited.official}`);
 if (edited.official) fail('an edited copy was reported Official');
+if (Date.now() - t0 > MAX_MS) fail('the live API journey exceeded its 5-minute acceptance limit');
 out('PASS');
+if (process.env.RECORD_DEMO) {
+  out('Recording an honest playback of persisted results; preview scenes are labeled sample data.');
+  const { recordJourneyDemo } = await import('./record-journey-demo.mjs');
+  try { await recordJourneyDemo({ base: BASE, supabaseUrl: SB, session: perm, brandId: brand.id, post: approved.post, directory: process.env.RECORD_DEMO }); }
+  catch { fail('demo recording failed; inspect demo-proof.txt (no credential capture)'); }
+  out('PASS demo recording');
+}
 finish(0);
