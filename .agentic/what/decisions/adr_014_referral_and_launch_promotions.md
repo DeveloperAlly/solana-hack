@@ -28,6 +28,7 @@ The number 14 avoids ADR-012 and ADR-013, which were drafted on [#86](https://gi
 - If ratified: backlog S6a moves from proposed to accepted, and the deck and go-to-market plan drop the "proposed" label.
 - If rejected or changed: slide 10's flywheel line, the go-to-market plan §4 and §5, and backlog S6a change to match.
 - Prices stay open under ADR-010 either way.
+- **Trigger to settle at ratification.** This proposal credits both founders when the referred founder subscribes to Solo or Team. The drawn referral screens and their canvas artboards credit them when the friend joins (`web/src/screens/growth/Referral.tsx`, `Referral-Landing.tsx` and `referral.fixtures.ts`, all marked "Drawn, not built"). Whichever trigger the owner ratifies, the other side changes to match before backlog S6a is built: either those screens and artboards say "subscribes", or this decision says "joins". Crediting on join gives away paid months for free sign-ups.
 
 ## Ratification
 Pending owner ratification.

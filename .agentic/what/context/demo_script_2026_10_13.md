@@ -14,7 +14,7 @@ tags: [demo, script, colosseum]
 
 **Demo brand:** JamJam builds its own brand (compendium §4, decided). One critical path; every wait is cut, and the voice-over says so.
 
-**Voice-over:** 270 words over 3:00, about 110 words a minute, leaving room for the screen.
+**Voice-over:** 267 words over 3:00, about 89 words a minute on average and no beat above 115, leaving room for the screen.
 
 ## 0. Who this is for
 
@@ -34,9 +34,9 @@ Each beat lists what it depends on (the must-haves in §3), not whether it works
 
 | # | Time | Beat | Route | Depends on |
 |---|---|---|---|---|
-| 01 | 0:00–0:10 | Open on the live product | `/ (landing)` | NO DEPENDENCY |
-| 02 | 0:10–0:16 | Email in, no wallet | `/sign-in` | EMAIL SIGN-IN |
-| 03 | 0:16–0:36 | A fact stays only if it can be quoted | `/build/basics, then /build/sources` | P0: 009 · QUOTES |
+| 01 | 0:00–0:12 | Open on the live product | `/ (landing)` | NO DEPENDENCY |
+| 02 | 0:12–0:18 | Email in, no wallet | `/sign-in` | EMAIL SIGN-IN |
+| 03 | 0:18–0:36 | A fact stays only if it can be quoted | `/build/basics, then /build/sources` | P0: 009 · QUOTES |
 | 04 | 0:36–0:52 | Short questions, a chosen voice, a strict gate | `/build/origin to /build/voice` | P0: 009 |
 | 05 | 0:52–1:15 | The AI drafts; I decide | `/build/purpose (Gate 1)` | P0: AI MODEL |
 | 06 | 1:15–1:35 | Kit v1 on Solana | `/build/kit` | DEVNET RPC |
@@ -48,7 +48,7 @@ Each beat lists what it depends on (the must-haves in §3), not whether it works
 
 Each beat: what must come up on screen (quoted app copy), what to say, and the recording note. Wireframe names refer to the [wireframes](https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn).
 
-### Beat 01 · 0:00–0:10 · Open on the live product
+### Beat 01 · 0:00–0:12 · Open on the live product
 
 Route `/ (landing)` · depends on NO DEPENDENCY · placeholder: wireframe Landing-v2
 
@@ -60,11 +60,11 @@ Route `/ (landing)` · depends on NO DEPENDENCY · placeholder: wireframe Landin
 
 **Who cares, and why:** Judges, because they score working products over mock-ups, and this shows one in ten seconds.
 
-**Say:** This is JamJam, live at jamjam.tech. I'll build JamJam's voice, launch its brand with a post, and prove that post on Solana. Waits are cut.
+**Say:** This is JamJam, live at jamjam.tech. I'll build JamJam's voice, launch its brand, and prove a post on Solana. Waits are cut.
 
 **Recording:** Start the recording on the landing page, signed out. Cursor on Build my brand.
 
-### Beat 02 · 0:10–0:16 · Email in, no wallet
+### Beat 02 · 0:12–0:18 · Email in, no wallet
 
 Route `/sign-in` · depends on EMAIL SIGN-IN · placeholder: wireframe Onboard-1-SignIn
 
@@ -80,7 +80,7 @@ Route `/sign-in` · depends on EMAIL SIGN-IN · placeholder: wireframe Onboard-1
 
 **Recording:** Sign in with whichever method STATE.md shows as proven live (email link or code), and show only that one. Cut the inbox; allow 8 seconds.
 
-### Beat 03 · 0:16–0:36 · A fact stays only if it can be quoted
+### Beat 03 · 0:18–0:36 · A fact stays only if it can be quoted
 
 Route `/build/basics, then /build/sources` · depends on P0: 009 · QUOTES · placeholder: wireframe J1-Read
 
@@ -215,11 +215,11 @@ Route `end card (edited, not app copy)` · depends on NO DEPENDENCY · placehold
 
 ## 5. Every spoken word
 
-**0:00** This is JamJam, live at jamjam.tech. I'll build JamJam's voice, launch its brand with a post, and prove that post on Solana. Waits are cut.
+**0:00** This is JamJam, live at jamjam.tech. I'll build JamJam's voice, launch its brand, and prove a post on Solana. Waits are cut.
 
-**0:10** I sign in with email. No password, no wallet.
+**0:12** I sign in with email. No password, no wallet.
 
-**0:16** I give it our name and our website. It reads the site and pulls out what we actually say about ourselves, each fact with the line it came from.
+**0:18** I give it our name and our website. It reads the site and pulls out what we actually say about ourselves, each fact with the line it came from.
 
 **0:36** A few quick questions, and it already knows half the answers. I pick a voice, Candid founder, and set it to strict: no claim goes out without proof.
 
