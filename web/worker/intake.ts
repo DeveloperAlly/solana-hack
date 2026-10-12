@@ -14,7 +14,7 @@
 // with its prepare (engine/kinds.ts registerKind), so adding them touched neither registry's module.
 import { db } from './db';
 import { HttpError, type Env } from './env';
-import { startRun } from './engine/api';
+import { admit, release, start, startRun, type Reservation } from './engine/api';
 import type { WaitUntil } from './engine/executor';
 import type { Caller } from './engine/guards';
 import { registerKind, type BrandRef } from './engine/kinds';
@@ -54,18 +54,47 @@ export async function readBodyCapped(req: Request, max: number): Promise<Uint8Ar
 }
 
 /**
- * Stores a converted source as pending, then starts its extraction. A source without an address keeps url '' and is
- * named by its title, as the paste reader's rows are (engine/readers.ts READER_INPUTS.paste). If the run cannot start
- * (its budget, a missing migration, the executor), the stored row is removed, so nothing is left half added; the
- * person adds it again.
+ * Admits the extraction run before any costly work (engine/api.ts admit: the caller's and the brand's caps, checked and
+ * reserved in one transaction), then does the work: reading and converting the upload or export. Work that ends in a
+ * reply (a typed failure) or throws releases the reservation, so a refused or failed upload is never charged; a source
+ * it produced is stored and started with the reservation (Codex review on PR #100: a caller over its caps never reaches
+ * the converter).
  */
-async function storeAndExtract(env: Env, ctx: WaitUntil | undefined, caller: Caller, brand: BrandRef, r: SourceOk, title: string): Promise<IntakeReply> {
-  const [src] = await db.insert<{ id: string; kind: string; title: string | null; status: string }>(env, 'sources', {
-    brand_id: brand.id, url: '', kind: r.kind, status: 'pending', title: title.slice(0, 200), source_text: r.text, text_excerpt: capText(r.text, 2000, 8000),
-  });
+async function admittedIntake(env: Env, ctx: WaitUntil | undefined, caller: Caller, brand: BrandRef, work: () => Promise<{ source: SourceOk; title: string } | IntakeReply>): Promise<IntakeReply> {
+  const reservation = await admit(env, { brand, kind: 'extract_facts', actor: caller, ip: caller.ip });
+  let out: { source: SourceOk; title: string } | IntakeReply;
+  try {
+    out = await work();
+  } catch (e) {
+    await release(env, reservation).catch(() => undefined);
+    throw e;
+  }
+  if ('status' in out) {
+    await release(env, reservation).catch(() => undefined);
+    return out;
+  }
+  return storeAndStart(env, ctx, reservation, brand, out.source, out.title);
+}
+
+/**
+ * Stores a converted source as pending, then starts its extraction with the reservation. A source without an address
+ * keeps url '' and is named by its title, as the paste reader's rows are (engine/readers.ts READER_INPUTS.paste). If
+ * the run cannot start, the stored row is removed (start() has already released or failed the run), so nothing is left
+ * half added; the person adds it again.
+ */
+async function storeAndStart(env: Env, ctx: WaitUntil | undefined, reservation: Reservation, brand: BrandRef, r: SourceOk, title: string): Promise<IntakeReply> {
+  let src: { id: string; kind: string; title: string | null; status: string };
+  try {
+    [src] = await db.insert<typeof src>(env, 'sources', {
+      brand_id: brand.id, url: '', kind: r.kind, status: 'pending', title: title.slice(0, 200), source_text: r.text, text_excerpt: capText(r.text, 2000, 8000),
+    });
+  } catch (e) {
+    await release(env, reservation).catch(() => undefined);
+    throw e;
+  }
   let run: RunRow;
   try {
-    run = await startRun(env, ctx, caller, brand, 'extract_facts', { reader: r.kind, sourceId: src.id });
+    ({ run } = await start(env, ctx, reservation, brand, { reader: r.kind, sourceId: src.id }));
   } catch (e) {
     await db.del(env, 'sources', `${db.eq('id', src.id)}&${db.eq('brand_id', brand.id)}`).catch(() => undefined);
     throw e;
@@ -77,40 +106,44 @@ async function storeAndExtract(env: Env, ctx: WaitUntil | undefined, caller: Cal
 export async function uploadDocument(env: Env, ctx: WaitUntil | undefined, caller: Caller, brand: BrandRef, req: Request, maxBytes = DOC_MAX_BYTES): Promise<IntakeReply> {
   const type = req.headers.get('content-type') ?? '';
   if (!/^multipart\/form-data;\s*boundary=/i.test(type)) throw new HttpError(415, 'send the file as multipart/form-data, in a field named "file"');
-  const bytes = await readBodyCapped(req, maxBytes + MULTIPART_OVERHEAD);
-  if (!bytes) return { status: STATUS.too_large, body: { error: `That file is over ${Math.round(maxBytes / 1024 / 1024)} MB; upload a smaller copy, or paste the key points.`, code: 'too_large' } };
-  let file: FormDataEntryValue | null;
-  try {
-    file = (await new Response(bytes, { headers: { 'content-type': type } }).formData()).get('file');
-  } catch {
-    throw new HttpError(400, 'the upload could not be read; choose the file again');
-  }
-  if (!file || typeof file === 'string') throw new HttpError(400, 'attach the file in a field named "file"');
-  const r = await readDocument(env, { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()), maxBytes });
-  if (!r.ok) return failed(r);
-  // A file under the upload limit can still convert to more text than one run reads (a compressed DOCX or XLSX). It is
-  // refused whole, before anything is stored: a stored text longer than the read would be cut by the run, and facts
-  // from the part it read would look like the whole document (Codex review on PR #100).
-  if (!fitsRead(r.text)) {
-    const { maxChars, maxBytes: readBytes } = SOURCE_READ_LIMIT;
-    return { status: STATUS.too_large, body: { code: 'too_large', error: `That document converts to ${r.text.length.toLocaleString('en')} characters (${utf8Length(r.text).toLocaleString('en')} bytes); we read at most ${maxChars.toLocaleString('en')} characters (${readBytes.toLocaleString('en')} bytes) of one document. Split it into smaller files and upload each.` } };
-  }
-  // The file name is what the owner knows the upload by; the document's own heading stays in its text.
-  return storeAndExtract(env, ctx, caller, brand, r, r.name ?? r.title);
+  return admittedIntake(env, ctx, caller, brand, async () => {
+    const bytes = await readBodyCapped(req, maxBytes + MULTIPART_OVERHEAD);
+    if (!bytes) return { status: STATUS.too_large, body: { error: `That file is over ${Math.round(maxBytes / 1024 / 1024)} MB; upload a smaller copy, or paste the key points.`, code: 'too_large' } };
+    let file: FormDataEntryValue | null;
+    try {
+      file = (await new Response(bytes, { headers: { 'content-type': type } }).formData()).get('file');
+    } catch {
+      throw new HttpError(400, 'the upload could not be read; choose the file again');
+    }
+    if (!file || typeof file === 'string') throw new HttpError(400, 'attach the file in a field named "file"');
+    const r = await readDocument(env, { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()), maxBytes });
+    if (!r.ok) return failed(r);
+    // A file under the upload limit can still convert to more text than one run reads (a compressed DOCX or XLSX). It
+    // is refused whole, before anything is stored: a stored text longer than the read would be cut by the run, and
+    // facts from the part it read would look like the whole document (Codex review on PR #100).
+    if (!fitsRead(r.text)) {
+      const { maxChars, maxBytes: readBytes } = SOURCE_READ_LIMIT;
+      return { status: STATUS.too_large, body: { code: 'too_large', error: `That document converts to ${r.text.length.toLocaleString('en')} characters (${utf8Length(r.text).toLocaleString('en')} bytes); we read at most ${maxChars.toLocaleString('en')} characters (${readBytes.toLocaleString('en')} bytes) of one document. Split it into smaller files and upload each.` } };
+    }
+    // The file name is what the owner knows the upload by; the document's own heading stays in its text.
+    return { source: r, title: r.name ?? r.title };
+  });
 }
 
 /** POST /api/brands/:id/sources/social: post text the browser parsed from the owner's own export (sources/social.ts). */
 export async function addSocialExport(env: Env, ctx: WaitUntil | undefined, caller: Caller, brand: BrandRef, req: Request): Promise<IntakeReply> {
-  const bytes = await readBodyCapped(req, SOCIAL_MAX_BODY_BYTES);
-  if (!bytes) return { status: STATUS.too_large, body: { error: `That is more than ${SOCIAL_MAX_BODY_BYTES / 1024 / 1024} MB of posts; send the newest posts only.`, code: 'too_large' } };
-  let body: unknown;
-  try {
-    body = JSON.parse(new TextDecoder().decode(bytes));
-  } catch {
-    throw new HttpError(400, 'invalid JSON body');
-  }
-  const r = readSocial(body && typeof body === 'object' && !Array.isArray(body) ? (body as SocialInput) : {});
-  return r.ok ? storeAndExtract(env, ctx, caller, brand, r, r.title) : failed(r);
+  return admittedIntake(env, ctx, caller, brand, async () => {
+    const bytes = await readBodyCapped(req, SOCIAL_MAX_BODY_BYTES);
+    if (!bytes) return { status: STATUS.too_large, body: { error: `That is more than ${SOCIAL_MAX_BODY_BYTES / 1024 / 1024} MB of posts; send the newest posts only.`, code: 'too_large' } };
+    let body: unknown;
+    try {
+      body = JSON.parse(new TextDecoder().decode(bytes));
+    } catch {
+      throw new HttpError(400, 'invalid JSON body');
+    }
+    const r = readSocial(body && typeof body === 'object' && !Array.isArray(body) ? (body as SocialInput) : {});
+    return r.ok ? { source: r, title: r.title } : failed(r);
+  });
 }
 
 /** POST /api/brands/:id/competitors: starts a find_competitors run (Exa findSimilar on the brand's website). */

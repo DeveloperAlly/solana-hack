@@ -183,6 +183,23 @@ describe('documents: converted at upload, text stored, read into extract_facts b
     expect(SOCIAL_LIMIT).toBe(SOURCE_READ_LIMIT);
   });
 
+  it('Codex review on PR #100: a caller over its caps is refused before the upload is read or converted, and a failed conversion gives its reservation back', async () => {
+    db.tables.engine_config.push({ key: 'metered_call_budget', value: { permanent: 0, anonymous: 0 } });
+    const before = AI.toMarkdown.mock.calls.length;
+    const refused = await upload('deck.pdf', pdf);
+    expect(refused.status).toBe(429);
+    const social = await api('POST', `/brands/${BRAND}/sources/social`, { platform: 'x', items: [{ text: PROSE }] });
+    expect(social.status).toBe(429);
+    expect(AI.toMarkdown.mock.calls.length).toBe(before);
+    expect(db.tables.sources).toHaveLength(0);
+    expect(db.tables.runs).toHaveLength(0);
+    db.tables.engine_config = db.tables.engine_config.filter((c) => c.key !== 'metered_call_budget');
+    // Admitted, then the conversion is refused: the reservation is released, so no run row holds the brand's capacity.
+    const ocr = await upload('deck.pptx', pdf);
+    expect(ocr.status).toBe(415);
+    expect(db.tables.runs).toHaveLength(0);
+  });
+
   it('a scanned PDF answers needs_ocr (422) with what to do, and nothing is stored', async () => {
     aiOut = (name) => converted(name, `# ${name}\n## Metadata\n- Producer=Scanner\n## Contents\n### Page 1\n\n### Page 2\n`);
     try {
@@ -541,6 +558,16 @@ describe('competitor candidates (#35): three, with sources, for the positioning 
     expect(overSpend).toMatchObject({ status: 429, body: { error: expect.stringMatching(/daily allowance/) } });
     expect(exaCalls).toHaveLength(0);
     expect(db.tables.runs.filter((r) => r.kind === 'find_competitors')).toHaveLength(0);
+  });
+
+  it('a findSimilar whose cost Exa did not report still uses up its metered call', async () => {
+    db.tables.engine_config.push({ key: 'metered_call_budget', value: { permanent: 1, anonymous: 1 } });
+    exaReply = () => new Response(JSON.stringify({ results: [exaResult('https://rival.example/', 'Rival.', 'Rival')] }));
+    const first = await api('POST', `/brands/${BRAND}/competitors`, {});
+    expect(run((first.body.run as Row).id)).toMatchObject({ status: 'done', output: { cost: null } });
+    const second = await api('POST', `/brands/${BRAND}/competitors`, {});
+    expect(second).toMatchObject({ status: 429, body: { error: expect.stringMatching(/metered calls/) } });
+    expect(exaCalls).toHaveLength(1);
   });
 
   it('Codex review on PR #100: a search or competitor read that Exa charged for but that found nothing usable still records its cost', async () => {
