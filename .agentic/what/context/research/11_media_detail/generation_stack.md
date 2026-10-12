@@ -244,7 +244,7 @@ JamJam can use an optional self-hosted GPU provider: any host with a 16 GB class
 
 ## 6. On-brand evaluation per media type
 
-Principle: cheap deterministic checks gate first, learned scores rank, and a human approves. Every threshold below is a starting value. Calibrate each one on a fixture of approved and rejected assets per brand, using the evaluation harness in [architecture §13](../../brand_builder_architecture.md#13-evaluation-harness-proposed-2026-10-12) (judge calibration, regression protocol).
+Principle: cheap deterministic checks gate first, learned scores rank, and a human approves. Every threshold below is a starting value. Calibrate each one on a fixture of approved and rejected assets per brand, using the evaluation harness in [architecture §13](../../brand_builder_architecture.md#13-evaluation-harness-accepted-2026-10-12) (judge calibration, regression protocol).
 
 ### 6.1 Metric toolbox (facts)
 
@@ -276,7 +276,7 @@ Principle: cheap deterministic checks gate first, learned scores rank, and a hum
 1. For each brand, collect 20 to 50 approved reference assets plus any rejected ones.
 2. Compute every score on them, and set the warn threshold at the 10th percentile of approved scores. Set a hard gate only where the score separates approved from rejected (AUC ≥ 0.8 on the fixture; a judgement).
 3. Run a blind human test (shuffled approved vs. generated, "which is on-brand?") on 30 pairs. If people cannot tell them apart better than chance, the generator passes at that tier.
-4. Re-run the fixture on every model or prompt change, using the regression protocol in [architecture §13](../../brand_builder_architecture.md#13-evaluation-harness-proposed-2026-10-12).
+4. Re-run the fixture on every model or prompt change, using the regression protocol in [architecture §13](../../brand_builder_architecture.md#13-evaluation-harness-accepted-2026-10-12).
 
 ### 6.4 Claims check on text inside media
 

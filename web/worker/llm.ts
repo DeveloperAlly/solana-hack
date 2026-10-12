@@ -1,10 +1,11 @@
 import { HttpError, type Env } from './env';
 
 // OpenRouter chat completions (OpenRouter quickstart): POST /api/v1/chat/completions, Bearer key,
-// reply in choices[0].message.content. Default model is the Auto Router (openrouter/auto).
+// reply in choices[0].message.content. Default model is the Free Models Router (openrouter/free), which picks an
+// available free model that supports the request; it costs nothing (https://openrouter.ai/docs/guides/routing/routers/free-router).
 export async function chat(env: Env, system: string, user: string): Promise<{ text: string; model: string }> {
   if (!env.OPENROUTER_API_KEY) throw new HttpError(503, 'the AI model is not configured');
-  const model = env.OPENROUTER_MODEL || 'openrouter/auto';
+  const model = env.OPENROUTER_MODEL || 'openrouter/free';
   let last = '';
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {

@@ -223,8 +223,8 @@ Every module has one interface, its own tests, and no JamJam-specific names insi
 
 | ID | Module | What it does | On main at 9da167b | Reuse, not rebuild | Source |
 |---|---|---|---|---|---|
-| X1 | LLM gateway | One call path for every prompt; logs model and tokens, never content | partial (`llm.ts`, `openrouter/auto`) | OpenRouter | `llm.ts`, `clients.ts` |
-| X2 | Model pool with ranking and failover | Free models scored per task on fixtures; `models` array failover; no code change to add or retire | spec | OpenRouter `/models` and `models` fallback; Jev router as an option (restrictable; data handling UNVERIFIED); NVIDIA router not used (experimental, deprecated) | #39; backend map §10 |
+| X1 | LLM gateway | One call path for every prompt; logs model and tokens, never content | partial (`llm.ts`; default `openrouter/free` from fix/free-router) | OpenRouter Free Models Router | `llm.ts`, `clients.ts` |
+| X2 | Model choice and failover | `openrouter/free` picks an available free model per request (done by OpenRouter, nothing to build); pinned `:free` variants per task only where the harness shows it helps | spec | OpenRouter Free Models Router; `models` fallback for pinned variants; Jev router as an option (restrictable; data handling UNVERIFIED); NVIDIA router not used (experimental, deprecated) | #39; backend map §10 |
 | X3 | Self-hosted provider | Any self-hosted, OpenAI-compatible GPU endpoint as one more provider behind X1 | spec | OpenAI-compatible API, no custom protocol | backend map §10 |
 | X4 | Workflow engine with run tracking and resumable progress | Long jobs survive reloads and failures | spec | Cloudflare Workflows | #32 |
 | X5 | Prompt library, versioned in a table | Prompts change without a deploy; each run records its prompt version | spec | | #32 |
@@ -274,7 +274,7 @@ Goal: a brand goes from its URL and documents to an approved, attested kit in un
 | UI | Confirm-mode interview with prefilled cards; coverage badge per field (D51); evidence drawer showing the quote and its page for every fact; voice by example; kit review with section gates and stale flags | 5-person usability run: ≥ 4 of 5 finish unaided |
 | Workflows | Durable ingest run: crawl key pages, convert documents, extract per chunk, verify quotes, merge, compute coverage; resumable with progress | A run survives a forced failure at any step |
 | Prompts | Chunk extraction to schema JSON with quotes; field classifier (Evidence, Inferred, Missing); gap-question writer; per-section kit drafter with fact ids; kit critique | F2 and F3 gates pass |
-| Models | Strict JSON-schema model for extraction and classification (a small, cheap model with zero data retention); stronger model only for kit drafting | Model chosen by harness score per task |
+| Models | `openrouter/free` by default for every task; a pinned `:free` model per task only where the harness shows the random pick fails (structured output, quote accuracy) | Model chosen by harness score per task |
 | Data | Evidence store: sources, chunks, facts with quotes, field status, answers, kit versions with fact ids per sentence | Every kit sentence resolves to a fact or an answer |
 | Evals | F1 to F3 built and in CI | Gates run on every prompt PR |
 | Infra | Versioned prompts in Postgres keyed by hash; traces to a free observability tier; shared normaliser `norm_v1` | Each kit links to the exact prompts that drafted it |
