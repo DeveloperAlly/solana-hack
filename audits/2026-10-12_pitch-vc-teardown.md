@@ -68,7 +68,7 @@ That is backlog phases 2 to 4 (slide 11). Competitors meter by seats or credits;
 
 **Finding.** "A VC hears 'maybe nobody wants all four.'"
 
-**Answer.** Slide 9 now reads "Four tools that don't talk. Or one."
+**Answer.** Slide 9 reads "Others build, create, prove OR pay. JamJam makes it seamless." (the owner's title; "seamless" is flagged to the owner on PR #69 as a no-AI-slop word). The table under it shows the answer: of the 59 products checked, the best do two of the four jobs.
 - **What we have:** comparable point tools list at $10–65 a month each, and covering the whole job plausibly takes three or four of them. That stack is an estimate, not observed spending ([research 04](../.agentic/what/context/research/04_brand_hub_landscape.md) §5b, §6).
 - **Why joining them matters:** you can only pay for work you can prove, and only prove what was approved against the kit.
 
