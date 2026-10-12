@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readSite, siteUrl, SITE_DEFAULTS } from '../../worker/sources/site';
+import { pageLinks } from '../../worker/ingest';
 import { allowedBy, normalisePath, parseRobots, readCapped, ROBOTS_MAX_BYTES, ruleMatches } from '../../worker/sources/robots';
 
 // Site adapter (issue #33). Exa and the site are mocked; each test sets what they answer. Any call to Cloudflare's
@@ -78,6 +79,11 @@ describe('site adapter: Exa first', () => {
     const r = await readSite({}, 'https://old-name.test/', { website: 'jamjam.tech' });
     expect(r).toMatchObject({ ok: true, kind: 'site', url: 'https://jamjam.tech/' });
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://jamjam.tech/', 'https://jamjam.tech/about']);
+  });
+  it('reads links with a real HTML tokenizer: quoted >, a target-only <base> first, entities, inert elements (PR #71 review)', () => {
+    const html = '<base target="_blank"><base href="/docs/"><a title="1 > 0" href="about">x</a><a href="faq?a=1&amp;b=2">f</a>'
+      + '<template><a href="/tpl">t</a></template><noscript><a href="/ns">n</a></noscript><script>var s = "<a href=/s>";</script><!-- <a href=/c> -->';
+    expect(pageLinks(html, new URL('https://jamjam.tech/'))).toEqual(['https://jamjam.tech/docs/about', 'https://jamjam.tech/docs/faq?a=1&b=2']);
   });
   it('resolves relative links against the page\'s <base href> (PR #71 review)', async () => {
     const home = `<html><head><base href="/docs/"><title>JamJam</title></head><body><p>${LONG}</p><a href="about">About</a></body></html>`;

@@ -1,3 +1,4 @@
+import { Parser } from 'htmlparser2';
 import { HttpError } from './env';
 
 const MAX_BYTES = 1_500_000;
@@ -73,6 +74,56 @@ export async function resolveRedirects(url: URL, gate: FetchGate): Promise<URL> 
   return final;
 }
 
+/**
+ * The page's own links, absolute http(s), at most 200, read with a real HTML tokenizer (htmlparser2), so quoting,
+ * comments, entities and the raw text of script and style are handled as browsers do, not by pattern matching
+ * (PR #71 review). Links inside template, noscript and svg are not part of the rendered page and are skipped. Relative
+ * links resolve against the document base: the first <base> with an href, resolved against the landed address, when
+ * it is http(s); otherwise the landed address (HTML standard, document base URL).
+ */
+export function pageLinks(html: string, landed: URL): string[] {
+  const raw: string[] = [];
+  let baseHref: string | null = null;
+  let inert = 0;
+  const INERT = new Set(['template', 'noscript', 'svg']);
+  const parser = new Parser({
+    onopentag(name, attribs) {
+      if (INERT.has(name)) { inert++; return; }
+      if (inert) return;
+      if (name === 'base' && baseHref === null && typeof attribs.href === 'string') baseHref = attribs.href;
+      if (name === 'a' && typeof attribs.href === 'string' && raw.length < 400) raw.push(attribs.href);
+    },
+    onclosetag(name) {
+      if (INERT.has(name) && inert > 0) inert--;
+    },
+  });
+  parser.write(html);
+  parser.end();
+  let base: URL = landed;
+  if (baseHref !== null) {
+    try {
+      const b = new URL((baseHref as string).trim(), landed);
+      if (b.protocol === 'https:' || b.protocol === 'http:') base = b;
+    } catch {
+      // an unusable base is ignored
+    }
+  }
+  const links: string[] = [];
+  for (const href of raw) {
+    if (links.length >= 200) break;
+    const h = href.trim();
+    if (!h || h.startsWith('#')) continue;
+    try {
+      const u = new URL(h, base);
+      u.hash = '';
+      if ((u.protocol === 'https:' || u.protocol === 'http:') && !links.includes(u.toString())) links.push(u.toString());
+    } catch {
+      // not a usable address
+    }
+  }
+  return links;
+}
+
 /** Fetches one public http(s) page and returns its title and readable text. */
 export async function readPage(raw: string, gate?: FetchGate): Promise<{ url: string; title: string; text: string; links: string[] }> {
   let url: URL;
@@ -100,36 +151,6 @@ export async function readPage(raw: string, gate?: FetchGate): Promise<{ url: st
     .trim();
   if (text.length < 40) throw new HttpError(422, 'that page has almost no readable text');
   // The page's own links (absolute http(s), at most 200), so a reader can choose subpages without another service.
-  const links: string[] = [];
-  // Only real anchors count: comments and the contents of script, style, template and similar inert elements are
-  // removed first, so a link-shaped string in code or a comment is never followed (PR #71 review).
-  const markup = body.replace(/<!--[\s\S]*?-->/g, ' ').replace(/<(script|style|noscript|template|svg|textarea)\b[\s\S]*?<\/\1\s*>/gi, ' ');
-  // Relative links resolve against the document's base: the first <base href>, itself resolved against the landed
-  // address, when it is http(s); otherwise the landed address (HTML standard, document base URL; PR #71 review).
-  const attr = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i;
-  let base: URL = landed;
-  const baseTag = /<base\s[^>]*>/i.exec(markup);
-  const baseHref = baseTag ? attr.exec(baseTag[0]) : null;
-  if (baseHref) {
-    try {
-      const b = new URL(decode((baseHref[1] ?? baseHref[2] ?? baseHref[3] ?? '').trim()), landed);
-      if (b.protocol === 'https:' || b.protocol === 'http:') base = b;
-    } catch {
-      // an unusable base is ignored
-    }
-  }
-  // href in all three HTML forms: double-quoted, single-quoted and unquoted (PR #71 review).
-  for (const m of markup.matchAll(/<a\s[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi)) {
-    if (links.length >= 200) break;
-    const raw = (m[1] ?? m[2] ?? m[3] ?? '').trim();
-    if (!raw || raw.startsWith('#')) continue;
-    try {
-      const u = new URL(decode(raw), base);
-      u.hash = '';
-      if ((u.protocol === 'https:' || u.protocol === 'http:') && !links.includes(u.toString())) links.push(u.toString());
-    } catch {
-      // not a usable address
-    }
-  }
+  const links = pageLinks(body, landed);
   return { url: landed.toString(), title, text, links };
 }
