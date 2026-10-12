@@ -35,7 +35,7 @@ Total: 472 words, about 2:57 at 160 words a minute.
 **4. How it works** (0:48–0:59)
 - One app, four steps; every step checked where others guess
 - Build: a fact stays only if its quote is in your source
-- Run: every claim checked against your evidence
+- Run: posts in your voice, learning from what works; every claim checked against your evidence
 - Grow (next): team and ambassadors post from your kit, you approve
 - Prove: paste any text, the public record answers
 - Email sign-in, no wallet
