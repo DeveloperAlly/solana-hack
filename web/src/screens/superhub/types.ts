@@ -227,7 +227,9 @@ export interface DraftReviewData {
   approvedNumbers: string[];
   polishResults: Record<PolishAction, string>;
   beautifyNotes: string[];
+  /** Voice fit and platform scores (self-graded placeholders today). */
   scores: DraftCheck[];
+  vocabulary: string;
   scoresNote: string;
   publishOptions: FieldOption[];
   approvalNote: string;

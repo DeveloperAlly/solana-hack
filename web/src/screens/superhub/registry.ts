@@ -11,6 +11,10 @@ import { brandBuild, brandBuildEmpty } from './BrandBuild.fixtures';
 import { VoiceTemplates } from './VoiceTemplates';
 import { VoiceEditor } from './VoiceEditor';
 import { voiceEditor, voiceTemplates, voiceTemplatesEmpty } from './Voices.fixtures';
+import { ContentDashboard } from './ContentDashboard';
+import { contentDashboard, contentDashboardEmpty } from './ContentDashboard.fixtures';
+import { DraftReview } from './DraftReview';
+import { draftBeautified, draftPolishError, draftReview } from './DraftReview.fixtures';
 
 // Canvas page "Superhub (v2)" (issue #52). Tags and states are the canvas board titles and notes (canvas.json).
 // Variants (…-Empty, Draft-Review-Beautified, Draft-Review-PolishError) are the same screen with other fixtures.
@@ -50,4 +54,23 @@ export const screens: ScreenEntry[] = [
     states: ['success', 'loading', 'error'],
     render: (state) => createElement(VoiceEditor, { data: voiceEditor, state }),
   },
+  {
+    artboard: 'Content-Dashboard',
+    page: 'hub',
+    title: 'Content dashboard',
+    tag: 'HACKATHON',
+    states: ['success', 'empty'],
+    render: (state) => createElement(ContentDashboard, { key: state, data: state === 'empty' ? contentDashboardEmpty : contentDashboard, state }),
+  },
+  { artboard: 'Content-Dashboard-Empty', page: 'hub', title: 'Content: empty', tag: 'HACKATHON', states: ['empty'], render: (state) => createElement(ContentDashboard, { data: contentDashboardEmpty, state }) },
+  {
+    artboard: 'Draft-Review',
+    page: 'hub',
+    title: 'Review a draft: polish and slop built; scores self-graded today',
+    tag: 'HACKATHON',
+    states: ['success', 'loading', 'error', 'empty'],
+    render: (state) => createElement(DraftReview, { key: state, data: state === 'error' ? draftPolishError : draftReview, state }),
+  },
+  { artboard: 'Draft-Review-Beautified', page: 'hub', title: 'Draft after Beautify (success, undo)', tag: 'HACKATHON', states: ['success'], render: () => createElement(DraftReview, { data: draftBeautified }) },
+  { artboard: 'Draft-Review-PolishError', page: 'hub', title: 'Polish action failed (error)', tag: 'HACKATHON', states: ['error'], render: (state) => createElement(DraftReview, { data: draftPolishError, state }) },
 ];
