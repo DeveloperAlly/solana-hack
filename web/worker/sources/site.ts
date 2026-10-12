@@ -154,7 +154,13 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (
 
 /** Reads a brand's website: home page plus key subpages. */
 export async function readSite(env: SourceEnv, raw: string, options: SiteOptions = {}): Promise<SourceResult> {
-  const opts = { ...SITE_DEFAULTS, ...options };
+  // Each setting falls back to its default when absent or undefined, so `{ subpageTarget: undefined }` cannot erase
+  // a default (PR #71 review).
+  const opts: typeof SITE_DEFAULTS = {
+    subpages: options.subpages ?? SITE_DEFAULTS.subpages,
+    subpageTarget: options.subpageTarget ?? SITE_DEFAULTS.subpageTarget,
+    maxCharacters: options.maxCharacters ?? SITE_DEFAULTS.maxCharacters,
+  };
   const c = clock();
   const url = siteUrl(raw);
   const kindOf = (u: string) => urlKind(u, options.website);

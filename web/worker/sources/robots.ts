@@ -91,7 +91,8 @@ export function allowedBy(rules: Rule[], pathAndQuery: string): boolean {
   const path = normalisePath(pathAndQuery);
   // RFC 9309 §2.2.2: the most specific match wins, the one with the most octets; the pattern operators "*" and a
   // closing "$" are not octets of the path, so they do not count (PR #71 review). On a tie, allow wins.
-  const octets = (p: string) => p.replace(/\*/g, '').replace(/\$$/, '').length;
+  // A normalised rule path keeps some octets percent-encoded; each "%XX" is one octet, not three (PR #71 review).
+  const octets = (p: string) => p.replace(/\*/g, '').replace(/\$$/, '').replace(/%[0-9A-Fa-f]{2}/g, '.').length;
   let best: Rule | null = null;
   for (const r of rules) {
     if (!ruleMatches(r.path, path)) continue;

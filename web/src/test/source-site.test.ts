@@ -334,6 +334,17 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     expect(allowedBy(rules, '/foob')).toBe(false);
     expect(allowedBy(parseRobots('User-agent: *\nDisallow: /a*\nAllow: /a\n'), '/a')).toBe(true);
   });
+  it('counts a percent-encoded octet once when ranking rules (RFC 9309 §2.2.2; PR #71 review)', () => {
+    // ツ is three octets, written %E3%83%84 once normalised: 6 path octets for the Disallow, 9 for the Allow.
+    const rules = parseRobots('User-agent: *\nDisallow: /x/ツ*\nAllow: /x/*abcdef\n');
+    expect(allowedBy(rules, '/x/ツabcdef')).toBe(true);
+  });
+  it('keeps every default when an option is passed as undefined (PR #71 review)', async () => {
+    const home = `<html><title>A</title><body><p>${LONG}</p><a href="/about">About</a></body></html>`;
+    stub({ page: (u) => (u === 'https://a.test/' ? new Response(home, { headers: { 'content-type': 'text/html' } }) : html('About', LONG)) });
+    const r = await readSite({}, 'https://a.test/', { website: 'a.test', subpageTarget: undefined, subpages: undefined, maxCharacters: undefined });
+    expect(r).toMatchObject({ ok: true, meta: { pages: 2 } });
+  });
   it('applies our own group over *, the longest match, allow on a tie, * and $', () => {
     const rules = parseRobots('User-agent: *\nDisallow: /\n\nUser-agent: JamJamBot\nDisallow: /admin\nAllow: /admin/public$\nDisallow: /*.pdf$\n');
     expect(allowedBy(rules, '/')).toBe(true);

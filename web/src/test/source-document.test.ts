@@ -48,6 +48,12 @@ describe('document adapter', () => {
     const r = await readDocument({ AI: ai({ name: 's.pdf', format: 'markdown', data }) }, { name: 's.pdf', bytes });
     expect(r).toMatchObject({ ok: false, code: 'needs_ocr' });
   });
+  it('keeps figures such as 2026 or 42% that are not the page they sit on (PR #71 review)', async () => {
+    const data = '# k.pdf\n## Metadata\n- Producer=Keynote\n\n## Contents\n### Page 1\n2026\n### Page 2\n42%\n### Page 3\n3\n';
+    const r = await readDocument({ AI: ai({ name: 'k.pdf', format: 'markdown', data }) }, { name: 'k.pdf', bytes });
+    expect(r).toMatchObject({ ok: true, meta: { pages: 3 } });
+    expect(r.ok && r.text).toContain('42%');
+  });
   it('keeps text repeated word for word on every page, such as a repeated form or terms (PR #71 review)', async () => {
     const pages = Array.from({ length: 3 }, (_, i) => `### Page ${i + 1}\nPayment terms: 30 days from invoice.\nPage ${i + 1} of 3`).join('\n');
     const data = `# t.pdf\n## Metadata\n- Producer=Word\n\n## Contents\n${pages}`;
