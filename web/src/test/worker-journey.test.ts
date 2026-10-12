@@ -262,6 +262,10 @@ describe('voice by example (J4)', () => {
     expect(byLabel.map((s) => s.template)).toEqual(offer);
     const byPosition = samplesFrom({ samples: offer.map((_, i) => ({ template: `Style ${i + 1}`, text: `Paragraph ${i + 1}.` })) }, offer);
     expect(byPosition.map((s) => s.text)).toEqual(['Paragraph 1.', 'Paragraph 2.', 'Paragraph 3.']);
+    // A known but unoffered template is skipped, not filed under the offered template in its slot.
+    const other = VOICE_TEMPLATES.find((t) => !offer.includes(t.value))!.value;
+    const mixed = samplesFrom({ samples: [{ template: other, text: 'Wrong voice.' }, { template: offer[1], text: 'B.' }, { template: offer[2], text: 'C.' }] }, offer);
+    expect(mixed.map((s) => s.template)).toEqual([offer[1], offer[2]]);
   });
   it('retries once when the first reply is unusable', async () => {
     const b = brandRow('p-1');
