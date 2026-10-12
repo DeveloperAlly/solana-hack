@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readSite, siteUrl, SITE_DEFAULTS } from '../../worker/sources/site';
-import { allowedBy, normalisePath, parseRobots } from '../../worker/sources/robots';
+import { allowedBy, normalisePath, parseRobots, readCapped, ROBOTS_MAX_BYTES } from '../../worker/sources/robots';
 
 // Site adapter (issue #33). Exa, the site and the page renderer are mocked; each test sets what they answer.
 type Handler = (url: string, init?: RequestInit) => Response | Promise<Response>;
@@ -163,13 +163,48 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     stub({ exa: () => exaReply([{ url: 'https://news.test/a', title: 'News', text: LONG }, { url: 'https://other.test/b', title: 'Other', text: 'x' }]) });
     const r = await readSite({ EXA_API_KEY: 'k' }, 'https://news.test/a', { website: 'jamjam.tech' });
     expect(r.ok && r.pages?.map((p) => p.url)).toEqual(['https://news.test/a']);
-    stub({
+    const calls = stub({
       robots: (u) => new Response(u.startsWith('https://blocked.test') ? 'User-agent: *\nDisallow: /\n' : ''),
-      page: () => Object.defineProperty(html('B', LONG), 'url', { value: 'https://blocked.test/' }),
+      page: (u) => (u.startsWith('https://open.test') ? new Response(null, { status: 301, headers: { location: 'https://blocked.test/' } }) : html('B', LONG)),
     });
     const f = await readSite({}, 'https://open.test/go');
     expect(f).toMatchObject({ ok: false, code: 'unreadable' });
     expect(f.meta.notes.join(' ')).toMatch(/robots\.txt does not let us read/);
+    // The disallowed destination is never requested (PR #71 review), not merely discarded after download.
+    expect(calls.map((c) => c.url)).not.toContain('https://blocked.test/');
+  });
+  it('follows redirects one hop at a time, checking robots.txt before each fetch (PR #71 review)', async () => {
+    const calls = stub({
+      robots: (u) => new Response(u.startsWith('https://www.jamjam.tech') ? 'User-agent: *\nDisallow: /private\n' : ''),
+      page: (u) => (u === 'https://jamjam.tech/' ? new Response(null, { status: 301, headers: { location: 'https://www.jamjam.tech/' } }) : html('JamJam', LONG)),
+    });
+    const r = await readSite({}, 'https://jamjam.tech/', { website: 'jamjam.tech' });
+    expect(r).toMatchObject({ ok: true, kind: 'site', url: 'https://www.jamjam.tech/', meta: { via: 'fetch' } });
+    expect(calls.map((c) => c.url)).toEqual(['https://jamjam.tech/robots.txt', 'https://jamjam.tech/', 'https://www.jamjam.tech/robots.txt', 'https://www.jamjam.tech/']);
+    // A relative Location resolves against the current address, and its path is checked too.
+    const rel = stub({
+      robots: () => new Response('User-agent: *\nDisallow: /private\n'),
+      page: (u) => (u === 'https://a.test/go' ? new Response(null, { status: 302, headers: { location: '/private/x' } }) : html('A', LONG)),
+    });
+    expect(await readSite({}, 'https://a.test/go')).toMatchObject({ ok: false, code: 'unreadable' });
+    expect(rel.map((c) => c.url)).not.toContain('https://a.test/private/x');
+  });
+  it('gives the page renderer an address that no longer redirects, and never one robots.txt disallows (PR #71 review)', async () => {
+    const env = { CF_ACCOUNT_ID: 'acct', CF_BROWSER_TOKEN: 't' };
+    const calls = stub({
+      robots: (u) => new Response(u.startsWith('https://blocked.test') ? 'User-agent: *\nDisallow: /\n' : ''),
+      page: (u) => (u.startsWith('https://open.test') ? new Response(null, { status: 302, headers: { location: 'https://blocked.test/app' } }) : html('B', LONG)),
+      render: () => new Response(JSON.stringify({ success: true, result: LONG })),
+    });
+    expect(await readSite(env, 'https://open.test/')).toMatchObject({ ok: false, code: 'unreadable' });
+    expect(calls.some((c) => c.url.startsWith('https://api.cloudflare.com/'))).toBe(false);
+    expect(calls.map((c) => c.url)).not.toContain('https://blocked.test/app');
+    const ok = stub({
+      page: (u) => (u === 'https://spa.test/' ? new Response(null, { status: 301, headers: { location: 'https://spa.test/home' } }) : new Response('<html><body><div id="root"></div></body></html>', { headers: { 'content-type': 'text/html' } })),
+      render: () => new Response(JSON.stringify({ success: true, result: LONG })),
+    });
+    expect(await readSite(env, 'https://spa.test/')).toMatchObject({ ok: true, url: 'https://spa.test/home', meta: { via: 'rendered' } });
+    expect(ok.find((c) => c.url.startsWith('https://api.cloudflare.com/'))?.body).toMatchObject({ url: 'https://spa.test/home' });
   });
   it('a Sitemap record does not end a group (RFC 9309 §2.2.4; PR #67 review)', () => {
     // JamJamBot and OtherBot share one group: the Sitemap line between their user-agent lines must not split it.
@@ -185,6 +220,15 @@ describe('site adapter: robots.txt (RFC 9309)', () => {
     // Groups for the same token are combined (§2.2.1 Figure 2); rules before any user-agent line are ignored.
     const merged = parseRobots('Disallow: /early\nUser-agent: jamjambot\nDisallow: /foo\n\nUser-agent: JamJamBot\nDisallow: /baz\n');
     expect([allowedBy(merged, '/foo'), allowedBy(merged, '/baz'), allowedBy(merged, '/early')]).toEqual([false, false, true]);
+  });
+  it('stops reading robots.txt at the limit instead of buffering the whole body (PR #71 review)', async () => {
+    let pulled = 0;
+    const chunk = new TextEncoder().encode(`# ${'y'.repeat(16_382)}\n`);
+    // An endless body: buffering it all would never finish.
+    const body = new ReadableStream<Uint8Array>({ pull(ctl) { pulled += chunk.length; ctl.enqueue(chunk); } });
+    const bytes = await readCapped(new Response(body), ROBOTS_MAX_BYTES);
+    expect(bytes.length).toBe(ROBOTS_MAX_BYTES);
+    expect(pulled).toBeLessThanOrEqual(ROBOTS_MAX_BYTES + 2 * chunk.length);
   });
   it('reads robots.txt up to 500 KiB in bytes (RFC 9309 §2.5; PR #67 review)', async () => {
     const filler = `# ${'x'.repeat(505_000)}\n`;

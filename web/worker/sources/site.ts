@@ -1,4 +1,4 @@
-import { readPage } from '../ingest';
+import { readPage, resolveRedirects } from '../ingest';
 import { factTrust, urlKind } from './registry';
 import { fetchRobots, robotsAllows, USER_AGENT, type RobotsCheck } from './robots';
 import { clock, type SourceEnv, type SourcePage, type SourceResult } from './types';
@@ -189,8 +189,9 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   // 2. Plain fetch of the home page (the existing reader).
   let fetchError = '';
   try {
-    // readPage follows redirects (ingest.ts). If the final page's origin disallows it, its text is not used.
-    const page = await readPage(url.toString());
+    // readPage follows redirects one hop at a time and checks each address's robots.txt before fetching it (ingest.ts
+    // fetchPage), so a disallowed destination is never requested (PR #71 review).
+    const page = await readPage(url.toString(), allowedHere);
     const kept = await admit([{ url: page.url, title: page.title, text: page.text }]);
     if (kept.length) return ok(kept, cost, 'fetch');
     fetchError = 'the page redirected to an address its robots.txt does not let us read';
@@ -200,10 +201,22 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     c.notes.push(`direct read failed: ${fetchError}`);
   }
 
-  // 3. Rendered Markdown, for sites that only show text after their scripts run.
-  const rendered = await viaRendered(env, url);
+  // 3. Rendered Markdown, for sites that only show text after their scripts run. The browser follows HTTP redirects
+  // itself, so the link's redirects are resolved here first, hop by hop with robots.txt checked before each fetch, and
+  // the browser is given an address that does not redirect (PR #71 review). A navigation the page's own scripts make
+  // cannot be checked beforehand; if the browser ends on an address robots.txt disallows, its text is not used.
+  let target = url;
+  if (env.CF_ACCOUNT_ID && env.CF_BROWSER_TOKEN) {
+    try {
+      target = await resolveRedirects(url, allowedHere);
+    } catch (e) {
+      c.notes.push(`rendered read skipped: ${e instanceof Error ? e.message : 'the link could not be followed'}`);
+      return { ok: false, kind: kindOf(url.toString()), code: 'unreadable', reason: `We could not read ${url.hostname} (${fetchError}). Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0, cost) };
+    }
+  }
+  const rendered = await viaRendered(env, target);
   if ('text' in rendered) {
-    const final = absoluteUrl(rendered.finalUrl) ?? url;
+    const final = absoluteUrl(rendered.finalUrl) ?? target;
     const kept = await admit([{ url: final.toString(), title: final.hostname, text: rendered.text }]);
     if (kept.length) return ok(kept, cost, 'rendered');
     c.notes.push('rendered page refused: it ended on an address its robots.txt does not let us read');

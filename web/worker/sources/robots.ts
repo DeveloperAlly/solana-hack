@@ -83,14 +83,35 @@ export function allowedBy(rules: Rule[], pathAndQuery: string): boolean {
 
 export type RobotsCheck = { state: 'rules'; rules: Rule[] } | { state: 'none' } | { state: 'unreachable' };
 
+/** Reads at most `max` bytes of a response body, then cancels the rest of the stream. */
+export async function readCapped(res: Response, max: number): Promise<Uint8Array> {
+  const out = new Uint8Array(max);
+  let n = 0;
+  const reader = res.body?.getReader();
+  if (!reader) return out.subarray(0, 0);
+  try {
+    while (n < max) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const take = Math.min(value.length, max - n);
+      out.set(value.subarray(0, take), n);
+      n += take;
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  return out.subarray(0, n);
+}
+
 /** Reads robots.txt for an origin. Never throws. */
 export async function fetchRobots(origin: string, fetcher: typeof fetch = fetch): Promise<RobotsCheck> {
   try {
     const res = await fetcher(`${origin}/robots.txt`, { redirect: 'follow', signal: AbortSignal.timeout(5000), headers: { 'user-agent': USER_AGENT } });
     if (res.status >= 400 && res.status < 500) return { state: 'none' };
     if (!res.ok) return { state: 'unreachable' };
-    // Read up to the parsing limit in bytes, then decode: a limit in characters could stop short of 500 KiB.
-    const bytes = new Uint8Array(await res.arrayBuffer()).subarray(0, ROBOTS_MAX_BYTES);
+    // Read up to the parsing limit in bytes, then decode: a limit in characters could stop short of 500 KiB. The body
+    // is streamed and cancelled at the limit, so a huge or endless file never fills memory (PR #71 review).
+    const bytes = await readCapped(res, ROBOTS_MAX_BYTES);
     return { state: 'rules', rules: parseRobots(new TextDecoder().decode(bytes)) };
   } catch {
     return { state: 'unreachable' };
