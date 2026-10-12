@@ -8,7 +8,7 @@ import { HttpError, type Env } from './env';
 import { SECTIONS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
 import { usableFact } from './sources/registry';
-import { nearestTemplates, templateById, VOICE_TEMPLATES } from './voice';
+import { nearestTemplates, templateById, voiceAnswerFor, VOICE_TEMPLATES } from './voice';
 
 /** Reading before sign-in (decision D1) uses Supabase anonymous users; these caps bound what one anonymous visitor uses. */
 export const ANON_MAX_BRANDS = 1;
@@ -59,7 +59,8 @@ export function coverage(evidence: FactRow[]) {
   return { sections, covered, total: sections.length, ratio: sections.length ? covered / sections.length : 0 };
 }
 
-export interface VoiceSample { template: string; label: string; text: string }
+/** answer: what PUT /api/brands/:id/answers/voice saves when this sample is picked (template, 8 dials, claims gate). */
+export interface VoiceSample { template: string; label: string; text: string; answer: Record<string, string> }
 
 /**
  * Voice by example (canvas J4, architecture §5 step 6): three short paragraphs about the brand, each in a different
@@ -90,7 +91,7 @@ export async function voiceSamples(env: Env, brand: { id: string; name: string }
     const body = typeof s.text === 'string' ? s.text.trim().slice(0, 800) : '';
     if (!t || !body || seen.has(t.value) || !candidates.includes(t.value)) continue;
     seen.add(t.value);
-    out.push({ template: t.value, label: t.label, text: body });
+    out.push({ template: t.value, label: t.label, text: body, answer: voiceAnswerFor(t.value) });
   }
   if (out.length < 3) throw new HttpError(502, 'the AI model did not return three usable samples, try again');
   return out.slice(0, 3);
