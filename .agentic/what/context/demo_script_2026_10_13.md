@@ -73,11 +73,11 @@ Route `/build/basics, then /build/sources` · depends on P0: 009 · QUOTES · pl
 - Basics: Brand name "JamJam", Website "jamjam.tech", "Save and continue"
 - Your links: "Read this page" then "Reading the page…" (cut the wait)
 - Alert: "Read it. {n} facts saved with quotes from the page."
-- MUST: each fact shows its quote (today only the claim and page link show)
+- MUST: each fact shows its quote (whether this has shipped: STATE.md; if not, use the fallback)
 
 **Say:** I name the brand and give it our site. JamJam reads the page and keeps a fact only if it can quote the line it came from.
 
-**Recording:** P0 build: show the stored quote under each fact (data exists; the UI shows the claim and page link only). Website in Basics must be jamjam.tech or the facts are treated as third-party. FALLBACK if quotes don't ship: hold on the alert 'Read it. {n} facts saved with quotes from the page.' and say: JamJam reads the page and saves only facts it can quote from it.
+**Recording:** P0 build: show the stored quote under each fact. Website in Basics must be jamjam.tech or the facts are treated as third-party. FALLBACK if quotes don't ship: hold on the alert 'Read it. {n} facts saved with quotes from the page.' and say: JamJam reads the page and saves only facts it can quote from it.
 
 ### Beat 04 · 0:38–0:55 · Short questions, a chosen voice, a strict gate
 
@@ -182,7 +182,7 @@ Route `/grow (coming soon), then /` · depends on NO DEPENDENCY · placeholder: 
 |---|---|---|
 | P0 | Migration 009 applied | Build is broken live until `spec/db/009_evidence_trust.sql` (on main since [PR #63](https://github.com/DeveloperAlly/solana-hack/pull/63); this branch predates it) is applied: ingest on main writes `sources.kind` (`web/worker/api.ts`), which 009 creates ([CPO audit](https://github.com/DeveloperAlly/solana-hack/pull/94), 2026-10-13). Apply it, then run the full path once. |
 | P0 | AI model live | Every draft step returns 503 without `OPENROUTER_API_KEY` (`web/worker/llm.ts`); `aiConfigured` is not confirmed in STATE.md. Check `/api/health`. |
-| P0 | Show the quote under each fact | Your links shows only the claim, and "Where this came from" shows the claim and its page link, so the core promise (a fact stays only with its quote) is not visible. The quote is stored; render it. Fallback VO if it does not ship: "JamJam reads the page and saves only facts it can quote from it." |
+| P0 | Show the quote under each fact | Render the stored quote under each fact in Your links and "Where this came from"; the core promise (a fact stays only with its quote) depends on it. Whether it has shipped is in STATE.md; check before recording. Fallback VO if it does not ship: "JamJam reads the page and saves only facts it can quote from it." |
 | P0 | Claims block rehearsed | Under Strict, adding "Used by 10,000 brands." must return "Blocked by your claims gate". The gate is an LLM call (`posts.ts` policyCheck); test it live first. |
 | P0 | Facts count as owned | Website in Basics must match the ingested domain. Facts from other domains stay `proposed`, and no screen on main approves them (`PATCH /evidence/:id` exists, unused). |
 | P1 | Drafter gets kept facts | The post prompt gets voice, messaging, positioning and purpose, not the evidence list (`posts.ts`), so a draft can carry a claim the gate then blocks. |
