@@ -13,7 +13,7 @@ vi.mock('../../worker/registry', () => ({
   NotLanded: class extends Error {},
   explorerTx: (s: string) => s,
 }));
-const { registerKit, saveAnswer, ingest, KIT_PENDING_TIMEOUT_MS, staleSections, unapprovedSections } = await import('../../worker/api');
+const { registerKit, saveAnswer, patchBrand, ingest, KIT_PENDING_TIMEOUT_MS, staleSections, unapprovedSections } = await import('../../worker/api');
 const { normaliseQuote, normalisePage, quoteOnPage, MAX_QUOTE } = await import('../../worker/quote');
 const { decode } = await import('../../worker/ingest');
 
@@ -166,6 +166,30 @@ describe('re-saving an answer reports stale drafts at once', () => {
     expect(tables.evidence.map((e) => e.claim).sort()).toEqual(['first_win: a pilot', 'from the page', 'why: proof']);
     const r = await saveAnswer(env, brand, 'origin', { why: 'proof' }, true);
     expect(r.stale).toEqual(['purpose']);
+  });
+});
+
+describe('renaming the brand (PR #40 review)', () => {
+  it('unapproves every section and removes the gates before saving the new name, and reports them stale', async () => {
+    tables.kit_sections = [{ brand_id: 'b', section: 'purpose', status: 'approved', citations: [] }, { brand_id: 'b', section: 'messaging', status: 'drafted', citations: [] }];
+    tables.gates = [{ brand_id: 'b', gate: 'purpose' }];
+    tables.brands = [{ ...brand }];
+    const r = await patchBrand(env, brand, { name: 'JamJam Labs' });
+    expect(r.stale.sort()).toEqual(['messaging', 'purpose']);
+    expect(tables.gates).toHaveLength(0);
+    expect(tables.kit_sections.every((x) => x.status === 'drafted')).toBe(true);
+    expect(r.brand.name).toBe('JamJam Labs');
+    const order = calls.map((c) => `${c.method} ${c.table}`);
+    expect(order.indexOf('DELETE gates')).toBeLessThan(order.indexOf('PATCH brands'));
+  });
+  it('leaves sections and gates alone when the name is unchanged', async () => {
+    tables.kit_sections = [{ brand_id: 'b', section: 'purpose', status: 'approved', citations: [] }];
+    tables.gates = [{ brand_id: 'b', gate: 'purpose' }];
+    tables.brands = [{ ...brand }];
+    const r = await patchBrand(env, brand, { name: 'JamJam', goal: 'ship' });
+    expect(r.stale).toEqual([]);
+    expect(tables.gates).toHaveLength(1);
+    expect(tables.kit_sections[0].status).toBe('approved');
   });
 });
 

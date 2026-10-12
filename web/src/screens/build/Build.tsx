@@ -161,12 +161,14 @@ function BasicsStep({ state, onSaved, onRefresh }: { state: BrandState | null; o
     setError(null);
     try {
       const res = b
-        ? await api<{ brand: Brand }>(`/brands/${b.id}`, { method: 'PATCH', body: form })
-        : await api<{ brand: Brand }>('/brands', { body: form });
+        ? await api<{ brand: Brand; stale?: string[] }>(`/brands/${b.id}`, { method: 'PATCH', body: form })
+        : await api<{ brand: Brand; stale?: string[] }>('/brands', { body: form });
       const saved = await api<{ stale?: string[] }>(`/brands/${res.brand.id}/answers/basics`, { method: 'PUT', body: { data: { description: form.description, goal: form.goal, channel: form.channel, type: form.type } } });
       // Drafts that cited the old answer are stale: say so here, before moving on.
-      if (saved.stale?.length) {
-        setStale({ id: res.brand.id, sections: saved.stale, saved: JSON.stringify(form) });
+      // A rename (PATCH) unapproves every section; a changed Basics answer (PUT) stales the drafts that cited it.
+      const staleNow = [...new Set([...(res.stale ?? []), ...(saved.stale ?? [])])];
+      if (staleNow.length) {
+        setStale({ id: res.brand.id, sections: staleNow, saved: JSON.stringify(form) });
         await onRefresh?.();
         return;
       }

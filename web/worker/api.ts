@@ -261,6 +261,25 @@ export async function saveAnswer(env: Env, brand: Brand, step: string, data: Rec
   return { answer: row, stale: sections.filter((s) => (s.citations ?? []).some((id) => gone.has(id))).map((s) => s.section) };
 }
 
+/**
+ * Updates the Basics on the brand row. Every drafted section names the brand (draftSection writes for brand.name), so a
+ * rename unapproves every section and removes the gates before the new name is saved: a kit can then only register
+ * sections a person approved under the current name. Returns those sections as stale, so Basics can say so at once.
+ */
+export async function patchBrand(env: Env, brand: Brand, patch: Record<string, string | null>) {
+  let stale: string[] = [];
+  if ('name' in patch && patch.name !== brand.name) {
+    const sections = await db.select<Pick<Section, 'section'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section`);
+    if (sections.length) {
+      await db.del(env, 'gates', db.eq('brand_id', brand.id));
+      await db.update(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&${db.eq('status', 'approved')}`, { status: 'drafted' });
+      stale = sections.map((s) => s.section);
+    }
+  }
+  const [row] = await db.update<Brand>(env, 'brands', db.eq('id', brand.id), patch);
+  return { brand: row, stale };
+}
+
 /** Per-IP limit for anonymous endpoints (wrangler.jsonc ratelimits). Without the binding (tests, local) it is a no-op. */
 export async function publicLimit(req: Request, env: Env, scope: string) {
   if (!env.PUBLIC_LIMITER) return;
@@ -307,8 +326,7 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const patch: Record<string, string | null> = {};
     for (const k of ['name', 'description', 'website', 'goal', 'channel'] as const) if (k in b) patch[k] = str(b[k], 300) || null;
     if ('name' in patch && !patch.name) throw new HttpError(400, 'a brand name is required');
-    const [row] = await db.update<Brand>(env, 'brands', db.eq('id', brand.id), patch);
-    return json({ brand: row });
+    return json(await patchBrand(env, brand, patch));
   }
   // PUT /api/brands/:id/answers/:step  {data, skipped} -> {answer, stale}
   if (p[3] === 'answers' && p[4] && m === 'PUT') {
