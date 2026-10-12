@@ -15,7 +15,7 @@ export interface HubApprovalCardProps {
   draft?: ReactNode;
   /** Approve, Edit, Skip, Snooze and so on. Hidden once there is an outcome. */
   actions?: ReactNode;
-  /** What happened after an action ("Sent", "Skipped"); announced politely and replaces the actions. */
+  /** What happened after an action ("Sent", with an Undo button); announced politely and replaces the actions. */
   outcome?: ReactNode;
   /** Blocked by a failed check (e.g. no watermark): the card takes the emphasis border. */
   blocked?: boolean;
@@ -34,7 +34,7 @@ export function HubApprovalCard({ meta, incoming, media, note, draft, actions, o
       {note && <div className={styles.note}>{note}</div>}
       {draft && <div className={styles.draft}>{draft}</div>}
       {outcome ? (
-        <p className={styles.outcome} role="status">{outcome}</p>
+        <div className={styles.outcome} role="status">{outcome}</div>
       ) : (
         actions && <div className={styles.actions}>{actions}</div>
       )}

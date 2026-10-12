@@ -30,6 +30,7 @@ export function HubPage({ section, sub, width = 'app', children }: HubPageProps)
       nav={hubTopNav}
       homeHref={paths.home}
       activePath={sectionPath[section]}
+      brandName={demoBrands.find((b) => b.id === brand)?.name}
       brandSlot={<BrandSwitcher brands={demoBrands} currentId={brand} onSelect={setBrand} />}
       subnav={subnav && <TabNav label={subnav.label} items={subnav.items} value={sub ?? ''} />}
       onSignOut={() => navigate(paths.main)}

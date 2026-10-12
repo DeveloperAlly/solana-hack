@@ -98,7 +98,7 @@ export interface SourceConnection {
 }
 
 export interface InboxConnectData {
-  error?: string;
+  error?: { message: string; source: string };
   sources: SourceConnection[];
 }
 
@@ -241,6 +241,7 @@ export interface DraftReviewData {
 export interface CampaignMetric {
   id: string;
   metric: string;
+  /** Example target from the canvas, shown as a placeholder (never pre-filled). */
   target: string;
   source: string;
   /** False when the platform does not share the number: no target input. */
@@ -252,15 +253,11 @@ export interface CampaignData {
   purposes: { id: string; label: string; description: string }[];
   platforms: { id: string; label: string; detail?: string }[];
   posterOptions: FieldOption[];
+  /** Canvas example name and dates, shown as placeholders: nothing is chosen for the person. */
   name: string;
   dates: string;
-  purpose: string;
-  selectedPlatforms: string[];
-  poster: string;
   mediaNote: string;
   metrics: CampaignMetric[];
-  mainMetric: string;
-  supporting: string[];
   plan: { day: string; brand: string; ambassadors: string }[];
   budget: { line: string; note: string };
   unavailableNote: string;
@@ -305,7 +302,6 @@ export interface PartnersData {
   intro: string;
   voiceOptions: FieldOption[];
   approvalOptions: FieldOption[];
-  seatsUsed: number;
   seatsTotal: number;
   defaultEmail: string;
   partners: { id: string; name: string; voices: string; pieces: string; status: string }[];
@@ -334,6 +330,8 @@ export interface InfluencerSetupData {
   banner: string;
   name: string;
   brandOptions: FieldOption[];
+  /** The persona line shown for each brand choice ("AI persona of …"). */
+  personaOf: Record<string, string>;
   voiceOptions: FieldOption[];
   pillars: string;
   avatarFrom: string;
@@ -351,6 +349,8 @@ export interface InfluencerPost {
   when: string;
   caption: string;
   checks: string;
+  /** Why a post without a detected watermark is blocked (n-iq 2). */
+  blockedReason?: string;
 }
 
 export interface InfluencerQueueData {
@@ -361,14 +361,20 @@ export interface InfluencerQueueData {
 }
 
 // Analytics -----------------------------------------------------------------------------------------------------
-export interface AnalyticsData {
-  ranges: FieldOption[];
+/** The numbers for one date range. */
+export interface AnalyticsRange {
   kpis: Kpi[];
   byVoice: HubBarItem[];
   byFormat: HubBarItem[];
   top: { id: string; post: string; rate: string }[];
   notWorking: { id: string; what: string; rate: string; posts: string }[];
+}
+
+export interface AnalyticsData {
+  ranges: FieldOption[];
+  /** Numbers per range value; the range select switches between them. */
+  byRange: Record<string, AnalyticsRange>;
   suggestions: { id: string; text: string; action: string; href?: HubPath }[];
   suggestionsNote: string;
-  connect: { intro: string; sources: SourceConnection[]; error: string };
+  connect: { intro: string; sources: SourceConnection[]; error: { message: string; source: string } };
 }

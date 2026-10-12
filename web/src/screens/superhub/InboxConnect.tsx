@@ -5,7 +5,8 @@
  *
  * | Field             | Source                                                                                       |
  * |-------------------|----------------------------------------------------------------------------------------------|
- * | error             | The source in sync error and why (connections status), shown with Reconnect                  |
+ * | error             | The source in sync error and why (connections status), shown with Reconnect; clears when     |
+ * |                   | that source is connected again                                                               |
  * | sources[].sees    | The adapter's capability text (n-inb3 1–3). Verified: WhatsApp, Telegram bot; [brackets] =   |
  * |                   | access still to confirm                                                                      |
  * | sources[].status  | connections: connected, connected (bot), sync error, not connected                           |

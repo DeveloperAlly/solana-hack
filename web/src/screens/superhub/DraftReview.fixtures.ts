@@ -40,7 +40,7 @@ export const draftReview: DraftReviewData = {
     { value: 'schedule', label: 'Schedule: [suggested slot]' },
     { value: 'manual', label: 'Copy, post it yourself, paste the URL back' },
   ],
-  approvalNote: "On approval the post's hash, the kit version and your name are registered on Solana, so anyone can check it.",
+  approvalNote: "After you approve, registering puts the post's hash, the kit version and your name on Solana, so anyone can check it.",
 };
 
 /** Draft-Review-Beautified (n-drb): v3 Beautify (accessible mode) on top of v2 slop fixes. */

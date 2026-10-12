@@ -13,7 +13,8 @@ export interface ChecksAndPublishProps {
 
 /**
  * D3 ChecksPanel and the publish step (n-dr 3–4): the no-AI-slop check, scores, claims gate and vocabulary, live from
- * the text; any failed check blocks "Approve and publish" and says why. After a decision, D50-style result in place.
+ * the text; any failed check blocks approval and says why, and approval waits for a publish route. After a decision,
+ * the result shows in place: approved, then registered (two steps), rejected, or rewrite requested.
  */
 export function ChecksAndPublish({ review, data }: ChecksAndPublishProps) {
   return (
@@ -24,12 +25,13 @@ export function ChecksAndPublish({ review, data }: ChecksAndPublishProps) {
       </Card>
       <Card as="section" labelledBy="draft-publish" header={<Heading level={2} size="lg" id="draft-publish">Publish</Heading>}>
         {review.decision ? (
-          <DraftDecision decision={review.decision} onReopen={review.reopen} />
+          <DraftDecision decision={review.decision} route={data.publishOptions.find((o) => o.value === review.publish)?.label ?? ''} onRegister={review.register} onReopen={review.reopen} />
         ) : (
           <Stack gap={3}>
             <Choice legend="Where it goes" options={data.publishOptions} value={review.publish} onChange={review.setPublish} />
-            <Button onClick={review.approve} disabled={review.blockers.length > 0}>Approve and publish</Button>
+            <Button onClick={review.approve} disabled={!review.canApprove}>Approve</Button>
             {review.blockers.length > 0 && <Text variant="small" tone="danger">Blocked before approval: {review.blockers.join('; ')}.</Text>}
+            {review.blockers.length === 0 && !review.publish && <Text variant="small" tone="secondary">Choose where it goes to approve it.</Text>}
             <Stack direction="row" gap={2} wrap>
               <Button variant="secondary" onClick={review.askRewrite}>Ask for a rewrite</Button>
               <Button variant="secondary" onClick={review.reject}>Reject</Button>

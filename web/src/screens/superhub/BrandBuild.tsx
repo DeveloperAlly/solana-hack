@@ -17,7 +17,7 @@
  * States (n-bb): success = kit v1 approved; empty = every section Missing; loading = Onboard-3b (sources being read);
  * error = Ingest-Error (a source failed).
  */
-import { Button, Stack } from '../../ui/primitives';
+import { Button, Stack, Text } from '../../ui/primitives';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { HubColumns } from '../../ui/domain/HubColumns';
@@ -43,7 +43,8 @@ export function BrandBuild({ data, state = 'success' }: { data: BrandBuildData; 
         <Stack direction="row" gap={3} justify="end" wrap>
           {/* INTEGRATION: POST /api/brands/:id/ingest re-reads the sources; progress is Onboard-3b-Profiling. */}
           <Button variant="secondary" href={paths.profiling}>Re-read sources</Button>
-          <Button href={paths.kitPublished}>Approve as kit v[n+1]</Button>
+          {kit.unconfirmed > 0 && <Text variant="small" tone="secondary">Confirm the {kit.unconfirmed} drafted sections to approve.</Text>}
+          {kit.unconfirmed > 0 ? <Button disabled>Approve as kit v[n+1]</Button> : <Button href={paths.kitPublished}>Approve as kit v[n+1]</Button>}
         </Stack>
       </HubColumns>
     </Stack>

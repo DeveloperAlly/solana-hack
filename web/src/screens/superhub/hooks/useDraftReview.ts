@@ -3,7 +3,8 @@ import type { DraftCheck, DraftReviewData, PolishAction } from '../types';
 
 export const polishLabels: Record<PolishAction, string> = { review: 'Review', shorten: 'Shorten', clarify: 'Clarify', beautify: 'Beautify' };
 
-export type Decision = 'approved' | 'rejected' | 'rewrite';
+/** Approval and registration are separate steps (web/worker/posts.ts: approved, then registering, then registered). */
+export type Decision = 'approved' | 'registered' | 'rejected' | 'rewrite';
 
 /** Numbers and multipliers in the text, ignoring [bracketed] placeholders (the claims gate checks each one). */
 export function numbersIn(text: string): string[] {
@@ -13,15 +14,16 @@ export function numbersIn(text: string): string[] {
 /**
  * Draft-Review flow state (n-dr, n-drb, n-dre): the editable text, version history with undo, polish actions and their
  * failure, accessible mode, the live checks (no-AI-slop pass, claims gate, character limit) that gate approval, the
- * publish route, and the decision (approve, reject, ask for a rewrite).
+ * publish route (no default: the person picks it), and the decision: approve, then register; or reject, or ask for a
+ * rewrite. `busy` (the draft is still being written) disables approval.
  */
-export function useDraftReview(data: DraftReviewData) {
+export function useDraftReview(data: DraftReviewData, busy = false) {
   const [versions, setVersions] = useState(data.versions);
   const [text, setText] = useState(data.versions.at(-1)?.text ?? '');
   const [failed, setFailed] = useState<PolishAction | undefined>(data.failedAction);
   const [accessible, setAccessible] = useState(true);
   const [showOriginal, setShowOriginal] = useState(false);
-  const [publish, setPublish] = useState(data.publishOptions[0]?.value ?? '');
+  const [publish, setPublish] = useState('');
   const [decision, setDecision] = useState<Decision | null>(null);
 
   const last = versions.at(-1);
@@ -43,6 +45,7 @@ export function useDraftReview(data: DraftReviewData) {
     slopHits.length > 0 && 'The no-AI-slop check failed',
     unapproved.length > 0 && 'A number is not an approved claim',
   ].filter(Boolean) as string[];
+  const canApprove = !busy && blockers.length === 0 && publish !== '';
 
   function polish(action: PolishAction) {
     // INTEGRATION: POST /api/drafts/:id/polish {action, accessible} (backend map row "Draft-Review"); each makes a version.
@@ -62,12 +65,14 @@ export function useDraftReview(data: DraftReviewData) {
   }
 
   return {
-    text, setText, versions, beautified, checks, blockers, overLimit,
+    text, setText, versions, beautified, checks, blockers, overLimit, canApprove,
     failed, retry: () => failed && polish(failed), dismiss: () => setFailed(undefined), polish, undo,
     accessible, setAccessible, showOriginal, toggleOriginal: () => setShowOriginal((s) => !s),
     publish, setPublish, decision,
-    // INTEGRATION: POST /api/drafts/:id/approve registers the hash, kit version and approver, then publishes.
-    approve: () => blockers.length === 0 && setDecision('approved'),
+    // INTEGRATION: POST /api/drafts/:id/approve (backend map row "Draft-Review"); approval is not on-chain.
+    approve: () => canApprove && setDecision('approved'),
+    // INTEGRATION: registration (SAS attestation by the Registrar) runs only on an approved post, then it is published.
+    register: () => decision === 'approved' && setDecision('registered'),
     reject: () => setDecision('rejected'),
     askRewrite: () => setDecision('rewrite'),
     reopen: () => setDecision(null),

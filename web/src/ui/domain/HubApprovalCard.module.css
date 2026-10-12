@@ -3,4 +3,4 @@
 .note { font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
 .draft { padding: var(--wl-space-3); border: var(--wl-border-width-default) solid var(--wl-border-default); border-radius: var(--wl-radius-control); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--wl-space-2); }
-.outcome { margin: 0; font-weight: var(--wl-font-weight-semibold); }
+.outcome { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wl-space-3); font-weight: var(--wl-font-weight-semibold); }

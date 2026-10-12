@@ -15,6 +15,18 @@ import { ContentDashboard } from './ContentDashboard';
 import { contentDashboard, contentDashboardEmpty } from './ContentDashboard.fixtures';
 import { DraftReview } from './DraftReview';
 import { draftBeautified, draftPolishError, draftReview } from './DraftReview.fixtures';
+import { CampaignGoal } from './CampaignGoal';
+import { CampaignMeasure } from './CampaignMeasure';
+import { campaign } from './Campaign.fixtures';
+import { EngageQueue } from './EngageQueue';
+import { EngageRules } from './EngageRules';
+import { Partners } from './Partners';
+import { Leads } from './Leads';
+import { InfluencerSetup } from './InfluencerSetup';
+import { InfluencerQueue } from './InfluencerQueue';
+import { engageQueue, engageRules, influencerQueue, influencerSetup, leads, partners } from './Grow.fixtures';
+import { Analytics } from './Analytics';
+import { analytics } from './Analytics.fixtures';
 
 // Canvas page "Superhub (v2)" (issue #52). Tags and states are the canvas board titles and notes (canvas.json).
 // Variants (…-Empty, Draft-Review-Beautified, Draft-Review-PolishError) are the same screen with other fixtures.
@@ -73,4 +85,28 @@ export const screens: ScreenEntry[] = [
   },
   { artboard: 'Draft-Review-Beautified', page: 'hub', title: 'Draft after Beautify (success, undo)', tag: 'HACKATHON', states: ['success'], render: () => createElement(DraftReview, { data: draftBeautified }) },
   { artboard: 'Draft-Review-PolishError', page: 'hub', title: 'Polish action failed (error)', tag: 'HACKATHON', states: ['error'], render: (state) => createElement(DraftReview, { data: draftPolishError, state }) },
+  { artboard: 'Campaign-v2-1-Goal', page: 'hub', title: 'Campaign v2: goal + platforms', tag: 'HACKATHON', states: ['success'], render: () => createElement(CampaignGoal, { data: campaign }) },
+  { artboard: 'Campaign-v2-2-Measure', page: 'hub', title: 'Campaign v2: success metrics', tag: 'HACKATHON', states: ['success'], render: () => createElement(CampaignMeasure, { data: campaign }) },
+  { artboard: 'Engage-Queue', page: 'hub', title: 'Engagement: reply queue', tag: 'STRETCH', states: ['success'], render: () => createElement(EngageQueue, { data: engageQueue }) },
+  { artboard: 'Engage-Rules', page: 'hub', title: 'Engagement: rules, lists, opt-in auto-replies', tag: 'ROADMAP', states: ['success'], render: () => createElement(EngageRules, { data: engageRules }) },
+  { artboard: 'Partners', page: 'hub', title: 'Partner access', tag: 'ROADMAP', states: ['success'], render: () => createElement(Partners, { data: partners }) },
+  { artboard: 'Leads', page: 'hub', title: 'Lead finder', tag: 'EXPERIMENTAL', states: ['success'], render: () => createElement(Leads, { data: leads }) },
+  { artboard: 'Influencer-Setup', page: 'hub', title: 'AI influencer: setup', tag: 'EXPERIMENTAL', states: ['success'], render: () => createElement(InfluencerSetup, { data: influencerSetup }) },
+  { artboard: 'Influencer-Queue', page: 'hub', title: 'AI influencer: approval queue', tag: 'EXPERIMENTAL', states: ['success'], render: () => createElement(InfluencerQueue, { data: influencerQueue }) },
+  {
+    artboard: 'Analytics',
+    page: 'hub',
+    title: 'Analytics',
+    tag: 'ROADMAP',
+    states: ['success', 'empty', 'loading', 'error'],
+    render: (state) => createElement(Analytics, { key: state, data: analytics, state }),
+  },
+  {
+    artboard: 'Analytics-Empty',
+    page: 'hub',
+    title: 'Analytics: connect, collecting, error',
+    tag: 'ROADMAP',
+    states: ['empty', 'loading', 'error'],
+    render: (state) => createElement(Analytics, { key: state, data: analytics, state }),
+  },
 ];

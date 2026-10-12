@@ -47,7 +47,7 @@ export function VoiceEditor({ data, state = 'success' }: { data: VoiceEditorData
         <Button variant="secondary" onClick={voice.reset} disabled={!voice.changed}>Reset to {data.basedOn}</Button>
         <Button variant="secondary" href={paths.voiceTemplates}>Cancel</Button>
         {/* INTEGRATION: PATCH /api/voices/:id; the core voice was approved at Gate 3, so saving makes kit v[n+1]. */}
-        <Button href={paths.voiceTemplates}>Save as kit v[n+1]</Button>
+        {state === 'loading' ? <Button disabled>Save as kit v[n+1]</Button> : <Button href={paths.voiceTemplates}>Save as kit v[n+1]</Button>}
       </Stack>
     </HubPage>
   );

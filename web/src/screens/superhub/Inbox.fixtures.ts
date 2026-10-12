@@ -69,7 +69,7 @@ export const needsReply: NeedsReplyData = {
 };
 
 export const inboxConnect: InboxConnectData = {
-  error: 'Discord stopped syncing 40 min ago (permission removed in [server]).',
+  error: { message: 'Discord stopped syncing 40 min ago (permission removed in [server]).', source: 'dc' },
   sources: [
     { id: 'tg', name: 'Telegram', status: 'connected-bot', sees: "Messages to your brand bot and groups it's in. Your personal DMs: [needs a signed-in Telegram client, to be confirmed]" },
     { id: 'wa', name: 'WhatsApp Business', status: 'connected', sees: "One-to-one chats on your business number, plus up to 6 months of history. Not group chats. Personal WhatsApp accounts can't connect." },

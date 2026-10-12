@@ -37,7 +37,7 @@ import { paths } from './paths';
 import type { DraftReviewData } from './types';
 
 export function DraftReview({ data, state = 'success' }: { data: DraftReviewData; state?: ScreenState }) {
-  const review = useDraftReview(data);
+  const review = useDraftReview(data, state === 'loading');
   const editor = (
     <StateView
       state={state}
