@@ -10,7 +10,7 @@ tags: [adr, pricing, referrals, promotions, gtm]
 
 # ADR-014: Referral offer and launch promotions
 
-The number 14 avoids ADR-012 and ADR-013, which are proposed on open PRs [#86](https://github.com/DeveloperAlly/solana-hack/pull/86) and [#88](https://github.com/DeveloperAlly/solana-hack/pull/88).
+The number 14 avoids ADR-012 and ADR-013, which were drafted on [#86](https://github.com/DeveloperAlly/solana-hack/pull/86) and [#88](https://github.com/DeveloperAlly/solana-hack/pull/88). Their current state is in [STATE.md](../../../STATE.md).
 
 ## Context
 - The pitch deck (slide 10), the [go-to-market plan](../context/gtm_2026_10_12.md) §4 and §5, and backlog row S6a describe a refer-a-friend offer and other launch promotions.
