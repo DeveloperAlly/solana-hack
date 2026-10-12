@@ -53,7 +53,7 @@ Each beat: what must come up on screen (quoted app copy), what to say, and the r
 Route `/ (landing)` · depends on NO DEPENDENCY · placeholder: wireframe Landing-v2
 
 **Must come up:**
-- H1: "Build your voice. Launch your brand." (PR #107)
+- H1: "Build your voice. Launch your brand."
 - Button: "Build my brand"
 - Small print: "No wallet needed"
 - Sample "Your brand kit" box: Purpose, Positioning, Voice
@@ -69,7 +69,7 @@ Route `/ (landing)` · depends on NO DEPENDENCY · placeholder: wireframe Landin
 Route `/sign-in` · depends on EMAIL SIGN-IN · placeholder: wireframe Onboard-1-SignIn
 
 **Must come up:**
-- H1: "Sign in to launch your brand" (PR #107)
+- H1: "Sign in to launch your brand"
 - "We email you a sign-in link. No password, no wallet."
 - Cut: the sign-in email opened off camera
 - Lands on /home: "Welcome to JamJam"
@@ -202,7 +202,7 @@ Route `end card (edited, not app copy)` · depends on NO DEPENDENCY · placehold
 | P0 | Claims block rehearsed | Under Strict, adding "Used by 10,000 brands." must return "Blocked by your claims gate". The gate is an LLM call (`posts.ts` policyCheck); test it live first. |
 | P0 | Facts count as owned | Website in Basics must match the ingested domain. Facts from other domains stay `proposed`, and no screen on main approves them (`PATCH /evidence/:id` exists, unused). |
 | P1 | Drafter gets kept facts | The post prompt gets voice, messaging, positioning and purpose, not the evidence list (`posts.ts`), so a draft can carry a claim the gate then blocks. |
-| P1 | Freeze main for the take | Merge PR #107 first (launch headlines). Before recording, check STATE.md for open PRs that change these screens. Record before they merge, or re-check this script's quoted copy after. |
+| P1 | Freeze main for the take | Before recording, check STATE.md for open PRs that change these screens. Record before they merge, or re-check this script's quoted copy after. |
 
 ## 4. Recording runbook
 
