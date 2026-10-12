@@ -1,4 +1,5 @@
-import { requireUser, type User } from './auth';
+import { requirePermanent, requireUser, type User } from './auth';
+import { assertCanAddSource, assertCanCreateBrand, claimAnonymous, coverage, editFact, FIRST_POST_BRIEF, voiceSamples } from './journey';
 import { db } from './db';
 import { HttpError, json, safeError, sha256Hex, type Env } from './env';
 import { readPage } from './ingest';
@@ -48,7 +49,7 @@ async function brandState(env: Env, brand: Brand) {
     db.select<Gate>(env, 'gates', f),
     db.select<Kit>(env, 'kits', `${f}&select=id,version,hash,status,signature,attestation,created_at,error,payload&order=version.desc`),
   ]);
-  return { brand, answers, sources, evidence, sections, gates, kits };
+  return { brand, answers, sources, evidence, sections, gates, kits, coverage: coverage(evidence) };
 }
 
 function answerText(answers: Answer[], steps: readonly string[]) {
@@ -372,10 +373,16 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const brands = await db.select<Brand>(env, 'brands', `${db.eq('owner_id', user.id)}&order=created_at`);
     return json({ user, brands });
   }
+  // POST /api/me/claim {anonymousToken}: brands read before sign-in move to the account signed in to (journey J2).
+  if (p[1] === 'me' && p[2] === 'claim' && p.length === 3 && m === 'POST') {
+    const b = await body(req);
+    return json(await claimAnonymous(env, user, str(b.anonymousToken, 4000)));
+  }
   if (p[1] === 'brands' && p.length === 2 && m === 'POST') {
     const b = await body(req);
     const name = str(b.name, 120);
     if (!name) throw new HttpError(400, 'a brand name is required');
+    await assertCanCreateBrand(env, user);
     const type = ['company', 'person', 'founder_linked'].includes(str(b.type)) ? str(b.type) : 'company';
     const [brand] = await db.insert<Brand>(env, 'brands', { owner_id: user.id, name, type, description: str(b.description, 300) || null, website: str(b.website, 300) || null, goal: str(b.goal, 300) || null, channel: str(b.channel, 60) || null });
     return json({ brand }, 201);
@@ -402,9 +409,11 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     return json(await saveAnswer(env, brand, step, data, b.skipped === true));
   }
   // PATCH /api/brands/:id/evidence/:eid  {review_status: 'approved' | 'rejected'} -> {evidence, stale}
+  //                                      {claim} -> the owner's rewording (journey J3 Edit) -> {evidence, replaced, stale}
   if (p[3] === 'evidence' && p.length === 5 && m === 'PATCH') {
     if (!/^[0-9a-f-]{36}$/i.test(p[4])) throw new HttpError(404, 'fact not found');
     const b = await body(req);
+    if (typeof b.claim === 'string') return json(await editFact(env, brand.id, p[4], b.claim));
     return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20)));
   }
   if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
@@ -423,6 +432,11 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     const b = await body(req);
     const u = str(b.url, 500);
     if (!u) throw new HttpError(400, 'a link is required');
+    if (user.isAnonymous) {
+      // Reading before sign-in (D1): per-IP limit and a source cap, so an anonymous visitor's use stays bounded.
+      await publicLimit(req, env, 'read');
+      await assertCanAddSource(env, user, brand.id);
+    }
     return json(await ingest(env, brand, u), 201);
   }
   if (p[3] === 'sections' && p[4] && isSection(p[4])) {
@@ -447,7 +461,12 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
       return json({ section: row });
     }
   }
-  if (p[3] === 'kit' && p[4] === 'register' && m === 'POST') return json(await registerKit(env, user, brand), 201);
+  // POST /api/brands/:id/voice/samples {round: 1 | 2, near?} -> {samples: [{template, label, text}] x3} (journey J4)
+  if (p[3] === 'voice' && p[4] === 'samples' && p.length === 5 && m === 'POST') {
+    const b = await body(req);
+    return json({ samples: await voiceSamples(env, brand, b.round === 2 ? 2 : 1, str(b.near, 40) || undefined) });
+  }
+  if (p[3] === 'kit' && p[4] === 'register' && m === 'POST') { requirePermanent(user); return json(await registerKit(env, user, brand), 201); }
   // S5 Create: posts in the brand voice; human approval before registration (R8).
   if (p[3] === 'posts') {
     if (p.length === 4 && m === 'GET') {
@@ -460,8 +479,8 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     }
     if (p.length === 4 && m === 'POST') {
       const b = await body(req);
-      const brief = str(b.brief, 1000);
-      if (!brief) throw new HttpError(400, 'say what the post is about');
+      // No brief: the first post is written from the kit (journey J6, "no blank brief").
+      const brief = str(b.brief, 1000) || FIRST_POST_BRIEF;
       return json({ post: await draftPost(env, brand, brief, str(b.channel, 40)) }, 201);
     }
     const [post] = p[4] && /^[0-9a-f-]{36}$/.test(p[4]) ? await db.select<Post>(env, 'posts', `${db.eq('id', p[4])}&${db.eq('brand_id', brand.id)}`) : [];
@@ -474,6 +493,7 @@ export async function handleApi(req: Request, env: Env, url: URL): Promise<Respo
     if (p[5] === 'polish' && m === 'POST') return json({ post: await polishPost(env, post, str(b.action, 40)) });
     if (p[5] === 'undo' && m === 'POST') return json({ post: await undoPost(env, post) });
     if (p[5] === 'register' && m === 'POST') {
+      requirePermanent(user);
       // Refused, not cut: a truncated link would be stored, and shown on Verify, as a different address.
       if (typeof b.publishedUrl === 'string' && b.publishedUrl.trim().length > 500) throw new HttpError(400, 'that link is longer than 500 characters; use the post\'s short link');
       return json(await registerPost(env, user, post, str(b.publishedUrl, 500)), 201);
