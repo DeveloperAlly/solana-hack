@@ -47,7 +47,8 @@ export async function claimAnonymous(env: Env, user: User, anonymousToken: strin
   return { moved: moved.map((b) => b.id) };
 }
 
-export type CoverageStatus = 'found' | 'partly' | 'needs_you';
+/** The same values as the journey UI's EvidenceStatus (web/src/ui/domain/EvidenceChip.tsx on PR #75). */
+export type CoverageStatus = 'found' | 'partly' | 'needs-you';
 interface FactRow { id: string; section: string; claim: string; quote: string | null; trust?: string | null; review_status?: string | null; origin?: string }
 
 /**
@@ -58,10 +59,10 @@ export function coverage(evidence: FactRow[]) {
   const sections = (Object.keys(SECTIONS) as SectionId[]).map((section) => {
     const own = evidence.filter((e) => e.section === section && e.review_status !== 'rejected');
     const usable = own.filter((e) => usableFact(e)).length;
-    const status: CoverageStatus = usable >= 2 ? 'found' : own.length ? 'partly' : 'needs_you';
+    const status: CoverageStatus = usable >= 2 ? 'found' : own.length ? 'partly' : 'needs-you';
     return { section, title: SECTIONS[section].title, status, facts: own.length, usable };
   });
-  const covered = sections.filter((s) => s.status !== 'needs_you').length;
+  const covered = sections.filter((s) => s.status !== 'needs-you').length;
   return { sections, covered, total: sections.length, ratio: sections.length ? covered / sections.length : 0 };
 }
 

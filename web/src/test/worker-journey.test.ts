@@ -182,7 +182,7 @@ describe('coverage over the kit sections (J1, J3)', () => {
       fact('b', 'origin', { review_status: 'rejected' }),
     ] as never);
     const by = Object.fromEntries(c.sections.map((s) => [s.section, s.status]));
-    expect(by).toMatchObject({ purpose: 'found', audience: 'partly', origin: 'needs_you', voice: 'needs_you' });
+    expect(by).toMatchObject({ purpose: 'found', audience: 'partly', origin: 'needs-you', voice: 'needs-you' });
     expect(c.covered).toBe(2);
     expect(c.total).toBe(6);
   });
