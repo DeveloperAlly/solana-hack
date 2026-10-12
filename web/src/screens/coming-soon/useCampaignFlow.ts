@@ -6,13 +6,15 @@ import { useCallback, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router';
 import { soonRoutes } from './routes';
 
+// `external`: built on Superhub (issue #52); this page cannot see whether it finished, so the campaign record
+// (fixtures in the gallery) stands for it.
 export const campaignSteps = [
-  { id: 'goal', label: 'Goal', href: soonRoutes.campaignGoal },
-  { id: 'audience', label: 'Audience', href: soonRoutes.campaignAudience },
-  { id: 'measure', label: 'Measure', href: soonRoutes.campaignMeasure },
-  { id: 'plan', label: 'Content plan', href: soonRoutes.campaignPlan },
-  { id: 'budget', label: 'People and budget', href: soonRoutes.campaignBudget },
-  { id: 'launch', label: 'Review and launch', href: soonRoutes.campaignLaunch },
+  { id: 'goal', label: 'Goal', href: soonRoutes.campaignGoal, external: true },
+  { id: 'audience', label: 'Audience', href: soonRoutes.campaignAudience, external: false },
+  { id: 'measure', label: 'Measure', href: soonRoutes.campaignMeasure, external: true },
+  { id: 'plan', label: 'Content plan', href: soonRoutes.campaignPlan, external: false },
+  { id: 'budget', label: 'People and budget', href: soonRoutes.campaignBudget, external: false },
+  { id: 'launch', label: 'Review and launch', href: soonRoutes.campaignLaunch, external: false },
 ] as const;
 
 export type CampaignStepId = (typeof campaignSteps)[number]['id'];
@@ -23,6 +25,8 @@ export interface CampaignDraft {
   removedPlanItems?: string[];
   payouts?: Record<string, string>;
   cap?: string;
+  /** Steps on this page whose Continue passed validation in this session (the state machine's finished steps). */
+  completed?: CampaignStepId[];
 }
 
 let draft: CampaignDraft = {};
@@ -48,14 +52,20 @@ export function useCampaignFlow(step: CampaignStepId) {
     listeners.forEach((l) => l());
   }, []);
   const nextHref = campaignSteps[current + 1]?.href;
+  const finished = (i: number) => campaignSteps[i]?.external || (state.completed ?? []).includes(campaignSteps[i]?.id);
   return {
     steps: campaignSteps.map((s) => ({ label: s.label })),
     current,
     backHref: campaignSteps[current - 1]?.href,
     nextHref,
-    /** Completed steps link back to their screen. */
-    hrefFor: (i: number) => campaignSteps[i]?.href,
-    next: () => nextHref && navigate(nextHref),
+    /** Only finished steps link back to their screen. */
+    hrefFor: (i: number) => (finished(i) ? campaignSteps[i]?.href : undefined),
+    /** Marks this step finished, then moves to the next one. Call only after the step validated. */
+    next: () => {
+      draft = { ...draft, completed: [...new Set([...(draft.completed ?? []), step])] };
+      listeners.forEach((l) => l());
+      if (nextHref) navigate(nextHref);
+    },
     draft: state,
     update,
   };

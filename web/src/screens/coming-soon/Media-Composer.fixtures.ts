@@ -29,7 +29,7 @@ export const mediaComposer: MediaComposerData = {
     },
   ],
   exportOptions: [
-    { value: 'pdf', label: 'LinkedIn document (PDF)' },
-    { value: 'images', label: 'Image set' },
+    { value: 'pdf', label: 'LinkedIn document (PDF)', detail: 'Exports one PDF with a page per slide.' },
+    { value: 'images', label: 'Image set', detail: 'Exports one image per slide.' },
   ],
 };

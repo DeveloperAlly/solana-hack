@@ -57,6 +57,7 @@ export function FounderProfile({ data }: { data: FounderProfileData }) {
           <SoonStatusRow name={data.linkedTo} actions={<Button href={soonRoutes.brandSwitcher} variant="secondary">Your brands</Button>} />
         </SoonStatusList>
         <CheckboxRow label="Stories you approve can be used by both kits." checked={shared} onChange={(e) => setShared(e.target.checked)} />
+        <Text variant="small" tone="secondary" role="status">{shared ? 'Approved stories are shared with the linked brand kit.' : 'Stories stay in this profile only.'}</Text>
       </Card>
     </SoonHubFrame>
   );

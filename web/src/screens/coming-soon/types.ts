@@ -70,7 +70,8 @@ export interface UpgradeData {
 export interface Slide { id: string; label: string; text: string }
 export type MediaKind = 'carousel' | 'card' | 'video';
 export interface MediaFormat { id: MediaKind; label: string; slides: Slide[]; hint: string }
-export interface MediaComposerData { formats: MediaFormat[]; exportOptions: { value: string; label: string }[] }
+export interface ExportOption { value: string; label: string; /** What choosing it produces, shown once chosen. */ detail: string }
+export interface MediaComposerData { formats: MediaFormat[]; exportOptions: ExportOption[] }
 export type CheckResult = 'backed' | 'unsupported' | 'passed';
 export interface SlideCheck { id: string; slide: number; text: string; claims: CheckResult; slop: CheckResult; alt: Bracketed }
 export interface MediaReviewData { checks: SlideCheck[] }

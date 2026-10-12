@@ -26,7 +26,9 @@ export function MediaComposer({ data, state = 'success' }: { data: MediaComposer
   const navigate = useNavigate();
   const [formats, setFormats] = useState<MediaFormat[]>(data.formats);
   const [tab, setTab] = useState<MediaKind>('carousel');
-  const [exportAs, setExportAs] = useState(data.exportOptions[0]?.value ?? '');
+  // No format is pre-selected: the person chooses one before review (review finding: never pre-select).
+  const [exportAs, setExportAs] = useState('');
+  const chosen = data.exportOptions.find((o) => o.value === exportAs);
   const [blocked, setBlocked] = useState(false);
   const edit = (kind: MediaKind) => (id: string, text: string) =>
     setFormats((fs) => fs.map((f) => (f.id === kind ? { ...f, slides: f.slides.map((s) => (s.id === id ? { ...s, text } : s)) } : f)));
@@ -60,9 +62,10 @@ export function MediaComposer({ data, state = 'success' }: { data: MediaComposer
           }))}
         />
         <Choice legend="Format" options={data.exportOptions} value={exportAs} onChange={setExportAs} />
+        <Text variant="small" tone="secondary" role="status">{chosen ? chosen.detail : 'Choose a format to continue.'}</Text>
         {blocked && <Alert tone="danger" title="Every slide needs text before review." />}
         <Stack direction="row" gap={3} wrap>
-          <Button onClick={review}>Check and review</Button>
+          <Button onClick={review} disabled={!chosen}>Check and review</Button>
         </Stack>
       </StateView>
     </SoonHubFrame>

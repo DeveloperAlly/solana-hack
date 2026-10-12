@@ -24,18 +24,19 @@ import { StateView } from './StateView';
 import { soonRoutes } from './routes';
 import type { CalendarSlot, PublishCalendarData } from './types';
 
-const slotLabel = (s: CalendarSlot) => (s.status === 'open' ? '[open slot]' : `${s.time} ${s.channel}`);
+const slotLabel = (s: CalendarSlot) => (s.status === 'open' ? '[open slot]' : `${s.time} ${s.channel} · ${s.title}`);
 
 export function PublishCalendar({ data, state = 'success' }: { data: PublishCalendarData; state?: ScreenState }) {
   const [slots, setSlots] = useState<CalendarSlot[]>(data.slots);
   const [picked, setPicked] = useState<string | null>(null);
-  const [post, setPost] = useState(data.approvedPosts[0]?.id ?? '');
+  const [post, setPost] = useState('');
   const f = data.failed;
   // INTEGRATION: PATCH /api/drafts/:id { scheduled_at } (D8); only approved posts can be scheduled.
   const schedule = () => {
     const title = data.approvedPosts.find((p) => p.id === post)?.title;
     setSlots((ss) => ss.map((s) => (s.id === picked ? { ...s, status: 'scheduled', time: '[time]', channel: 'LinkedIn', title } : s)));
     setPicked(null);
+    setPost('');
   };
   return (
     <SoonHubFrame header={{ title: 'Schedule', intro: 'Approved posts and when they go out.', definedIn: 'component inventory D8 SchedulePicker, D52; delivery plan R4 publishing' }}>

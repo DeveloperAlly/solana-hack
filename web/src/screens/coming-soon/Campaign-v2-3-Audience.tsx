@@ -13,10 +13,9 @@
  * Flow: useCampaignFlow (step 2 of 6). Back goes to Campaign-v2-1-Goal, Continue to Campaign-v2-2-Measure.
  * States: success, empty (no audience in the kit).
  */
-import { Alert, Button, Stack } from '../../ui/primitives';
+import { Button, Stack } from '../../ui/primitives';
 import { CheckboxRow } from '../../ui/composites/CheckboxRow';
 import { EmptyState } from '../../ui/composites/EmptyState';
-import { useState } from 'react';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { CampaignStep } from './CampaignStep';
 import { useCampaignFlow } from './useCampaignFlow';
@@ -25,17 +24,12 @@ import type { CampaignAudienceData } from './types';
 
 export function CampaignAudience({ data, state = 'success' }: { data: CampaignAudienceData; state?: ScreenState }) {
   const { draft, update } = useCampaignFlow('audience');
-  const [error, setError] = useState(false);
-  const chosen = draft.audience ?? data.segments.slice(0, 1).map((s) => s.id);
+  // Nothing is pre-checked: Continue stays disabled until the person picks a segment (review finding).
+  const chosen = draft.audience ?? [];
   const toggle = (id: string, on: boolean) => {
     update({ audience: on ? [...chosen, id] : chosen.filter((x) => x !== id) });
-    setError(false);
   };
   const isEmpty = state === 'empty' || data.segments.length === 0;
-  const canContinue = () => {
-    setError(chosen.length === 0);
-    return chosen.length > 0;
-  };
   return (
     <CampaignStep
       step="audience"
@@ -43,9 +37,7 @@ export function CampaignAudience({ data, state = 'success' }: { data: CampaignAu
       title="Who is this campaign for?"
       intro={data.source}
       definedIn="component inventory screen map, Campaign v2 step 2 (C7, D16)"
-      onContinue={canContinue}
-      continueDisabled={isEmpty}
-      error={error && <Alert tone="danger" title="Choose at least one audience segment." />}
+      continueDisabled={isEmpty || chosen.length === 0}
     >
       {isEmpty ? (
         <EmptyState title="Your kit has no audience yet" body="Add the audience section to your kit, then come back." actions={<Button href={soonRoutes.brandBuild}>Open your kit</Button>} />
