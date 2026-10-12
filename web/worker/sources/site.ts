@@ -1,4 +1,4 @@
-import { hopSession, readPage, resolveRedirects, type FetchGate } from '../ingest';
+import { hopSession, readCapped, readPage, resolveRedirects, type FetchGate } from '../ingest';
 import { factTrust, urlKind } from './registry';
 import { browserRenderer, type Renderer } from './render';
 import { fetchRobots, robotsAllows, type RobotsCheck } from './robots';
@@ -56,6 +56,14 @@ const EXA_LINKS = 100;
 // Enough for the home page, its robots.txt and about 8 subpages with a redirect or two each; a link robots.txt refuses
 // costs nothing, so a run of disallowed links cannot use it up (PR #71 review).
 export const MAX_SITE_REQUESTS = 60;
+// Bytes an Exa reply may take, worked out from what was asked, so the reply is streamed and refused past that point
+// rather than read whole (PR #71 review). Per page: its text, at most maxCharacters characters of at most 12 bytes each
+// once JSON-escaped (a character outside the Basic Multilingual Plane is two \\uXXXX escapes, RFC 8259 §7:
+// https://www.rfc-editor.org/rfc/rfc8259#section-7); its links, each at most 8 KiB (RFC 9110 §4.1 recommends support for
+// 8,000-octet URIs: https://www.rfc-editor.org/rfc/rfc9110#section-4.1); and 16 KiB for its other fields. Plus 64 KiB
+// for the reply's own fields (statuses, costs).
+const EXA_LINK_BYTES = 8 * 1024;
+export const exaReplyCap = (pages: number, maxCharacters: number, links: number) => 64 * 1024 + pages * (maxCharacters * 12 + links * EXA_LINK_BYTES + 16 * 1024);
 // Exa pricing: contents cost $1 per 1,000 pages per content type (https://exa.ai/pricing). Used only when the response
 // carries no costDollars.
 const EXA_PER_PAGE = 0.001;
@@ -93,7 +101,7 @@ export function siteUrl(raw: string): URL | null {
   }
 }
 
-async function exaContents(key: string, body: Record<string, unknown>): Promise<ExaResponse | { error: string }> {
+async function exaContents(key: string, body: { urls: string[]; text: { maxCharacters: number }; extras?: { links: number }; maxAgeHours: number }): Promise<ExaResponse | { error: string }> {
   let res: Response;
   try {
     res = await fetch(EXA_CONTENTS, {
@@ -106,9 +114,18 @@ async function exaContents(key: string, body: Record<string, unknown>): Promise<
     return { error: 'Exa did not answer in time' };
   }
   // Logging policy: the status only; Exa's message could echo the request.
-  if (!res.ok) return { error: `Exa answered HTTP ${res.status}` };
+  if (!res.ok) {
+    await res.body?.cancel().catch(() => undefined);
+    return { error: `Exa answered HTTP ${res.status}` };
+  }
   let data: unknown;
-  try { data = await res.json(); } catch { return { error: 'Exa sent an unreadable reply' }; }
+  try {
+    const { bytes, truncated } = await readCapped(res, exaReplyCap(body.urls.length, body.text.maxCharacters, body.extras?.links ?? 0));
+    if (truncated) return { error: 'Exa sent a reply larger than the request allows' };
+    data = JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return { error: 'Exa sent an unreadable reply' };
+  }
   return data && typeof data === 'object' && !Array.isArray(data) ? (data as ExaResponse) : { error: 'Exa sent an unreadable reply' };
 }
 
@@ -117,17 +134,43 @@ const exaCost = (data: ExaResponse, pages: number) => {
   return typeof total === 'number' && Number.isFinite(total) && total >= 0 ? total : pages * EXA_PER_PAGE;
 };
 
+/** An address as a lookup key: fragment dropped, since it never reaches the server. */
+const pageKey = (u: URL) => {
+  const k = new URL(u);
+  k.hash = '';
+  return k.toString();
+};
+
+/**
+ * Exa's results tied to the addresses that were asked for. A result counts only when its own URL is one of them, and
+ * it is then labelled with that address, the one robots.txt and the site's kind were checked on. A result for any
+ * other address (a stale copy of a page that moved, a reordered or malformed entry) is not used, so its text can
+ * never be filed under a page it did not come from; the page is then treated as not cached and read by our own
+ * reader (PR #71 review). Exa documents no order or URL guarantee for results (https://exa.ai/docs/reference/get-contents).
+ */
+function exaByAddress(data: ExaResponse, asked: URL[]): Map<string, ExaPage> {
+  const wanted = new Set(asked.map(pageKey));
+  const out = new Map<string, ExaPage>();
+  for (const p of Array.isArray(data.results) ? data.results : []) {
+    const u = absoluteUrl(p?.url);
+    if (!u) continue;
+    const k = pageKey(u);
+    if (wanted.has(k) && !out.has(k)) out.set(k, p);
+  }
+  return out;
+}
+
 /**
  * Reads the home page and its links with Exa, lets `pick` choose which links may be read (robots.txt, same site,
- * ranking), then reads only those. Provider output is untrusted: only an absolute http(s) URL is used (PR #67 review).
+ * ranking), then reads only those. Provider output is untrusted: only an absolute http(s) URL is used (PR #67 review),
+ * and only for the page it was asked for (exaByAddress).
  */
 async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (links: URL[]) => Promise<URL[]>): Promise<{ pages: SourcePage[]; cost: number; missing: URL[]; linksOk: boolean } | { error: string }> {
   const text = { maxCharacters: opts.maxCharacters };
   const home = await exaContents(key, { urls: [url.toString()], text, extras: { links: EXA_LINKS }, maxAgeHours: EXA_CACHE_ONLY });
   if ('error' in home && typeof home.error === 'string') return { error: home.error };
   const data = home as ExaResponse;
-  const results = Array.isArray(data.results) ? data.results : [];
-  const top = results[0];
+  const top = exaByAddress(data, [url]).get(pageKey(url));
   const failed = Array.isArray(data.statuses) ? data.statuses.find((s) => s?.status === 'error') : undefined;
   if (!str(top?.text).trim()) return { error: failed ? `Exa could not read the page (${str(failed.error?.tag) || 'error'})` : 'Exa returned no text for the page' };
   // A cached copy with almost no text is a script-only shell ("Loading..."): it is not used, so the page goes to the
@@ -135,15 +178,16 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (
   if (str(top?.text).trim().length < MIN_TEXT) return { error: "Exa's cached copy of the page has almost no text" };
   const seen = new Set<string>();
   const pages: SourcePage[] = [];
-  const add = (p: ExaPage) => {
+  // `at` is the address the page was asked for (exaByAddress).
+  const add = (p: ExaPage | undefined, at: URL) => {
     const body = str(p?.text).trim();
-    const u = absoluteUrl(p?.url);
+    const k = pageKey(at);
     // Almost no text: treated as not cached, so the caller reads it directly (and renders it if need be).
-    if (!u || body.length < MIN_TEXT || seen.has(u.toString())) return;
-    seen.add(u.toString());
-    pages.push({ url: u.toString(), title: str(p.title).trim().slice(0, 200) || u.hostname, text: body });
+    if (!p || body.length < MIN_TEXT || seen.has(k)) return;
+    seen.add(k);
+    pages.push({ url: k, title: str(p.title).trim().slice(0, 200) || at.hostname, text: body });
   };
-  add(top);
+  add(top, url);
   let cost = exaCost(data, 1);
   const rawLinks = top?.extras?.links;
   // Missing or malformed link metadata is a partial failure: the caller then takes the links from the page itself.
@@ -154,12 +198,13 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (
     const more = await exaContents(key, { urls: chosen.map((u) => u.toString()), text, maxAgeHours: EXA_CACHE_ONLY });
     if (!('error' in more && typeof more.error === 'string')) {
       const extra = more as ExaResponse;
-      for (const p of Array.isArray(extra.results) ? extra.results : []) add(p);
+      const byAddress = exaByAddress(extra, chosen);
+      for (const u of chosen) add(byAddress.get(pageKey(u)), u);
       cost += exaCost(extra, chosen.length);
     }
   }
   // Chosen pages Exa has no cached copy of: the caller reads them with its own gated reader.
-  const missing = chosen.filter((u) => !seen.has(u.toString()));
+  const missing = chosen.filter((u) => !seen.has(pageKey(u)));
   return { pages, cost, missing, linksOk };
 }
 

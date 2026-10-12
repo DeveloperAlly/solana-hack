@@ -2,23 +2,51 @@ import { Parser } from 'htmlparser2';
 import { CookieJar } from 'tough-cookie';
 import { HttpError } from './env';
 
+/**
+ * Bytes of a page body read at most. The body is streamed and the rest of it cancelled unread at this point, so a large
+ * or endless response never fills the Worker's memory (PR #71 review).
+ */
 export const MAX_BYTES = 1_500_000;
 
-// Named entities that page text commonly carries; numeric ones (decimal and hex) are decoded generically.
-const ENTITIES: Record<string, string> = {
-  nbsp: ' ', lt: '<', gt: '>', quot: '"', apos: "'", shy: '\u00AD', lsquo: '\u2018', rsquo: '\u2019', ldquo: '\u201C',
-  rdquo: '\u201D', ndash: '\u2013', mdash: '\u2014', hellip: '\u2026', zwj: '\u200D', zwnj: '\u200C',
-};
-const codePoint = (n: number) => (Number.isInteger(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '');
-
-/** Decodes HTML entities in one pass, so "&amp;lt;" stays the text "&lt;" rather than becoming "<". */
-export function decode(s: string) {
-  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
-    if (e[0] === '#') return codePoint(e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : Number(e.slice(1))) || m;
-    if (e.toLowerCase() === 'amp') return '&';
-    return ENTITIES[e.toLowerCase()] ?? m;
-  });
+/** Reads at most `max` bytes of a response body, then cancels the rest of the stream. */
+export async function readCapped(res: Response, max: number): Promise<{ bytes: Uint8Array; truncated: boolean }> {
+  const reader = res.body?.getReader();
+  if (!reader) return { bytes: new Uint8Array(0), truncated: false };
+  const chunks: Uint8Array[] = [];
+  let n = 0;
+  let truncated = false;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const take = Math.min(value.length, max - n);
+      if (take > 0) chunks.push(value.subarray(0, take));
+      n += take;
+      // Any byte past the cap means the body was cut, so its last line may be incomplete.
+      if (take < value.length) { truncated = true; break; }
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  const bytes = new Uint8Array(n);
+  let at = 0;
+  for (const c of chunks) { bytes.set(c, at); at += c.length; }
+  return { bytes, truncated };
 }
+
+/**
+ * At most `max` bytes of a response body as text, decoded as UTF-8 with a leading BOM dropped, the decoding
+ * Response.text() applies (https://fetch.spec.whatwg.org/#dom-body-text), but without reading the whole body first
+ * (PR #71 review). A body cut at the cap can end inside a character: stream mode leaves those last bytes out instead
+ * of turning them into U+FFFD (https://encoding.spec.whatwg.org/#dom-textdecoder-decode).
+ */
+export async function readText(res: Response, max = MAX_BYTES): Promise<string> {
+  const { bytes, truncated } = await readCapped(res, max);
+  return new TextDecoder().decode(bytes, { stream: truncated });
+}
+
+/** Whitespace as page text keeps it: runs of spaces and tabs become one space, blank lines are dropped. */
+export const tidy = (text: string) => text.replace(/\u00A0/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
 
 export const USER_AGENT = 'JamJamBot/0.1 (+https://jamjam.tech)';
 /** At most this many redirects are followed, the same bound the Fetch standard sets: https://fetch.spec.whatwg.org/#http-redirect-fetch */
@@ -165,9 +193,88 @@ export function pageLinks(html: string, landed: URL): string[] {
 }
 
 /**
+ * Elements whose content a browser does not show as page text, from the HTML standard's user-agent stylesheet
+ * (§15.3.1 "Hidden elements": https://html.spec.whatwg.org/multipage/rendering.html#hidden-elements, noscript included
+ * since scripting is on in a browser), plus iframe, whose children are never shown by a browser that supports frames
+ * (https://html.spec.whatwg.org/multipage/iframe-embed-object.html#the-iframe-element). `head` is not listed: everything
+ * the standard lets it hold is listed or void, and a browser moves anything else in it to the body.
+ */
+const NOT_SHOWN = new Set(['area', 'base', 'basefont', 'datalist', 'iframe', 'link', 'meta', 'noembed', 'noframes', 'noscript', 'param', 'rp', 'script', 'style', 'template', 'title']);
+/** Page furniture this reader leaves out of page text by choice, the same in the plain and the rendered reader. */
+export const NOT_READ = ['svg', 'nav', 'footer'];
+/** Elements whose closing ends a line of text. */
+const LINE_ENDS = new Set(['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'section', 'article']);
+
+/** True when an inline style's last display declaration is none (CSS cascade: the later declaration wins). */
+function styledNone(style: string): boolean {
+  let none = false;
+  for (const decl of style.split(';')) {
+    const i = decl.indexOf(':');
+    if (i === -1 || decl.slice(0, i).trim().toLowerCase() !== 'display') continue;
+    none = decl.slice(i + 1).replace(/!\s*important\s*$/i, '').trim().toLowerCase() === 'none';
+  }
+  return none;
+}
+
+/**
+ * True when an element and everything in it is not shown: a hidden element (above), one of this reader's left-out
+ * elements, an element with the hidden attribute (except hidden="until-found", which a reader can find), a dialog that
+ * is not open (both in §15.3.1 above), or an inline style of display: none.
+ */
+function notText(name: string, attribs: Record<string, string>): boolean {
+  if (NOT_SHOWN.has(name) || NOT_READ.includes(name)) return true;
+  if ('hidden' in attribs && attribs.hidden.trim().toLowerCase() !== 'until-found') return true;
+  if (name === 'dialog' && !('open' in attribs)) return true;
+  return typeof attribs.style === 'string' && styledNone(attribs.style);
+}
+
+/**
+ * An HTML page's title and readable text, read with a real HTML tokenizer (htmlparser2), so nested elements, entities
+ * (decoded once: "&amp;lt;" is the text "&lt;") and the raw text of script, style and iframe are handled as a browser
+ * does. Content a browser does not show (`notText`) is left out with everything inside it, so a script-only page whose
+ * only text sits in a template or a hidden element is seen as having almost no text, and is rendered (PR #71 review).
+ * The title is the first title element that is not inside such content (an svg icon's title is not the page's).
+ */
+export function pageText(html: string): { title: string; text: string } {
+  let title: string | null = null;
+  let inTitle = false;
+  // Depth inside content that is not shown; every element opened there is closed there too (htmlparser2 reports an
+  // implied close for void and unclosed elements).
+  let hidden = 0;
+  let text = '';
+  const parser = new Parser({
+    onopentag(name, attribs) {
+      if (hidden) { hidden++; return; }
+      if (notText(name, attribs)) {
+        hidden = 1;
+        if (name === 'title' && title === null) { title = ''; inTitle = true; }
+        return;
+      }
+      text += name === 'br' ? '\n' : ' ';
+    },
+    ontext(t) {
+      if (inTitle) title += t;
+      else if (!hidden) text += t;
+    },
+    onclosetag(name) {
+      if (hidden) {
+        hidden--;
+        if (!hidden) inTitle = false;
+        return;
+      }
+      text += LINE_ENDS.has(name) ? '\n' : ' ';
+    },
+  });
+  parser.write(html);
+  parser.end();
+  return { title: tidy(title ?? '').replace(/\n/g, ' '), text: tidy(text) };
+}
+
+/**
  * Fetches one public http(s) page and returns its title, readable text and links. A page with almost no text is
  * refused (422) unless `allowShort` is set, for a caller that still wants the page's links, such as a site reader
- * whose home page is mostly navigation (PR #71 review).
+ * whose home page is mostly navigation (PR #71 review). An HTML page is read as HTML (pageText); a plain-text or
+ * Markdown file is its own text, with no title or links of its own.
  */
 export async function readPage(raw: string, gate?: FetchGate, allowShort = false, session?: HopSession): Promise<{ url: string; title: string; text: string; links: string[] }> {
   let url: URL;
@@ -179,24 +286,22 @@ export async function readPage(raw: string, gate?: FetchGate, allowShort = false
   if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new HttpError(400, 'only http and https links can be read');
   if (url.port && url.port !== '80' && url.port !== '443') throw new HttpError(400, 'that link uses an unusual port');
   const { res, url: landed } = await fetchPage(url, gate, session);
-  if (!res.ok) throw new HttpError(502, `the site answered with HTTP ${res.status}`);
+  if (!res.ok) {
+    await res.body?.cancel().catch(() => undefined);
+    throw new HttpError(502, `the site answered with HTTP ${res.status}`);
+  }
+  // Media types are case-insensitive (RFC 9110 §8.3.1: https://www.rfc-editor.org/rfc/rfc9110#section-8.3.1).
   const type = res.headers.get('content-type') ?? '';
-  if (!/text\/html|text\/plain|markdown/.test(type)) throw new HttpError(415, 'that link is not a web page or text file');
-  const body = (await res.text()).slice(0, MAX_BYTES);
-  const title = decode((body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? url.hostname).trim()).slice(0, 200);
-  const text = decode(
-    body
-      // The head (title and meta included) is not page text: the title is returned on its own, so a script-only page
-      // with a long title is still seen as having almost no text (PR #71 review).
-      .replace(/<(head|title|script|style|noscript|svg|nav|footer)\b[\s\S]*?<\/\1\s*>/gi, ' ')
-      .replace(/<br\s*\/?>|<\/(p|div|li|h[1-6]|section|article)>/gi, '\n')
-      .replace(/<[^>]+>/g, ' '),
-  )
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n\s*\n+/g, '\n')
-    .trim();
-  if (text.length < 40 && !allowShort) throw new HttpError(422, 'that page has almost no readable text');
+  const isHtml = /text\/html/i.test(type);
+  if (!isHtml && !/text\/plain|markdown/i.test(type)) {
+    await res.body?.cancel().catch(() => undefined);
+    throw new HttpError(415, 'that link is not a web page or text file');
+  }
+  const body = await readText(res);
+  const page = isHtml ? pageText(body) : { title: '', text: tidy(body) };
+  const title = (page.title || landed.hostname).slice(0, 200);
+  if (page.text.length < 40 && !allowShort) throw new HttpError(422, 'that page has almost no readable text');
   // The page's own links (absolute http(s), at most 200), so a reader can choose subpages without another service.
-  const links = pageLinks(body, landed);
-  return { url: landed.toString(), title, text, links };
+  const links = isHtml ? pageLinks(body, landed) : [];
+  return { url: landed.toString(), title, text: page.text, links };
 }

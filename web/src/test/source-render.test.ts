@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createRenderer, MAX_ORIGINS, MAX_REQUESTS, RENDER_CSP, type InterceptedRequest, type RenderBrowser, type RenderPage } from '../../worker/sources/render';
+import { createRenderer, MAX_ORIGINS, MAX_REQUESTS, PAGE_TEXT, RENDER_CSP, type InterceptedRequest, type RenderBrowser, type RenderPage } from '../../worker/sources/render';
 import { readSite } from '../../worker/sources/site';
 import { fetchRobots, robotsAllows } from '../../worker/sources/robots';
+import { MAX_BYTES } from '../../worker/ingest';
 
 // Rendered reading for script-only pages (architecture §6.1; PR #71 review). The browser is a fake that issues the
 // requests a real page would, through the same request-interception handler, and records how each was resolved.
@@ -290,4 +291,70 @@ describe('site adapter: rendered fallback for script-only sites (architecture §
     const r = await readSite({}, 'https://a.test/', { website: 'a.test' });
     expect(r).toMatchObject({ ok: false, code: 'unreadable' });
   });
+});
+
+/** A response body of `total` bytes of HTML, produced on demand, that records how much of it was read. */
+function bigHtml(total: number, chunk = 64 * 1024) {
+  const seen = { pulled: 0, cancelled: false };
+  const filler = new TextEncoder().encode('<p>JamJam helps brands prove what they say.</p>'.repeat(Math.ceil(chunk / 47)).slice(0, chunk));
+  const body = new ReadableStream<Uint8Array>({
+    pull(c) {
+      if (seen.pulled >= total) return c.close();
+      const n = Math.min(chunk, total - seen.pulled);
+      seen.pulled += n;
+      c.enqueue(filler.slice(0, n));
+    },
+    cancel() { seen.cancelled = true; },
+  });
+  return { body, seen };
+}
+
+describe('renderer: bounded reads (PR #71 review)', () => {
+  it(`hands the browser at most ${MAX_BYTES} bytes of a page, and stops reading the response there`, async () => {
+    const big = bigHtml(8 * MAX_BYTES);
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (new URL(url).pathname === '/robots.txt' ? new Response('', { status: 404 }) : new Response(big.body, { headers: { 'content-type': 'text/html' } }))));
+    const b = fakeBrowser();
+    await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/'));
+    const handed = b.outcomes.find((o) => o.url === 'https://a.test/');
+    expect(handed?.how).toBe('respond');
+    expect(new TextEncoder().encode(handed!.body).length).toBeLessThanOrEqual(MAX_BYTES);
+    // Read up to the cap, plus at most the chunks the stream had queued, then cancelled.
+    expect(big.seen.pulled).toBeLessThan(MAX_BYTES + 4 * 64 * 1024);
+    expect(big.seen.cancelled).toBe(true);
+  });
+  it('reads page text without removing stylesheets, so content a stylesheet hides stays hidden', () => {
+    const removed: string[] = [];
+    const hidden: string[] = [];
+    const selectors: string[] = [];
+    const el = (tag: string) => ({ remove: () => removed.push(tag), style: { setProperty: (p: string, v: string, pr: string) => hidden.push(`${tag} ${p}:${v} ${pr}`) } });
+    const doc = { querySelectorAll: (sel: string) => { selectors.push(sel); return sel.split(',').map(el); }, body: { innerText: 'What the page shows.' } };
+    const text = new Function('document', `return ${PAGE_TEXT}`)(doc);
+    expect(text).toBe('What the page shows.');
+    // innerText already leaves out scripts, styles, templates and hidden elements; only the reader's own furniture is hidden.
+    expect(removed).toEqual([]);
+    expect(selectors.join(',').split(',')).toEqual(['svg', 'nav', 'footer']);
+    expect(hidden).toEqual(['svg display:none important', 'nav display:none important', 'footer display:none important']);
+  });
+});
+
+describe('site adapter: a shell whose only text is not shown is rendered (PR #71 review)', () => {
+  const cases: [string, string][] = [
+    ['a template', `<template><p>${'Hidden template text for a later render. '.repeat(3)}</p></template>`],
+    ['a nested template', `<template><template>x</template><p>${'Text after an inner template. '.repeat(3)}</p></template>`],
+    ['an element with the hidden attribute', `<div hidden><p>${'Text kept for later in a hidden block. '.repeat(3)}</p></div>`],
+    ['a dialog that is not open', `<dialog><p>${'Cookie notice text that is not open yet. '.repeat(3)}</p></dialog>`],
+    ['an inline display: none', `<div style="color: red; display : none !important"><p>${'Text a style keeps hidden from view. '.repeat(3)}</p></div>`],
+    ['an iframe fallback', `<iframe src="/x"><p>${'Fallback text a browser never shows. '.repeat(3)}</p></iframe>`],
+  ];
+  for (const [what, inert] of cases) {
+    it(`renders the page when its only text is in ${what}`, async () => {
+      network({ 'https://a.test/': { body: `<html><title>JamJam</title><body><div id="app"></div>${inert}<script src="/app.js"></script></body></html>` } });
+      const b = fakeBrowser();
+      const r = await readSite({}, 'https://a.test/', { website: 'a.test', subpages: 0 }, (g, max) => createRenderer(b.launch, g, max));
+      expect(r).toMatchObject({ ok: true });
+      if (!r.ok || r.kind === 'document') throw new Error('expected a site read');
+      expect(r.pages![0].text).toContain('text the page shows');
+      expect(r.meta.notes.join(' ')).toContain('1 script-only page(s) rendered in a browser');
+    });
+  }
 });

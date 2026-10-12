@@ -1,4 +1,4 @@
-import { fetchHop, MAX_BYTES, pageLinks, readable, USER_AGENT, type FetchGate } from '../ingest';
+import { fetchHop, NOT_READ, pageLinks, readable, readText, tidy, USER_AGENT, type FetchGate } from '../ingest';
 
 /**
  * Rendered reading for script-only sites (architecture §6.1 "Source ingestion": "fall back to a plain fetch, then
@@ -81,8 +81,13 @@ export const RENDER_TIMEOUT_MS = 15_000;
 export const RENDER_CSP = "frame-src 'none'; child-src 'none'; worker-src 'none'; object-src 'none'";
 // Network APIs whose traffic request interception does not see: removed before any page script runs.
 const NO_SOCKETS = `(() => { for (const k of ['WebSocket', 'WebTransport', 'RTCPeerConnection', 'webkitRTCPeerConnection']) { try { Object.defineProperty(globalThis, k, { value: undefined, configurable: false, writable: false }); } catch {} } })();`;
-// Text as readPage takes it: scripts, styles, navigation and footers left out. Read after the links are taken.
-const PAGE_TEXT = `(() => { for (const el of document.querySelectorAll('script,style,noscript,svg,nav,footer,template')) el.remove(); return document.body ? document.body.innerText : ''; })()`;
+/**
+ * The text the page shows, as readPage takes it. innerText already leaves out what is not rendered (scripts, styles,
+ * templates, hidden elements: https://html.spec.whatwg.org/multipage/dom.html#the-innertext-idl-attribute), so only
+ * the furniture readPage leaves out by choice (NOT_READ) is hidden here, with an inline display: none. Nothing is
+ * removed: removing a stylesheet would show content it hides (PR #71 review). Run after the links are taken.
+ */
+export const PAGE_TEXT = `(() => { for (const el of document.querySelectorAll(${JSON.stringify(NOT_READ.join(','))})) el.style.setProperty('display', 'none', 'important'); return document.body ? document.body.innerText : ''; })()`;
 
 /** A response's headers for the browser: transfer headers left out, Set-Cookie once per value. */
 function forwarded(res: Response): Record<string, string | string[]> {
@@ -92,8 +97,6 @@ function forwarded(res: Response): Record<string, string | string[]> {
   if (cookies.length) headers['set-cookie'] = cookies;
   return headers;
 }
-
-const tidy = (text: string) => text.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
 
 /**
  * A renderer over one browser session, launched on first use and closed by `close()`. `launch` opens the browser:
@@ -189,11 +192,14 @@ export function createRenderer(launch: () => Promise<RenderBrowser>, gate: Fetch
         return void (req.isInterceptResolutionHandled() || (await req.respond({ status: res.status, headers })));
       }
       const contentType = res.headers.get('content-type') ?? '';
-      if (!/text\/html/.test(contentType)) {
+      // Media types are case-insensitive (RFC 9110 §8.3.1).
+      if (!/text\/html/i.test(contentType)) {
         await res.body?.cancel().catch(() => undefined);
         return void (await refuse());
       }
-      const body = (await res.text()).slice(0, MAX_BYTES);
+      // Streamed and cut at MAX_BYTES, the rest cancelled unread, so one navigation cannot fill the Worker's memory
+      // (PR #71 review).
+      const body = await readText(res);
       // The site's own policy stays enforced alongside ours, so nothing its publisher blocks runs here either: a header
       // value is a comma-separated list of policies, and each one applies (CSP3 §2.2 "serialized CSP list", §2.2.2,
       // https://www.w3.org/TR/CSP3/#csp-header) (PR #71 review).
