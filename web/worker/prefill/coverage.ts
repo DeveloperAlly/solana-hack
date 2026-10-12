@@ -1,0 +1,339 @@
+// The coverage map (issue #34; backlog B4, B5, B6; architecture §6.1 rows "Coverage map" and "Guided interview").
+// One pure implementation, for every caller (GET /api/brands/:id, the Journey screens, the Build screen): no database,
+// no model. From the brand's evidence rows, its interview answers and its open conflicts it computes a status per kit
+// section and per interview question, readiness, which interview steps can become "confirm", and the questions still
+// worth asking, ranked. Statuses are exactly PR #75's EvidenceStatus ('found' | 'partly' | 'needs-you',
+// web/src/ui/domain/EvidenceChip.tsx). Confidence is only ever the one fact extraction stored, computed from match type
+// and independent sources (extract/facts.ts confidenceOf, issue #64); nothing here asks a model or rates a fact itself.
+// Architecture: https://github.com/DeveloperAlly/solana-hack/blob/main/.agentic/what/context/brand_builder_architecture.md
+import { SECTIONS, type SectionId } from '../kit';
+import { normText } from '../extract/facts';
+import { reviewable, usableFact } from '../sources/registry';
+import type { EvidenceStatus, JourneyCoverage } from './contract';
+import { FIELDS, readers, sectionQuestions, type FieldSpec, type StepId } from './fields';
+
+/** An evidence row as the coverage map reads it (spec/db/001, 009 and 011; edited_from from PR #96's migration). */
+export interface CoverageFact {
+  id: string;
+  source_id?: string | null;
+  section: string;
+  claim: string;
+  quote?: string | null;
+  origin?: string | null;
+  trust?: string | null;
+  review_status?: string | null;
+  match?: string | null;
+  confidence?: string | null;
+  slot?: string | null;
+  slot_value?: string | null;
+  /** The comparable form of slot_value the database tells values apart by (spec/db/011). */
+  slot_key?: string | null;
+  /** The fact an owner statement rewords (PR #96, spec/db/012 there). */
+  edited_from?: string | null;
+  /** The owner's own decision on the fact (spec/db/011): confirmed, rejected or edited; null while undecided. */
+  owner_decision?: string | null;
+}
+/** An answers row (spec/db/001): one per interview step. */
+export interface CoverageAnswer { step: string; data: Record<string, string>; skipped: boolean }
+/** A fact_conflicts row (spec/db/011): one owner question per contradicted slot. Only open ones count. */
+export interface CoverageConflict { id: string; slot: string; evidence_ids: string[]; question: string; status?: string }
+export interface CoverageInput { evidence: CoverageFact[]; answers: CoverageAnswer[]; conflicts: CoverageConflict[] }
+
+export interface SectionCoverage {
+  section: SectionId;
+  title: string;
+  gate: string | null;
+  status: EvidenceStatus;
+  /** Facts in the section that are not rejected (waiting for review included). */
+  facts: number;
+  /** Of those, facts the allow-list lets into a kit (usableFact, ADR-011). */
+  usable: number;
+  /** The questions its state is aggregated from (fields.ts sectionQuestions). */
+  fields: string[];
+}
+export interface FieldCoverage {
+  id: string;
+  step: StepId;
+  key: string;
+  question: string;
+  status: EvidenceStatus;
+  basis: FieldBasis;
+  /** The owner answered it: nothing left to confirm. */
+  confirmed: boolean;
+  /** The owner skipped this step; it is not asked again unless they come back to it. */
+  skipped: boolean;
+  optional: boolean;
+  answer?: string;
+  /** Facts that stand in for the answer, best first: live, quoted, not disputed, in a section that answers it. */
+  factIds: string[];
+  /** Open conflicts whose facts are its only evidence: it is partly found, pending them, and asked through them. */
+  conflictIds: string[];
+  /** Filled from evidence rather than by the owner. */
+  prefilled: boolean;
+}
+/**
+ * How the interview treats a step: 'ask' when a required question has nothing behind it, 'confirm' when every
+ * question is prefilled or answered and the owner only confirms (#34: "fully found steps become confirm"), 'done' when
+ * the owner has answered every question.
+ */
+export interface StepCoverage { step: StepId; mode: 'ask' | 'confirm' | 'done'; fields: string[] }
+/** A question still asked: nothing answers it, or its sources disagree. A weak stand-in (fuzzily located, or never
+ * support-checked) is not a separate question: fieldState makes it partly, pending its card, and the owner confirms or
+ * corrects it there, so it is asked once (PR #101 review). */
+export type GapKind = 'missing' | 'conflict';
+export interface GapQuestion {
+  /** The field id, or `conflict:<id>`. */
+  id: string;
+  kind: GapKind;
+  question: string;
+  field?: string;
+  step?: StepId;
+  /** For a conflict: the kit sections its facts are in. */
+  sections: SectionId[];
+  optional: boolean;
+  minutes: number;
+  /** Expected information gain per owner minute (rankScore). */
+  score: number;
+  /** Facts behind the question: every fact on every side of a conflict; empty for a missing question. */
+  factIds: string[];
+  conflictId?: string;
+  sides?: { value: string; ids: string[] }[];
+}
+export interface CoverageMap extends JourneyCoverage {
+  sections: SectionCoverage[];
+  /** PR #96's summary fields, kept so its callers read the same names: sections not 'needs-you', of all six. */
+  covered: number;
+  total: number;
+  ratio: number;
+  fields: FieldCoverage[];
+  steps: StepCoverage[];
+  /** Ranked, highest expected information gain per minute first. */
+  questions: GapQuestion[];
+  /** Questions that block kit v1 (missing required questions and conflicts), and the owner minutes they take. */
+  questionsLeft: number;
+  minutesLeft: number;
+  /** §6.1's measure for #34: text questions, how many are prefilled from evidence, and the share. */
+  prefill: { fields: number; prefilled: number; percent: number };
+}
+
+const CONFIDENCE_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
+const rank = (c: string | null | undefined) => CONFIDENCE_RANK[c ?? ''] ?? 0;
+const isOwnerRow = (f: CoverageFact) => f.trust === 'owner_answer' || f.origin === 'owner_answer';
+
+/**
+ * Whether the owner has approved this fact themselves: recorded as owner_decision 'confirmed' (spec/db/011), and also
+ * visible where the system never approves on its own, for rows decided before that field: a third-party fact always
+ * starts proposed (ADR-011, sources/registry.ts initialReview), and so does a fuzzily located owned fact
+ * (extract/save.ts initialReviewFor). The owner's confirmation is their answer, so it is Evidenced (§12.3 rule 1).
+ */
+export const ownerApproved = (f: CoverageFact) => f.review_status === 'approved' && (f.owner_decision === 'confirmed' || f.trust === 'third_party' || (f.trust === 'owned' && f.match === 'fuzzy'));
+
+/**
+ * A fact that makes its section Evidenced under architecture §12.3 rule 1 (proposed): "at least one high-confidence
+ * fact from an owned source, or a direct owner answer". Usable (the allow-list) and not disputed, and one of: an owned
+ * fact at high confidence (an exact quote stated by two or more independent sources, extract/facts.ts confidenceOf);
+ * the owner's own statement in that section (an edit of a fact, PR #96); or a fact the owner approved.
+ */
+export function evidences(f: CoverageFact, contested: ReadonlySet<string>): boolean {
+  if (!usableFact(f) || contested.has(f.id)) return false;
+  if (isOwnerRow(f)) return ownerStatement(f);
+  return (f.trust === 'owned' && f.confidence === 'high') || ownerApproved(f);
+}
+
+/** Best first: Evidenced, then confidence, an exact quote, then id, so the order never depends on input order. */
+export function compareFacts(contested: ReadonlySet<string>) {
+  return (a: CoverageFact, b: CoverageFact) =>
+    Number(evidences(b, contested)) - Number(evidences(a, contested))
+    || rank(b.confidence) - rank(a.confidence)
+    || Number(b.match === 'exact') - Number(a.match === 'exact')
+    || a.id.localeCompare(b.id);
+}
+
+const gateWeight = (s: SectionId) => (SECTIONS[s].gate ? 2 : 1);
+
+/**
+ * The value of answering a question: the kit sections whose drafter reads it (kit.ts SECTIONS.from), a gated section
+ * counting twice because nothing past a gate is generated until it is approved (architecture §1 principle 4, §12.3
+ * rule 2). An optional question counts half.
+ */
+export const fieldValue = (f: FieldSpec) => readers(f).reduce((n, s) => n + gateWeight(s), 0) * (f.optional ? 0.5 : 1);
+
+/** How unsure the system is: nothing at all, or sources that disagree, is total. */
+export const UNCERTAINTY: Record<GapKind, number> = { missing: 1, conflict: 1 };
+/** Owner minutes to settle a conflict: one pick between quoted passages. */
+export const CONFLICT_MINUTES = 0.5;
+
+/**
+ * The ranking score, a stand-in for expected information gain per owner minute. Architecture §6.1 ("Coverage map")
+ * asks for questions only about missing, weak or conflicting slots, "ranked by a simple stand-in for expected
+ * information gain", citing MediQ (https://arxiv.org/abs/2406.00922): asking only when unsure improved accuracy, while
+ * prompting a model to ask made it worse. So no model picks the questions. Gain is uncertainty (UNCERTAINTY) times
+ * value (fieldValue); dividing by the question's minutes (§5) spends the owner's time where it buys the most, which is
+ * what #34's "under 5 minutes to kit v1" measures.
+ */
+export const rankScore = (kind: GapKind, value: number, minutes: number) => Math.round((UNCERTAINTY[kind] * value / Math.max(minutes, 0.1)) * 1000) / 1000;
+
+const answerOf = (answers: CoverageAnswer[], f: FieldSpec) => {
+  const a = answers.find((x) => x.step === f.step);
+  if (!a || a.skipped) return { text: '', skipped: !!a?.skipped };
+  return { text: (a.data?.[f.key] ?? '').trim(), skipped: false };
+};
+
+/** Why a question has its state (FieldState.basis). */
+export type FieldBasis = 'answer' | 'evidence' | 'pending confirmation' | 'pending conflict' | 'skipped' | 'none';
+export interface FieldState { status: EvidenceStatus; basis: FieldBasis; factIds: string[]; conflictFactIds: string[] }
+
+/**
+ * The one rule for a question's state, which the coverage map, the counts and the Journey cards all read, so a
+ * question is counted once whatever its state (PR #101 review). `candidates` are the live facts that could answer it:
+ * read from a source, quoted, not rejected, in a section that answers the question (fields.ts answeredBy). By
+ * architecture §12.3 rule 1, applied per question:
+ * - the owner's answer: found ('answer');
+ * - a step the owner skipped: needs you, not asked again ('skipped');
+ * - a candidate that is Evidenced (evidences(): high confidence, an owner statement, or owner-approved): found;
+ * - otherwise a candidate not in an open conflict, usable or waiting for review: partly, pending the owner's
+ *   confirmation on its card. A proposed fact counts here as pending coverage only; it never backs a kit until approved,
+ *   since usableFact stays the gate for drafting and registration (ADR-011);
+ * - only candidates in open conflicts: partly, pending the conflict, asked once as that conflict;
+ * - nothing: needs you.
+ */
+export function fieldState(answer: string, skipped: boolean, candidates: CoverageFact[], contested: ReadonlySet<string>): FieldState {
+  if (answer) return { status: 'found', basis: 'answer', factIds: [], conflictFactIds: [] };
+  if (skipped) return { status: 'needs-you', basis: 'skipped', factIds: [], conflictFactIds: [] };
+  const order = compareFacts(contested);
+  const free = candidates.filter((x) => !contested.has(x.id)).sort(order);
+  const disputed = candidates.filter((x) => contested.has(x.id)).map((x) => x.id).sort();
+  if (free.some((x) => evidences(x, contested))) return { status: 'found', basis: 'evidence', factIds: free.map((x) => x.id), conflictFactIds: disputed };
+  if (free.length) return { status: 'partly', basis: 'pending confirmation', factIds: free.map((x) => x.id), conflictFactIds: disputed };
+  if (disputed.length) return { status: 'partly', basis: 'pending conflict', factIds: [], conflictFactIds: disputed };
+  return { status: 'needs-you', basis: 'none', factIds: [], conflictFactIds: [] };
+}
+
+/**
+ * A fact that can answer a question: a quoted fact the owner can accept or reject (sources/registry.ts reviewable:
+ * read from a source, owned or third-party), or the owner's own statement in a kit section; never an assumption, which
+ * the owner cannot decide and which therefore never stands in for a question; never rejected. Its review status and
+ * disputes are weighed by fieldState. The Journey cards show the reviewable ones, and only those.
+ */
+export const candidateFact = (f: CoverageFact) => f.review_status !== 'rejected' && ((reviewable(f) && !!f.quote) || ownerStatement(f));
+
+/**
+ * The owner's own statement in a kit section: a rewording of a fact (PR #96 editFact, edited_from set) or the owner's
+ * answer to a disagreement (spec/db/011 resolve_fact_conflict, slot set). It answers what the facts it replaces
+ * answered, and evidences it (§12.3 rule 1, "a direct owner answer"), but it is not a card: the owner changes it by
+ * editing. Interview answer rows are not statements here, though the origin and voice steps share a kit section's
+ * name: they count through the answers table, one question each.
+ */
+export const ownerStatement = (f: CoverageFact) => isOwnerRow(f) && f.section in SECTIONS && f.review_status === 'approved' && (!!f.edited_from || !!f.slot);
+
+/**
+ * A section's state from its questions' states (fields.ts sectionQuestions), with no rule of its own over evidence
+ * (PR #101 review): all found is found, all needs-you is needs-you, anything else (a partly found question, or a mix)
+ * is partly.
+ */
+export function aggregate(states: EvidenceStatus[]): EvidenceStatus {
+  if (states.length && states.every((x) => x === 'found')) return 'found';
+  if (!states.length || states.every((x) => x === 'needs-you')) return 'needs-you';
+  return 'partly';
+}
+
+export function coverageMap(input: CoverageInput): CoverageMap {
+  const live = input.evidence.filter((f) => f.review_status !== 'rejected');
+  const liveIds = new Set(live.map((f) => f.id));
+  const conflicts = input.conflicts.filter((c) => (c.status ?? 'open') === 'open' && c.evidence_ids.some((id) => liveIds.has(id)));
+  const contested = new Set(conflicts.flatMap((c) => c.evidence_ids));
+  const candidates = live.filter(candidateFact);
+
+  const fields: FieldCoverage[] = FIELDS.map((f) => {
+    const { text: answer, skipped } = answerOf(input.answers, f);
+    const st = fieldState(answer, skipped, candidates.filter((x) => (f.answeredBy as readonly string[]).includes(x.section)), contested);
+    const conflictIds = st.basis === 'pending conflict' ? conflicts.filter((c) => c.evidence_ids.some((id) => st.conflictFactIds.includes(id))).map((c) => c.id) : [];
+    return {
+      id: f.id, step: f.step, key: f.key, question: f.question, status: st.status, basis: st.basis, confirmed: st.basis === 'answer', skipped: st.basis === 'skipped', optional: f.optional,
+      ...(answer ? { answer } : {}), factIds: st.factIds, conflictIds, prefilled: st.basis === 'evidence' || st.basis === 'pending confirmation',
+    };
+  });
+  const fieldOf = new Map(fields.map((f) => [f.id, f]));
+
+  const sectionIds = Object.keys(SECTIONS) as SectionId[];
+  const sections: SectionCoverage[] = sectionIds.map((s) => {
+    const own = live.filter((x) => x.section === s);
+    const questions = sectionQuestions(s).map((f) => f.id);
+    const status = aggregate(questions.map((id) => fieldOf.get(id)!.status));
+    return { section: s, title: SECTIONS[s].title, gate: SECTIONS[s].gate, status, facts: own.length, usable: own.filter((x) => usableFact(x)).length, fields: questions };
+  });
+  const found = sections.filter((s) => s.status === 'found').length;
+  const partly = sections.filter((s) => s.status === 'partly').length;
+  const covered = found + partly;
+
+  const steps: StepCoverage[] = [...new Set(FIELDS.map((f) => f.step))].map((step) => {
+    const own = fields.filter((f) => f.step === step);
+    const mode = own.some((f) => !f.optional && f.status === 'needs-you' && !f.skipped) ? 'ask' : own.every((f) => f.confirmed || f.optional || f.skipped) ? 'done' : 'confirm';
+    return { step, mode, fields: own.map((f) => f.id) };
+  });
+
+  const byId = new Map(live.map((f) => [f.id, f]));
+  const questions: GapQuestion[] = [];
+  for (const f of fields) {
+    const spec = FIELDS.find((x) => x.id === f.id)!;
+    // Only a question nothing answers is asked here. Every other state is settled where it is shown: a stand-in,
+    // weak or not, on its card (fieldState: partly, pending confirmation); a disputed one through its conflict, below.
+    const kind: GapKind | null = f.basis === 'none' ? 'missing' : null;
+    if (!kind) continue;
+    questions.push({ id: f.id, kind, question: f.question, field: f.id, step: f.step, sections: [spec.asks], optional: f.optional, minutes: spec.minutes, score: rankScore(kind, fieldValue(spec), spec.minutes), factIds: [] });
+  }
+  for (const c of conflicts) {
+    const facts = c.evidence_ids.map((id) => byId.get(id)).filter((x): x is CoverageFact => !!x).sort(compareFacts(contested));
+    const secs = [...new Set(facts.map((x) => x.section).filter((s): s is SectionId => s in SECTIONS))];
+    const value = secs.reduce((n, s) => n + gateWeight(s), 0) || 1;
+    const sides = new Map<string, { value: string; ids: string[] }>();
+    // Sides as the database tells values apart (slot_key, spec/db/011), with the same normaliser for older rows.
+    for (const x of facts.filter((y) => y.review_status !== 'rejected')) {
+      const k = x.slot_key || normText(x.slot_value ?? '');
+      const side = sides.get(k) ?? { value: (x.slot_value ?? '').trim(), ids: [] };
+      side.ids.push(x.id);
+      sides.set(k, side);
+    }
+    questions.push({ id: `conflict:${c.id}`, kind: 'conflict', question: c.question, sections: secs, optional: false, minutes: CONFLICT_MINUTES, score: rankScore('conflict', value, CONFLICT_MINUTES), factIds: facts.map((x) => x.id), conflictId: c.id, sides: [...sides.values()] });
+  }
+  // Highest gain per minute first; ties in interview order (§12.3 rule 2), conflicts after questions on equal score.
+  const pos = (q: GapQuestion) => (q.field ? FIELDS.findIndex((f) => f.id === q.field) : FIELDS.length);
+  questions.sort((a, b) => b.score - a.score || pos(a) - pos(b) || a.id.localeCompare(b.id));
+  const blocking = questions.filter((q) => !q.optional);
+
+  const text = fields.filter((f) => FIELDS.find((x) => x.id === f.id)!.textAnswer);
+  const prefilled = text.filter((f) => f.prefilled).length;
+  return {
+    sections,
+    found,
+    partly,
+    needsYou: sections.length - covered,
+    // Readiness: a found section counts whole and a partly found one half, since it still needs the owner's
+    // confirmation. On the J1-Read board's sample, 3 found and 1 partly of 6 is the 58% drawn there (#75 fixtures).
+    percent: Math.round((100 * (found + partly / 2)) / sections.length),
+    covered,
+    total: sections.length,
+    ratio: covered / sections.length,
+    fields,
+    steps,
+    questions,
+    questionsLeft: blocking.length,
+    minutesLeft: Math.round(blocking.reduce((n, q) => n + q.minutes, 0) * 10) / 10,
+    prefill: { fields: text.length, prefilled, percent: text.length ? Math.round((100 * prefilled) / text.length) : 0 },
+  };
+}
+
+/** The JourneyCoverage numbers alone (PR #75 types.ts), for ReadData. */
+export const journeyCoverage = (m: Pick<CoverageMap, 'found' | 'partly' | 'needsYou' | 'percent'>): JourneyCoverage => ({ found: m.found, partly: m.partly, needsYou: m.needsYou, percent: m.percent });
+
+/**
+ * Field-status accuracy against gold labels (architecture §13.2, "Coverage field accuracy (F2) >= 90%", a hard gate).
+ * `gold` maps a field id or kit section to its labelled status; anything unlabelled is not scored. The F2 labels are the
+ * owner's to write (issue #65), so this is measured only once they exist.
+ */
+export function statusAccuracy(m: CoverageMap, gold: Record<string, EvidenceStatus>) {
+  const got = new Map<string, EvidenceStatus>([...m.fields.map((f) => [f.id, f.status] as const), ...m.sections.map((s) => [s.section, s.status] as const)]);
+  const scored = Object.entries(gold).filter(([k]) => got.has(k));
+  const correct = scored.filter(([k, v]) => got.get(k) === v).length;
+  return { scored: scored.length, correct, accuracy: scored.length ? correct / scored.length : null, wrong: scored.filter(([k, v]) => got.get(k) !== v).map(([k, v]) => ({ id: k, gold: v, got: got.get(k)! })) };
+}

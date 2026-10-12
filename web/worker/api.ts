@@ -10,8 +10,9 @@ import { draftChecks } from './create/checks';
 import { activeRun, activeRuns, draftRun, getRun, ingestSource, startRun } from './engine/api';
 import { addSocialExport, findCompetitors, listCompetitors, uploadDocument } from './intake';
 import type { WaitUntil } from './engine/executor';
-import { usableFact } from './sources/registry';
+import { reviewable, usableFact } from './sources/registry';
 import { approvePost, contentHash, editPost, rejectPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
+import { parseResolution, resolveConflict } from './prefill/decide';
 
 /** The most posts the Create list will show; older ones stay in the database. */
 export const MAX_POSTS = 500;
@@ -301,8 +302,6 @@ export async function patchBrand(env: Env, brand: Brand, patch: Record<string, s
   return { brand: row, reapprove };
 }
 
-/** Trust classes whose facts the owner reviews; owner answers are changed by editing the answer, assumptions by redrafting. */
-const REVIEWABLE = ['owned', 'third_party'];
 
 /**
  * The owner approves or rejects one fact (issue #57). Third-party facts start proposed and enter a kit or back a post
@@ -317,7 +316,7 @@ export async function reviewEvidence(env: Env, brand: Brand, id: string, decisio
   const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
   const [row] = await db.select<Evidence>(env, 'evidence', f);
   if (!row) throw new HttpError(404, 'fact not found');
-  if (!REVIEWABLE.includes(row.trust ?? '')) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
+  if (!reviewable(row)) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
   // Read before the update: the database trigger (spec/db/010) deletes the correction as part of approving the source.
   const [correction] = decision === 'approved' ? await db.select<{ id: string }>(env, 'evidence', `${db.eq('brand_id', brand.id)}&${db.eq('edited_from', id)}&select=id&limit=1`) : [];
   const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision, owner_decision: decision === 'approved' ? 'confirmed' : 'rejected', owner_decided_by: by, owner_decided_at: new Date().toISOString() });
@@ -429,6 +428,15 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
     const b = await body(req);
     if (typeof b.claim === 'string') return json(await editFact(env, brand.id, p[4], b.claim));
     return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20), user.id));
+  }
+  // POST /api/brands/:id/conflicts/:cid/resolve  -> {conflict, kept, rejected, answer, stale}
+  //   {mode: 'keep', keep: [factId, ...]} | {mode: 'reject_all'} | {mode: 'answer', answer: {text, value}}
+  // The owner settles a disagreement between sources (backlog B3a, issue #34). The body is checked whole first
+  // (prefill/decide.ts parseResolution: one mode, no other fields); then one transaction (spec/db/011
+  // resolve_fact_conflict).
+  if (p[3] === 'conflicts' && p.length === 6 && p[5] === 'resolve' && m === 'POST') {
+    if (!/^[0-9a-f-]{36}$/i.test(p[4])) throw new HttpError(404, 'conflict not found');
+    return json(await resolveConflict(env, user, brand, p[4], parseResolution(await body(req))));
   }
   // Sources converted when they are added, then read into fact extraction (intake.ts; R9 on #38, #33): a document
   // upload and the owner's own social export. Competitor candidates for the positioning step (#35).

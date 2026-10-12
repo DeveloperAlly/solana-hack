@@ -50,6 +50,15 @@ export function factTrust(kind: SourceKind): { trust: Trust; review_status: Revi
   return { trust, review_status: initialReview(trust) };
 }
 
+/**
+ * Trust classes of facts the owner can accept or reject (api.ts reviewEvidence): facts read from a source, owned or
+ * third-party. An owner answer is changed by editing the answer, and an assumption by redrafting, so neither is
+ * reviewable. One definition, read by the review route, the coverage map and the Journey cards (issue #34), so no card
+ * offers a decision the route would refuse and no unreviewable row stands in for a question.
+ */
+export const REVIEWABLE_TRUST: readonly Trust[] = ['owned', 'third_party'];
+export const reviewable = (e: { trust?: string | null }) => (REVIEWABLE_TRUST as readonly string[]).includes(e.trust ?? '');
+
 /** Trust classes whose approved facts may enter a kit and back a post. Assumptions never do. */
 export const USABLE_TRUST: readonly Trust[] = ['owned', 'owner_answer', 'third_party'];
 
