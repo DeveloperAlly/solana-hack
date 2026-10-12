@@ -1,0 +1,24 @@
+/* Canvas ".proto" note: dashed, quiet, clearly not part of the product. */
+.bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--wl-space-2) var(--wl-space-4);
+  padding: var(--wl-space-1) var(--wl-space-3);
+  border: var(--wl-border-width-default) dashed var(--wl-border-input);
+  border-radius: var(--wl-radius-control);
+  font-size: var(--wl-font-size-sm);
+}
+.label { color: var(--wl-text-secondary); font-weight: var(--wl-font-weight-semibold); }
+.list { display: flex; flex-wrap: wrap; gap: var(--wl-space-1); margin: 0; padding: 0; list-style: none; }
+.item {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--wl-control-target-min);
+  padding: 0 var(--wl-space-3);
+  border-radius: var(--wl-radius-control);
+  color: var(--wl-text-primary);
+}
+.item:hover { background: var(--wl-bg-subtle); }
+.active { background: var(--wl-bg-inverse); color: var(--wl-text-inverse); text-decoration: none; font-weight: var(--wl-font-weight-semibold); }
+.active:hover { background: var(--wl-bg-inverse); }

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import axe from 'axe-core';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { Build } from './Build';
+import { expectNoAxeViolations } from '../../test/axe';
 
 // Kit integrity in the Build UI (issue #31): the kit step names unapproved and stale sections, and an answer step
 // shows the drafts its save made stale.
@@ -42,8 +42,7 @@ describe('Build kit integrity', () => {
     const stale = screen.getByText(/These drafts used answers or sources you have since changed/);
     expect(within(stale.parentElement!).getByRole('link', { name: 'Origin story' })).toHaveAttribute('href', '/build/origin-draft');
     expect(screen.getByRole('button', { name: 'Register kit v1' })).toBeDisabled();
-    const r = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
-    expect(r.violations).toHaveLength(0);
+    await expectNoAxeViolations(container);
   });
   it('an answer save that made drafts stale says so on that step instead of moving on', async () => {
     const { puts } = mount('/build/origin', { answer: {}, stale: ['purpose', 'origin'] });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import axe from 'axe-core';
 import { screen } from '@testing-library/react';
 import { renderWithRouter } from '../../test/render';
+import { expectNoAxeViolations } from '../../test/axe';
 import { App } from '../../App';
 import { kitMarkdown } from '../hub/Brand';
 import type { BrandState } from '../build/Build';
@@ -11,10 +11,8 @@ describe('public pages', () => {
     it(`${path} renders its heading with no axe violations`, async () => {
       const { container } = renderWithRouter(<App />, path);
       expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
-      // jsdom cannot message iframes; the deployed Playwright axe run covers the /system preview frame.
-      const r = await axe.run(container, { iframes: false, rules: { 'color-contrast': { enabled: false } } });
-      if (r.violations.length) console.error(JSON.stringify(r.violations, null, 2));
-      expect(r.violations).toHaveLength(0);
+      // jsdom cannot message iframes; the deployed Playwright axe run covers the /system preview frame (see the helper).
+      await expectNoAxeViolations(container);
     });
   }
 });

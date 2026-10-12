@@ -1,0 +1,3 @@
+.row { display: flex; align-items: flex-start; gap: var(--wl-space-4); }
+.text { display: flex; flex-direction: column; gap: var(--wl-space-1); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--wl-space-3); }
