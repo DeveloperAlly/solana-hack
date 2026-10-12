@@ -39,6 +39,26 @@ async function waitFor(url, ms = 30000) {
   throw new Error(`server not ready: ${url}`);
 }
 
+/**
+ * A fresh deploy (BASE_URL) can serve the new index before every edge has its new hashed assets, so the first loads
+ * may render nothing for a few seconds (preview run on 7af126d: "waiting for locator('main')"). Wait until the
+ * gallery index renders, for up to 90 s, before checking anything; a build that never renders still fails here.
+ */
+async function waitForRendered(page, path, ms = 90000) {
+  const end = Date.now() + ms;
+  let last;
+  while (Date.now() < end) {
+    try {
+      await load(page, path);
+      return;
+    } catch (e) {
+      last = e;
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+  throw new Error(`${base}${path} never rendered: ${last?.message ?? last}`);
+}
+
 async function load(page, path) {
   const res = await page.goto(base + path, { waitUntil: 'load', timeout: 30000 });
   if (!res || !res.ok()) throw new Error(`${path}: HTTP ${res ? res.status() : 'none'}`);
@@ -71,7 +91,7 @@ try {
 
   // Discover screens from the index, then states from each screen's switcher.
   const page = await context.newPage();
-  await load(page, '/screens');
+  await (external ? waitForRendered(page, '/screens') : load(page, '/screens'));
   const screens = [...new Set(await page.locator('main a[href^="/screens/"]').evaluateAll((as) => as.map((a) => new URL(a.href).pathname)))];
   if (!screens.length) throw new Error('no screens linked from /screens');
   const targets = ['/screens'];

@@ -155,11 +155,13 @@ export function summaryScore(summary: RatingSummary): number | null {
 }
 
 /** The one gate for registering a rating (Event-Rating's Register button and its reason read it). */
-export function ratingGate(open: boolean, proof: AttendanceProof, draft: RatingDraftScores): { blocking: boolean; label: string } {
+export function ratingGate(open: boolean, proof: AttendanceProof, draft: RatingDraftScores, line: string): { blocking: boolean; label: string } {
   if (!open) return { blocking: true, label: 'Rating opens after the event ends.' };
   if (proof.status !== 'proven') return { blocking: true, label: 'Prove you went first.' };
   const missing = ratingQuestions.filter((q) => draft[q.id] === null).length;
   if (missing > 0) return { blocking: true, label: `Choose ${missing} more ${missing === 1 ? 'rating' : 'ratings'}.` };
+  // A complete rating has its line (Codex review on PR 102): five scores and "In a line".
+  if (!line.trim()) return { blocking: true, label: 'Write your line: what should people know?' };
   return { blocking: false, label: 'Ready to register.' };
 }
 

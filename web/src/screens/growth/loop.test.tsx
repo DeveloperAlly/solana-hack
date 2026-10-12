@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { Link, MemoryRouter, Route, Routes } from 'react-router';
 import { GalleryScreen } from '../../gallery/Gallery';
 import { screenPath } from '../../gallery/screenPath';
 import { planTemplates } from '../../domain/event';
@@ -10,6 +10,8 @@ import { growthArtboards } from './paths';
 import { loopStore } from '../../flows/loop/store';
 import { Quests as QuestsScreen } from './Quests';
 import { quests } from './quests.fixtures';
+import { EventRating as EventRatingScreen } from './Event-Rating';
+import { eventRating as eventRatingData } from './board.fixtures';
 import { EventsBoard as EventsBoardScreen } from './Events-Board';
 import { eventsBoard } from './board.fixtures';
 import { DistributeAdapt as AdaptScreen } from './Distribute-Adapt';
@@ -585,5 +587,48 @@ describe('Event-Rating knows the viewer’s rating from loaded data (Codex revie
     expect(screen.getAllByText(/58 registered · 58 shown/)[0]).toBeInTheDocument();
     expect(screen.getByText('Edited, see earlier versions (1)')).toBeInTheDocument();
     expect(screen.getByText(/Version 2; your earlier versions stay visible/)).toBeInTheDocument();
+  });
+});
+
+describe('Event-Rating: Codex round on PR 102 at 3bd476b', () => {
+  it('Register stays disabled until the line is written', async () => {
+    const user = at(withParam('Event-Rating', 'event', 'b-demo'));
+    await user.type(screen.getByLabelText('Guest-list email'), 'attendee@example.com');
+    await user.click(screen.getByRole('button', { name: 'Check the guest list' }));
+    await screen.findByText('You went');
+    for (const label of ['Talks worth it', 'Well run', 'Right people', 'Sponsor value', 'Would go again']) await user.selectOptions(screen.getByLabelText(label), '4');
+    const register = screen.getByRole('button', { name: 'Register my rating' });
+    expect(register).toBeDisabled();
+    expect(register).toHaveAccessibleDescription('Write your line: what should people know?');
+    await user.type(screen.getByLabelText('In a line'), '   ');
+    expect(register).toBeDisabled();
+    await user.type(screen.getByLabelText('In a line'), 'Worth the trip');
+    expect(register).toBeEnabled();
+  });
+
+  it('a removed rating of the viewer’s stays a tombstone: no Edit, the means and count unchanged', () => {
+    const data = { ...eventRatingData, events: eventRatingData.events.map((e) => (e.id === 'b-vip' ? { ...e, viewerRatingId: 'r-vip-3', ratings: e.ratings.map((r) => (r.id === 'r-vip-3' ? { ...r, author: 'You' as const } : r)) } : e)) };
+    render(<MemoryRouter><EventRatingScreen data={data} /></MemoryRouter>);
+    expect(screen.getByText('Your rating was removed')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit my rating' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Register my rating' })).toBeNull();
+    expect(screen.getAllByText(/41 registered · 40 shown/)[0]).toBeInTheDocument();
+  });
+
+  it('a proof started for one event never proves attendance at the next one opened in place', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/r?event=b-main']}>
+        <Routes><Route path="/r" element={<><EventRatingScreen data={eventRatingData} /><Link to="/r?event=b-vip">Open the VIP dinner</Link></>} /></Routes>
+      </MemoryRouter>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Prove I went with Luma' })); // b-main: checked in, would succeed
+    await user.click(screen.getByRole('link', { name: 'Open the VIP dinner' }));
+    expect(screen.getByRole('heading', { level: 1, name: '[Summit] VIP dinner' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Prove I went with Luma' })); // b-vip: not checked in
+    expect(await screen.findByText('We couldn’t confirm you went')).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 500));
+    expect(screen.queryByText('You went')).toBeNull();
+    expect(screen.getByLabelText('Talks worth it')).toBeDisabled();
   });
 });

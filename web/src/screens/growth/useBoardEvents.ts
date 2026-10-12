@@ -14,6 +14,8 @@ export function useBoardEvents(events: BoardEvent[]): BoardEvent[] {
     const mine = session.myRatings[e.id];
     if (!mine) return e;
     const loaded = e.ratings.find((r) => r.id === e.viewerRatingId);
+    // A removed rating is out of the averages: nothing about it moves them (Codex review on PR 102).
+    if (loaded?.removal) return e;
     if (loaded) {
       return { ...e, summary: replaceInSummary(e.summary, currentVersion(loaded).scores, currentVersion(mine).scores), ratings: e.ratings.map((r) => (r.id === loaded.id ? mine : r)) };
     }
