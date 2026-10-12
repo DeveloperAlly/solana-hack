@@ -94,7 +94,7 @@ Route `/build/basics, then /build/sources` · depends on P0: 009 · QUOTES · pl
 
 **Say:** I give it our name and our website. It reads the site and pulls out what we actually say about ourselves, each fact with the line it came from.
 
-**Recording:** P0 build: show the stored quote under each fact. Website in Basics must be jamjam.tech or the facts are treated as third-party. FALLBACK if quotes don't ship: hold on the alert 'Read it. {n} facts saved with quotes from the page.' and say: JamJam reads the page and saves only facts it can quote from it.
+**Recording:** P0 build: show the stored quote under each fact. Website in Basics must be jamjam.tech or the facts are treated as third-party. In Your links, paste the readable jamjam.tech page (must-have list), not the home page, which has no readable text. FALLBACK if quotes don't ship: hold on the alert 'Read it. {n} facts saved with quotes from the page.' and say: JamJam reads the page and saves only facts it can quote from it.
 
 ### Beat 04 · 0:36–0:52 · Short questions, a chosen voice, a strict gate
 
@@ -196,7 +196,8 @@ Route `end card (edited, not app copy)` · depends on NO DEPENDENCY · placehold
 
 | Priority | Need | Why, and the check |
 |---|---|---|
-| P0 | Migration 009 applied | Build is broken live until `spec/db/009_evidence_trust.sql` (on main since [PR #63](https://github.com/DeveloperAlly/solana-hack/pull/63); this branch predates it) is applied: ingest on main writes `sources.kind` (`web/worker/api.ts`), which 009 creates ([CPO audit](https://github.com/DeveloperAlly/solana-hack/pull/94), 2026-10-13). Apply it, then run the full path once. |
+| P0 | Migration 009 applied | Ingest writes `sources.kind` (`web/worker/api.ts`), which `spec/db/009_evidence_trust.sql` creates ([CPO audit](https://github.com/DeveloperAlly/solana-hack/pull/94)). Whether 009 is applied live is in STATE.md; check it at recording time, apply it if not, then run the full path once. |
+| P0 | A readable page on jamjam.tech | jamjam.tech is a single-page app: its HTML is an empty `#root` and a script (`web/index.html`), and the page reader strips scripts and rejects pages under 40 readable characters (`web/worker/ingest.ts`), so beat 03 fails with "that page has almost no readable text". Fix before recording: publish a server-rendered page on jamjam.tech with JamJam's own copy (for example `/about`), approved by the owner, and paste that link in beat 03. |
 | P0 | AI model live | Every draft step returns 503 without `OPENROUTER_API_KEY` (`web/worker/llm.ts`); `aiConfigured` is not confirmed in STATE.md. Check `/api/health`. |
 | P0 | Show the quote under each fact | Render the stored quote under each fact in Your links and "Where this came from"; the core promise (a fact stays only with its quote) depends on it. Whether it has shipped is in STATE.md; check before recording. Fallback VO if it does not ship: "JamJam reads the page and saves only facts it can quote from it." |
 | P0 | Claims block rehearsed | Under Strict, adding "Used by 10,000 brands." must return "Blocked by your claims gate". The gate is an LLM call (`posts.ts` policyCheck); test it live first. |
