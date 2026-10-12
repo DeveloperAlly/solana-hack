@@ -13,8 +13,11 @@ export const PAGE_TEXT_MAX = 20_000;
 export interface SourceMeta {
   /** Pages (or documents) read. */
   pages: number;
-  /** Estimated external cost in US dollars for this read (0 when only free services were used). */
-  cost: number;
+  /**
+   * Estimated external cost in US dollars for this read (0 when only free services were used). null when it is not
+   * known: the provider reported none and publishes no price for the call (Codex review on PR #100), never a guess.
+   */
+  cost: number | null;
   /** Wall-clock time of the read, in milliseconds. */
   ms: number;
   /** Which path produced the text: exa, fetch, paste or tomarkdown. */
@@ -47,7 +50,8 @@ export type FailureCode =
   | 'unsupported_type' // a file type the converter does not accept
   | 'too_large' // over the upload limit
   | 'empty' // read, but nothing to use
-  | 'not_configured'; // the service this adapter needs is not set up
+  | 'not_configured' // the service this adapter needs is not set up
+  | 'unavailable'; // the service failed in a way that may pass (timeout, rate limit, 5xx): worth a retry
 
 export interface SourceFail {
   ok: false;
@@ -81,7 +85,7 @@ export function clock() {
   const notes: string[] = [];
   return {
     notes,
-    meta: (pages: number, cost: number, via?: string): SourceMeta => ({ pages, cost: Math.round(cost * 10000) / 10000, ms: Date.now() - start, via, notes }),
+    meta: (pages: number, cost: number | null, via?: string): SourceMeta => ({ pages, cost: cost === null ? null : Math.round(cost * 10000) / 10000, ms: Date.now() - start, via, notes }),
   };
 }
 

@@ -1107,6 +1107,48 @@ describe('conflicts stay true in the database (spec/db/011 rederive_conflicts, r
     const labels = Object.fromEntries([...sql.matchAll(/^  \('(\w+)', '([^']+)'\)/gm)].map(([, k, v]) => [k, v]));
     expect(labels).toEqual(SLOTS);
   });
+  it('Codex P1 on PR #91: approving one side of an open conflict is refused (409) so it never becomes usable', async () => {
+    const { site, news, conflict } = await twoSources();
+    const r = await call('PATCH', `/brands/${BRAND}/evidence/${news.id}`, { review_status: 'approved' });
+    expect(r).toEqual({ status: 409, body: { error: 'other sources disagree with this fact: resolve the disagreement first' } });
+    expect([site.review_status, news.review_status, conflict.status, usableFact(news)]).toEqual(['proposed', 'proposed', 'open', false]);
+  });
+  it('Codex P1 on PR #91: the save is one transaction: a failure in its conflict or confidence part leaves nothing of the run', async () => {
+    for (const point of ['conflicts', 'confidence']) {
+      await seedTables();
+      db.tables.brands[0].website = 'https://jamjam.tech';
+      db.failInside = point;
+      step = fakeStep();
+      await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', url: 'https://jamjam.tech' });
+      expect(db.tables.runs[0]).toMatchObject({ status: 'failed' });
+      expect([db.tables.evidence.length, (db.tables.fact_conflicts ?? []).length]).toEqual([0, 0]);
+      expect(db.tables.sources[0]).toMatchObject({ status: 'failed' });
+      expect(db.tables.sources[0].source_text ?? null).toBeNull();
+    }
+    // The same save with nothing failing writes the facts, their confidence and the source together.
+    await seedTables();
+    db.tables.brands[0].website = 'https://jamjam.tech';
+    step = fakeStep();
+    await call('POST', `/brands/${BRAND}/runs`, { kind: 'extract_facts', url: 'https://jamjam.tech' });
+    expect(db.tables.runs[0]).toMatchObject({ status: 'done' });
+    expect(evidence().length).toBe(5);
+    expect(evidence().every((e) => e.confidence && e.fact_key && e.source_key === 'host:jamjam.tech')).toBe(true);
+  });
+  it('owner decisions are recorded apart from review_status: confirming an already approved fact is kept (PR #101 review)', async () => {
+    await extract('https://jamjam.tech');
+    const approved = evidence().find((e) => e.review_status === 'approved')!;
+    expect(approved.owner_decision ?? null).toBeNull();
+    expect((await call('PATCH', `/brands/${BRAND}/evidence/${approved.id}`, { review_status: 'approved' })).status).toBe(200);
+    expect(approved).toMatchObject({ review_status: 'approved', owner_decision: 'confirmed', owner_decided_by: 'u', owner_decided_at: expect.any(String) });
+    const { site, news, conflict } = await (async () => {
+      await extract('https://news.example/jamjam');
+      const s2 = evidence().find((e) => e.slot === 'founded' && e.quote.includes('2020'))!;
+      const n2 = evidence().find((e) => e.slot === 'founded' && e.quote.includes('2021'))!;
+      return { site: s2, news: n2, conflict: open()[0] };
+    })();
+    const out = await resolveFactConflict(envWith, { brandId: BRAND, conflictId: conflict.id as string, by: 'u', answer: { section: 'origin', claim: 'Founded in 2019.', value: '2019', editedFrom: news.id as string } });
+    expect([site.owner_decision, news.owner_decision, db.tables.evidence.find((e) => e.id === out.answer)!.owner_decision]).toEqual(['rejected', 'edited', 'edited']);
+  });
   it('the question is worded from the sides still on the conflict', async () => {
     const { conflict } = await twoSources();
     await extract('https://other.example/profile');
@@ -1253,6 +1295,7 @@ describe('consumers: the onboarding journey shape (PR #75 JourneyFact, served by
     // The source excerpt: 1,999 characters then an emoji across the 2,000-unit mark is cut before the emoji.
     const text = `${'a'.repeat(1999)}😀 and more`;
     db.tables.sources.push({ id: 'src-x', brand_id: BRAND, url: 'https://jamjam.tech/', status: 'queued' });
+    db.tables.runs.push({ id: 'run-x', brand_id: BRAND, kind: 'extract_facts', workflow_version: 1, status: 'running' });
     await saveExtractedFacts(env, { id: 'run-x', brand_id: BRAND }, { sourceId: 'src-x', read: { ...read, text, pages: [] }, facts: [], dropped: {} });
     expect(db.tables.sources.find((x) => x.id === 'src-x')).toMatchObject({ text_excerpt: 'a'.repeat(1999), source_text: text });
   });

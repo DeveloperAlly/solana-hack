@@ -6,6 +6,7 @@ import { chat, parseJson, SLOP_RULES } from './llm';
 import { registerKitAttestation, registrarFromSecret } from './registry';
 import { draftChecks } from './create/checks';
 import { activeRun, activeRuns, draftRun, getRun, ingestSource, startRun } from './engine/api';
+import { addSocialExport, findCompetitors, listCompetitors, uploadDocument } from './intake';
 import type { WaitUntil } from './engine/executor';
 import { usableFact } from './sources/registry';
 import { approvePost, contentHash, editPost, rejectPost, evidenceBatchCount, ledger, MAX_EVIDENCE_BATCHES, polishPost, registerPost, undoPost, verifyText, type Post } from './posts';
@@ -42,7 +43,10 @@ async function brandState(env: Env, brand: Brand) {
   const f = db.eq('brand_id', brand.id);
   const [answers, sources, evidence, sections, gates, kits] = await Promise.all([
     db.select<Answer>(env, 'answers', f),
-    db.select(env, 'sources', `${f}&select=id,url,title,status,error,fetched_at&order=created_at`),
+    // The brand's own sources and pages about it. Competitor candidates (#35) are not sources the kit is built from,
+    // so they are listed apart (GET /api/brands/:id/competitors) and never enter the kit's source list. kind says what
+    // a source without an address is (an upload, an export, a web search: url '', named by its title).
+    db.select(env, 'sources', `${f}&kind=neq.competitor_page&select=id,url,kind,title,status,error,fetched_at&order=created_at`),
     // Paged: the kit snapshot records all evidence, so a response row cap must not drop any.
     db.selectAll<Evidence>(env, 'evidence', `${f}&order=created_at.asc,id.asc`),
     db.select<Section>(env, 'kit_sections', f),
@@ -298,13 +302,18 @@ const REVIEWABLE = ['owned', 'third_party'];
  * only once approved; any reviewable fact can be rejected. Returns the sections citing the fact when it stops being
  * usable, since registration now refuses them until redrafted or the fact is approved again.
  */
-export async function reviewEvidence(env: Env, brand: Brand, id: string, decision: string) {
+/** The owner's review of a fact read from a source. Records the owner's decision (owner_decision 'confirmed' or
+ * 'rejected', by and when: spec/db/011) as well as review_status, so confirming a fact the system already approved is
+ * kept. A side of an open conflict cannot be approved here (409 from the database: resolve the disagreement). */
+export async function reviewEvidence(env: Env, brand: Brand, id: string, decision: string, by: string | null = null) {
   if (decision !== 'approved' && decision !== 'rejected') throw new HttpError(400, 'review_status must be approved or rejected');
   const f = `${db.eq('brand_id', brand.id)}&${db.eq('id', id)}`;
   const [row] = await db.select<Evidence>(env, 'evidence', f);
   if (!row) throw new HttpError(404, 'fact not found');
   if (!REVIEWABLE.includes(row.trust ?? '')) throw new HttpError(409, row.trust === 'owner_answer' ? 'this fact is your own answer; change the answer instead' : 'only facts read from a source can be approved or rejected');
-  const [updated] = await db.update<Evidence>(env, 'evidence', f, { review_status: decision });
+  const [updated] = await db.update<Evidence>(env, 'evidence', f, {
+    review_status: decision, owner_decision: decision === 'approved' ? 'confirmed' : 'rejected', owner_decided_by: by, owner_decided_at: new Date().toISOString(),
+  });
   if (decision === 'approved') return { evidence: updated, stale: [] as string[] };
   const sections = await db.select<Pick<Section, 'section' | 'citations'>>(env, 'kit_sections', `${db.eq('brand_id', brand.id)}&select=section,citations`);
   return { evidence: updated, stale: sections.filter((s) => (s.citations ?? []).includes(id)).map((s) => s.section) };
@@ -397,8 +406,19 @@ export async function handleApi(req: Request, env: Env, url: URL, ctx?: WaitUnti
   if (p[3] === 'evidence' && p.length === 5 && m === 'PATCH') {
     if (!/^[0-9a-f-]{36}$/i.test(p[4])) throw new HttpError(404, 'fact not found');
     const b = await body(req);
-    return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20)));
+    return json(await reviewEvidence(env, brand, p[4], str(b.review_status, 20), user.id));
   }
+  // Sources converted when they are added, then read into fact extraction (intake.ts; R9 on #38, #33): a document
+  // upload and the owner's own social export. Competitor candidates for the positioning step (#35).
+  if (p[3] === 'sources' && p.length === 5 && m === 'POST' && (p[4] === 'document' || p[4] === 'social')) {
+    const r = p[4] === 'document' ? await uploadDocument(env, ctx, caller(req, user), brand, req) : await addSocialExport(env, ctx, caller(req, user), brand, req);
+    return json(r.body, r.status);
+  }
+  if (p[3] === 'competitors' && p.length === 4 && m === 'POST') {
+    const r = await findCompetitors(env, ctx, caller(req, user), brand);
+    return json(r.body, r.status);
+  }
+  if (p[3] === 'competitors' && p.length === 4 && m === 'GET') return json(await listCompetitors(env, brand));
   if (p[3] === 'sources' && p.length === 5 && m === 'DELETE') {
     // Removing a source removes the facts read from it. Sections that cited them then need redrafting before the next
     // registration (registerKit refuses stale citations); kits already registered keep their own evidence snapshot.
