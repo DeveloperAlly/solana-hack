@@ -21,7 +21,7 @@ import { EventRatingSummary } from '../../ui/domain/EventRatingSummary';
 import { EventRatingQuotes } from '../../ui/domain/EventRatingQuotes';
 import { Link } from '../../ui/primitives';
 import { currentVersion, overallScore, registeredLabel } from '../../domain/rating';
-import { BoardFrame } from './components/BoardFrame';
+import { PublicFrame } from './components/PublicFrame';
 import { RatePanel } from './components/RatePanel';
 import { growthArtboards, useGrowthLinks } from './paths';
 import { useEventRating } from './useEventRating';
@@ -45,7 +45,7 @@ export function EventRating({ data, state = 'success' }: ScreenProps<EventRating
     };
   });
   return (
-    <BoardFrame title={e.name} back={{ href: links.to(growthArtboards.eventsBoard), label: 'All events' }}
+    <PublicFrame tag="ROADMAP" title={e.name} back={{ href: links.to(growthArtboards.eventsBoard), label: 'All events' }}
       intro={`${e.place} · ${e.when} · organiser ${e.organiser} · ${registeredLabel(e.summary)}`}
       meta="Roadmap: designed, not built. One rating per attendee per event; only its author can edit it, and each edit is a new version with the earlier ones kept. Defined in: canvas v26 Event-Rating.">
       <StateView state={state === 'empty' ? 'success' : state} loading={{ title: 'Loading ratings', body: 'Reading this event’s attendee ratings.' }}
@@ -56,6 +56,6 @@ export function EventRating({ data, state = 'success' }: ScreenProps<EventRating
         </Columns>
       </StateView>
       <RatePanel flow={flow} />
-    </BoardFrame>
+    </PublicFrame>
   );
 }

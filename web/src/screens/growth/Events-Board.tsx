@@ -18,7 +18,7 @@ import { StateView } from '../../ui/composites/StateView';
 import { EventBoardFilters } from '../../ui/domain/EventBoardFilters';
 import { GrowAreaCard } from '../../ui/domain/GrowAreaCard';
 import { boardEventKinds } from '../../domain/event';
-import { BoardFrame } from './components/BoardFrame';
+import { PublicFrame } from './components/PublicFrame';
 import { BoardTable } from './components/BoardTable';
 import { boardSorts, useEventsBoard } from './useEventsBoard';
 import { useGrowthLinks } from './paths';
@@ -31,7 +31,7 @@ export function EventsBoard({ data, state = 'success' }: ScreenProps<EventsBoard
   const links = useGrowthLinks();
   const view = state === 'success' && data.events.length === 0 ? 'empty' : state;
   return (
-    <BoardFrame title="Is this event worth it?"
+    <PublicFrame tag="ROADMAP" title="Is this event worth it?"
       intro="Rated only by people who were there. Every rating and every edit is kept and registered, and a removal leaves a public note saying why, so no one can quietly change the record, organisers included."
       meta="Roadmap: designed, not built. Event names are bracketed sample data. Defined in: canvas v21 Events-Board.">
       <StateView state={view} loading={{ title: 'Loading the board', body: 'Reading attendee ratings.' }}
@@ -46,6 +46,6 @@ export function EventsBoard({ data, state = 'success' }: ScreenProps<EventsBoard
         <GrowAreaCard title="Can’t be scrubbed" body="Every version of a rating is kept, and its hash is registered on Solana. A rating removed after a report, reviewed by a person, leaves a public note with the date and reason, and its registration stays. Organisers can reply; they can’t edit or remove." links={[{ label: 'Public ledger', href: links.to('Ledger') }]} />
         <GrowAreaCard title="Five plain questions" body="Talks worth it · well run · met the right people · value for sponsors · would go again." links={[]} />
       </Grid>
-    </BoardFrame>
+    </PublicFrame>
   );
 }

@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { Card } from '../composites/Card';
 import { Badge, Button, Heading, Text } from '../primitives';
 import type { BadgeTone } from '../primitives/Badge';
+import type { HeadingLevel } from '../primitives/Heading';
 import styles from './EventPlanPhase.module.css';
 
 export interface EventPlanPhaseItem {
@@ -18,6 +19,8 @@ export interface EventPlanPhaseProps {
   /** "14 days before", or the timings of its items joined. */
   timing: string;
   items: EventPlanPhaseItem[];
+  /** Heading level of the phase: 2 (default) on its own, 3 under the plan's heading. */
+  level?: HeadingLevel;
 }
 
 /**
@@ -25,12 +28,12 @@ export interface EventPlanPhaseProps {
  * Follow up). Each item's status comes from its drafts, which are ordinary drafts reviewed like any other. States:
  * published, needs you, drafted, waiting for the event.
  */
-export function EventPlanPhase({ title, timing, items }: EventPlanPhaseProps) {
+export function EventPlanPhase({ title, timing, items, level = 2 }: EventPlanPhaseProps) {
   const id = useId();
   return (
     <Card labelledBy={id}>
       <div className={styles.head}>
-        <Heading level={3} size="lg" id={id}>{title}</Heading>
+        <Heading level={level} size="lg" id={id}>{title}</Heading>
         <Text variant="small" tone="secondary">{timing}</Text>
       </div>
       <ul className={styles.items}>

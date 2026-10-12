@@ -18,7 +18,7 @@ import { Stack } from '../../ui/primitives';
 import { Columns } from '../../ui/layouts/Columns';
 import { StateView } from '../../ui/composites/StateView';
 import { ScreenLink } from '../../gallery/ScreenLink';
-import { GrowthFrame } from './components/GrowthFrame';
+import { LoopFrame } from './components/LoopFrame';
 import { GrowthOfferCard } from './components/GrowthOfferCard';
 import { GrowthReferralList } from './components/GrowthReferralList';
 import { GrowthReferralShare } from './components/GrowthReferralShare';
@@ -30,8 +30,8 @@ export function Referral({ data, state = 'success' }: ScreenProps<ReferralData>)
   const flow = useReferral(data);
   const preview = <ScreenLink artboard={growthArtboards.referralLanding}>See what your friend sees</ScreenLink>;
   return (
-    <GrowthFrame
-      section="referral"
+    <LoopFrame
+      artboard="Referral"
       title="Refer a friend"
       tag="COMING SOON"
       intro="Share your link. When a friend joins, you both get 2 months free."
@@ -49,6 +49,6 @@ export function Referral({ data, state = 'success' }: ScreenProps<ReferralData>)
           </Stack>
         </Columns>
       </StateView>
-    </GrowthFrame>
+    </LoopFrame>
   );
 }

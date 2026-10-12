@@ -2,6 +2,7 @@ import { useId, type ReactNode } from 'react';
 import { Card } from '../composites/Card';
 import { Badge, Heading, Text } from '../primitives';
 import type { BadgeTone } from '../primitives/Badge';
+import type { HeadingLevel } from '../primitives/Heading';
 import type { QuestState } from '../../domain/quest';
 import styles from './QuestCard.module.css';
 
@@ -15,6 +16,8 @@ export interface QuestCardProps {
   /** e.g. the Submissions button. */
   actions?: ReactNode;
   selected?: boolean;
+  /** Heading level of the task: 2 (default) on its own, 3 under a section heading. */
+  level?: HeadingLevel;
 }
 
 const chip: Record<QuestState, (waiting: number) => { label: string; tone: BadgeTone }> = {
@@ -28,13 +31,13 @@ const chip: Record<QuestState, (waiting: number) => { label: string; tone: Badge
  * D53 QuestCard: one paid task, its USDC reward, slots and deadline (canvas v24 Quests). States: coming soon, open,
  * submitted (submissions to review), paid (every slot paid; the budget is reached and the quest closes).
  */
-export function QuestCard({ task, state, waiting, terms, actions, selected = false }: QuestCardProps) {
+export function QuestCard({ task, state, waiting, terms, actions, selected = false, level = 2 }: QuestCardProps) {
   const id = useId();
   const c = chip[state](waiting);
   return (
     <Card labelledBy={id} variant={selected ? 'selected' : state === 'paid' ? 'subtle' : 'default'}>
       <div className={styles.head}>
-        <Heading level={3} size="lg" id={id}>{task}</Heading>
+        <Heading level={level} size="lg" id={id}>{task}</Heading>
         <Badge tone={c.tone}>{c.label}</Badge>
       </div>
       <Text variant="small">{terms}</Text>

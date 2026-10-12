@@ -14,7 +14,7 @@
  */
 import { Stack } from '../../ui/primitives';
 import { StateView } from '../../ui/composites/StateView';
-import { GrowthPublicFrame } from './components/GrowthPublicFrame';
+import { PublicFrame } from './components/PublicFrame';
 import { GrowthOfferCard } from './components/GrowthOfferCard';
 import { GrowthClaimForm } from './components/GrowthClaimForm';
 import { GrowthLoopGrid } from './components/GrowthLoopGrid';
@@ -24,7 +24,7 @@ import type { ReferralLandingData, ScreenProps } from './types';
 export function ReferralLanding({ data, state = 'success' }: ScreenProps<ReferralLandingData>) {
   const flow = useReferralClaim();
   return (
-    <GrowthPublicFrame
+    <PublicFrame
       title={`${data.inviter} invited you to JamJam`}
       tag="COMING SOON"
       intro="JamJam builds your brand, runs it and proves it. Join with this invite and you both get 2 months free."
@@ -40,6 +40,6 @@ export function ReferralLanding({ data, state = 'success' }: ScreenProps<Referra
           <GrowthLoopGrid steps={data.loop} />
         </Stack>
       </StateView>
-    </GrowthPublicFrame>
+    </PublicFrame>
   );
 }

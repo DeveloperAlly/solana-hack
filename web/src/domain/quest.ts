@@ -40,8 +40,9 @@ export const budgetCap = (rewardUsdc: number, slots: number): number => Math.rou
 /** A quest's state, given how many of its submissions still wait for a decision. */
 export function questState(q: Quest, waiting: number): QuestState {
   if (q.opens) return 'coming-soon';
-  if (waiting > 0) return 'submitted';
-  return q.paid >= q.slots ? 'paid' : 'open';
+  // Every slot paid closes the quest, even with submissions still waiting: none of them can be paid.
+  if (q.paid >= q.slots) return 'paid';
+  return waiting > 0 ? 'submitted' : 'open';
 }
 
 export interface QuestDraft {
@@ -82,4 +83,13 @@ export function questGate(d: QuestDraft): { blocking: boolean; label: string } {
   if (parseReward(d.reward) === null) return { blocking: true, label: 'Set a reward in USDC, like 50 or 12.50.' };
   if (parseSlots(d.slots) === null) return { blocking: true, label: `Set the slots: a whole number from 1 to ${MAX_SLOTS}.` };
   return { blocking: false, label: `Holds ${budgetCap(parseReward(d.reward)!, parseSlots(d.slots)!).toFixed(2)} USDC before it opens.` };
+}
+
+/**
+ * The one gate for paying a quest submission: the queue's own gate (verified, disclosure present), and a free slot.
+ * Once every slot is paid the budget is reached, so no further submission can be approved (Codex review on PR #102).
+ */
+export function submissionGate(queueGate: { blocking: boolean; label: string }, quest: Pick<Quest, 'paid' | 'slots'> | undefined): { blocking: boolean; label: string } {
+  if (quest && quest.paid >= quest.slots) return { blocking: true, label: `All ${quest.slots} ${quest.slots === 1 ? 'slot is' : 'slots are'} paid; the budget is reached.` };
+  return queueGate;
 }

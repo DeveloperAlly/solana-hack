@@ -14,6 +14,7 @@ export function EventPlan({ phases, onDraft }: { phases: PlanPhaseView[]; onDraf
           key={p.phase}
           title={p.title}
           timing={p.timing}
+          level={3}
           items={p.items.map((i) => ({
             id: i.id,
             status: i.status,

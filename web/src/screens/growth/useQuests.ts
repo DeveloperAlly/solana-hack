@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Gate } from '../../domain/approval';
 import { gateFor, type AmbassadorPostItem, type GateContext } from '../../domain/queue';
-import { budgetCap, emptyQuestDraft, isQuestFormat, parseReward, parseSlots, questState, type Quest, type QuestDraft, type QuestState } from '../../domain/quest';
+import { budgetCap, emptyQuestDraft, isQuestFormat, parseReward, parseSlots, questState, submissionGate, type Quest, type QuestDraft, type QuestState } from '../../domain/quest';
 import { loopStore } from '../../flows/loop/store';
 import { uniqueId } from '../../lib/id';
 import { growthSession } from './session';
@@ -63,9 +63,15 @@ export function useQuests(data: QuestsData): QuestsFlow {
     const waiting = q.submissionIds.filter((id) => !decided(id)).length;
     return { quest, state: questState(quest, waiting), waiting, terms: terms(quest, waiting) };
   });
+  // One gate per submission: the queue's gate plus the quest's free slots, read by the badge and Approve alike.
+  // A decided submission keeps its own queue gate: the slots it filled never mark it blocked afterwards.
+  const gateOf = (item: AmbassadorPostItem) => {
+    const own = gateFor(item, gateContext);
+    return decided(item.id) ? own : submissionGate(own, quests.find((v) => v.quest.submissionIds.includes(item.id))?.quest);
+  };
   const submissions = data.submissions
     .filter((s) => !focus || all.find((q) => q.id === focus)?.submissionIds.includes(s.id))
-    .map((item) => ({ item, gate: gateFor(item, gateContext), outcome: loop.outcomes[item.id] }));
+    .map((item) => ({ item, gate: gateOf(item), outcome: loop.outcomes[item.id] }));
   const paidSession = data.submissions.filter((s) => loop.outcomes[s.id]?.startsWith('Approved')).reduce((n, s) => n + s.payout.amount, 0);
 
   return {
@@ -88,7 +94,7 @@ export function useQuests(data: QuestsData): QuestsFlow {
     },
     approve: (id) => {
       const item = data.submissions.find((s) => s.id === id);
-      if (!item || gateFor(item, gateContext).blocking || decided(id)) return;
+      if (!item || gateOf(item).blocking || decided(id)) return;
       setLoop({ outcomes: { ...loop.outcomes, [id]: `Approved. The ${item.payout.amount} ${item.payout.unit} payout is queued.` } });
     },
   };

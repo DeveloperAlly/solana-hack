@@ -42,7 +42,7 @@ export function EventsTable({ tab, events, drafts, brainVersion, onClear }: Even
       columns={[...common, ...(tab === 'upcoming' ? upcoming : past)]}
       rows={events}
       rowKey={(e) => e.id}
-      empty={<EmptyState title="No events match" body="Try another role, or show every role." level={3} actions={<Button variant="secondary" onClick={onClear}>Show all roles</Button>} />}
+      empty={<EmptyState title="No events match" body="Try another role, or show every role." level={2} actions={<Button variant="secondary" onClick={onClear}>Show all roles</Button>} />}
     />
   );
 }

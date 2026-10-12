@@ -52,7 +52,7 @@ export function EventDetail({ data, state = 'success' }: ScreenProps<EventDetail
     </Stack>
   );
   return (
-    <LoopFrame stage="grow" tab="events" title={e.name} tag="COMING SOON"
+    <LoopFrame artboard="Event-Detail" under="Events" title={e.name} tag="COMING SOON"
       intro={`${eventDay(e.startsAt)} · ${eventTime(e.startsAt)} · ${e.place} · ${e.source.kind === 'luma' ? 'from Luma' : 'added by hand'} · ${role}`}
       meta="Drawn, not built. Every post goes through the same checks and approval as any draft. Defined in: canvas v21 Event-Detail."
       back={{ href: links.to(growthArtboards.events), label: 'All events' }} actions={review}>

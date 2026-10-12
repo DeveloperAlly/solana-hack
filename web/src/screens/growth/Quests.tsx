@@ -29,7 +29,7 @@ export function Quests({ data, state = 'success' }: ScreenProps<QuestsData>) {
   const flow = useQuests(data);
   const suggestions = data.suggestions.map((s) => <Button key={s.task} variant="secondary" onClick={() => flow.openForm(s)}>{s.task}</Button>);
   return (
-    <LoopFrame stage="grow" tab="ambassadors" title="Quests" tag="COMING SOON"
+    <LoopFrame artboard="Quests" under="Dashboard" title="Quests" tag="COMING SOON"
       intro="Paid tasks anyone in your community can take: a tutorial, a demo, answers. Every submission is checked against your kit, a person approves it, and the reward goes to the doer’s wallet in USDC."
       meta="Drawn, not built. A quest is a one-off paid task; an ambassador seat is ongoing. No paid posting on X. Defined in: canvas v24 Quests; component inventory D53."
       actions={<Button onClick={() => flow.openForm()} disabled={flow.form !== null}>New quest</Button>}>

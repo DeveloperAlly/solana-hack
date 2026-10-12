@@ -27,7 +27,7 @@ export function GrowHome({ data, state = 'success' }: ScreenProps<GrowHomeData>)
   const links = useGrowthLinks();
   const firstRun = state === 'empty';
   return (
-    <LoopFrame stage="grow" tab="overview" title="Grow your reach" tag="COMING SOON"
+    <LoopFrame artboard="Grow-Home" title="Grow your reach" tag="COMING SOON"
       intro={`People who post for ${data.brand}, the moments that matter, and the campaigns that tie them together. All of it from your kit, all of it verified.`}
       meta="Drawn, not built. Defined in: canvas v21 Grow-Home; ADR-012. Referral offer from pitch deck v2."
       actions={<Button href={links.to('Campaign-v2-1-Goal')}>New campaign</Button>}>

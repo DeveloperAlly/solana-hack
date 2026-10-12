@@ -8,6 +8,8 @@ import { planTemplates } from '../../domain/event';
 import { growthSession } from './session';
 import { growthArtboards } from './paths';
 import { loopStore } from '../../flows/loop/store';
+import { Quests as QuestsScreen } from './Quests';
+import { quests } from './quests.fixtures';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
 
@@ -386,5 +388,38 @@ describe('Quests', () => {
     expect(screen.getByLabelText('Task')).toHaveValue('Record a 2-minute demo of an agent reading the folder');
     expect(screen.getByLabelText('Format')).toHaveValue('video');
     expect(screen.getByRole('button', { name: 'Open quest' })).toBeDisabled();
+  });
+});
+
+describe('Quests: slots cap approvals (Codex review on PR #102)', () => {
+  it('with one slot left and two pending submissions, approving one blocks the other', async () => {
+    const user = userEvent.setup();
+    const pending = quests.submissions.map((s) => ({ ...s, disclosure: 'present' as const }));
+    const data = { ...quests, submissions: pending, quests: quests.quests.map((q) => (q.id === 'qst-answers' ? { ...q, slots: 3, paid: 2 } : q)) };
+    render(<MemoryRouter><QuestsScreen data={data} /></MemoryRouter>);
+    const list = screen.getByRole('list', { name: 'Quest submissions' });
+    const [first, second] = within(list).getAllByRole('button', { name: 'Approve and pay' });
+    expect(second).toBeEnabled();
+    await user.click(first);
+    expect(within(list).getByRole('button', { name: 'Approve and pay' })).toBeDisabled();
+    expect(within(list).getByText('Blocked: All 3 slots are paid; the budget is reached.')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Answer 5 setup questions in the community' })).getByText('Paid · budget reached')).toBeInTheDocument();
+  });
+});
+
+describe('Frames take the stage from the board home (Codex review on PR #102)', () => {
+  it('Platforms is on Distribute, Badge-Embed and Tips-Received on Verify', () => {
+    for (const [board, stage, tab] of [['Platforms', 'Distribute', 'Platforms'], ['Badge-Embed', 'Verify', 'Badge'], ['Tips-Received', 'Verify', 'Tips']] as const) {
+      const { unmount } = render(<MemoryRouter initialEntries={[screenPath(board)]}><Routes><Route path="/screens/:artboard" element={<GalleryScreen />} /></Routes></MemoryRouter>);
+      expect(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: stage })).toHaveAttribute('aria-current', 'page');
+      expect(within(screen.getByRole('navigation', { name: stage })).getByRole('link', { name: tab })).toHaveAttribute('aria-current', 'page');
+      unmount();
+    }
+  });
+
+  it('public screens keep their nav in the gallery', () => {
+    at(screenPath('Referral-Landing'));
+    const nav = screen.getAllByRole('navigation', { name: 'Main' })[0];
+    expect(within(nav).getByRole('link', { name: 'Ledger' }).getAttribute('href')).toMatch(/^\/screens\/Ledger/);
   });
 });

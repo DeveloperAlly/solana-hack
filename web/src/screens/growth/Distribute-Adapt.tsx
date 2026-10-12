@@ -42,8 +42,7 @@ export function DistributeAdapt({ data, state = 'success' }: ScreenProps<AdaptDa
   const calendar = links.to('Publish-Calendar');
   return (
     <LoopFrame
-      stage="distribute"
-      tab="adapt"
+      artboard="Distribute-Adapt"
       title="Adapt and schedule"
       tag="COMING SOON"
       intro="One approved post, a version for each platform. Each version keeps your voice, passes the same checks and needs one approval."
