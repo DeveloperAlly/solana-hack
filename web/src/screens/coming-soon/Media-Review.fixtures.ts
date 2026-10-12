@@ -9,6 +9,6 @@ export const mediaReview: MediaReviewData = {
   formats: mediaComposer.formats,
   checks: {
     1: { claims: 'backed', slop: 'passed', alt: '[alt]' },
-    3: { claims: 'unsupported', slop: 'passed', alt: '[alt]', claimId: 'c2' },
+    3: { claims: 'unsupported', slop: 'passed', alt: '[alt]', claimId: 'c2', claimPhrase: 'Used by [n] brands' },
   },
 };

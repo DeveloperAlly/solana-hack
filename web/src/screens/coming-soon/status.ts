@@ -7,6 +7,7 @@ export const soonStatus = {
   connected: { label: 'Connected', tone: 'success' },
   'in-use': { label: 'In use', tone: 'solid' }, // Settings-AI
   'not-set': { label: 'Not set', tone: 'neutral' }, // Settings-AI
+  fallback: { label: 'Fallback', tone: 'neutral' }, // Settings-AI, once your own key is in use
   expired: { label: 'Expired', tone: 'warning' }, // Settings-Connections
   always: { label: 'Always available', tone: 'neutral' }, // Settings-Connections
   'not-linked': { label: 'Not linked', tone: 'neutral' }, // Settings-Connections

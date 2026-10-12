@@ -9,7 +9,7 @@ import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { screens } from './registry';
 import { resetCampaignDraft } from './useCampaignFlow';
 import { resetMediaDraft } from './useMediaFlow';
-import { soonSession } from './useSoonSession';
+import { resetSoonSession } from './useSoonSession';
 import { MediaReview } from './Media-Review';
 import { mediaComposer } from './Media-Composer.fixtures';
 
@@ -45,7 +45,7 @@ let fetchSpy: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   resetCampaignDraft();
   resetMediaDraft();
-  soonSession.reset();
+  resetSoonSession();
   fetchSpy = vi.fn(() => { throw new Error('no network in the gallery'); });
   vi.stubGlobal('fetch', fetchSpy);
 });
@@ -199,6 +199,10 @@ describe('Media flow', () => {
     await user.click(screen.getByRole('button', { name: 'Add a source for slide 3' }));
     await user.type(screen.getByLabelText(/Evidence URL/), 'https://example.com/customers');
     await user.click(screen.getByRole('button', { name: 'Attach source' }));
+    // Slide 1 was edited, so its checks must run again on the new text before approval.
+    expect(approve).toBeDisabled();
+    expect(screen.getByText('Slide 1 changed since its checks ran. Re-run the checks to approve.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Re-run checks' }));
     expect(approve).toBeEnabled();
     await user.click(approve);
     expect(screen.getByRole('heading', { name: 'Approved and registered' })).toBeInTheDocument();
@@ -511,5 +515,44 @@ describe('review fixes, round 3 (Codex, PR #79)', () => {
     expect(screen.getAllByRole('button', { name: '[open slot]' })).toHaveLength(2);
     await user.click(screen.getAllByRole('button', { name: '[open slot]' })[1]);
     expect(screen.getByRole('radio', { name: '[approved post 1]' })).toBeInTheDocument();
+  });
+});
+
+describe('review fixes, round 4 (Codex, PR #79)', () => {
+  it('editing the claim off slide 3 and re-running the checks clears the block', async () => {
+    const user = at('/screens/Media-Composer');
+    await user.click(screen.getByRole('button', { name: 'Edit slide 3 · Proof' }));
+    await user.clear(screen.getByLabelText('Slide 3 · Proof text'));
+    await user.type(screen.getByLabelText('Slide 3 · Proof text'), 'Every post is checked before it goes out');
+    await user.click(screen.getByRole('radio', { name: 'Image set' }));
+    await user.click(screen.getByRole('button', { name: 'Check and review' }));
+    expect(screen.getAllByText('Re-run needed')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Approve and register' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Re-run checks' }));
+    expect(screen.queryByText('Unsupported · blocked')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve and register' })).toBeEnabled();
+  });
+
+  it('session changes are scoped to the active brand', async () => {
+    const user = at('/screens/Settings-Connections');
+    await user.click(screen.getByRole('button', { name: 'Reconnect X' }));
+    expect(screen.queryByText('Expired')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'JamJam, switch brand' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /aDNA/ }));
+    expect(screen.getByText('Expired')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'aDNA, switch brand' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /JamJam/ }));
+    expect(screen.queryByText('Expired')).not.toBeInTheDocument();
+  });
+
+  it('connecting OpenRouter moves "In use" to it and makes the default the fallback', async () => {
+    const user = at('/screens/Settings-GetKey');
+    await user.click(screen.getByRole('button', { name: 'Connect OpenRouter' }));
+    await user.click(screen.getByRole('link', { name: '← Back to AI settings' }));
+    const sources = screen.getByRole('list', { name: 'Model sources' });
+    const rows = within(sources).getAllByRole('listitem');
+    expect(within(rows[0]).getByText('In use')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('Fallback')).toBeInTheDocument();
+    expect(within(sources).getAllByText('In use')).toHaveLength(1);
   });
 });

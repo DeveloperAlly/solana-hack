@@ -9,6 +9,8 @@ interface MediaDraft {
   formats?: MediaFormat[];
   kind?: MediaKind;
   exportAs?: ExportOption;
+  /** Slide text at the last checks re-run, by slide id (Media-Review). */
+  rerunText?: Record<string, string>;
 }
 
 const mediaDraft = createStore<MediaDraft>({});
@@ -33,6 +35,9 @@ export function useMediaFlow(defaults: MediaFormat[] = []) {
     exportAs: draft.exportAs,
     /** The slides of the current media type: the ones Review checks. */
     slides: formats.find((f) => f.id === kind)?.slides ?? [],
+    rerunText: draft.rerunText ?? {},
+    /** Records a checks re-run on the current slides' text. */
+    rerunChecks: (slides: { id: string; text: string }[]) => set({ rerunText: { ...draft.rerunText, ...Object.fromEntries(slides.map((s) => [s.id, s.text])) } }),
     setKind: (k: MediaKind) => set({ kind: k }),
     setExportAs: (o: ExportOption | undefined) => set({ exportAs: o }),
     editSlide: (k: MediaKind, id: string, text: string) =>

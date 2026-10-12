@@ -36,7 +36,9 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
   const [session, set] = useSoonSession();
   const media = useMediaFlow(data.formats);
   // One check per slide of the draft (Composer's edits and media type); a claim approved on Claims counts as backed.
-  const checks = deriveChecks(media.slides, data.checks, (id) => session.claims?.[id]?.status === 'approved');
+  const fixtureText = (id: string) => data.formats.flatMap((f) => f.slides).find((s) => s.id === id)?.text;
+  const checks = deriveChecks({ slides: media.slides, defaults: data.checks, fixtureText, rerunText: media.rerunText, approvedClaim: (id) => session.claims?.[id]?.status === 'approved' });
+  const stale = checks.some((c) => c.claims === 'stale');
   const kindLabel = mediaKindNames[media.kind];
   const [fixing, setFixing] = useState<string | null>(null);
   const [approved, setApproved] = useState(false);
@@ -81,6 +83,8 @@ export function MediaReview({ data, state = 'success' }: { data: MediaReviewData
           )}
           {blocked.map((c) => <Alert key={c.id} tone="warning" title={checkStatus(c).label} />)}
           <Stack direction="row" gap={3} wrap>
+            {/* INTEGRATION: GET /api/drafts/:id/checks on the edited slides. */}
+            {stale && <Button variant="secondary" onClick={() => media.rerunChecks(media.slides)}>Re-run checks</Button>}
             <Button onClick={() => setApproved(true)} disabled={blocked.length > 0 || state !== 'success'}>Approve and register</Button>
             <Button href={routes.mediaComposer} variant="secondary">Edit slides</Button>
           </Stack>

@@ -79,9 +79,9 @@ export type MediaKind = 'carousel' | 'card' | 'video';
 export interface MediaFormat { id: MediaKind; label: string; slides: Slide[]; hint: string }
 export interface ExportOption { value: string; label: string; /** What choosing it produces, shown once chosen. */ detail: string }
 export interface MediaComposerData { formats: MediaFormat[]; exportOptions: ExportOption[] }
-export type CheckResult = 'backed' | 'none' | 'unsupported' | 'passed' | 'failed';
+export type CheckResult = 'backed' | 'none' | 'unsupported' | 'passed' | 'failed' | 'stale';
 /** Check results for one slide, before they are matched to the draft's slides. */
-export interface SlideCheckDefaults { claims: CheckResult; slop: CheckResult; alt: Bracketed; /** The Claims row this slide's claim maps to. */ claimId?: string }
+export interface SlideCheckDefaults { claims: CheckResult; slop: CheckResult; alt: Bracketed; /** The Claims row this slide's claim maps to. */ claimId?: string; /** The claim's words on the slide, to tell whether an edit removed it. */ claimPhrase?: string }
 export interface SlideCheck extends SlideCheckDefaults { id: string; slide: number; text: string }
 export interface MediaReviewData {
   /** The media draft's default formats (Media-Composer's fixtures) until the person edits them. */

@@ -36,7 +36,9 @@ export function SettingsAI({ data, state = 'success' }: { data: SettingsAIData; 
   const [session, set] = useSoonSession();
   // Fixtures are defaults; what was changed here or on Settings-GetKey (session) wins.
   const sources = data.sources.map((r): StatusRowItem => {
-    if (r.id === 'openrouter' && session.openRouter) return { ...r, status: session.openRouter };
+    // Connecting OpenRouter moves "In use" to it; JamJam's default becomes the fallback (Codex review on PR #79).
+    if (r.id === 'openrouter' && session.openRouter === 'connected') return { ...r, status: 'in-use' };
+    if (r.id === 'default' && session.openRouter === 'connected') return { ...r, status: 'fallback' };
     if (r.id === 'endpoint' && session.endpoint) return { ...r, detail: session.endpoint, status: 'connected' };
     return r;
   });
@@ -45,7 +47,7 @@ export function SettingsAI({ data, state = 'success' }: { data: SettingsAIData; 
   const [test, setTest] = useState<TestResult>(state === 'error' ? 'failed' : 'none');
 
   const actionFor = (row: StatusRowItem) => {
-    if (row.id === 'openrouter' && row.status !== 'connected') return <Button href={routes.settingsGetKey} variant="secondary">Connect OpenRouter</Button>;
+    if (row.id === 'openrouter' && row.status !== 'in-use') return <Button href={routes.settingsGetKey} variant="secondary">Connect OpenRouter</Button>;
     if (row.id === 'endpoint' && row.status === 'not-set') return <Button variant="secondary" onClick={() => setAdding(true)}>Add endpoint</Button>;
     return null;
   };
