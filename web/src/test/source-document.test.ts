@@ -193,6 +193,28 @@ describe('declared PDF page count', () => {
     const inStream = join(plainPdf(1).subarray(0, plainPdf(1).length - 6), enc(`7 0 obj\n<< /Length ${body.length} >>\nstream\n${body}\nendstream\nendobj\n%%EOF\n`));
     expect(await pdfPageCount(inStream)).toBe(1);
   });
+  it('reads an object stream whose "stream" keyword ends with a lone CR (PR #71 review)', async () => {
+    const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+    const objs = '<< /Type /Catalog /Pages 2 0 R >> << /Type /Pages /Kids [] /Count 1 >>';
+    const head = `1 0 2 ${objs.indexOf('<< /Type /Pages')} `;
+    const data = await deflate(head + objs);
+    expect(data[0]).not.toBe(0x0a);
+    const pdf = join(
+      enc(`%PDF-1.5\r5 0 obj\r<< /Type /ObjStm /N 2 /First ${head.length} /Filter /FlateDecode /Length ${data.length} >>\rstream\r`),
+      data,
+      enc('\rendstream\rendobj\r6 0 obj\r<< /Type /XRef /Root 1 0 R /Size 7 /W [1 2 1] /Length 0 >>\rstream\r\nendstream\rendobj\r%%EOF\r'),
+    );
+    expect(await pdfPageCount(pdf)).toBe(1);
+  });
+  it('finds trailers and objects only where they really are, not in strings or comments (PR #71 review)', async () => {
+    const { pdfPageCount } = await import('../../worker/sources/pdfpages');
+    const decoy = join(
+      plainPdf(1),
+      enc('9 0 obj\n<< /Type /Pages /Kids [] /Count 5 >>\nendobj\n8 0 obj\n<< /Type /Catalog /Pages 9 0 R >>\nendobj\n'),
+      enc('10 0 obj\n(trailer << /Root 8 0 R >> 2 0 obj << /Type /Pages /Count 7 >>)\nendobj\n% trailer << /Root 8 0 R >>\n'),
+    );
+    expect(await pdfPageCount(decoy)).toBe(1);
+  });
   it('inflates object streams only within a fixed budget', async () => {
     const { pdfPageCount, MAX_INFLATE } = await import('../../worker/sources/pdfpages');
     // A small stream that inflates to far more than the budget, claiming its objects start past the budget.
@@ -222,6 +244,13 @@ describe('declared PDF page count', () => {
     expect(r.ok && r.text).toContain('### Page 2');
     const z = await readDocument(out('z.pdf', '### Page 1\n### Page 2\n'), { name: 'z.pdf', bytes: await compressedPdf(1) });
     expect(z).toMatchObject({ ok: true, meta: { pages: 1 } });
+  });
+  it('keeps every copy of a page heading that also appears in the text, instead of guessing which is the break (PR #71 review)', async () => {
+    const r = await readDocument(out('t.pdf', `### Page 1\nContents\n### Page 2\n${prose}\n### Page 2\n${prose}\n`), { name: 't.pdf', bytes: plainPdf(2) });
+    expect(r).toMatchObject({ ok: true, meta: { pages: 2 } });
+    expect(r.ok && r.text.match(/### Page 2/g)).toHaveLength(2);
+    // Unambiguous breaks are still removed.
+    expect(r.ok && r.text).not.toContain('### Page 1');
   });
   it('still returns needs_ocr for a two-page scan whose PDF declares two pages', async () => {
     const r = await readDocument(out('s2.pdf', '### Page 1\n### Page 2\n'), { name: 's2.pdf', bytes: plainPdf(2) });

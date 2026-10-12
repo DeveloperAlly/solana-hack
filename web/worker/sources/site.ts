@@ -1,4 +1,4 @@
-import { readPage, resolveRedirects, type FetchGate } from '../ingest';
+import { hopSession, readPage, resolveRedirects, type FetchGate } from '../ingest';
 import { factTrust, urlKind } from './registry';
 import { browserRenderer, type Renderer } from './render';
 import { fetchRobots, robotsAllows, type RobotsCheck } from './robots';
@@ -52,10 +52,10 @@ const MIN_TEXT = 40;
 const EXA_CONTENTS = 'https://api.exa.ai/contents';
 // Links asked for on the home page.
 const EXA_LINKS = 100;
-// Requests at most spent choosing subpages: a robots.txt fetch for a new origin, or a request to a candidate robots.txt
-// allows. A candidate robots.txt refuses, on an origin already checked, costs no request and does not count, so a run
-// of disallowed links cannot hide an allowed page behind them (PR #71 review).
-const MAX_ATTEMPTS = 12;
+// Requests one site read may make to the site, every robots.txt fetch and redirect hop included (ingest.ts hopSession).
+// Enough for the home page, its robots.txt and about 8 subpages with a redirect or two each; a link robots.txt refuses
+// costs nothing, so a run of disallowed links cannot use it up (PR #71 review).
+export const MAX_SITE_REQUESTS = 60;
 // Exa pricing: contents cost $1 per 1,000 pages per content type (https://exa.ai/pricing). Used only when the response
 // carries no costDollars.
 const EXA_PER_PAGE = 0.001;
@@ -130,12 +130,16 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (
   const top = results[0];
   const failed = Array.isArray(data.statuses) ? data.statuses.find((s) => s?.status === 'error') : undefined;
   if (!str(top?.text).trim()) return { error: failed ? `Exa could not read the page (${str(failed.error?.tag) || 'error'})` : 'Exa returned no text for the page' };
+  // A cached copy with almost no text is a script-only shell ("Loading..."): it is not used, so the page goes to the
+  // direct reader and, from there, the rendered fallback, the same test the direct path applies (PR #71 review).
+  if (str(top?.text).trim().length < MIN_TEXT) return { error: "Exa's cached copy of the page has almost no text" };
   const seen = new Set<string>();
   const pages: SourcePage[] = [];
   const add = (p: ExaPage) => {
     const body = str(p?.text).trim();
     const u = absoluteUrl(p?.url);
-    if (!u || !body || seen.has(u.toString())) return;
+    // Almost no text: treated as not cached, so the caller reads it directly (and renders it if need be).
+    if (!u || body.length < MIN_TEXT || seen.has(u.toString())) return;
     seen.add(u.toString());
     pages.push({ url: u.toString(), title: str(p.title).trim().slice(0, 200) || u.hostname, text: body });
   };
@@ -175,7 +179,9 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   const url = siteUrl(raw);
   const kindOf = (u: string) => urlKind(u, options.website);
   if (!url) return { ok: false, kind: 'page', code: 'invalid_input', reason: 'That is not a web address we can read; use a link that starts with https://.', meta: c.meta(0, 0) };
-  const robots = await fetchRobots(url.origin);
+  const net = hopSession(MAX_SITE_REQUESTS);
+  const robotsFetch = (u: URL) => net.hop(u);
+  const robots = await fetchRobots(url.origin, robotsFetch);
   if (!robotsAllows(robots, url)) {
     const reason = robots.state === 'unreachable'
       ? 'We could not read this site\'s robots.txt, so we did not read the site. Paste the key text from your site instead.'
@@ -186,7 +192,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
   // can land on another origin, whose own rules apply to it (PR #67 review).
   const robotsByOrigin = new Map<string, Promise<RobotsCheck>>([[url.origin, Promise.resolve(robots)]]);
   const allowedHere = async (u: URL) => {
-    if (!robotsByOrigin.has(u.origin)) robotsByOrigin.set(u.origin, fetchRobots(u.origin));
+    if (!robotsByOrigin.has(u.origin)) robotsByOrigin.set(u.origin, fetchRobots(u.origin, robotsFetch));
     return robotsAllows(await robotsByOrigin.get(u.origin)!, u);
   };
   // Script-only pages are rendered in a browser, with robots.txt checked before every request it makes (render.ts),
@@ -230,7 +236,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     // or the link cannot be followed (PR #71 review).
     const gated = async (u: URL): Promise<URL | null> => {
       try {
-        return await resolveRedirects(u, allowedHere);
+        return await resolveRedirects(u, allowedHere, net);
       } catch {
         return null;
       }
@@ -262,17 +268,11 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
       };
       return candidates.map((u, i) => ({ u, i, r: rank(u) })).sort((a, b) => a.r - b.r || a.i - b.i).map((x) => x.u);
     };
-    // Candidates in rank order that robots.txt allows, within MAX_ATTEMPTS requests; refused ones are counted.
+    // Candidates in rank order that robots.txt allows, while the read's request budget lasts; refused ones are counted.
     async function* allowedCandidates(links: URL[], refused: { n: number }) {
-      let spent = 0;
       for (const u of candidatesOf(links)) {
-        if (!robotsByOrigin.has(u.origin)) {
-          if (spent >= MAX_ATTEMPTS) return;
-          spent++;
-        }
+        if (net.left <= 0) return;
         if (!(await allowedHere(u))) { refused.n++; continue; }
-        if (spent >= MAX_ATTEMPTS) return;
-        spent++;
         yield u;
       }
     }
@@ -301,7 +301,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     // Our own reader, then, for a page with almost no text of its own (a script-only page), the browser renderer.
     // Throws when the page cannot be read at all; may return a page with almost no text.
     const readDirect = async (u: URL) => {
-      const p = await readPage(u.toString(), allowedHere, true);
+      const p = await readPage(u.toString(), allowedHere, true, net);
       if (p.text.length >= MIN_TEXT || !renderer) return p;
       const shown = await renderer.read(new URL(p.url));
       return shown && shown.text.length >= MIN_TEXT ? shown : p;

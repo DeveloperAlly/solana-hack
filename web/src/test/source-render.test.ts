@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createRenderer, MAX_ORIGINS, RENDER_CSP, type InterceptedRequest, type RenderBrowser, type RenderPage } from '../../worker/sources/render';
+import { createRenderer, MAX_ORIGINS, MAX_REQUESTS, RENDER_CSP, type InterceptedRequest, type RenderBrowser, type RenderPage } from '../../worker/sources/render';
 import { readSite } from '../../worker/sources/site';
 import { fetchRobots, robotsAllows } from '../../worker/sources/robots';
 
@@ -7,20 +7,24 @@ import { fetchRobots, robotsAllows } from '../../worker/sources/robots';
 // requests a real page would, through the same request-interception handler, and records how each was resolved.
 // The network is a fetch stub: anything the renderer lets our own reader fetch shows up in `fetched`.
 
-type Site = Record<string, { status?: number; headers?: Record<string, string>; body?: string }>;
+type Site = Record<string, { status?: number; headers?: Record<string, string> | [string, string][]; body?: string }>;
 const ROBOTS: Record<string, string> = {
   'https://a.test': 'User-agent: *\nDisallow: /private\nDisallow: /blocked.js\n',
   'https://cdn.test': '',
   'https://evil.test': 'User-agent: *\nDisallow: /\n',
 };
 let fetched: string[] = [];
-function network(site: Site) {
+let sentCookies: Record<string, string> = {};
+function network(site: Site | ((url: string) => Site[string] | undefined)) {
   fetched = [];
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+  sentCookies = {};
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     fetched.push(url);
+    const cookie = (init?.headers as Record<string, string> | undefined)?.cookie;
+    if (cookie) sentCookies[url] = cookie;
     const u = new URL(url);
     if (u.pathname === '/robots.txt') return new Response(ROBOTS[u.origin] ?? '', { status: ROBOTS[u.origin] === undefined ? 404 : 200 });
-    const page = site[url];
+    const page = typeof site === 'function' ? site(url) : site[url];
     if (!page) return new Response('', { status: 404 });
     return new Response(page.body ?? '', { status: page.status ?? 200, headers: page.headers ?? { 'content-type': 'text/html' } });
   }));
@@ -36,7 +40,7 @@ function gate() {
   };
 }
 
-type Outcome = { url: string; type: string; how: 'continue' | 'abort' | 'respond'; status?: number; headers?: Record<string, string>; body?: string };
+type Outcome = { url: string; type: string; how: 'continue' | 'abort' | 'respond'; status?: number; headers?: Record<string, string | string[]>; body?: string };
 /**
  * A fake browser. `goto` issues the main document request; when the page is answered with HTML, the page's own
  * behaviour (`after`) runs: further requests (scripts, frames, a client-side navigation). A 302 answer is followed,
@@ -53,6 +57,12 @@ function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' |
       let handler: ((r: InterceptedRequest) => void) | null = null;
       let current = 'about:blank';
       let html = '';
+      // The browser's cookie jar: filled from Set-Cookie on the responses it is handed.
+      const jar = new Map<string, string>();
+      const keep = (o: Outcome) => {
+        const set = o.headers?.['set-cookie'];
+        for (const c of Array.isArray(set) ? set : set ? [set] : []) { const [nv] = c.split(';'); const i = nv.indexOf('='); jar.set(nv.slice(0, i).trim(), nv.slice(i + 1).trim()); }
+      };
       const issue = (url: string, type: string, frame: 'main' | 'child' = 'main') => new Promise<Outcome>((resolve) => {
         let handled = false;
         const done = (o: Omit<Outcome, 'url' | 'type'>) => {
@@ -76,10 +86,11 @@ function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' |
       // Loads a top-level document the way a browser does: follow a 302 answer, then show the page.
       const navigate = async (url: string): Promise<boolean> => {
         let target = url;
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 1000; i++) {
           const o = await issue(target, 'document');
           if (o.how !== 'respond') return false;
-          if (o.status === 302) { target = new URL(o.headers!.location, target).toString(); continue; }
+          keep(o);
+          if (o.status! >= 300 && o.status! < 400) { target = new URL(String(o.headers!.location), target).toString(); continue; }
           current = target;
           html = o.body ?? '';
           return true;
@@ -93,12 +104,14 @@ function fakeBrowser(after: (issue: (url: string, type: string, frame?: 'main' |
         setRequestInterception: async () => undefined,
         on: (_e, h) => { handler = h; },
         mainFrame: () => main,
+        cookies: async () => [...jar].map(([name, value]) => ({ name, value })),
         async goto(url) {
           if (!(await navigate(url))) throw Object.assign(new Error('net::ERR_BLOCKED_BY_CLIENT'), { name: 'Error' });
           await after(async (u, type, frame) => {
             if (type === 'document' && frame !== 'child') {
               const o = await issue(u, 'document');
-              if (o.how === 'respond' && o.status !== 302) { current = u; html = o.body ?? ''; }
+              if (o.how === 'respond') keep(o);
+              if (o.how === 'respond' && !(o.status! >= 300 && o.status! < 400)) { current = u; html = o.body ?? ''; }
               return o;
             }
             return issue(u, type, frame);
@@ -159,6 +172,23 @@ describe('renderer: robots.txt before every request the browser makes', () => {
     await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/'));
     expect(b.outcomes[0].headers!['content-security-policy']).toBe(`script-src 'self', ${RENDER_CSP}`);
   });
+  it("passes the page's cookies and headers to the browser, leaving out transfer headers (PR #71 review)", async () => {
+    network({ 'https://a.test/': { body: APP, headers: [['content-type', 'text/html'], ['set-cookie', 'sid=1; Path=/'], ['set-cookie', 'locale=en; Path=/'], ['content-language', 'en'], ['content-encoding', 'gzip']] } });
+    const b = fakeBrowser();
+    await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/'));
+    const h = b.outcomes[0].headers!;
+    expect(h['set-cookie']).toEqual(['sid=1; Path=/', 'locale=en; Path=/']);
+    expect(h['content-language']).toBe('en');
+    expect(h['content-encoding']).toBeUndefined();
+    expect(h['content-security-policy']).toBe(RENDER_CSP);
+  });
+  it(`lets one page cause at most ${MAX_REQUESTS} requests, whatever its scripts do (PR #71 review)`, async () => {
+    network({ 'https://a.test/': { body: APP } });
+    const b = fakeBrowser(async (issue) => { for (let i = 0; i < MAX_REQUESTS + 20; i++) await issue(`https://a.test/api/${i}`, 'fetch'); });
+    await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/'));
+    // The page load itself is one of them.
+    expect(b.outcomes.filter((o) => o.type === 'fetch' && o.how === 'continue')).toHaveLength(MAX_REQUESTS - 1);
+  });
   it('refuses a client-side navigation to a disallowed address without fetching it (meta refresh, script)', async () => {
     network({ 'https://a.test/': { body: APP } });
     const b = fakeBrowser(async (issue) => { await issue('https://a.test/private/next', 'document'); });
@@ -172,7 +202,24 @@ describe('renderer: robots.txt before every request the browser makes', () => {
     const b = fakeBrowser();
     const page = await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/old'));
     expect(page).toMatchObject({ url: 'https://a.test/new' });
-    expect(b.outcomes.map((o) => [o.url, o.how, o.status])).toEqual([['https://a.test/old', 'respond', 302], ['https://a.test/new', 'respond', 200]]);
+    expect(b.outcomes.map((o) => [o.url, o.how, o.status])).toEqual([['https://a.test/old', 'respond', 301], ['https://a.test/new', 'respond', 200]]);
+  });
+  it('hands a redirect over with its cookies, and sends them on the next hop (PR #71 review)', async () => {
+    network({ 'https://a.test/old': { status: 302, headers: [['location', '/new'], ['set-cookie', 'consent=yes; Path=/']] }, 'https://a.test/new': { body: APP } });
+    const b = fakeBrowser();
+    expect(await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/old'))).toMatchObject({ url: 'https://a.test/new' });
+    expect(b.outcomes[0].headers!['set-cookie']).toEqual(['consent=yes; Path=/']);
+    expect(sentCookies['https://a.test/new']).toBe('consent=yes');
+  });
+  it('charges every redirect hop to the page budget (PR #71 review)', async () => {
+    // /hop0 redirects 15 times before reaching the page, and the page's script navigates back to /hop0 again and again.
+    network((url) => {
+      const n = Number(new URL(url).pathname.slice(4));
+      return n < 15 ? { status: 302, headers: { location: `/hop${n + 1}` } } : { body: APP };
+    });
+    const b = fakeBrowser(async (issue) => { for (let i = 0; i < 40; i++) await issue('https://a.test/hop0', 'document'); });
+    await createRenderer(b.launch, gate(), 9).read(new URL('https://a.test/hop0'));
+    expect(fetched.filter((u) => !u.endsWith('/robots.txt')).length).toBeLessThanOrEqual(MAX_REQUESTS);
   });
   it('never fetches a redirect hop robots.txt disallows, and reads nothing', async () => {
     network({ 'https://a.test/old': { status: 301, headers: { location: '/private/x' } }, 'https://a.test/private/x': { body: APP } });
@@ -218,6 +265,25 @@ describe('site adapter: rendered fallback for script-only sites (architecture §
     expect(r.pages![0].text).toContain('text the page shows');
     expect(r.meta.notes.join(' ')).toContain('1 script-only page(s) rendered in a browser');
     expect(b.stats()).toEqual({ launched: 1, closed: 1 });
+  });
+  it('renders a script-only home page even when its title alone is long (PR #71 review)', async () => {
+    const shell = '<html><head><title>JamJam: build your brand, run it, and prove it on Solana</title></head><body><div id="app"></div></body></html>';
+    network({ 'https://a.test/': { body: shell } });
+    const b = fakeBrowser();
+    const r = await readSite({}, 'https://a.test/', { website: 'a.test', subpages: 0 }, (g, max) => createRenderer(b.launch, g, max));
+    expect(r).toMatchObject({ ok: true });
+    if (!r.ok || r.kind === 'document') throw new Error('expected a site read');
+    expect(r.pages![0].text).toContain('text the page shows');
+  });
+  it("does not accept Exa's cached shell with almost no text; renders the page instead (PR #71 review)", async () => {
+    network((url) => (url === 'https://api.exa.ai/contents' ? undefined : url === 'https://a.test/' ? { body: APP } : undefined));
+    const real = globalThis.fetch as unknown as (u: string, i?: RequestInit) => Promise<Response>;
+    vi.stubGlobal('fetch', vi.fn(async (u: string, i?: RequestInit) => (u === 'https://api.exa.ai/contents' ? new Response(JSON.stringify({ results: [{ url: 'https://a.test/', title: 'A', text: 'Loading...', extras: { links: [] } }] })) : real(u, i))));
+    const b = fakeBrowser();
+    const r = await readSite({ EXA_API_KEY: 'k' }, 'https://a.test/', { website: 'a.test', subpages: 0 }, (g, max) => createRenderer(b.launch, g, max));
+    expect(r).toMatchObject({ ok: true });
+    if (!r.ok || r.kind === 'document') throw new Error('expected a site read');
+    expect(r.pages![0].text).toContain('text the page shows');
   });
   it('without a renderer, a script-only site still asks for the text to be pasted', async () => {
     network({ 'https://a.test/': { body: APP } });
