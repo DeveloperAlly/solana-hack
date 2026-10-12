@@ -85,18 +85,24 @@ export async function editPost(env: Env, post: Post, body: string, user?: User) 
   if (!text) throw new HttpError(400, 'the post cannot be empty');
   // Scores belonged to the old text; a person's edit is shown even if it fails the slop check (only approval is blocked).
   const checks: Checks = { ...post.checks, slop: slopCheck(text), voiceFit: null, platform: null, notes: [], source: 'edit', history: pushHistory(post), lastAction: 'edit', policy: undefined };
-  const row = await changePost(env, post, ['drafted', 'approved'], { body: text, checks, status: 'drafted', approved_by: null, approved_at: null });
-  await recordDecision(env, post, user, { kind: 'edit', original: post.body, final: text });
-  return row;
+  return changePostWithDecision(env, post, ['drafted', 'approved'], { body: text, checks, status: 'drafted', approved_by: null, approved_at: null }, user, { kind: 'edit', original: post.body, final: text });
 }
 
+export type Decision = { kind: 'edit' | 'approve' | 'reject'; original: string | null; final: string | null; reason?: string | null; note?: string | null };
 /**
- * Decision history (architecture §6.2 "Collect from day one"; §2a.2 decision history): every edit as original and final,
- * every approval with the text the AI first drafted and the text approved (so "approved without edit" is measurable,
- * §13.4), and every rejection with its reason code. One row per decision in post_decisions (spec/db/013).
+ * A post change and its decision-history row in one transaction (spec/db/015 change_post_with_decision; PR #99 review):
+ * the post changes only at the revision read and in an allowed status, as changePost, and the decision is recorded with
+ * it or not at all. Decision history (architecture §6.2 "Collect from day one"; §2a.2): every edit as original and
+ * final, every approval with the text first drafted and the text approved (so "approved without edit" is measurable,
+ * §13.4), and every rejection with its reason code.
  */
-export async function recordDecision(env: Env, post: Pick<Post, 'id' | 'brand_id'>, user: User | undefined, d: { kind: 'edit' | 'approve' | 'reject'; original: string | null; final: string | null; reason?: string | null; note?: string | null }) {
-  await db.insert(env, 'post_decisions', { post_id: post.id, brand_id: post.brand_id, kind: d.kind, original: d.original, final: d.final, reason: d.reason ?? null, note: d.note ?? null, decided_by: user?.id ?? null });
+export async function changePostWithDecision(env: Env, post: Post, statuses: string[], patch: Partial<Post>, user: User | undefined, d: Decision) {
+  const [row] = await db.rpc<Post[]>(env, 'change_post_with_decision', {
+    p_post: post.id, p_rev: post.rev ?? 0, p_statuses: statuses, p_patch: patch,
+    p_decision: { kind: d.kind, original: d.original, final: d.final, reason: d.reason ?? null, note: d.note ?? null, decided_by: user?.id ?? null },
+  }) ?? [];
+  if (!row) throw new HttpError(409, 'this post changed in another window or is being registered; reload and try again');
+  return row;
 }
 
 /** The text the drafting workflow chose for this post, as first drafted, when it was drafted by the workflow. */
@@ -109,9 +115,7 @@ export const REJECT_REASONS = ['off_voice', 'unsupported_facts', 'off_topic', 't
 export async function rejectPost(env: Env, user: User, post: Post, reason: string, note: string) {
   if (!(REJECT_REASONS as readonly string[]).includes(reason)) throw new HttpError(400, `reason must be one of ${REJECT_REASONS.join(', ')}`);
   if (post.status !== 'drafted') throw new HttpError(409, 'only a draft can be rejected');
-  const row = await changePost(env, post, ['drafted'], { checks: { ...post.checks, rejected: { reason, at: new Date().toISOString() } } as Checks });
-  await recordDecision(env, post, user, { kind: 'reject', original: draftedText(post), final: post.body, reason, note: note || null });
-  return row;
+  return changePostWithDecision(env, post, ['drafted'], { checks: { ...post.checks, rejected: { reason, at: new Date().toISOString() } } as Checks }, user, { kind: 'reject', original: draftedText(post), final: post.body, reason, note: note || null });
 }
 
 // Polish actions (architecture §6): single click, always reversible (the previous text is kept in checks.history).
@@ -421,9 +425,7 @@ export async function approvePost(env: Env, user: User, post: Post) {
       : `blocked by the claims gate (${policy.claims === '5' ? 'strict' : policy.claims === '3' ? 'light' : 'standard'}): no evidence for ${policy.unsupported.map((u) => `"${u}"`).join(', ')}. Add a source on your brand, or rewrite, then approve again.`);
   }
   // Approves exactly the revision whose checks were read: an edit in between bumps rev and this fails with 409.
-  const row = await changePost(env, post, ['drafted', 'approved'], { status: 'approved', approved_by: user.id, approved_at: new Date().toISOString(), checks: { ...post.checks, policy } as Checks });
-  await recordDecision(env, post, user, { kind: 'approve', original: draftedText(post), final: post.body });
-  return row;
+  return changePostWithDecision(env, post, ['drafted', 'approved'], { status: 'approved', approved_by: user.id, approved_at: new Date().toISOString(), checks: { ...post.checks, policy } as Checks }, user, { kind: 'approve', original: draftedText(post), final: post.body });
 }
 
 export function cleanPublishedUrl(raw: string): string | null {

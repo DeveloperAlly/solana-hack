@@ -5,7 +5,7 @@
 //   GET  /api/brands/:id                   -> adds activeRun        the newest running or paused run, or null
 //   POST /api/brands/:id/sources {url}     -> the ingest_url workflow; same 201 body when done, else 409 "still reading"
 //   POST /api/brands/:id/posts {brief, channel} -> the draft_post workflow (issue #93); 201 {post, runId} when done,
-//                                                  else 409 "still drafting"
+//                                                  else 202 {post: null, runId, status} to follow with GET /api/runs/:id
 import { db } from '../db';
 import { HttpError, type Env } from '../env';
 import { checkExecutor, engineConfig, launch, waitForRun, type WaitUntil } from './executor';
@@ -147,7 +147,7 @@ export const STILL_DRAFTING = 'Still drafting your post. It will appear in your 
 /**
  * POST /api/brands/:id/posts on the engine (issue #93): a draft_post run. Inline, it runs inside this request; on
  * Workflows, the request waits up to engine_config draft_wait_ms. Done: 201 {post, runId}, the post in the same shape
- * as before plus checks.draft. Failed: the run's error. Still going: 409 {error, runId, status, progress}.
+ * as before plus checks.draft. Failed: the run's error. Still going: 202 {post: null, runId, status, message, progress}.
  */
 export async function draftRun(env: Env, ctx: WaitUntil | undefined, user: UserRef, brand: BrandRef, body: Record<string, unknown>) {
   const { run, config } = await start(env, ctx, user, brand, 'draft_post', body, { awaited: true });
@@ -159,6 +159,9 @@ export async function draftRun(env: Env, ctx: WaitUntil | undefined, user: UserR
     return { status: 201, body: { post, runId: run.id } };
   }
   if (done.status === 'failed') throw new HttpError(done.error_code && done.error_code >= 400 ? done.error_code : 502, done.error ?? 'drafting failed');
-  const error = done.status === 'paused' ? (done.progress?.message ?? STILL_DRAFTING) : STILL_DRAFTING;
-  return { status: 409, body: { error, runId: run.id, status: done.status, progress: done.progress, resume_at: done.resume_at } };
+  // Still going: 202 with no post yet and the run to follow; the Create screen polls GET /api/runs/:id until the run
+  // finishes, then reloads its list (Create.tsx followRun; PR #99 review). draft_post runs in parallel, so a second
+  // draft never supersedes this one.
+  const message = done.status === 'paused' ? (done.progress?.message ?? STILL_DRAFTING) : STILL_DRAFTING;
+  return { status: 202, body: { post: null, runId: run.id, status: done.status, message, progress: done.progress, resume_at: done.resume_at } };
 }

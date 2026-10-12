@@ -20,6 +20,19 @@ const POLICY_VERSION = 3; // must match the server's POLICY_VERSION
 const policyCurrent = (p?: { v?: number; passed: boolean; blocked?: string[]; unsupported?: string[] }) => !!p && p.v === POLICY_VERSION && p.passed && Array.isArray(p.blocked) && !p.blocked.length && Array.isArray(p.unsupported) && !p.unsupported.length;
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
 
+/** How often the screen checks a draft run that outlasted its request, and for how long at most. */
+export const RUN_POLL_MS = 1500;
+const RUN_FOLLOW_MS = 5 * 60 * 1000;
+/** Waits for a run to finish (GET /api/runs/:id); a failed run's error is thrown for the screen to show. */
+async function followRun(runId: string) {
+  for (const end = Date.now() + RUN_FOLLOW_MS; Date.now() < end; await new Promise((r) => setTimeout(r, RUN_POLL_MS))) {
+    const { run } = await api<{ run: { status: string; error: string | null } }>(`/runs/${runId}`);
+    if (run.status === 'done') return;
+    if (run.status === 'failed' || run.status === 'superseded') throw new ApiError(502, run.error ?? 'Drafting failed. Try again.');
+  }
+  throw new ApiError(504, 'Still drafting. Your post will appear in this list when it is ready.');
+}
+
 /** S5 Create (thin): draft a post in the approved voice, check it, approve it, register it. */
 export function Create() {
   const [brandId, setBrandId] = useState<string | null>(null);
@@ -56,7 +69,9 @@ export function Create() {
     setBusy(true);
     setError(null);
     try {
-      await api(`/brands/${brandId}/posts`, { body: { brief, channel } });
+      const r = await api<{ post: Post | null; runId?: string }>(`/brands/${brandId}/posts`, { body: { brief, channel } });
+      // A draft that outlasts the request comes back as a run to follow (202, no post yet); the list reloads once it ends.
+      if (!r.post && r.runId) await followRun(r.runId);
       setBrief('');
       await load();
     } catch (err) {

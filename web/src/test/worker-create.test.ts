@@ -63,6 +63,8 @@ let review: (post: string) => Record<string, unknown>;
 /** Which model the stub says answered, per schema (default: the first model the request listed). */
 let answeredBy: Partial<Record<string, string>> = {};
 let reviewStatus = 200;
+/** Database writes matching this fail with a 500, as a failing statement would. */
+let failWrites: RegExp | null = null;
 
 const goodReview = (post: string) => ({
   claims: post.includes('10 companies') ? [{ text: 'Teams at 10 companies use JamJam', fact_ids: [F(1)], supported: true }] : [],
@@ -94,12 +96,15 @@ beforeEach(async () => {
     posts: [{ id: 'dddddddd-0000-4000-8000-000000000001', brand_id: BRAND, status: 'registered', body: 'We ship small. Every post we approve goes on Solana.', channel: 'LinkedIn', approved_at: '2026-10-11T00:00:00Z', checks: {} }],
     post_candidates: [], post_decisions: [],
   });
-  calls = []; answeredBy = {}; reviewStatus = 200; runOnCreate = true; step = fakeStep();
+  calls = []; answeredBy = {}; reviewStatus = 200; failWrites = null; runOnCreate = true; step = fakeStep();
   drafts = { 1: GOOD, 2: UPGRADED, 3: SLOPPY };
   review = goodReview;
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'u', email: 'o@example.com' }));
-    if (url.startsWith('https://db.test')) return new Response(JSON.stringify(fakeDb(url, init)));
+    if (url.startsWith('https://db.test')) {
+      if (failWrites && (init?.method ?? 'GET') !== 'GET' && failWrites.test(url)) return new Response('{"code":"23503"}', { status: 500 });
+      return new Response(JSON.stringify(fakeDb(url, init)));
+    }
     if (url.startsWith('https://openrouter.ai')) {
       const body = JSON.parse(String(init!.body)) as { models?: string[]; messages: { content: string }[]; response_format?: { json_schema?: { name?: string } } };
       const schema = body.response_format?.json_schema?.name;
@@ -198,13 +203,28 @@ describe('draft_post on the engine (T1, T1b): best of 3, every candidate and ver
     expect(db.tables.runs[0]).toMatchObject({ executor: 'inline', status: 'done' });
   });
 
-  it('on Workflows, answers 409 "still drafting" with the run id when the run outlasts draft_wait_ms', async () => {
+  it('on Workflows, answers 202 with the run id when the run outlasts draft_wait_ms, for the screen to follow', async () => {
     runOnCreate = false;
     db.tables.engine_config.push({ key: 'draft_wait_ms', value: 0 });
     const r = await draft();
-    expect(r.status).toBe(409);
-    expect(r.body).toMatchObject({ error: STILL_DRAFTING, status: 'running' });
-    expect(r.body.runId).toBe(db.tables.runs[0].id);
+    expect(r.status).toBe(202);
+    expect(r.body).toMatchObject({ post: null, runId: db.tables.runs[0].id, status: 'running', message: STILL_DRAFTING });
+  });
+
+  it('a second draft while one is running starts its own run and supersedes nothing', async () => {
+    runOnCreate = false;
+    db.tables.engine_config.push({ key: 'draft_wait_ms', value: 0 });
+    await draft();
+    await draft();
+    expect(db.tables.runs.map((x) => x.status)).toEqual(['running', 'running']);
+  });
+
+  it('writes the post and its candidates in one transaction: a failed candidate write leaves no post', async () => {
+    failWrites = /post_candidates|rpc\/save_draft/;
+    const r = await draft();
+    expect(r.status).toBeGreaterThanOrEqual(500);
+    expect(db.tables.posts.filter((p) => p.status === 'drafted')).toHaveLength(0);
+    expect(db.tables.post_candidates).toHaveLength(0);
   });
 
   it('refuses before writing any row on a database without migration 013, or without a registered kit', async () => {
@@ -507,6 +527,18 @@ describe('decision history (§6.2 "Collect from day one"): edits as original and
     expect(db.tables.post_decisions.map((d) => [d.kind, d.original === d.final])).toEqual([['approve', true]]);
   });
 
+  it('a change and its decision row land together: if the decision cannot be written, the edit does not land', async () => {
+    const post = (await draft()).body.post as PostOut;
+    failWrites = /post_decisions|rpc\/change_post_with_decision/;
+    const e = await call('PUT', `/brands/${BRAND}/posts/${post.id}`, { rev: post.rev ?? 0, body: 'Teams at 10 companies use JamJam.' });
+    expect(e.status).toBe(500);
+    expect(db.tables.posts.find((p) => p.id === post.id)).toMatchObject({ body: GOOD.body, rev: 0 });
+    failWrites = null;
+    // The same revision can then be edited: nothing half-applied blocks it.
+    expect((await call('PUT', `/brands/${BRAND}/posts/${post.id}`, { rev: 0, body: 'Teams at 10 companies use JamJam.' })).status).toBe(200);
+    expect(db.tables.post_decisions).toHaveLength(1);
+  });
+
   it('records a rejection with its reason code; an unknown reason is refused', async () => {
     const post = (await draft()).body.post as PostOut;
     expect((await call('POST', `/brands/${BRAND}/posts/${post.id}/reject`, { rev: post.rev ?? 0, reason: 'meh' })).status).toBe(400);
@@ -601,6 +633,14 @@ describe('definitions are data (spec/db/013)', () => {
     const { REJECT_REASONS } = await import('../../worker/posts');
     expect(sql).toMatch(/check \(type in \('fetch','llm','code','read','write','map'\)\)/);
     expect(sql).toContain(`reason in (${REJECT_REASONS.map((r) => `'${r}'`).join(',')})`);
+  });
+
+  it('migration 015 holds the two transactional writes the Worker calls, each for the service role only', () => {
+    const tx = readFileSync(resolvePath(ROOT, 'spec/db/015_post_transactions.sql'), 'utf8');
+    for (const fn of ['save_draft(jsonb, jsonb)', 'change_post_with_decision(uuid, int, text[], jsonb, jsonb)']) {
+      expect(tx).toContain(`create or replace function public.${fn.split('(')[0]}(`);
+      expect(tx).toContain(`grant execute on function public.${fn} to service_role;`);
+    }
   });
 
   it('keeps every step output far below the Workflows 1 MiB limit for the largest kit approval accepts', () => {

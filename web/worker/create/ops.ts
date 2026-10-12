@@ -4,7 +4,7 @@
 import { db } from '../db';
 import { HttpError } from '../env';
 import { stableId } from '../ids';
-import { CLAIMS_POLICY, contentHash, FLIRTY_NOTE, slopCheck, type Post } from '../posts';
+import { CLAIMS_POLICY, contentHash, FLIRTY_NOTE, slopCheck } from '../posts';
 import type { StepContext } from '../engine/steps';
 import type { DraftClaim, FactRef } from './claims';
 import { MAX_BODY, named, pick, runAll, verdictOf, type EvalInput, type ReviewFindings, type Results } from './evaluators';
@@ -199,11 +199,9 @@ export const CREATE_WRITES: Record<string, (ctx: StepContext, args: Record<strin
       scores: { voice: c.voiceFit, platform: c.platformFit }, verdict: { passed: c.passed, failedGates: c.failedGates, reasons: c.reasons, evaluators: decision.results[c.idx] },
       retrieved: draft.why.retrieved, spec: draft.spec, kit_version: context.kitVersion,
     })));
-    // The post first, so every candidate row can reference it.
-    await db.insertNew<Post>(env, 'posts', [{ id: postId, brand_id: run.brand_id, brief: asText(input.brief).slice(0, 1000), channel: asText(input.channel) || null, body, checks, status: 'drafted', model: gens[chosen] ?? null, kit_version: context.kitVersion,
-      // The defaults spec/db/002 and 004 give a new post, written out so the row is complete as written.
-      rev: 0, hash: null, approved_by: null, approved_at: null, signature: null, attestation: null, published_url: null }], 'id');
-    await db.insertNew(env, 'post_candidates', rows, 'id');
+    // The post and every candidate in one transaction (spec/db/015 save_draft): a failed candidate write leaves no post
+    // without its audit rows (PR #99 review).
+    await db.rpc(env, 'save_draft', { p_post: { id: postId, brand_id: run.brand_id, brief: asText(input.brief).slice(0, 1000), channel: asText(input.channel) || null, body, checks, status: 'drafted', model: gens[chosen] ?? null, kit_version: context.kitVersion }, p_candidates: rows });
     return { postId, chosen, passed: v.passed };
   },
 };

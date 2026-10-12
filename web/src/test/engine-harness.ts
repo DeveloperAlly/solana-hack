@@ -44,6 +44,25 @@ function recordFactConflict({ p_brand, p_slot, p_evidence, p_question }: { p_bra
   return c.id;
 }
 
+/** Same semantics as spec/db/015 save_draft: the post and its candidates, rows already present left alone. */
+function saveDraft({ p_post, p_candidates }: { p_post: Row; p_candidates: Row[] }) {
+  const posts = (db.tables.posts ??= []);
+  const cands = (db.tables.post_candidates ??= []);
+  if (!posts.some((p) => p.id === p_post.id)) posts.push({ created_at: new Date().toISOString(), rev: 0, hash: null, approved_by: null, approved_at: null, signature: null, attestation: null, published_url: null, ...p_post });
+  for (const c of p_candidates) if (!cands.some((x) => x.id === c.id)) cands.push({ created_at: new Date().toISOString(), ...c });
+  return p_post.id;
+}
+
+/** Same semantics as spec/db/015 change_post_with_decision: compare-and-swap on the post, then the decision row. */
+function changePostWithDecision({ p_post, p_rev, p_statuses, p_patch, p_decision }: { p_post: string; p_rev: number; p_statuses: string[]; p_patch: Row; p_decision: Row }) {
+  const post = (db.tables.posts ??= []).find((p) => p.id === p_post && Number(p.rev ?? 0) === p_rev && p_statuses.includes(String(p.status)));
+  if (!post) return [];
+  for (const k of ['body', 'checks', 'status', 'approved_by', 'approved_at']) if (k in p_patch) post[k] = p_patch[k];
+  post.rev = Number(post.rev ?? 0) + 1;
+  (db.tables.post_decisions ??= []).push({ id: uuid(), post_id: post.id, brand_id: post.brand_id, created_at: new Date().toISOString(), ...p_decision });
+  return [post];
+}
+
 export function fakeDb(url: string, init: RequestInit = {}) {
   const u = new URL(url);
   const path = u.pathname.replace('/rest/v1/', '');
@@ -53,6 +72,8 @@ export function fakeDb(url: string, init: RequestInit = {}) {
   db.calls.push({ method, table: path, query: u.search });
   if (path === 'rpc/record_run_step') return recordRunStep(body);
   if (path === 'rpc/record_fact_conflict') return recordFactConflict(body);
+  if (path === 'rpc/save_draft') return saveDraft(body);
+  if (path === 'rpc/change_post_with_decision') return changePostWithDecision(body);
   const rows = (db.tables[path] ??= []);
   if (method === 'GET') {
     if (Number(q.get('offset') ?? 0) > 0) return [];

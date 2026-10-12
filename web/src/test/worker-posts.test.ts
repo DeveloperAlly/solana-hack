@@ -117,6 +117,8 @@ describe('approval gates: claims and content policy', () => {
       if (url.includes('/kits?')) return new Response(JSON.stringify([{ payload: { policy: kitPolicy ?? voice, evidence: [{ claim: 'Founded in 2024', origin: 'source', trust: 'owned', review_status: 'approved' }] } }]));
       if (url.includes('/answers?')) return new Response(JSON.stringify([{ data: voice }]));
       if (init.method === 'PATCH') { writes.push(JSON.parse(String(init.body))); return new Response(JSON.stringify([{ id: 'p' }])); }
+      // An approval lands with its decision row in one transaction (spec/db/015 change_post_with_decision).
+      if (url.includes('/rpc/change_post_with_decision')) { writes.push(JSON.parse(String(init.body)).p_patch); return new Response(JSON.stringify([{ id: 'p' }])); }
       return new Response('[]');
     }));
     return { writes, system: () => system };

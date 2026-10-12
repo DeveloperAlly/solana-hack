@@ -43,6 +43,14 @@ function fakeDb(url: string, init: RequestInit = {}) {
   const q = u.searchParams;
   const method = init.method ?? 'GET';
   const body = init.body ? JSON.parse(String(init.body)) : undefined;
+  // spec/db/015 change_post_with_decision: the post change (compare-and-swap) and its decision row together.
+  if (u.pathname.endsWith('/rpc/change_post_with_decision')) {
+    const post = (tables.posts ?? []).find((p) => p.id === body.p_post && Number(p.rev ?? 0) === body.p_rev && body.p_statuses.includes(p.status));
+    if (!post) return [];
+    Object.assign(post, body.p_patch, { rev: Number(post.rev ?? 0) + 1 });
+    (tables.post_decisions ??= []).push({ post_id: post.id, ...body.p_decision });
+    return [post];
+  }
   const rows = (tables[table] ??= []);
   if (method === 'GET') return Number(q.get('offset') ?? 0) > 0 ? [] : rows.filter((r) => matches(r, q));
   if (method === 'DELETE') { tables[table] = rows.filter((r) => !matches(r, q)); return null; }
