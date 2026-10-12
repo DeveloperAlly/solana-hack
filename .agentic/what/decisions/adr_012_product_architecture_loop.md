@@ -11,7 +11,7 @@ tags: [adr, product, information-architecture, navigation, ui]
 # ADR-012: Product architecture, one loop around a Brain
 
 ## Context
-- **Owner's model (2026-10-13).** The complete system is a process:
+- **Owner's model (2026-10-13, recorded in [issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90)).** The complete system is a process:
   1. build your brand and voice;
   2. create content;
   3. distribute everywhere;
@@ -21,8 +21,8 @@ tags: [adr, product, information-architecture, navigation, ui]
 
   An intelligence system runs through building, creating, growing and learning.
 - **Purpose and pitch.** ADR-002 sets the purpose: "build your brand, run it, prove it". ADR-007 sets the pitch differentiator: the full loop of build, run, prove and pay. ADR-003 sets the rule that a person reviews everything.
-- **The audit (2026-10-13) found the system wasn't legible:**
-  - The canvas has two different nav bars: one with Home, Inbox, Brand, Create, Grow, Analytics and Ledger; one with Home, Brand, Create, Grow, Inbox, Ledger and Settings.
+- **A review of the wireframe canvas (v20, 2026-10-13; [canvas link](../context/links.md)) found the system wasn't legible:**
+  - The canvas has two different nav bars: Hub-Home and Analytics show Home, Inbox, Brand, Create, Grow, Analytics and Ledger; Claims, Brand-Switcher, Media-Composer and the other Coming soon boards show Home, Brand, Create, Grow, Inbox, Ledger and Settings.
   - Distribute is not a step anywhere. The calendar sits under Create, connections in Settings cover only X and LinkedIn, and the new Platforms page has no home.
   - Campaigns sit under Create, not Grow.
   - Learning appears only as "Suggested changes" on Analytics.
@@ -32,7 +32,7 @@ tags: [adr, product, information-architecture, navigation, ui]
   - Social suites organise by job, across publishing, engagement, analytics and listening (Sprout Social, Buffer; [AuthoredUp comparison](https://authoredup.com/blog/sproutsocial-vs-buffer)).
   - Content-operations models run create, then distribute, then measure ([Content Marketing Institute](https://contentmarketinginstitute.com/content-operations/master-content-operations)).
   - Sidebars suit products with many sections. Labels should follow user intent, not feature names. Contextual tabs belong inside a section, and on mobile a bottom tab bar holds at most five items ([SaaS UI navigation patterns](https://www.saasui.design/blog/saas-navigation-ux-patterns)).
-  - None of these tools shows one unit of work moving through the whole loop, and none proves authorship (research 10 §6).
+  - None of the 59 competitors reviewed covers the whole loop of Build, Run, Prove and Pay; the most any covers is two legs ([research 10 §1, finding 1](../context/research/10_competitor_onboarding_pricing.md#1-summary); coverage by item in [§4](../context/research/10_competitor_onboarding_pricing.md#4-coverage-of-the-full-plan-who-does-each-item-today)). Provenance tools prove content but run none of the other steps (segment F in [§3](../context/research/10_competitor_onboarding_pricing.md#f-provenance-and-is-this-official-detail)).
 
 ## Decision
 1. **Today is the front door.** The app opens on a queue of decisions, not a dashboard:
@@ -48,10 +48,10 @@ tags: [adr, product, information-architecture, navigation, ui]
    |---|---|
    | **Brand** (the Brain) | Kit and gates (BB-*, Coverage-Map, Kit-Export, Kit-RegisterFailed), voices (Voice-Templates, Voice-Editor), Founder-Profile, Brand-Switcher, the **Brain** (new) |
    | **Create** | Content-Dashboard(+Empty), Draft-Review(+Beautified, PolishError), Media-Composer and Media-Review, Claims |
-   | **Distribute** | Platforms and Platform-Detail (#82), Publish-Calendar, Settings-Connections (moved), publishing queue |
-   | **Verify** | Ledger, Verify-1..5, Badge-Embed and Verify-Badge-Landing (#82), the public check page |
-   | **Grow** | Ambassadors (Amb-*, M-*, seats plus public campaigns), Campaign-v2-1..6 (moved from Create), Influencer-Setup and Influencer-Queue, Partners, Leads, Engage-Queue and Engage-Rules, Referral, Tips, Invite-Team (#82) |
-   | **Learn** | Analytics(+Empty), Outcome-Log, learned-rule suggestions (new) |
+   | **Distribute** | Platforms and Platform-Detail (#82), Distribute-Adapt (new: write once, adapt per platform), Publish-Calendar, Settings-Connections (moved) |
+   | **Verify** | Verify-Home (new), Ledger, Verify-1..5, Badge-Embed, Verify-Badge-Landing, Tip-Sheet and Tips-Received (#82), the public check page; public **Events-Board and Event-Rating (roadmap)** |
+   | **Grow** | Grow-Home (new), Ambassadors (Amb-*, M-*, seats plus public campaigns), Campaign-v2-1..6 (moved from Create), **Events and Event-Detail (new)**, Influencer-Setup and Influencer-Queue, Partners, Leads, Engage-Queue and Engage-Rules, Referral, Invite-Team (#82) |
+   | **Learn** | Analytics(+Empty), Outcome-Log, Learn-Rules (new: suggested rules) |
    | Utilities | Inbox (Inbox-All, NeedsReply, Connect), Settings (Settings-AI, GetKey, Plan, Pricing, Upgrade) |
 3. **A Post shows the whole loop.** The Post is the core object. Every post card and the Post detail screen carry a six-step **lifecycle strip**:
    - drafted from kit vN in a voice;
@@ -76,11 +76,16 @@ tags: [adr, product, information-architecture, navigation, ui]
    - owner or team: the full loop;
    - ambassador: brand seats plus public campaigns;
    - public: Verify, Ledger and the landing page.
-8. **One story everywhere.** The landing page, the hub home, the canvas, the pitch deck and the README all name the six steps in the same order and with the same words.
+8. **Events are part of Grow** (owner, 2026-10-13, [issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90): "events are massive in crypto"). An event comes from a Luma calendar or is added by hand; it has a role (hosting, speaking, sponsoring, attending) that picks a content plan (announce, countdown, live, recap, follow up) made of ordinary drafts; it can belong to a campaign, lists the ambassadors attending, and its results feed Learn. Luma's public API lists a calendar's events and guests and has webhooks, scoped by an API key per calendar ([Luma API changelog](https://docs.luma.com/reference/changelog)); whether it needs a paid plan is unverified. A public **events board** (roadmap) lets people who attended rate an event on five questions; ratings are registered so they can't be quietly edited or removed, and organisers can reply.
+9. **One story everywhere.** The landing page, the hub home, the canvas, the pitch deck and the README all name the six steps in the same order and with the same words.
 
 ## Consequences
-- **New screens:** Today (reworking Hub-Home), Post-Detail with `PostLifecycle`, the Brain with learned-rule approvals, and Why this? on drafts.
+- **New screens:** Today and M-Today (replacing Hub-Home), Post-Detail with `PostLifecycle` and Why this?, the Brain, Learn-Rules, Verify-Home, Grow-Home, Distribute-Adapt, Events, Event-Detail, and the public Events-Board and Event-Rating. The UI contracts and how they map to ADR-013's modules are in the [coordination comment on issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90#issuecomment-6126672733).
 - **Moved screens:** Campaigns to Grow; Publish-Calendar and Settings-Connections to Distribute.
 - **Code:** each screen's registry entry gains a `step` field. A test asserts that every screen belongs to exactly one step and that every shell reads `config/nav.ts`.
-- **The canvas is redrawn to the loop** (AGENTS rule 8). The landing page copy and the deck are rewritten to the six steps.
+- **The canvas is redrawn to the loop** (AGENTS.md rule 8): done in canvas v21, whose pages follow the six steps and whose app boards share one nav. The landing page copy and the deck are rewritten to the six steps.
 - **Trade-off:** Create and Distribute stay separate steps. Buffer and Sprout merge them as "Publish". Keeping them apart makes "write once, it goes everywhere" visible as a promise. If usage shows people treat them as one job, they merge under Create.
+- **Companion:** [ADR-013](https://github.com/DeveloperAlly/solana-hack/pull/88) decides the system architecture under this UI; the Brain here is its brand intelligence system (X18). The two are ratified together.
+
+## Ratification
+Pending owner ratification.
