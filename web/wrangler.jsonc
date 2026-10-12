@@ -36,5 +36,10 @@
   // PDF, DOCX and XLSX to Markdown and is free for those formats (issue #33).
   // https://developers.cloudflare.com/workers-ai/features/markdown-conversion/usage/binding/
   // https://developers.cloudflare.com/workers-ai/features/markdown-conversion/
-  "ai": { "binding": "AI" }
+  "ai": { "binding": "AI" },
+  // Browser Run binding, used by the site adapter (worker/sources/render.ts) to render script-only pages with Puppeteer
+  // request interception, so robots.txt is checked before every request the browser makes (architecture §6.1, PR #71).
+  // Available on Workers Free (10 browser minutes a day) and Paid: https://developers.cloudflare.com/browser-run/limits/
+  // https://developers.cloudflare.com/browser-run/reference/wrangler/#bindings
+  "browser": { "binding": "BROWSER" }
 }

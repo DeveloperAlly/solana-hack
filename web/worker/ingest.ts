@@ -1,7 +1,7 @@
 import { Parser } from 'htmlparser2';
 import { HttpError } from './env';
 
-const MAX_BYTES = 1_500_000;
+export const MAX_BYTES = 1_500_000;
 
 // Named entities that page text commonly carries; numeric ones (decimal and hex) are decoded generically.
 const ENTITIES: Record<string, string> = {
@@ -19,13 +19,13 @@ export function decode(s: string) {
   });
 }
 
-const USER_AGENT = 'JamJamBot/0.1 (+https://jamjam.tech)';
+export const USER_AGENT = 'JamJamBot/0.1 (+https://jamjam.tech)';
 /** At most this many redirects are followed, the same bound the Fetch standard sets: https://fetch.spec.whatwg.org/#http-redirect-fetch */
 export const MAX_REDIRECTS = 20;
 /** A check run on every address before it is fetched, the first one included; false means do not fetch it. */
 export type FetchGate = (url: URL) => Promise<boolean>;
 
-const readable = (u: URL) => (u.protocol === 'https:' || u.protocol === 'http:') && (!u.port || u.port === '80' || u.port === '443');
+export const readable = (u: URL) => (u.protocol === 'https:' || u.protocol === 'http:') && (!u.port || u.port === '80' || u.port === '443');
 
 /**
  * Fetches a page. With a gate, redirects are followed one hop at a time (redirect: 'manual', supported by Workers:

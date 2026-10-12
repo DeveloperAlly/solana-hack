@@ -68,6 +68,8 @@ export interface SourceEnv {
   EXA_API_KEY?: string;
   /** Workers AI binding (wrangler.jsonc "ai"), for document conversion. */
   AI?: { toMarkdown(files: { name: string; blob: Blob }[]): Promise<ConversionResult[] | ConversionResult> };
+  /** Browser Run binding (wrangler.jsonc "browser"), for rendering script-only pages in the site adapter (render.ts). */
+  BROWSER?: { fetch: typeof fetch };
 }
 
 /** Times an adapter and records its notes, so every result carries the same meta. */

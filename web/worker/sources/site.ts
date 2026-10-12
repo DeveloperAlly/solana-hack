@@ -1,17 +1,19 @@
-import { readPage, resolveRedirects } from '../ingest';
+import { readPage, resolveRedirects, type FetchGate } from '../ingest';
 import { factTrust, urlKind } from './registry';
+import { browserRenderer, type Renderer } from './render';
 import { fetchRobots, robotsAllows, type RobotsCheck } from './robots';
 import { clock, type SourceEnv, type SourcePage, type SourceResult } from './types';
 
 /**
- * Site adapter (issue #33; architecture §6.1 "Source ingestion", accepted 2026-10-12, as changed by ADR-012, proposed):
- * robots.txt check, then the home page and about 8 key subpages from its links: Exa's cached copies where it has
- * them, otherwise our own reader (ingest.ts readPage), which checks robots.txt before every redirect hop. If nothing
- * can be read, a "paste instead" result. Pure: no database, no model calls, never throws.
- * There is no browser-rendering fallback: a browser follows a page's own client-side navigations (meta refresh,
- * scripts) before anything can check them against robots.txt, so it cannot keep the robots guarantee (PR #71 review).
- * A script-only site is read only from an Exa cached copy; without one the owner pastes.
- * https://github.com/DeveloperAlly/solana-hack/blob/main/.agentic/what/decisions/adr_012_ingestion_robots_guarantee.md
+ * Site adapter (issue #33; architecture §6.1 "Source ingestion", accepted 2026-10-12): check robots.txt, then Exa
+ * contents for the home page plus about 8 key subpages; fall back to a plain fetch, then a rendered page for
+ * script-only sites, then paste. Every request JamJam causes is checked against robots.txt first:
+ * - Exa supplies only copies it already holds (see EXA_CACHE_ONLY), so it fetches nothing for us; a page it does not
+ *   hold falls back to the plain fetch.
+ * - The plain fetch is our own reader (ingest.ts readPage), which checks robots.txt before every redirect hop.
+ * - A page with almost no text of its own is rendered in a browser (render.ts) that loads nothing robots.txt has not
+ *   allowed, client-side navigations included (PR #71 review).
+ * If nothing can be read, a "paste instead" result. No database, no model calls, never throws.
  * https://github.com/DeveloperAlly/solana-hack/blob/main/.agentic/what/context/brand_builder_architecture.md#61-component-design-and-evaluation-accepted-2026-10-12
  */
 export interface SiteOptions {
@@ -43,8 +45,10 @@ export const SITE_DEFAULTS: Required<Omit<SiteOptions, 'website'>> = {
 // Exa is used as a cache only (`maxAgeHours: -1`, "always uses cache" in the same reference): a live crawl would be made
 // by Exa under its own crawler identity, whose robots.txt answers and redirects can differ from JamJamBot's, so our
 // request never makes Exa fetch anything. A page Exa has not cached is read by our own reader, which checks robots.txt
-// before every redirect hop (PR #71 review; ADR-012, proposed).
+// before every redirect hop: the accepted design's plain-fetch fallback (PR #71 review).
 const EXA_CACHE_ONLY = -1;
+// Fewer characters than this counts as almost no text, the same bound as the plain reader (ingest.ts readPage).
+const MIN_TEXT = 40;
 const EXA_CONTENTS = 'https://api.exa.ai/contents';
 // Links asked for on the home page, and at most this many candidates checked against robots.txt (each new origin costs
 // one robots.txt fetch, so this bounds the subrequests).
@@ -153,8 +157,11 @@ async function viaExa(key: string, url: URL, opts: typeof SITE_DEFAULTS, pick: (
   return { pages, cost, missing, linksOk };
 }
 
+/** How a script-only page is rendered: the Browser Run binding in the Worker, a fake in tests. */
+export type RendererFactory = (gate: FetchGate, maxPages: number) => Renderer;
+
 /** Reads a brand's website: home page plus key subpages. */
-export async function readSite(env: SourceEnv, raw: string, options: SiteOptions = {}): Promise<SourceResult> {
+export async function readSite(env: SourceEnv, raw: string, options: SiteOptions = {}, makeRenderer?: RendererFactory): Promise<SourceResult> {
   // Each setting falls back to its default when absent or undefined, so `{ subpageTarget: undefined }` cannot erase
   // a default (PR #71 review).
   const opts: typeof SITE_DEFAULTS = {
@@ -180,172 +187,189 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
     if (!robotsByOrigin.has(u.origin)) robotsByOrigin.set(u.origin, fetchRobots(u.origin));
     return robotsAllows(await robotsByOrigin.get(u.origin)!, u);
   };
-  // Every page is checked on its own final URL: robots.txt for its origin, then its kind. The first admitted page sets
-  // the kind (and so the trust); a later page is kept only if it has the same kind and, for a third-party page, the
-  // same host, so one result never mixes owned and third-party text or two unrelated sites. Ownership is never
-  // inherited from the address that was asked for.
-  const admit = async (all: SourcePage[]) => {
-    const kept: SourcePage[] = [];
-    let blocked = 0;
-    let offsite = 0;
-    for (const p of all) {
-      const u = siteUrl(p.url);
-      if (!u || !(await allowedHere(u))) { blocked++; continue; }
-      const first = kept[0] && new URL(kept[0].url);
-      if (first && (kindOf(p.url) !== kindOf(kept[0].url) || (kindOf(p.url) === 'page' && hostKey(u) !== hostKey(first)))) { offsite++; continue; }
-      kept.push(p);
-    }
-    if (blocked) c.notes.push(`${blocked} page(s) skipped: robots.txt disallows them`);
-    if (offsite) c.notes.push(`${offsite} page(s) skipped: not on the same site as the first page`);
-    return kept;
-  };
-  // Every page leaving the adapter, whichever reader produced it, is held to the per-page limit here, at the single
-  // success exit, so no read path can skip it (PR #71 review). Exa applies the same limit on its side.
-  const ok = (read: SourcePage[], cost: number, via: string): SourceResult => {
-    let cut = 0;
-    const pages = read.map((p) => (p.text.length > opts.maxCharacters ? (cut++, { ...p, text: p.text.slice(0, opts.maxCharacters) }) : p));
-    if (cut) c.notes.push(`${cut} page(s) cut to ${opts.maxCharacters} characters`);
-    const kind = kindOf(pages[0].url);
-    return { ok: true, kind, trust: factTrust(kind).trust, url: pages[0].url, title: pages[0].title, text: pages.map((p) => p.text).join('\n\n'), pages, meta: c.meta(pages.length, cost, via) };
-  };
-
-  // One rule for every address handed to any reader (our own fetch, Exa): its redirects are
-  // followed here one hop at a time with robots.txt checked before each hop is fetched (ingest.ts fetchPage), and the
-  // fetcher is given the final address, which no longer redirects. null means it cannot be read: a hop is disallowed,
-  // or the link cannot be followed (PR #71 review).
-  const gated = async (u: URL): Promise<URL | null> => {
-    try {
-      return await resolveRedirects(u, allowedHere);
-    } catch {
-      return null;
-    }
-  };
-  // The home page as it actually landed. A link that redirects (an old domain, a short link) is scoped from where it
-  // ends, not from what was typed, so a redirect onto the brand's own site still gets its key subpages (PR #71 review).
-  let home = url;
-  const sameSite = (u: URL) => {
-    const homeKind = kindOf(home.toString());
-    return kindOf(u.toString()) === homeKind && (homeKind === 'site' || hostKey(u) === hostKey(home));
-  };
-  // The home page's links worth reading: on the same site as the home page, ranked by the key-page terms. Nothing is
-  // fetched here.
-  const candidatesOf = (links: URL[]): URL[] => {
-    // A third-party page is read on its own. Its host can be shared by unrelated tenants (github.com/acme and
-    // github.com/rival), so its links are not followed (PR #71 review; registry urlKind path scoping).
-    if (kindOf(home.toString()) === 'page') return [];
-    const seen = new Set<string>([url.toString(), home.toString()]);
-    const candidates: URL[] = [];
-    for (const raw of links) {
-      const l = siteUrl(raw.toString());
-      if (!l || seen.has(l.toString())) continue;
-      seen.add(l.toString());
-      if (sameSite(l)) candidates.push(l);
-    }
-    const rank = (u: URL) => {
-      const i = opts.subpageTarget.findIndex((t) => u.pathname.toLowerCase().includes(t.toLowerCase()));
-      return i === -1 ? opts.subpageTarget.length : i;
-    };
-    return candidates.map((u, i) => ({ u, i, r: rank(u) })).sort((a, b) => a.r - b.r || a.i - b.i).slice(0, MAX_CANDIDATES).map((x) => x.u);
-  };
-  // For Exa: the candidates whose every redirect hop robots.txt allows, at their final addresses, checked before any of
-  // them is requested (PR #71 review).
-  const pick = async (links: URL[]) => {
-    const out: URL[] = [];
-    const chosen = new Set<string>([url.toString(), home.toString()]);
-    let blocked = 0;
-    for (const u of candidatesOf(links)) {
-      if (out.length >= opts.subpages) break;
-      const target = await gated(u);
-      // A link that redirects off the site, or to a page already chosen, is not read.
-      if (!target) { blocked++; continue; }
-      if (!sameSite(target) || chosen.has(target.toString())) continue;
-      chosen.add(target.toString());
-      out.push(target);
-    }
-    if (blocked) c.notes.push(`${blocked} linked page(s) not read: robots.txt disallows them, or they could not be followed`);
-    return out;
-  };
-
-  // Our own reader: robots.txt checked before every redirect hop (ingest.ts fetchPage). null when it cannot be read.
-  const readOwn = async (u: URL): Promise<SourcePage | null> => {
-    try {
-      const p = await readPage(u.toString(), allowedHere);
-      return { url: p.url, title: p.title, text: p.text };
-    } catch {
-      return null;
-    }
-  };
-  // Subpages read by our own reader, from the home page's links, up to the subpage count.
-  const readOwnSubpages = async (links: string[], have: Set<string>): Promise<SourcePage[]> => {
-    const out: SourcePage[] = [];
-    for (const u of candidatesOf(links.map(absoluteUrl).filter((x): x is URL => !!x))) {
-      if (out.length >= opts.subpages) break;
-      const p = await readOwn(u);
-      if (!p || have.has(p.url) || !sameSite(new URL(p.url))) continue;
-      have.add(p.url);
-      out.push(p);
-    }
-    return out;
-  };
-
-  // 1. Exa, as a cache: the home page with its links, then the chosen key subpages.
-  let cost = 0;
-  const exaHome = env.EXA_API_KEY ? await gated(url) : null;
-  if (env.EXA_API_KEY && !exaHome) c.notes.push('Exa not used: the link redirects to an address robots.txt does not let us read, or could not be followed');
-  if (env.EXA_API_KEY && exaHome) {
-    home = exaHome;
-    const exa = await viaExa(env.EXA_API_KEY, exaHome, opts, pick);
-    if ('pages' in exa) {
-      cost = exa.cost;
-      for (const m of exa.missing) {
-        const p = await readOwn(m);
-        if (p && !exa.pages.some((x) => x.url === p.url)) exa.pages.push(p);
-      }
-      // Exa gave the home page without its links: take them from the page with our own reader, then read the key
-      // subpages the same way, so a missing field never silently cuts the read to one page (PR #71 review).
-      if (!exa.linksOk && opts.subpages > 0) {
-        c.notes.push('Exa returned no links for the home page; the key subpages were found with our own reader');
-        let ownLinks: string[] = [];
-        try {
-          const own = await readPage(url.toString(), allowedHere, true);
-          home = new URL(own.url);
-          ownLinks = own.links;
-        } catch {
-          // the home page cannot be read directly; keep what Exa gave
-        }
-        exa.pages.push(...(await readOwnSubpages(ownLinks, new Set(exa.pages.map((x) => x.url).concat(url.toString())))));
-      }
-      const allowed = await admit(exa.pages);
-      if (allowed.length) return ok(allowed, cost, 'exa');
-    } else {
-      c.notes.push(`${exa.error}; read the home page directly instead`);
-    }
-  } else if (!env.EXA_API_KEY) {
-    c.notes.push('Exa is not configured (EXA_API_KEY); the site was read with our own reader');
-  }
-
-  // 2. Plain fetch of the home page (the existing reader).
-  let fetchError = '';
+  // Script-only pages are rendered in a browser, with robots.txt checked before every request it makes (render.ts),
+  // at most once per page this read may return (the home page and its subpages).
+  const factory: RendererFactory | null = makeRenderer ?? (env.BROWSER ? (gate, max) => browserRenderer(env.BROWSER!, gate, max) : null);
+  const renderer = factory ? factory(allowedHere, 1 + opts.subpages) : null;
   try {
-    // readPage follows redirects one hop at a time and checks each address's robots.txt before fetching it (ingest.ts
-    // fetchPage), so a disallowed destination is never requested (PR #71 review).
-    // A home page with almost no text (mostly navigation) still gives its links, so the key subpages can carry the
-    // read (PR #71 review).
-    const page = await readPage(url.toString(), allowedHere, true);
-    home = new URL(page.url);
-    const shortHome = page.text.length < 40;
-    if (shortHome) c.notes.push('the home page has almost no readable text; its linked pages were read instead');
-    const pages: SourcePage[] = shortHome ? [] : [{ url: page.url, title: page.title, text: page.text }];
-    if (opts.subpages > 0) pages.push(...(await readOwnSubpages(page.links, new Set([page.url, url.toString()]))));
-    const kept = await admit(pages);
-    if (kept.length) return ok(kept, cost, 'fetch');
-    fetchError = shortHome ? 'the page has almost no readable text, and no linked page could be read' : 'the page redirected to an address its robots.txt does not let us read';
-    c.notes.push(`direct read refused: ${fetchError}`);
-  } catch (e) {
-    fetchError = e instanceof Error ? e.message : 'reading the page failed';
-    c.notes.push(`direct read failed: ${fetchError}`);
-  }
+    // Every page is checked on its own final URL: robots.txt for its origin, then its kind. The first admitted page sets
+    // the kind (and so the trust); a later page is kept only if it has the same kind and, for a third-party page, the
+    // same host, so one result never mixes owned and third-party text or two unrelated sites. Ownership is never
+    // inherited from the address that was asked for.
+    const admit = async (all: SourcePage[]) => {
+      const kept: SourcePage[] = [];
+      let blocked = 0;
+      let offsite = 0;
+      for (const p of all) {
+        const u = siteUrl(p.url);
+        if (!u || !(await allowedHere(u))) { blocked++; continue; }
+        const first = kept[0] && new URL(kept[0].url);
+        if (first && (kindOf(p.url) !== kindOf(kept[0].url) || (kindOf(p.url) === 'page' && hostKey(u) !== hostKey(first)))) { offsite++; continue; }
+        kept.push(p);
+      }
+      if (blocked) c.notes.push(`${blocked} page(s) skipped: robots.txt disallows them`);
+      if (offsite) c.notes.push(`${offsite} page(s) skipped: not on the same site as the first page`);
+      return kept;
+    };
+    // Every page leaving the adapter, whichever reader produced it, is held to the per-page limit here, at the single
+    // success exit, so no read path can skip it (PR #71 review). Exa applies the same limit on its side.
+    const ok = (read: SourcePage[], cost: number, via: string): SourceResult => {
+      let cut = 0;
+      const pages = read.map((p) => (p.text.length > opts.maxCharacters ? (cut++, { ...p, text: p.text.slice(0, opts.maxCharacters) }) : p));
+      if (cut) c.notes.push(`${cut} page(s) cut to ${opts.maxCharacters} characters`);
+      if (renderer?.rendered) c.notes.push(`${renderer.rendered} script-only page(s) rendered in a browser, with robots.txt checked before every request`);
+      const kind = kindOf(pages[0].url);
+      return { ok: true, kind, trust: factTrust(kind).trust, url: pages[0].url, title: pages[0].title, text: pages.map((p) => p.text).join('\n\n'), pages, meta: c.meta(pages.length, cost, via) };
+    };
 
-  // 3. Nothing worked: ask for the text instead.
-  return { ok: false, kind: kindOf(url.toString()), code: 'unreadable', reason: `We could not read ${url.hostname} (${fetchError}). Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0, cost) };
+    // One rule for every address handed to any reader (our own fetch, Exa): its redirects are
+    // followed here one hop at a time with robots.txt checked before each hop is fetched (ingest.ts fetchPage), and the
+    // fetcher is given the final address, which no longer redirects. null means it cannot be read: a hop is disallowed,
+    // or the link cannot be followed (PR #71 review).
+    const gated = async (u: URL): Promise<URL | null> => {
+      try {
+        return await resolveRedirects(u, allowedHere);
+      } catch {
+        return null;
+      }
+    };
+    // The home page as it actually landed. A link that redirects (an old domain, a short link) is scoped from where it
+    // ends, not from what was typed, so a redirect onto the brand's own site still gets its key subpages (PR #71 review).
+    let home = url;
+    const sameSite = (u: URL) => {
+      const homeKind = kindOf(home.toString());
+      return kindOf(u.toString()) === homeKind && (homeKind === 'site' || hostKey(u) === hostKey(home));
+    };
+    // The home page's links worth reading: on the same site as the home page, ranked by the key-page terms. Nothing is
+    // fetched here.
+    const candidatesOf = (links: URL[]): URL[] => {
+      // A third-party page is read on its own. Its host can be shared by unrelated tenants (github.com/acme and
+      // github.com/rival), so its links are not followed (PR #71 review; registry urlKind path scoping).
+      if (kindOf(home.toString()) === 'page') return [];
+      const seen = new Set<string>([url.toString(), home.toString()]);
+      const candidates: URL[] = [];
+      for (const raw of links) {
+        const l = siteUrl(raw.toString());
+        if (!l || seen.has(l.toString())) continue;
+        seen.add(l.toString());
+        if (sameSite(l)) candidates.push(l);
+      }
+      const rank = (u: URL) => {
+        const i = opts.subpageTarget.findIndex((t) => u.pathname.toLowerCase().includes(t.toLowerCase()));
+        return i === -1 ? opts.subpageTarget.length : i;
+      };
+      return candidates.map((u, i) => ({ u, i, r: rank(u) })).sort((a, b) => a.r - b.r || a.i - b.i).slice(0, MAX_CANDIDATES).map((x) => x.u);
+    };
+    // For Exa: the candidates whose every redirect hop robots.txt allows, at their final addresses, checked before any of
+    // them is requested (PR #71 review).
+    const pick = async (links: URL[]) => {
+      const out: URL[] = [];
+      const chosen = new Set<string>([url.toString(), home.toString()]);
+      let blocked = 0;
+      for (const u of candidatesOf(links)) {
+        if (out.length >= opts.subpages) break;
+        const target = await gated(u);
+        // A link that redirects off the site, or to a page already chosen, is not read.
+        if (!target) { blocked++; continue; }
+        if (!sameSite(target) || chosen.has(target.toString())) continue;
+        chosen.add(target.toString());
+        out.push(target);
+      }
+      if (blocked) c.notes.push(`${blocked} linked page(s) not read: robots.txt disallows them, or they could not be followed`);
+      return out;
+    };
+
+    // Our own reader: robots.txt checked before every redirect hop (ingest.ts fetchPage). null when it cannot be read.
+    // Our own reader, then, for a page with almost no text of its own (a script-only page), the browser renderer.
+    // Throws when the page cannot be read at all; may return a page with almost no text.
+    const readDirect = async (u: URL) => {
+      const p = await readPage(u.toString(), allowedHere, true);
+      if (p.text.length >= MIN_TEXT || !renderer) return p;
+      const shown = await renderer.read(new URL(p.url));
+      return shown && shown.text.length >= MIN_TEXT ? shown : p;
+    };
+    const readOwn = async (u: URL): Promise<SourcePage | null> => {
+      try {
+        const p = await readDirect(u);
+        return p.text.length >= MIN_TEXT ? { url: p.url, title: p.title, text: p.text } : null;
+      } catch {
+        return null;
+      }
+    };
+    // Subpages read by our own reader, from the home page's links, up to the subpage count.
+    const readOwnSubpages = async (links: string[], have: Set<string>): Promise<SourcePage[]> => {
+      const out: SourcePage[] = [];
+      for (const u of candidatesOf(links.map(absoluteUrl).filter((x): x is URL => !!x))) {
+        if (out.length >= opts.subpages) break;
+        const p = await readOwn(u);
+        if (!p || have.has(p.url) || !sameSite(new URL(p.url))) continue;
+        have.add(p.url);
+        out.push(p);
+      }
+      return out;
+    };
+
+    // 1. Exa, as a cache: the home page with its links, then the chosen key subpages.
+    let cost = 0;
+    const exaHome = env.EXA_API_KEY ? await gated(url) : null;
+    if (env.EXA_API_KEY && !exaHome) c.notes.push('Exa not used: the link redirects to an address robots.txt does not let us read, or could not be followed');
+    if (env.EXA_API_KEY && exaHome) {
+      home = exaHome;
+      const exa = await viaExa(env.EXA_API_KEY, exaHome, opts, pick);
+      if ('pages' in exa) {
+        cost = exa.cost;
+        for (const m of exa.missing) {
+          const p = await readOwn(m);
+          if (p && !exa.pages.some((x) => x.url === p.url)) exa.pages.push(p);
+        }
+        // Exa gave the home page without its links: take them from the page with our own reader, then read the key
+        // subpages the same way, so a missing field never silently cuts the read to one page (PR #71 review).
+        if (!exa.linksOk && opts.subpages > 0) {
+          c.notes.push('Exa returned no links for the home page; the key subpages were found with our own reader');
+          let ownLinks: string[] = [];
+          try {
+            const own = await readDirect(url);
+            home = new URL(own.url);
+            ownLinks = own.links;
+          } catch {
+            // the home page cannot be read directly; keep what Exa gave
+          }
+          exa.pages.push(...(await readOwnSubpages(ownLinks, new Set(exa.pages.map((x) => x.url).concat(url.toString())))));
+        }
+        const allowed = await admit(exa.pages);
+        if (allowed.length) return ok(allowed, cost, 'exa');
+      } else {
+        c.notes.push(`${exa.error}; read the home page directly instead`);
+      }
+    } else if (!env.EXA_API_KEY) {
+      c.notes.push('Exa is not configured (EXA_API_KEY); the site was read with our own reader');
+    }
+
+    // 2. Plain fetch of the home page (the existing reader).
+    let fetchError = '';
+    try {
+      // readPage follows redirects one hop at a time and checks each address's robots.txt before fetching it (ingest.ts
+      // fetchPage), so a disallowed destination is never requested (PR #71 review).
+      // A home page with almost no text (mostly navigation) still gives its links, so the key subpages can carry the
+      // read (PR #71 review).
+      const page = await readDirect(url);
+      home = new URL(page.url);
+      const shortHome = page.text.length < MIN_TEXT;
+      if (shortHome) c.notes.push('the home page has almost no readable text; its linked pages were read instead');
+      const pages: SourcePage[] = shortHome ? [] : [{ url: page.url, title: page.title, text: page.text }];
+      if (opts.subpages > 0) pages.push(...(await readOwnSubpages(page.links, new Set([page.url, url.toString()]))));
+      const kept = await admit(pages);
+      if (kept.length) return ok(kept, cost, 'fetch');
+      fetchError = shortHome ? 'the page has almost no readable text, and no linked page could be read' : 'the page redirected to an address its robots.txt does not let us read';
+      c.notes.push(`direct read refused: ${fetchError}`);
+    } catch (e) {
+      fetchError = e instanceof Error ? e.message : 'reading the page failed';
+      c.notes.push(`direct read failed: ${fetchError}`);
+    }
+
+    // 3. Nothing worked: ask for the text instead.
+    return { ok: false, kind: kindOf(url.toString()), code: 'unreadable', reason: `We could not read ${url.hostname} (${fetchError}). Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0, cost) };
+  } finally {
+    await renderer?.close();
+  }
 }
