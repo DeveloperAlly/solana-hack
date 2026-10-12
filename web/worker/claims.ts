@@ -36,8 +36,12 @@ export function factBatches(facts: ClaimFact[]): ClaimFact[][] {
 }
 
 const numbers = (v: unknown, max: number) => (Array.isArray(v) ? [...new Set(v.filter((n): n is number => Number.isInteger(n) && n >= 1 && n <= max))] : []);
+/**
+ * An opinion is exempt only when the gate lets it through: a strict gate can require evidence for an opinion or
+ * intention about the brand (needsEvidence true), and then it is shown as supported or unsupported like any claim.
+ */
 const statusOf = (item: Omit<ClaimItem, 'status'> & { needsEvidence: boolean }): ClaimStatus =>
-  item.kind === 'opinion' ? 'opinion' : item.facts.length ? 'supported' : item.needsEvidence ? 'unsupported' : 'not_required';
+  item.kind === 'opinion' && !item.needsEvidence ? 'opinion' : item.facts.length ? 'supported' : item.needsEvidence ? 'unsupported' : 'not_required';
 
 /**
  * Decides the map from the first batch's raw reply; pure, so it is testable without a model. Fails closed on the wrong
@@ -52,9 +56,11 @@ export function claimMapFrom(raw: unknown, facts: ClaimFact[], rev: number, clai
     // A malformed entry fails the whole map: dropping it could hide an unsupported claim and understate the count.
     if (typeof c?.text !== 'string' || !c.text.trim()) throw new HttpError(502, 'the claims check returned an unusable answer; try again');
     const kind: ClaimItem['kind'] = c.opinion === true ? 'opinion' : 'factual';
-    const used = kind === 'opinion' ? [] : numbers(c.facts, facts.length).map((n) => facts[n - 1]);
+    // A factual claim needs evidence unless the model says otherwise; an opinion only when the model says it does.
+    const needsEvidence = kind === 'opinion' ? c.needsEvidence === true : c.needsEvidence !== false;
+    const used = kind === 'opinion' && !needsEvidence ? [] : numbers(c.facts, facts.length).map((n) => facts[n - 1]);
     const base = { text: c.text.trim().slice(0, 500), kind, facts: used };
-    items.push({ ...base, status: statusOf({ ...base, needsEvidence: c.needsEvidence !== false }) });
+    items.push({ ...base, status: statusOf({ ...base, needsEvidence }) });
   }
   return summarise({ rev, claimsGate, items, unsupported: 0, partial });
 }
@@ -94,6 +100,9 @@ List every claim in the post, in order. For each: "text" (the claim, quoted brie
     const r = await chat(env, `You check which facts support each claim. Reply with JSON only: {"supports": [{"text": string, "facts": number[]}]}, each text copied exactly from the claims list, facts as numbers from the list, an empty list if none support it.`, `Claims:\n${open.map((c) => `- ${c.text}`).join('\n')}\n\nFacts:\n${numbered(batch)}`);
     map = mergeSupport(map, parseJson<unknown>(r.text), batch);
   }
-  await db.update(env, 'posts', `${db.eq('id', post.id)}&${db.eq('rev', String(post.rev ?? 0))}`, { checks: { ...post.checks, claimMap: map } });
+  // Compare-and-swap on the revision: if an edit, polish, undo or approval landed while the model ran, the map
+  // describes a body that no longer exists, so it is refused rather than returned as current.
+  const saved = await db.update(env, 'posts', `${db.eq('id', post.id)}&${db.eq('rev', String(post.rev ?? 0))}`, { checks: { ...post.checks, claimMap: map } });
+  if (!Array.isArray(saved) || !saved.length) throw new HttpError(409, 'the post changed while its claims were checked; check again');
   return map;
 }

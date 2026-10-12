@@ -80,6 +80,18 @@ describe('claims on the draft (H9)', () => {
     reply = { claims: [] };
     expect((await call({ rev: 2 })).status).toBe(409);
   });
+  it('refuses the map when the post changes while the model runs (compare-and-swap on rev)', async () => {
+    reply = { claims: [{ text: 'Acme builds bridges for small towns', opinion: false, facts: [1] }] };
+    const real = (globalThis.fetch as unknown as (u: string, i?: RequestInit) => Promise<Response>);
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      // An edit lands during inference: the revision moves on before the map is saved.
+      if (url.startsWith('https://openrouter.ai')) tables.posts[0].rev = 4;
+      return real(url, init);
+    }));
+    const res = await call({ rev: 3 });
+    expect(res.status).toBe(409);
+    expect((tables.posts[0].checks as { claimMap?: unknown }).claimMap).toBeUndefined();
+  });
   it('never invents support: a fact number outside the list is dropped and the claim becomes unsupported', () => {
     const map = claimMapFrom({ claims: [{ text: 'We won an award', opinion: false, facts: [9, 0, -1] }] }, [{ id: 'f1', claim: 'x', quote: null }], 1, '4');
     expect(map.items[0]).toMatchObject({ status: 'unsupported', facts: [] });
@@ -100,6 +112,16 @@ describe('claims on the draft (H9)', () => {
     const groups = factBatches(many);
     expect(groups.length).toBe(evidenceBatches(many.map(factLine)).length);
     expect(groups.flat().map((f) => f.id)).toEqual(many.map((f) => f.id));
+  });
+  it('shows an opinion as needing evidence when the strict gate says it does', () => {
+    const f = [{ id: 'f1', claim: 'Acme is the safest bridge builder', quote: 'safest' }];
+    const map = claimMapFrom({ claims: [
+      { text: 'We are the safest builder', opinion: true, needsEvidence: true, facts: [] },
+      { text: 'We aim to be the safest', opinion: true, needsEvidence: true, facts: [1] },
+      { text: 'Talk to us', opinion: true, facts: [] },
+    ] }, f, 1, '5');
+    expect(map.items.map((i) => i.status)).toEqual(['unsupported', 'supported', 'opinion']);
+    expect(map.unsupported).toBe(1);
   });
   it('fails closed on an unusable reply', () => {
     expect(() => claimMapFrom({ nope: true }, [], 1, '4')).toThrow();

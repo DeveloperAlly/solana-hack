@@ -44,7 +44,8 @@ const api = (token, method, path, body) => req(`${BASE}/api${path}`, {
 });
 async function must(label, p, want = [200, 201]) {
   const r = await p;
-  if (!want.includes(r.status)) fail(`${label}: HTTP ${r.status} ${JSON.stringify(r.body).slice(0, 300)}`);
+  // Label and status only: an error body can quote post or page text, and this output is posted to a public issue.
+  if (!want.includes(r.status)) fail(`${label}: HTTP ${r.status}`);
   return r.body;
 }
 
@@ -69,7 +70,7 @@ if (read.runId && read.facts === undefined) {
     await new Promise((r) => setTimeout(r, 3000));
     const r = await must('run status', api(anonToken, 'GET', `/runs/${read.runId}`));
     if (r.run?.status === 'done') { read = r.run.output; break; }
-    if (r.run?.status === 'failed') fail(`the read failed: ${r.run.error}`);
+    if (r.run?.status === 'failed') fail('the read failed (run status failed; details in the Worker logs, not here, because this output is public)');
   }
   if (read.facts === undefined) fail('the read did not finish within 3 minutes');
 }
