@@ -256,6 +256,8 @@ export interface AdaptData {
 // Events (canvas v21 Events and Event-Detail) -----------------------------------------------------------------------
 
 export interface EventsData {
+  /** The signed-in brand whose events these are (set from the active brand by screens/growth/brandData.ts). */
+  brand: string;
   /** The sample "today" (local date) that splits Upcoming from Past and says which event is on the day. */
   today: string;
   events: BrandEvent[];

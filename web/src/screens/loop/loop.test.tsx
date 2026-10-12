@@ -282,6 +282,25 @@ describe('Brain and Learn-Rules share the Brain', () => {
     expect(missing).toEqual([]);
   });
 
+  it('every brand-scoped screen names only the active brand (JamJam is also the product name, so it is allowed)', () => {
+    const names: Record<string, string> = { adna: 'aDNA', gamerslab: 'GamersLab', filmfun: 'film.fun' };
+    const brandScoped = [...screens, ...growthScreens.filter((s) => ['Grow-Home', 'Distribute-Adapt', 'Events', 'Event-Detail', 'Quests', 'Referral', 'Badge-Embed', 'Tips-Received', 'Invite-Team'].includes(s.artboard))];
+    const leaks: string[] = [];
+    for (const brand of ['adna', 'jamjam', 'gamerslab']) {
+      act(() => selectBrand(brand));
+      const others = Object.entries(names).filter(([id]) => id !== brand).map(([, n]) => n);
+      for (const entry of brandScoped) {
+        for (const state of entry.states) {
+          const { container, unmount } = renderWithRouter(<GalleryModeContext.Provider value={true}>{entry.render(state)}</GalleryModeContext.Provider>);
+          const text = container.textContent ?? '';
+          for (const other of others) if (text.includes(other)) leaks.push(`${brand} ${entry.artboard} (${state}) shows ${other}`);
+          unmount();
+        }
+      }
+    }
+    expect(leaks).toEqual([]);
+  });
+
   it('a brand with no loop data says so, never showing another brand', () => {
     act(() => selectBrand('filmfun'));
     renderWithRouter(screens.find((s) => s.artboard === 'Today')!.render('success'));

@@ -33,7 +33,7 @@ export interface GrowBrandData {
   team: BrandVariants<TeamData>;
 }
 
-export const adnaGrow: GrowBrandData = {
+const adnaFixtures: GrowBrandData = {
   growHome: { success: growHome, empty: growHomeFirstRun },
   adapt: { success: adapt, empty: adaptNoneChosen },
   events: { success: events, empty: eventsEmpty },
@@ -45,13 +45,38 @@ export const adnaGrow: GrowBrandData = {
   team: { success: team, empty: teamEmpty },
 };
 
+/** Applies `f` to a screen's every variant, keeping identity where success and empty are the same object (first run). */
+function mapVariants<D>(v: BrandVariants<D>, f: (d: D) => D): BrandVariants<D> {
+  const success = f(v.success);
+  return { success, empty: v.empty === v.success ? success : v.empty && f(v.empty), error: v.error && f(v.error) };
+}
+
+/**
+ * The one place a Grow dataset gets its brand's name: every dataset that names the signed-in brand (Grow-Home, its
+ * events, Events, Event-Detail, the team, tips received) is stamped with the active brand's name here, never from a
+ * fixture literal or screen copy (Codex review on PR 111).
+ */
+export function withBrand(g: GrowBrandData, brand: string): GrowBrandData {
+  const events = mapVariants(g.events, (d) => ({ ...d, brand }));
+  return {
+    ...g,
+    growHome: mapVariants(g.growHome, (d) => ({ ...d, brand, events: { ...d.events, brand } })),
+    events,
+    eventDetail: g.eventDetail && mapVariants(g.eventDetail, (d) => ({ ...d, brand })),
+    team: mapVariants(g.team, (d) => ({ ...d, brand })),
+    tips: mapVariants(g.tips, (d) => ({ ...d, creator: brand })),
+  };
+}
+
+export const adnaGrow: GrowBrandData = withBrand(adnaFixtures, 'aDNA');
+
 /** The same object for success and empty: a first-run brand's data is its empty data (resolveState shows it as empty). */
 const only = <D,>(d: D): BrandVariants<D> => ({ success: d, empty: d });
 
 /** A first-run brand's Grow data: nothing yet, under its own name; quest suggestions are bracketed until its kit exists. */
 export function firstRunGrow(name: string): GrowBrandData {
-  return {
-    growHome: only({ ...growHomeFirstRun, brand: name }),
+  return withBrand({
+    growHome: only(growHomeFirstRun),
     events: only(eventsEmpty),
     quests: only({
       ...questsEmpty,
@@ -59,7 +84,7 @@ export function firstRunGrow(name: string): GrowBrandData {
     }),
     referral: only(referralEmpty),
     badge: only(badgeEmbedEmpty),
-    tips: only({ ...tipsReceivedEmpty, creator: name }),
+    tips: only(tipsReceivedEmpty),
     team: only(teamEmpty),
-  };
+  }, name);
 }
