@@ -25,7 +25,7 @@ import { Columns } from '../../ui/layouts/Columns';
 import { PageHeader } from '../../ui/layouts/PageHeader';
 import { PostLifecycle } from '../../ui/domain/PostLifecycle';
 import { WhyThis } from '../../ui/domain/WhyThis';
-import { LoopPage } from './LoopPage';
+import { LoopFrame } from '../../ui/shells/LoopFrame';
 import { PostPlatforms } from './PostPlatforms';
 import { useLoopLinks } from './paths';
 import { usePostDetail } from './usePostDetail';
@@ -36,7 +36,7 @@ export function PostDetail({ data, state = 'success' }: { data: PostDetailData; 
   const { links } = useLoopLinks();
   const p = f.post;
   return (
-    <LoopPage tag="COMING SOON" stage="create" tab="post" brandName={data.brain.brandName}>
+    <LoopFrame artboard="Post-Detail" tag="COMING SOON" brandName={data.brain.brandName}>
       <StateView
         state={p ? state : 'empty'}
         empty={{ level: 1, title: 'No posts yet', body: 'Approve a first draft and it shows here, through every step of the loop.', actions: <Button href={links.contentDashboard}>Go to drafts</Button> }}
@@ -65,6 +65,6 @@ export function PostDetail({ data, state = 'success' }: { data: PostDetailData; 
           </>
         )}
       </StateView>
-    </LoopPage>
+    </LoopFrame>
   );
 }

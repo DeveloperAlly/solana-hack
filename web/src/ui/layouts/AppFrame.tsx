@@ -77,6 +77,8 @@ function NavLinks({ nav }: { nav: FrameNav }) {
 export function AppFrame({ homeHref, back, title, context, flags, nav, actions, subnav, pinned, footer, width = 'app', bodyPadding = 'page', preview = false, shell = 'app', children }: AppFrameProps) {
   const Header = preview ? 'div' : 'header';
   const Main = preview ? 'div' : 'main';
+  // The sticky bottom region is a footer landmark, so its content (a footer action's reason text) is in a landmark (axe region; PR #78).
+  const Bottom = preview ? 'div' : 'footer';
   const tabs = nav?.placement === 'tabs';
   return (
     <div className={`${styles.frame} ${styles[width]}`} data-shell={shell}>
@@ -99,17 +101,18 @@ export function AppFrame({ homeHref, back, title, context, flags, nav, actions, 
           ) : null}
         </div>
         {subnav != null && <div className={styles.subnav}>{subnav}</div>}
+        {/* Inside the banner, so the pinned row is in a landmark (axe region) and sticks with the bar (PR #78). */}
+        {pinned != null && <div className={styles.pinned}>{pinned}</div>}
       </Header>
-      {pinned != null && <div className={styles.pinned}>{pinned}</div>}
       <Main id={preview ? undefined : 'main'} tabIndex={preview ? undefined : -1} className={`${styles.main} ${styles[`pad-${bodyPadding}`]}`}>
         {children}
       </Main>
       {/* One sticky bottom region, the footer stacked above the tab bar, so the two never overlap (Codex review on PR #80). */}
       {(footer || (nav && tabs)) && (
-        <div className={styles.bottom} data-frame-bottom="">
+        <Bottom className={styles.bottom} data-frame-bottom="">
           {footer != null && <div className={styles.footer}>{footer}</div>}
           {nav && tabs && <MobileTabBar label={nav.label} items={nav.items} current={nav.current} />}
-        </div>
+        </Bottom>
       )}
     </div>
   );

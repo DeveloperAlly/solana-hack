@@ -24,7 +24,7 @@ import { Columns } from '../../ui/layouts/Columns';
 import { PageHeader } from '../../ui/layouts/PageHeader';
 import { SampleFlag } from '../../ui/composites/SampleFlag';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { LoopPage } from './LoopPage';
+import { LoopFrame } from '../../ui/shells/LoopFrame';
 import { TodayAside } from './TodayAside';
 import { TodayQueue } from './TodayQueue';
 import { useLoopLinks } from './paths';
@@ -36,7 +36,7 @@ export function Today({ data, state = 'success' }: { data: TodayData; state?: Sc
   const { to } = useLoopLinks();
   const steps = t.steps.map((s) => ({ ...s, action: <Link href={to(s.href.artboard)}>{s.href.label}</Link> }));
   return (
-    <LoopPage tag="COMING SOON" stage="today" brandName={data.brain.brandName}>
+    <LoopFrame artboard="Today" tag="COMING SOON" brandName={data.brain.brandName}>
       <PageHeader
         title={`${data.weekday}, ${data.brain.brandName}`}
         intro={<>{data.status} · <SampleFlag /></>}
@@ -54,7 +54,7 @@ export function Today({ data, state = 'success' }: { data: TodayData; state?: Sc
           <TodayQueue rows={t.shown} pending={t.pending.length} filter={{ value: t.filter, onChange: t.setFilter }} />
         </StateView>
       </Columns>
-    </LoopPage>
+    </LoopFrame>
   );
 }
 

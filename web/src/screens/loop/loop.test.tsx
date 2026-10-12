@@ -61,6 +61,22 @@ describe('Today', () => {
   });
 });
 
+describe('Today: quest submissions pay through domain/quest.ts', () => {
+  const quest = { id: 'quest-tut', task: '[Quest task]', format: 'tutorial' as const, rewardUsdc: 50, slots: 2, paid: 1, due: null, opens: null, submissionIds: ['q-sub-1', 'q-sub-2'] };
+  const sub = (id: string, who: string) => ({ id, kind: 'questSubmission' as const, chip: 'Quest submission', text: `${who}'s tutorial is verified against your kit`, meta: '50 USDC on approval', questId: 'quest-tut', payout: { amount: 50, unit: 'USDC' as const }, verified: true, disclosure: 'present' as const, open: { label: 'Review', artboard: 'Quests' as const } });
+  const data = { ...today, quests: [quest], queue: [sub('q-sub-1', '[Creator A]'), sub('q-sub-2', '[Creator B]')] };
+
+  it('Approve is blocked once the quest slots are full, and the badge says why', async () => {
+    renderWithRouter(<Today data={data} />);
+    await userEvent.click(within(queueRow(/\[Creator A\]/)).getByRole('button', { name: 'Approve and pay' }));
+    expect(within(queueRow(/\[Creator A\]/)).getByText('Approved. The 50 USDC payout is queued.')).toBeInTheDocument();
+    const second = queueRow(/\[Creator B\]/);
+    expect(within(second).getByRole('button', { name: 'Approve and pay' })).toBeDisabled();
+    expect(within(second).getByText(/Blocked: All 2 slots are paid; the budget is reached/)).toBeInTheDocument();
+    expect(loopStore.read().questPaid['quest-tut']).toBe(2);
+  });
+});
+
 describe('M-Today', () => {
   it('shows one-tap decisions only, a more link, and the mobile tab bar', () => {
     renderWithRouter(<MToday data={today} />);

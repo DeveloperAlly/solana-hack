@@ -1,0 +1,4 @@
+.badge { align-self: flex-start; }
+.title { margin: 0; font-family: var(--wl-font-display); font-size: var(--wl-font-size-lg); line-height: var(--wl-font-lineHeight-heading); color: var(--wl-text-primary); }
+.desc { margin: 0; font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
+.body { display: flex; flex-direction: column; gap: var(--wl-space-3); margin-top: auto; }

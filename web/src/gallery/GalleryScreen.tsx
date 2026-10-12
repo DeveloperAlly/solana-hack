@@ -5,6 +5,7 @@ import { EmptyState } from '../ui/composites/EmptyState';
 import { DemoStateSwitcher, type ScreenState } from '../ui/composites/DemoStateSwitcher';
 import { SampleFlag } from '../ui/composites/SampleFlag';
 import { GalleryModeContext } from '../ui/hooks/galleryMode';
+import { BrandKeyed } from '../flows/brand/BrandKeyed';
 import { findScreen } from './registry';
 import { GalleryToolbar } from './GalleryToolbar';
 import { useGalleryTheme, useThemeQuery, withParam } from './useGalleryTheme';
@@ -39,8 +40,10 @@ export function GalleryScreen() {
       {/* Keyed by artboard and state, so switching either one mounts the screen fresh: local state initialised from the
           previous fixture never leaks into the next one. Two variants that share one screen component (e.g. Onboard-3b
           and Ingest-Error), or a state switch, would otherwise keep stale rows and errors (Codex review on PR #73).
-          Flow state that must survive navigation lives in the page's flow store, not in component state. */}
-      <div className={styles.stage}><GalleryModeContext.Provider value={true}><Fragment key={`${entry.artboard}:${state}`}>{entry.render(state)}</Fragment></GalleryModeContext.Provider></div>
+          Flow state that must survive navigation lives in the page's flow store, not in component state. BrandKeyed
+          also remounts the whole screen on a brand switch, so a transient selection made for one brand never applies
+          to another (Codex review on PR #79). */}
+      <div className={styles.stage}><GalleryModeContext.Provider value={true}><BrandKeyed><Fragment key={`${entry.artboard}:${state}`}>{entry.render(state)}</Fragment></BrandKeyed></GalleryModeContext.Provider></div>
       <GalleryToolbar placement="bottom" theme={theme} title={<><Link href={`/screens${q}`}>All screens</Link> / {entry.artboard}</>}>
         {/* Every gallery screen renders fixtures, so the frame says so once (Codex review on PR #66). */}
         <SampleFlag />

@@ -1,5 +1,6 @@
-// Every non-archived artboard on the wireframe canvas, generated from its canvas.json (version 1791818793-e756,
-// https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn; issue #46). The Archive page ("licensee") is not built (issue #45).
+// Every artboard on the wireframe canvas, generated from its canvas.json (version 1791818793-e756,
+// https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn; issue #46) by scripts/gen-artboards.mjs. The Archive page
+// ("licensee") is not built (issue #45); its boards are listed so a screen still registered there names its page.
 // Links between screens take an ArtboardName (screenPath, useScreenHref, ScreenLink), so a misspelled or missing
 // board fails typecheck (Codex review on PR #80). Regenerate when the canvas adds or renames a board.
 import type { CanvasPageId } from '../screens/registry-types';
@@ -118,12 +119,25 @@ export const artboardPages = {
   'Verify-Home': 'public',
   'Voice-Editor': 'brand',
   'Voice-Templates': 'brand',
+  // Archive page: not in the product.
+  'Campaign-Builder': 'licensee',
+  'Hub-Home': 'licensee',
+  'Landing-v2': 'licensee',
+  'Lic-1-Brand': 'licensee',
+  'Lic-2-Format': 'licensee',
+  'Lic-3-Brief': 'licensee',
+  'Lic-4-Preview': 'licensee',
+  'Lic-5-Pay': 'licensee',
+  'Lic-5b-PayFailed': 'licensee',
+  'Lic-6-Result': 'licensee',
+  'Onboard-4-VoicePack': 'licensee',
+  'Onboard-5-License': 'licensee',
 } as const satisfies Record<string, CanvasPageId>;
 
 export type ArtboardName = keyof typeof artboardPages;
 
-/** All 113 artboard names, in name order. */
-export const artboards = Object.keys(artboardPages) as ArtboardName[];
+/** The 113 non-archived artboard names, in name order: the boards the product builds. */
+export const artboards = (Object.keys(artboardPages) as ArtboardName[]).filter((a) => artboardPages[a] !== 'licensee');
 
 export function isArtboardName(name: string): name is ArtboardName {
   return Object.prototype.hasOwnProperty.call(artboardPages, name);

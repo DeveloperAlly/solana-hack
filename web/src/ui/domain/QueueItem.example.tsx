@@ -6,7 +6,7 @@ import { DecisionQueue } from './DecisionQueue';
 import { QueueItem } from './QueueItem';
 
 // Items from canvas v24 board Today (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn).
-const ctx = { brainVersion: '3.1', proposal: (id: string) => adnaProposals.find((p) => p.id === id) };
+const ctx = { brainVersion: '3.1', proposal: (id: string) => adnaProposals.find((p) => p.id === id), quest: () => undefined };
 const pick = (id: string) => today.queue.find((i) => i.id === id)!;
 
 export const example: WorkbenchExample = {

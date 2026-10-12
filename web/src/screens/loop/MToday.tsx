@@ -9,7 +9,7 @@ import { Heading, Link, Text } from '../../ui/primitives';
 import { StateView } from '../../ui/composites/StateView';
 import { SampleFlag } from '../../ui/composites/SampleFlag';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { LoopPage } from './LoopPage';
+import { LoopFrame } from '../../ui/shells/LoopFrame';
 import { TodayQueue } from './TodayQueue';
 import { useLoopLinks } from './paths';
 import { useToday } from './useToday';
@@ -23,7 +23,7 @@ export function MToday({ data, state = 'success' }: { data: TodayData; state?: S
   const oneTap = t.rows.filter((r) => r.act && !r.gate.blocking).slice(0, PHONE_ITEMS);
   const more = t.pending.length - oneTap.filter((r) => !r.outcome).length;
   return (
-    <LoopPage tag="COMING SOON" stage="today" width="phone" brandName={data.brain.brandName}>
+    <LoopFrame artboard="M-Today" tag="COMING SOON" width="phone" brandName={data.brain.brandName}>
       <div>
         <Heading level={1} size="xl">{t.pending.length} decisions</Heading>
         <Text variant="small" tone="secondary">{t.progress} · <SampleFlag /></Text>
@@ -35,6 +35,6 @@ export function MToday({ data, state = 'success' }: { data: TodayData; state?: S
       >
         <TodayQueue rows={oneTap} pending={t.pending.length} surface="card" footer={more > 0 && <Link href={links.today}>{more} more</Link>} />
       </StateView>
-    </LoopPage>
+    </LoopFrame>
   );
 }

@@ -26,7 +26,7 @@ import { PageHeader } from '../../ui/layouts/PageHeader';
 import { rulesWith } from '../../domain/brain';
 import { useLoop, type LoopBase } from '../../flows/loop/useLoop';
 import { BrainRules } from './BrainRules';
-import { LoopPage } from './LoopPage';
+import { LoopFrame } from '../../ui/shells/LoopFrame';
 import { useLoopLinks } from './paths';
 
 const uses = [
@@ -41,7 +41,7 @@ export function Brain({ data, state = 'success' }: { data: LoopBase; state?: Scr
   const b = loop.brain;
   const waiting = rulesWith(b, 'suggested').length;
   return (
-    <LoopPage tag="COMING SOON" stage="brand" tab="brain" brandName={b.brandName}>
+    <LoopFrame artboard="Brain" tag="COMING SOON" brandName={b.brandName}>
       <PageHeader
         title="The Brain"
         intro={`Everything JamJam knows about ${b.brandName}. Create, Distribute and Grow read it; Learn suggests changes; only you approve them.`}
@@ -77,6 +77,6 @@ export function Brain({ data, state = 'success' }: { data: LoopBase; state?: Scr
           </Columns>
         </Stack>
       </StateView>
-    </LoopPage>
+    </LoopFrame>
   );
 }

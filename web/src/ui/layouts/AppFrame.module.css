@@ -25,7 +25,7 @@
 
 .subnav { padding: 0 var(--wl-layout-page-padX); }
 .app .subnav { max-width: var(--wl-layout-width-app); margin-inline: auto; }
-.pinned { position: sticky; top: calc(var(--wl-control-target-min) + var(--wl-space-6)); z-index: var(--wl-z-sticky); padding: var(--wl-space-2-5) var(--wl-space-4); border-bottom: var(--wl-border-width-default) solid var(--wl-border-nav); background: var(--wl-bg-subtle); }
+.pinned { padding: var(--wl-space-2-5) var(--wl-space-4); border-bottom: var(--wl-border-width-default) solid var(--wl-border-nav); background: var(--wl-bg-subtle); }
 
 .main { display: block; flex: 1; min-width: 0; }
 .main:focus { outline: none; }

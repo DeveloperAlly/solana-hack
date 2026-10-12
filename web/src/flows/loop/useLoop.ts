@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { fingerprintOf, isStale } from '../../domain/approval';
 import { nextBrainVersion, type Brain, type BrainRule } from '../../domain/brain';
 import type { Proposal } from '../../domain/proposal';
+import { approveSubmission, type Quest } from '../../domain/quest';
+import type { Gate } from '../../domain/approval';
 import { loopStore, today } from './store';
 
 /** The loop fixtures a screen starts from: the Brain, the learn loop's proposals, and who approves. */
@@ -10,6 +12,8 @@ export interface LoopBase {
   proposals: Proposal[];
   /** The signed-in owner, bracketed in fixtures. */
   approver: string;
+  /** Quests whose submissions can reach the queue. */
+  quests?: Quest[];
 }
 
 export interface LoopFlow {
@@ -31,6 +35,10 @@ export interface LoopFlow {
   /** Records an irreversible outcome (sent, paid). */
   finish: (id: string, outcome: string) => void;
   outcome: (id: string) => string | undefined;
+  /** A quest with this session's paid slots. */
+  quest: (id: string) => Quest | undefined;
+  /** Approves a paid submission through domain/quest.ts `approveSubmission` (the one payout path). */
+  paySubmission: (itemId: string, gate: Gate, questId: string | undefined, payout: { amount: number; unit: 'USDC' }) => void;
 }
 
 /**
@@ -88,5 +96,17 @@ export function useLoop(base: LoopBase): LoopFlow {
     },
     finish: (id, outcome) => set({ outcomes: { ...loopStore.read().outcomes, [id]: outcome } }),
     outcome: (id) => state.outcomes[id],
+    quest: (id) => {
+      const q = base.quests?.find((x) => x.id === id);
+      return q && { ...q, paid: state.questPaid[id] ?? q.paid };
+    },
+    paySubmission: (itemId, gate, questId, payout) => {
+      const s = loopStore.read();
+      const q = questId ? base.quests?.find((x) => x.id === questId) : undefined;
+      const current = q && { ...q, paid: s.questPaid[q.id] ?? q.paid };
+      const r = approveSubmission(gate, current, payout);
+      if (!r.ok) return;
+      set({ outcomes: { ...s.outcomes, [itemId]: r.outcome }, ...(q ? { questPaid: { ...s.questPaid, [q.id]: r.paid } } : {}) });
+    },
   };
 }

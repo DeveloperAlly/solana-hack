@@ -1,0 +1,19 @@
+/* Canvas ".card": a five-column row on desktop (brand, payout, time, slots, action); stacked on mobile and narrow screens. */
+.grid { display: grid; gap: var(--wl-space-4); align-items: center; color: var(--wl-text-primary); }
+.row { grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
+.stack { grid-template-columns: 1fr; gap: var(--wl-space-1); }
+.cell { display: flex; flex-direction: column; gap: var(--wl-space-1); min-width: 0; }
+.title { margin: 0; font-family: var(--wl-font-display); font-size: var(--wl-font-size-lg); line-height: var(--wl-font-lineHeight-heading); }
+.sub { margin: 0; font-size: var(--wl-font-size-sm); color: var(--wl-text-secondary); }
+.strong { margin: 0; font-weight: var(--wl-font-weight-semibold); }
+.muted { margin: 0; color: var(--wl-text-secondary); }
+.small { margin: 0; font-size: var(--wl-font-size-sm); }
+.chip { justify-self: start; }
+.action { justify-self: start; }
+.stack .action { margin-top: var(--wl-space-2); }
+@media (max-width: 60rem) {
+  .row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 30rem) {
+  .row { grid-template-columns: 1fr; }
+}

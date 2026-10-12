@@ -2,12 +2,12 @@
 // Exact match uses the Worker's normalisation (web/worker/posts.ts `normalise`). "Edited" needs a similarity method and
 // threshold that the backend map leaves open (G-MATCH; canvas note n-v3 "Threshold ... is TBD"); this uses a word diff
 // against each approved post, as G-MATCH proposes for the hackathon.
+import { normalise } from '../../lib/normalise';
 import type { ApprovedPost, DiffPart, VerifyOutcome } from './types';
 
 /** Placeholder threshold between "edited" and "no match": TBD (canvas n-v3, backend map G-MATCH). */
 export const EDITED_MIN_SIMILARITY = 0.4;
 
-export const normalise = (s: string) => s.normalize('NFC').replace(/\s+/g, ' ').trim();
 
 const tokenise = (s: string) => s.match(/\w+|[^\w\s]+|\s+/g) ?? [];
 const isFiller = (s: string) => /^[^\w]*$/.test(s);

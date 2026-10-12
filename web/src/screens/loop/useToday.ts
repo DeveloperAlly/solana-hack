@@ -57,11 +57,12 @@ function standing(item: QueueItem, loop: LoopFlow): Pick<QueueRow, 'outcome' | '
 export function useToday(data: TodayData) {
   const loop = useLoop(data);
   const [filter, setFilter] = useState<QueueFilter>('all');
-  const ctx = { brainVersion: loop.brain.version, proposal: loop.proposal };
+  const ctx = { brainVersion: loop.brain.version, proposal: loop.proposal, quest: loop.quest };
   const acts: Partial<Record<QueueKind, (item: QueueItem) => void>> = {
     draft: (i) => loop.approveItem(i.id, i.text),
     reply: (i) => loop.finish(i.id, primaryActions.reply?.done ?? ''),
-    ambassadorPost: (i) => i.kind === 'ambassadorPost' && loop.finish(i.id, `Approved. The ${i.payout.amount} ${i.payout.unit} payout is queued.`),
+    ambassadorPost: (i) => i.kind === 'ambassadorPost' && loop.paySubmission(i.id, gateFor(i, ctx), undefined, i.payout),
+    questSubmission: (i) => i.kind === 'questSubmission' && loop.paySubmission(i.id, gateFor(i, ctx), i.questId, i.payout),
     learnedRule: (i) => {
       const p = i.kind === 'learnedRule' && loop.proposal(i.proposalId);
       if (p) loop.approveProposal(p);

@@ -1,12 +1,13 @@
 // Today's one approval queue: a union by kind (ADR-012 decision 1, PR #86; contract table in issue #90, row "Today":
 // draft, reply, ambassador post, event content, learned rule, campaign decision, with one { blocking, label } gate).
 // Each kind maps to the ADR-013 module that produces it: draft and reply (Create, on X18 brand memory), ambassador
-// post (Grow, ambassador payouts), event content (Grow, the event source registry: plan items are ordinary drafts),
+// post and quest submission (Grow, paid from a campaign or quest budget through domain/quest.ts), event content (Grow, the event source registry: plan items are ordinary drafts),
 // learned rule (N5 learn loop), campaign decision (Grow, campaign optimiser).
 import type { ArtboardName } from '../config/artboards';
 import type { Gate } from './approval';
 import { proposalGate, type Proposal } from './proposal';
 import type { PostChecks } from './post';
+import { submissionGate, type Quest } from './quest';
 
 interface QueueBase {
   id: string;
@@ -23,14 +24,16 @@ interface QueueBase {
 export interface DraftItem extends QueueBase { kind: 'draft'; checks: PostChecks; whyThis?: ArtboardName }
 export interface ReplyItem extends QueueBase { kind: 'reply'; checks: PostChecks }
 export interface AmbassadorPostItem extends QueueBase { kind: 'ambassadorPost'; payout: { amount: number; unit: 'USDC' }; verified: boolean; disclosure: 'present' | 'missing' }
+/** A quest submission: paid from the quest's budget, one slot each (domain/quest.ts). */
+export interface QuestSubmissionItem extends QueueBase { kind: 'questSubmission'; questId: string; payout: { amount: number; unit: 'USDC' }; verified: boolean; disclosure: 'present' | 'missing' }
 export interface EventContentItem extends QueueBase { kind: 'eventContent'; drafts: number }
 export interface LearnedRuleItem extends QueueBase { kind: 'learnedRule'; proposalId: string }
 export interface CampaignDecisionItem extends QueueBase { kind: 'campaignDecision'; capShare: number }
 
-export type QueueItem = DraftItem | ReplyItem | AmbassadorPostItem | EventContentItem | LearnedRuleItem | CampaignDecisionItem;
+export type QueueItem = DraftItem | ReplyItem | AmbassadorPostItem | QuestSubmissionItem | EventContentItem | LearnedRuleItem | CampaignDecisionItem;
 export type QueueKind = QueueItem['kind'];
 
-/** Today's filter, in the canvas order. Campaign decisions show under Everything only, as the canvas draws it. */
+/** Today's filter, in the canvas order. Campaign decisions and quest submissions show under Everything only, as the canvas draws it. */
 export const queueFilters: { value: 'all' | QueueKind; label: string }[] = [
   { value: 'all', label: 'Everything' },
   { value: 'draft', label: 'Drafts' },
@@ -45,6 +48,7 @@ export const primaryActions: Record<QueueKind, { label: string; done: string; re
   draft: { label: 'Approve', done: 'Approved. It publishes on its schedule.', reversible: true },
   reply: { label: 'Send', done: 'Sent.', reversible: false },
   ambassadorPost: { label: 'Approve and pay', done: 'Approved. The USDC payout is queued.', reversible: false },
+  questSubmission: { label: 'Approve and pay', done: 'Approved. The USDC payout is queued.', reversible: false },
   learnedRule: { label: 'Approve rule', done: 'Approved. The rule is active in the Brain.', reversible: false },
   eventContent: undefined,
   campaignDecision: undefined,
@@ -54,6 +58,8 @@ export const primaryActions: Record<QueueKind, { label: string; done: string; re
 export interface GateContext {
   brainVersion: string;
   proposal: (id: string) => Proposal | undefined;
+  /** A quest's paid slots now (session state over the fixture). */
+  quest: (id: string) => Pick<Quest, 'paid' | 'slots'> | undefined;
 }
 
 /** The no-AI-slop pass and the claims gate: the core product gates (issue #45). */
@@ -65,17 +71,21 @@ export function checksGate(c: PostChecks): Gate {
   return { blocking: false, label: `Slop check passed · claims backed (${c.claims.backed} of ${c.claims.total})` };
 }
 
+/** A paid post (ambassador or quest): verified against the kit, with its disclosure. */
+function paidPostGate(i: AmbassadorPostItem | QuestSubmissionItem): Gate {
+  if (!i.verified) return { blocking: true, label: 'Not verified against your kit yet.' };
+  if (i.disclosure === 'missing') return { blocking: true, label: 'Disclosure missing. Ask them to add it.' };
+  return { blocking: false, label: `Verified against your kit · disclosure present · ${i.payout.amount} ${i.payout.unit} on approval` };
+}
+
 const opensElsewhere: Gate = { blocking: false, label: 'Decided on its own screen.' };
 
 /** One gate per kind. Badges and the primary action both read it, so a blocked badge never sits by an open button. */
 const gates: { [K in QueueKind]: (item: Extract<QueueItem, { kind: K }>, ctx: GateContext) => Gate } = {
   draft: (i) => checksGate(i.checks),
   reply: (i) => checksGate(i.checks),
-  ambassadorPost: (i) => {
-    if (!i.verified) return { blocking: true, label: 'Not verified against your kit yet.' };
-    if (i.disclosure === 'missing') return { blocking: true, label: 'Disclosure missing. Ask them to add it.' };
-    return { blocking: false, label: `Verified against your kit · disclosure present · ${i.payout.amount} ${i.payout.unit} on approval` };
-  },
+  ambassadorPost: (i) => paidPostGate(i),
+  questSubmission: (i, ctx) => submissionGate(paidPostGate(i), ctx.quest(i.questId)),
   learnedRule: (i, ctx) => {
     const p = ctx.proposal(i.proposalId);
     return p ? proposalGate(p, ctx.brainVersion) : { blocking: true, label: 'Proposal not found.' };

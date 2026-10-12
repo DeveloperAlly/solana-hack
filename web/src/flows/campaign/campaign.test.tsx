@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useState } from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useParams } from 'react-router';
 import { expectNoAxeViolations } from '../../test/axe';
 import { CampaignStepFrame } from './CampaignStepFrame';
 import { campaignStore } from './draft';
+import { selectBrand } from '../brand/activeBrand';
 import { campaignSteps } from './steps';
 import { useCampaignFlow } from './useCampaignFlow';
 
@@ -142,5 +143,29 @@ describe('Campaign v2 flow (one step table)', () => {
     expect(status).toHaveTextContent('Finish step 1: Goal and platforms first.');
     await userEvent.click(within(status).getByRole('link'));
     expect(heading()).toBe('Goal and platforms');
+  });
+});
+
+describe('campaign draft is kept per brand (Codex review on PR #79)', () => {
+  function DraftName() {
+    const { draft } = campaignStore.use();
+    return <p>{draft.goal.name || 'no name'}</p>;
+  }
+
+  it('switching brand shows that brand\'s own draft, and switching back restores the first', () => {
+    render(<DraftName />);
+    act(() => campaignStore.set('goal', { ...campaignStore.read().draft.goal, name: 'aDNA launch' }));
+    act(() => campaignStore.complete('goal'));
+    expect(screen.getByText('aDNA launch')).toBeInTheDocument();
+
+    act(() => selectBrand('gamerslab'));
+    expect(screen.getByText('no name')).toBeInTheDocument();
+    expect(campaignStore.read().completed).toEqual({});
+    act(() => campaignStore.set('goal', { ...campaignStore.read().draft.goal, name: 'GamersLab season' }));
+    expect(screen.getByText('GamersLab season')).toBeInTheDocument();
+
+    act(() => selectBrand('adna'));
+    expect(screen.getByText('aDNA launch')).toBeInTheDocument();
+    expect(campaignStore.read().completed).toEqual({ goal: true });
   });
 });

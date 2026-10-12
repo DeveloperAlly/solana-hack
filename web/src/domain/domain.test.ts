@@ -61,7 +61,7 @@ describe('domain: gates ({ blocking, label })', () => {
     expect(proposalGate({ ...p, brainVersion: '3.2' }, '3.2').blocking).toBe(false);
   });
   it('every queue kind has a gate', () => {
-    const ctx = { brainVersion: '3.1', proposal: (id: string) => adnaProposals.find((p) => p.id === id) };
+    const ctx = { brainVersion: '3.1', proposal: (id: string) => adnaProposals.find((p) => p.id === id), quest: () => undefined };
     const blocked = today.queue.filter((i) => gateFor(i, ctx).blocking).map((i) => i.id);
     expect(blocked).toEqual(['q-blog']);
   });
