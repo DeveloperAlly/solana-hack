@@ -15,6 +15,9 @@ on:
       source_text:
         description: Optional real pasted source text; uses the existing paste-source path
         default: ''
+      resume_brand:
+        description: Recover an existing proof-runner test brand's drafted post; refuses real-user accounts
+        default: ''
       record_demo:
         description: Record honest playback of live results and labeled product previews
         type: boolean
@@ -47,6 +50,7 @@ jobs:
           BASE_URL: https://jamjam.tech
           SITE: ${{ inputs.site }}
           PASTED_TEXT: ${{ inputs.source_text }}
+          RESUME_BRAND: ${{ inputs.resume_brand }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
