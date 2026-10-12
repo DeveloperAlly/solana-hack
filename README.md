@@ -1,6 +1,6 @@
 # JamJam
 
-**JamJam: build your brand, run it, prove it.**
+**JamJam: build your voice, launch your brand, prove every post.**
 
 JamJam builds a brand from scratch through a short guided interview. It then drafts content in that brand's voice, and a person approves everything. A proof layer on Solana records what is official, so anyone can check that a post really came from the brand. Purpose: [ADR-002](./.agentic/what/decisions/adr_002_purpose_build_run_prove.md). Product map: [ADR-003](./.agentic/what/decisions/adr_003_superhub_business_model.md). Hackathon scope: [ADR-008](./.agentic/what/decisions/adr_008_submission_critical_path.md) (proposed).
 

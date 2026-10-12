@@ -14,7 +14,7 @@ tags: [demo, script, colosseum]
 
 **Demo brand:** JamJam builds its own brand (compendium §4, decided). One critical path; every wait is cut, and the voice-over says so.
 
-**Voice-over:** 272 words over 3:00, about 110 words a minute, leaving room for the screen.
+**Voice-over:** 271 words over 3:00, about 110 words a minute, leaving room for the screen.
 
 ## 0. Who this is for
 
@@ -53,14 +53,14 @@ Each beat: what must come up on screen (quoted app copy), what to say, and the r
 Route `/ (landing)` · depends on NO DEPENDENCY · placeholder: wireframe Landing-v2
 
 **Must come up:**
-- H1: "Build your brand. Then start creating."
+- H1: "Build your voice. Launch your brand." (PR #107)
 - Button: "Build my brand"
 - Small print: "No wallet needed"
 - Sample "Your brand kit" box: Purpose, Positioning, Voice
 
 **Who cares, and why:** Judges, because they score working products over mock-ups, and this shows one in ten seconds.
 
-**Say:** This is JamJam, live at jamjam.tech. I'll build JamJam's own brand, write a post in its voice, and prove that post on Solana. Waits are cut.
+**Say:** This is JamJam, live at jamjam.tech. I'll build JamJam's voice, launch its brand with a post, and prove that post on Solana. Waits are cut.
 
 **Recording:** Start the recording on the landing page, signed out. Cursor on Build my brand.
 
@@ -69,7 +69,7 @@ Route `/ (landing)` · depends on NO DEPENDENCY · placeholder: wireframe Landin
 Route `/sign-in` · depends on EMAIL LINK · placeholder: wireframe Onboard-1-SignIn
 
 **Must come up:**
-- H1: "Sign in to build your brand"
+- H1: "Sign in to launch your brand" (PR #107)
 - "We email you a sign-in link. No password, no wallet."
 - Cut: email link opened off camera
 - Lands on /home: "Welcome to JamJam"
@@ -202,7 +202,7 @@ Route `end card (edited, not app copy)` · depends on NO DEPENDENCY · placehold
 | P0 | Claims block rehearsed | Under Strict, adding "Used by 10,000 brands." must return "Blocked by your claims gate". The gate is an LLM call (`posts.ts` policyCheck); test it live first. |
 | P0 | Facts count as owned | Website in Basics must match the ingested domain. Facts from other domains stay `proposed`, and no screen on main approves them (`PATCH /evidence/:id` exists, unused). |
 | P1 | Drafter gets kept facts | The post prompt gets voice, messaging, positioning and purpose, not the evidence list (`posts.ts`), so a draft can carry a claim the gate then blocks. |
-| P1 | Freeze main for the take | Open PRs #73, #75, #81 and #85 change these screens. Record before they merge, or re-check this script's quoted copy after. |
+| P1 | Freeze main for the take | Merge PR #107 first (launch headlines). Open PRs #73, #75, #81 and #85 change these screens. Record before they merge, or re-check this script's quoted copy after. |
 
 ## 4. Recording runbook
 
@@ -214,7 +214,7 @@ Route `end card (edited, not app copy)` · depends on NO DEPENDENCY · placehold
 
 ## 5. Every spoken word
 
-**0:00** This is JamJam, live at jamjam.tech. I'll build JamJam's own brand, write a post in its voice, and prove that post on Solana. Waits are cut.
+**0:00** This is JamJam, live at jamjam.tech. I'll build JamJam's voice, launch its brand with a post, and prove that post on Solana. Waits are cut.
 
 **0:10** I sign in with email. No password, no wallet.
 
