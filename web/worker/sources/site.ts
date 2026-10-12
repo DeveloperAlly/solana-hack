@@ -4,13 +4,14 @@ import { fetchRobots, robotsAllows, type RobotsCheck } from './robots';
 import { clock, type SourceEnv, type SourcePage, type SourceResult } from './types';
 
 /**
- * Site adapter (issue #33; architecture §6.1 "Source ingestion", accepted 2026-10-12):
+ * Site adapter (issue #33; architecture §6.1 "Source ingestion", accepted 2026-10-12, as changed by ADR-012, proposed):
  * robots.txt check, then the home page and about 8 key subpages from its links: Exa's cached copies where it has
  * them, otherwise our own reader (ingest.ts readPage), which checks robots.txt before every redirect hop. If nothing
  * can be read, a "paste instead" result. Pure: no database, no model calls, never throws.
  * There is no browser-rendering fallback: a browser follows a page's own client-side navigations (meta refresh,
  * scripts) before anything can check them against robots.txt, so it cannot keep the robots guarantee (PR #71 review).
- * Exa reads script-only sites itself.
+ * A script-only site is read only from an Exa cached copy; without one the owner pastes.
+ * https://github.com/DeveloperAlly/solana-hack/blob/main/.agentic/what/decisions/adr_012_ingestion_robots_guarantee.md
  * https://github.com/DeveloperAlly/solana-hack/blob/main/.agentic/what/context/brand_builder_architecture.md#61-component-design-and-evaluation-accepted-2026-10-12
  */
 export interface SiteOptions {
@@ -42,7 +43,7 @@ export const SITE_DEFAULTS: Required<Omit<SiteOptions, 'website'>> = {
 // Exa is used as a cache only (`maxAgeHours: -1`, "always uses cache" in the same reference): a live crawl would be made
 // by Exa under its own crawler identity, whose robots.txt answers and redirects can differ from JamJamBot's, so our
 // request never makes Exa fetch anything. A page Exa has not cached is read by our own reader, which checks robots.txt
-// before every redirect hop (PR #71 review).
+// before every redirect hop (PR #71 review; ADR-012, proposed).
 const EXA_CACHE_ONLY = -1;
 const EXA_CONTENTS = 'https://api.exa.ai/contents';
 // Links asked for on the home page, and at most this many candidates checked against robots.txt (each new origin costs
