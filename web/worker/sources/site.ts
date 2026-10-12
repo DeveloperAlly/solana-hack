@@ -292,6 +292,7 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
       if (cut) c.notes.push(`${cut} page(s) cut to ${opts.maxCharacters} characters`);
       if (renderer?.rendered) c.notes.push(`${renderer.rendered} script-only page(s) rendered in a browser, with robots.txt checked before every request`);
       if (renderer?.unavailable) c.notes.push(BROWSER_UNAVAILABLE[renderer.unavailable]);
+      if (unrendered) c.notes.push(`${unrendered} page(s) not read: their text can be trusted only from a browser, and none could render them`);
       const kind = kindOf(pages[0].url);
       return { ok: true, kind, trust: factTrust(kind).trust, url: pages[0].url, title: pages[0].title, text: pages.map((p) => p.text).join('\n\n'), pages, meta: c.meta(pages.length, via) };
     };
@@ -363,16 +364,21 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
       return out;
     };
 
+    // Pages whose text only a browser could vouch for, and that could not be rendered.
+    let unrendered = 0;
     // Our own reader: robots.txt checked before every redirect hop (ingest.ts fetchPage). null when it cannot be read.
     // Our own reader, then, for a page with almost no text of its own (a script-only page), the browser renderer.
     // Throws when the page cannot be read at all; may return a page with almost no text.
     const readDirect = async (u: URL) => {
       const p = await readPage(u.toString(), allowedHere, true, net);
-      // Static text counts only when it is known to be what a browser shows (ingest.ts pageText `verified`); a scripted
-      // page whose style sheets hide what this reader cannot evaluate is rendered (PR #71 review).
-      if ((p.text.length >= MIN_TEXT && p.verified) || !renderer) return p;
-      const shown = await renderer.read(new URL(p.url));
-      return shown && shown.text.length >= MIN_TEXT ? shown : p;
+      // Static text counts only when it is known to be what a browser shows (ingest.ts pageText `verified`).
+      if (p.verified && p.text.length >= MIN_TEXT) return p;
+      const shown = renderer ? await renderer.read(new URL(p.url)) : null;
+      if (shown && shown.text.length >= MIN_TEXT) return shown;
+      // Unverified text is never used: the page counts as having no text of its own (its links are kept), so the read
+      // fails closed to "paste instead" rather than take a placeholder a browser may never show (PR #71 review).
+      if (!p.verified) { unrendered++; return { ...p, text: '' }; }
+      return p;
     };
     const readOwn = async (u: URL): Promise<SourcePage | null> => {
       try {
@@ -453,6 +459,10 @@ export async function readSite(env: SourceEnv, raw: string, options: SiteOptions
 
     // 3. Nothing worked: ask for the text instead.
     if (renderer?.unavailable) c.notes.push(BROWSER_UNAVAILABLE[renderer.unavailable]);
+    if (unrendered) {
+      c.notes.push(`${unrendered} page(s) not read: their text can be trusted only from a browser, and none could render them`);
+      return { ok: false, kind: kindOf(url.toString()), code: 'needs_render', reason: `We could not read ${url.hostname}: its pages need a browser to read, and none was available just now. Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0) };
+    }
     return { ok: false, kind: kindOf(url.toString()), code: 'unreadable', reason: `We could not read ${url.hostname} (${fetchError}). Paste the key text from your site instead.`, url: url.toString(), meta: c.meta(0) };
   } finally {
     await renderer?.close();

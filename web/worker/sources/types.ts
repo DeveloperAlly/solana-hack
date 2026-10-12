@@ -43,6 +43,7 @@ export type FailureCode =
   | 'invalid_input' // not a web address, empty paste, no file name
   | 'robots_disallowed' // the site's robots.txt asks crawlers not to read the page
   | 'unreadable' // every reading path failed; the person can paste the text instead
+  | 'needs_render' // the page's text can be trusted only from a browser, and none could render it; paste instead
   | 'needs_ocr' // a document with no text layer (a scan); OCR is not built yet
   | 'unsupported_type' // a file type the converter does not accept
   | 'too_large' // over the upload limit

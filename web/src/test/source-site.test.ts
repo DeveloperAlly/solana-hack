@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { exaReplyCap, MAX_SITE_REQUESTS, readSite, siteUrl, SITE_DEFAULTS } from '../../worker/sources/site';
-import { hidingSelectors, MAX_BYTES, pageLinks, pageText, readCapped, readPage, REDIRECT_STATUSES } from '../../worker/ingest';
+import { MAX_BYTES, pageLinks, pageText, readCapped, readPage, REDIRECT_STATUSES } from '../../worker/ingest';
 import { allowedBy, normalisePath, parseRobots, ROBOTS_MAX_BYTES, ruleMatches } from '../../worker/sources/robots';
 
 // Site adapter (issue #33). Exa and the site are mocked; each test sets what they answer. Any call to Cloudflare's
@@ -328,70 +328,44 @@ describe('site adapter: a read reports everything it spent, on every exit (PR #7
   });
 });
 
-describe('page text: rules in the page\'s own style sheets (PR #71 review)', () => {
-  it('on a scripted page, hides what a top-level rule hides by tag, class or id, and nothing else', () => {
-    const page = (css: string, body: string) => pageText(`<script src="/app.js"></script><style>${css}</style>${body}`).text;
-    expect(page('.bootstrap { display: none }', '<div class="a bootstrap">Hidden</div><p>Shown</p>')).toBe('Shown');
-    expect(page('p.x, #y { visibility: hidden }', '<p class="x">H1</p><div id="y">H2</div><p>Shown</p>')).toBe('Shown');
-    // The last declaration wins; a rule that only sometimes applies, or needs a style engine to match, is left alone.
-    expect(page('.a { display: none; display: block }', '<div class="a">Shown</div>')).toBe('Shown');
-    expect(page('@media print { .a { display: none } }', '<div class="a">Shown</div>')).toBe('Shown');
-    expect(page('div > .a, .a:hover, [data-x] { display: none }', '<div class="a" data-x="1">Shown</div>')).toBe('Shown');
-    expect(pageText('<script src="/app.js"></script><style media="print">.a { display: none }</style><template><style>.b { display: none }</style></template><div class="a b">Shown</div>').text).toBe('Shown');
-    expect(page('/* .a { display: none } */ @import url(x.css); .b { display: none }', '<div class="a">Shown</div><div class="b">Hidden</div>')).toBe('Shown');
+describe('page text: author styles are not evaluated, only flagged (PR #71 review)', () => {
+  const read = (head: string, body: string, scripts = true) => pageText(`${head}${scripts ? '<script src="/app.js"></script>' : ''}${body}<p>${LONG}</p>`);
+  it('keeps all text but inline-hidden elements, on any page', () => {
+    const p = read('<style>.x { display: none }</style>', '<div class="x">Kept.</div><div style="display: none">Inline hidden.</div><div hidden>Attribute hidden.</div>');
+    expect(p.text).toContain('Kept.');
+    expect(p.text).not.toContain('Inline hidden.');
+    expect(p.text).not.toContain('Attribute hidden.');
   });
-  it('does not hide what the page\'s own styles could show again, and calls that text unverified', () => {
-    const read = (css: string, body: string) => pageText(`<script src="/app.js"></script><style>${css}</style>${body}<p>${LONG}</p>`);
-    // The Codex case: a later rule for the same selector restores it.
-    const later = read('.details { display: none } .details { display: block }', '<div class="details">Details text.</div>');
-    expect(later.text).toContain('Details text.');
-    expect(later.verified).toBe(false);
-    // A rule for another class on the same element restores it (the usual open/closed toggle).
-    const toggle = read('.modal { display: none } .modal.is-open { display: flex }', '<div class="modal is-open">Open modal.</div><div class="modal">Closed modal.</div>');
-    expect(toggle.text).toContain('Open modal.');
-    expect(toggle.text).not.toContain('Closed modal.');
-    // A visible descendant inside a visibility: hidden ancestor shows itself again.
-    const descendant = read('.wrap { visibility: hidden } .wrap .note { visibility: visible }', '<div class="wrap"><p class="note">Note text.</p></div>');
-    expect(descendant.text).toContain('Note text.');
-    expect(descendant.verified).toBe(false);
-    // Its own inline style restores it.
-    expect(read('.x { display: none }', '<div class="x" style="display: block">Inline shown.</div>').text).toContain('Inline shown.');
-    // Any !important on a hiding property: no rule is applied.
-    const important = read('.x { display: none } .y { display: grid !important }', '<div class="x">Kept.</div>');
-    expect(important.text).toContain('Kept.');
-    expect(important.verified).toBe(false);
-    // With no showing rule that could match, the hiding rule applies and the text stays verified.
-    const clean = read('.x { display: none } .y { display: flex }', '<div class="x">Gone.</div>');
-    expect(clean.text).not.toContain('Gone.');
-    expect(clean.verified).toBe(true);
+  it('marks a scripted page unverified when its style sheets hold any hiding value, the Codex !important case included', () => {
+    expect(read('<style>.boot { display: none !important; display: block }</style>', '<div class="boot">Shell.</div>').verified).toBe(false);
+    expect(read('<style>@media screen { .boot { visibility: hidden } }</style>', '').verified).toBe(false);
+    expect(read('<style>/* note */ .a > .b { content-visibility: hidden }</style>', '').verified).toBe(false);
+    expect(read('<style>.a { color: black; display: flex }</style>', '').verified).toBe(true);
+    // A comment is not a declaration; a page without scripts is not flagged.
+    expect(read('<style>/* .x { display: none } */</style>', '').verified).toBe(true);
+    expect(read('<style>.x { display: none }</style>', '', false).verified).toBe(true);
   });
-  it('applies no style sheet hiding on a page without scripts: its text is kept', () => {
-    const p = pageText(`<style>.x { display: none }</style><div class="x">Kept without scripts.</div><p>${LONG}</p>`);
-    expect(p.text).toContain('Kept without scripts.');
-    expect(p.verified).toBe(true);
-    // Inline styles and the hidden attribute still apply.
-    expect(pageText('<div style="display: none">A</div><div hidden>B</div><p>C</p>').text).toBe('C');
+  it('treats an inline style it cannot resolve as unclear: the element is kept, and a scripted page is unverified', () => {
+    const p = read('', '<div style="display: none !important; display: block">Mixed.</div>');
+    expect(p.text).toContain('Mixed.');
+    expect(p.verified).toBe(false);
+    expect(read('', '<div style="display: none">Gone.</div>').verified).toBe(true);
   });
-  it('marks a scripted page uncertain when a hiding rule cannot be evaluated, and only then', () => {
-    const v = (css: string, scripts = true, media = '') => pageText(`<style${media}>${css}</style>${scripts ? '<script src="/app.js"></script>' : ''}<p>${LONG}</p>`).verified;
-    expect(v('@media screen { .boot { display: none } }')).toBe(false);
-    expect(v('@supports (display: grid) { .boot { visibility: hidden } }')).toBe(false);
-    expect(v('.app > .boot { display: none }')).toBe(false);
-    expect(v('.a { .b { content-visibility: hidden } }')).toBe(false);
-    expect(v('.boot { color: red }', true, ' media="(orientation: landscape)"')).toBe(true);
-    expect(v('.boot { display: none }', true, ' media="(orientation: landscape)"')).toBe(false);
-    // What it can evaluate, or what applies to print only, leaves the text verified; so does a page without scripts.
-    expect(v('.boot { display: none } @media print { .x { display: none } }')).toBe(true);
-    expect(v('.boot { display: none }', true, ' media="print"')).toBe(true);
-    expect(v('@media screen { .boot { display: none } }', false)).toBe(true);
-    expect(v('@media screen { .boot { color: red } } .a > .b { font-style: italic }')).toBe(true);
-    expect(pageText('<script type="application/ld+json">{}</script><style>@media screen { .x { display: none } }</style>').verified).toBe(true);
+});
+
+describe('site adapter: unverified text is never used (PR #71 review)', () => {
+  const page = `<html><head><style>.boot { display: none }</style></head><body><div class="boot"><p>${LONG}</p></div><script src="/app.js"></script></body></html>`;
+  it('fails closed with needs_render when there is no browser', async () => {
+    stub({ page: () => new Response(page, { headers: { 'content-type': 'text/html' } }) });
+    const r = await readSite({}, 'https://a.test/', { subpages: 0 });
+    expect(r).toMatchObject({ ok: false, code: 'needs_render' });
+    expect(r.ok ? '' : r.reason).toMatch(/Paste the key text/);
   });
-  it('reads the selectors in time linear in the style sheet', () => {
-    const big = '@a{}'.repeat(200_000) + '.z{display:none}';
-    const t = Date.now();
-    expect(hidingSelectors(big)).toEqual({ hiders: [{ sel: { tag: null, classes: ['z'], id: null }, prop: 'display' }], showers: [], uncertain: false });
-    expect(Date.now() - t).toBeLessThan(2000);
+  it('fails closed with needs_render when the browser cannot render it', async () => {
+    stub({ page: () => new Response(page, { headers: { 'content-type': 'text/html' } }) });
+    const failing = () => ({ read: async () => null, rendered: 0, unavailable: 'quota' as const, closedStrays: 0, close: async () => undefined });
+    const r = await readSite({}, 'https://a.test/', { subpages: 0 }, failing);
+    expect(r).toMatchObject({ ok: false, code: 'needs_render' });
   });
 });
 

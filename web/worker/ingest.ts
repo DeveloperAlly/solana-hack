@@ -239,228 +239,56 @@ export const NOT_READ = ['svg', 'nav', 'footer'];
 /** Elements whose closing ends a line of text. */
 const LINE_ENDS = new Set(['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'section', 'article']);
 
-/** The properties that can hide an element with everything in it. */
-type HideProp = 'display' | 'visibility' | 'content-visibility';
-const HIDE_PROPS: readonly string[] = ['display', 'visibility', 'content-visibility'];
-// display: none; visibility: hidden or collapse; content-visibility: hidden (CSS Containment 2, which skips the
-// element's contents: https://www.w3.org/TR/css-contain-2/).
-const hidingValue = (prop: HideProp, value: string) => (prop === 'display' ? value === 'none' : prop === 'visibility' ? value === 'hidden' || value === 'collapse' : value === 'hidden');
-
 /**
- * The hiding-related declarations of one declaration block: for each property, whether its last value hides (the
- * later declaration wins within a block), and whether any of them is !important.
+ * Hiding values in style text, found by a token scan with comments stripped: display: none, visibility: hidden or
+ * collapse, content-visibility: hidden (CSS Containment 2: https://www.w3.org/TR/css-contain-2/). No cascade and no
+ * winning declaration is worked out (PR #71 review): this only says whether the text could hide something.
  */
-function hideDeclarations(block: string): { props: Map<HideProp, boolean>; important: boolean } {
-  const props = new Map<HideProp, boolean>();
-  let important = false;
-  for (const decl of block.split(';')) {
-    const i = decl.indexOf(':');
-    if (i === -1) continue;
-    const prop = decl.slice(0, i).trim().toLowerCase();
-    if (!HIDE_PROPS.includes(prop)) continue;
-    const raw = decl.slice(i + 1);
-    if (/!\s*important\s*$/i.test(raw)) important = true;
-    props.set(prop as HideProp, hidingValue(prop as HideProp, raw.replace(/!\s*important\s*$/i, '').trim().toLowerCase()));
+function hidingPairs(style: string): { prop: string; hides: boolean; important: boolean }[] {
+  const out: { prop: string; hides: boolean; important: boolean }[] = [];
+  for (const m of style.replace(/\/\*[\s\S]*?\*\//g, ' ').matchAll(/(?:^|[;{\s])(display|visibility|content-visibility)\s*:\s*([^;}!]*)(!\s*important)?/gi)) {
+    const prop = m[1].toLowerCase();
+    const value = m[2].trim().toLowerCase();
+    const hides = prop === 'display' ? value === 'none' : prop === 'visibility' ? value === 'hidden' || value === 'collapse' : value === 'hidden';
+    out.push({ prop, hides, important: !!m[3] });
   }
-  return { props, important };
+  return out;
 }
-/** True when an inline style hides its element. */
-const hidesElement = (style: string) => [...hideDeclarations(style).props.values()].some(Boolean);
 
-/** What a selector says an element is: a tag, classes and an id; any of them may be absent. */
-interface Compound { tag: string | null; classes: string[]; id: string | null }
-const SIMPLE = /^([a-z][a-z0-9-]*)?((?:[.#][a-z_-][\w-]*)*)$/i;
-const LEADING_SPACE = /\s*/y;
-/** A media query list that applies only to print. */
-const PRINT_ONLY = /^print$/i;
-
-function compound(tag: string | undefined, rest: string): Compound | null {
-  const parts = rest.match(/[.#][^.#]+/g) ?? [];
-  const ids = parts.filter((x) => x[0] === '#').map((x) => x.slice(1));
-  if (ids.length > 1) return null;
-  return { tag: tag && tag !== '*' ? tag.toLowerCase() : null, classes: parts.filter((x) => x[0] === '.').map((x) => x.slice(1)), id: ids[0] ?? null };
-}
-/** A selector that is only a compound of a tag, classes and an id: one this reader can match exactly. */
-function simpleSelector(sel: string): Compound | null {
-  const m = SIMPLE.exec(sel.trim());
-  return m && (m[1] || m[2]) ? compound(m[1], m[2]) : null;
-}
 /**
- * The subject of any selector (its last compound, after the last combinator), with attribute conditions and
- * pseudo-classes dropped, so it says only what an element must be to perhaps match, never more. null means it could
- * match any element.
+ * True when an inline style attribute hides its element beyond doubt: every declaration it makes of some hiding
+ * property hides, with no showing value for that property to weigh against it. A mixed attribute is not resolved.
  */
-function subjectOf(sel: string): Compound | null {
-  let s = sel;
-  for (let k = 0; k < 8 && /\([^()]*\)/.test(s); k++) s = s.replace(/\([^()]*\)/g, '');
-  s = s.replace(/\[[^\]]*\]/g, '').replace(/::?[\w-]+/g, '');
-  const last = s.split(/[\s>+~]+/).filter(Boolean).pop() ?? '';
-  const m = /^(\*|[a-z][a-z0-9-]*)?((?:[.#][a-z_-][\w-]*)*)$/i.exec(last);
-  return m && (m[1] || m[2]) ? compound(m[1], m[2]) : null;
+function hidesElement(style: string): boolean {
+  const pairs = hidingPairs(style);
+  return pairs.some((p) => p.hides && pairs.every((q) => q.prop !== p.prop || q.hides));
 }
-const fits = (c: Compound, name: string, attribs: Record<string, string>) => {
-  if (c.tag && c.tag !== name) return false;
-  if (c.id && attribs.id !== c.id) return false;
-  if (!c.classes.length) return true;
-  const classes = (attribs.class ?? '').split(/\s+/);
-  return c.classes.every((x) => classes.includes(x));
+/** True when an inline style attribute could hide its element but not beyond doubt (mixed values, !important). */
+const unclearStyle = (style: string) => {
+  const pairs = hidingPairs(style);
+  return pairs.some((p) => p.hides) && (pairs.some((p) => p.important) || !hidesElement(style));
 };
-
-/** One rule of a style sheet: its selectors, its own declarations, and whether it applies only sometimes. */
-interface Rule { selectors: string[]; block: string; conditional: boolean }
-
-/**
- * The rules of a style sheet, nested ones included (inside at-rules and nested rules, which apply only sometimes).
- * Print-only @media blocks are skipped. The walk is linear in the size of the sheet.
- */
-function rulesOf(css: string, conditional: boolean, out: Rule[], depth = 0): void {
-  if (depth > 32) return;
-  let i = 0;
-  while (i < css.length) {
-    const open = css.indexOf('{', i);
-    // An at-rule without a block ("@import ...;") ends at its semicolon.
-    LEADING_SPACE.lastIndex = i;
-    LEADING_SPACE.exec(css);
-    if (css[LEADING_SPACE.lastIndex] === '@') {
-      // Searched only up to the next block, so the walk stays linear in the size of the style sheet.
-      let semi = -1;
-      for (let k = i, stop = open === -1 ? css.length : open; k < stop; k++) if (css[k] === ';') { semi = k; break; }
-      if (semi !== -1) { i = semi + 1; continue; }
-    }
-    if (open === -1) break;
-    const prelude = css.slice(i, open).trim();
-    // The block, its own declarations (outside nested blocks), and its nested rules.
-    let level = 1;
-    let j = open + 1;
-    let own = '';
-    let from = j;
-    for (; j < css.length && level > 0; j++) {
-      if (css[j] === '{') { if (level === 1) own += css.slice(from, j); level++; }
-      else if (css[j] === '}') { level--; if (level === 1) from = j + 1; }
-    }
-    const block = css.slice(open + 1, j - 1);
-    if (level === 0 && from <= j - 1) own += css.slice(from, j - 1);
-    i = j;
-    if (prelude.startsWith('@')) {
-      const media = /^@media\s+(.*)$/is.exec(prelude);
-      if (!(media && PRINT_ONLY.test(media[1].trim()))) rulesOf(block, true, out, depth + 1);
-      continue;
-    }
-    // Declarations before a nested block may end in a selector fragment; only the parts that are declarations count.
-    out.push({ selectors: prelude.split(','), block: own, conditional });
-    if (block.includes('{')) rulesOf(block.replace(/^[^{}]*;/, ''), true, out, depth + 1);
-  }
-}
-
-/** What a page's own style sheets say about hiding, as far as this reader can tell without a style engine. */
-export interface StyleFacts {
-  /** Rules this reader can apply: unconditional, a simple selector, no !important. */
-  hiders: { sel: Compound; prop: HideProp }[];
-  /** Every declaration that sets a hiding property to a value that shows; a null selector could match anything. */
-  showers: { sel: Compound | null; prop: HideProp }[];
-  /** A hiding declaration this reader cannot apply: the page's text may not be what a browser shows. */
-  uncertain: boolean;
-}
-
-/**
- * Reads a page's own style sheets (PR #71 review). The cascade is not computed. A hiding rule is applied to an
- * element only when nothing in the page's own styles could show it again (see pageText). Everything else is
- * reported as uncertain, so the caller renders the page instead of guessing:
- * - a hiding declaration inside an at-rule (other than print only), in a nested rule or a media-conditional sheet;
- * - one behind a selector that is not a simple compound;
- * - any !important on a hiding property, since !important reorders the cascade;
- * - visibility: hidden when anything sets visibility to a visible value, since a descendant can show itself again.
- */
-export function hidingSelectors(css: string, conditionalCss = '', inlineVisible = false): StyleFacts {
-  const rules: Rule[] = [];
-  rulesOf(css.replace(/\/\*[\s\S]*?\*\//g, ' '), false, rules);
-  rulesOf(conditionalCss.replace(/\/\*[\s\S]*?\*\//g, ' '), true, rules);
-  let hiders: StyleFacts['hiders'] = [];
-  const showers: StyleFacts['showers'] = [];
-  let uncertain = false;
-  let important = false;
-  for (const rule of rules) {
-    const decls = hideDeclarations(rule.block);
-    if (!decls.props.size) continue;
-    if (decls.important) important = true;
-    for (const raw of rule.selectors) {
-      for (const [prop, hides] of decls.props) {
-        if (!hides) { showers.push({ sel: subjectOf(raw), prop }); continue; }
-        const simple = rule.conditional || decls.important ? null : simpleSelector(raw);
-        if (simple) hiders.push({ sel: simple, prop });
-        else uncertain = true;
-      }
-    }
-  }
-  if (important && hiders.length) { hiders = []; uncertain = true; }
-  if ((inlineVisible || showers.some((x) => x.prop === 'visibility')) && hiders.some((h) => h.prop === 'visibility')) {
-    hiders = hiders.filter((h) => h.prop !== 'visibility');
-    uncertain = true;
-  }
-  return { hiders, showers, uncertain };
-}
 
 /**
  * True when an element and everything in it is not shown: a hidden element (above), one of this reader's left-out
  * elements, an element with the hidden attribute (except hidden="until-found", which a reader can find), a dialog that
- * is not open (both in §15.3.1 above), an inline style that hides it, or (`byRule`) a rule of the page's own style
- * sheets.
+ * is not open (both in §15.3.1 above), or an inline style that hides it beyond doubt. Author style sheets are not
+ * applied (PR #71 review): what they hide is known only to a browser (see pageText `verified`).
  */
-function notText(name: string, attribs: Record<string, string>, byRule: (name: string, attribs: Record<string, string>) => boolean): boolean {
+function notText(name: string, attribs: Record<string, string>): boolean {
   if (NOT_SHOWN.has(name) || NOT_READ.includes(name)) return true;
   if ('hidden' in attribs && attribs.hidden.trim().toLowerCase() !== 'until-found') return true;
   if (name === 'dialog' && !('open' in attribs)) return true;
-  if (typeof attribs.style === 'string' && hidesElement(attribs.style)) return true;
-  return byRule(name, attribs);
-}
-
-/**
- * The page's own style elements, whether it ships scripts, and whether any inline style sets visibility to a visible
- * value. A style element applies on screen when it is not inside a template (inert) and has no media attribute or
- * one of screen or all; one for print only is ignored; any other (a media query) applies only sometimes. A script
- * runs when it has no type or a JavaScript or module type (HTML standard, "the script element"); data blocks such as
- * JSON-LD do not. External style sheets are not fetched.
- */
-function pageStyle(html: string): { css: string; conditional: string; scripts: boolean; inlineVisible: boolean } {
-  let css = '';
-  let conditional = '';
-  let scripts = false;
-  let inlineVisible = false;
-  let template = 0;
-  let into: 'css' | 'conditional' | null = null;
-  const parser = new Parser({
-    onopentag(name, attribs) {
-      if (name === 'template') template++;
-      if (typeof attribs.style === 'string' && hideDeclarations(attribs.style).props.get('visibility') === false) inlineVisible = true;
-      if (name === 'script') {
-        const type = (attribs.type ?? '').trim().toLowerCase();
-        if (!type || type === 'module' || /(java|ecma)script/.test(type)) scripts = true;
-      }
-      if (name !== 'style' || template) return;
-      const media = (attribs.media ?? '').trim().toLowerCase();
-      into = !media || media === 'screen' || media === 'all' ? 'css' : PRINT_ONLY.test(media) ? null : 'conditional';
-    },
-    ontext(t) {
-      if (into === 'css') css += t;
-      else if (into === 'conditional') conditional += t;
-    },
-    onclosetag(name) {
-      if (name === 'template' && template > 0) template--;
-      if (name === 'style') { css += '\n'; conditional += '\n'; into = null; }
-    },
-  });
-  parser.write(html);
-  parser.end();
-  return { css, conditional, scripts, inlineVisible };
+  return typeof attribs.style === 'string' && hidesElement(attribs.style);
 }
 
 /**
  * An HTML page's title and readable text, read with a real HTML tokenizer (htmlparser2), so nested elements, entities
  * (decoded once: "&amp;lt;" is the text "&lt;") and the raw text of script, style and iframe are handled as a browser
  * does. Content a browser does not show (`notText`) is left out with everything inside it, so a script-only page whose
- * only text sits in a template, a hidden element or one its own inline style sheet hides is seen as having almost no
- * text, and is rendered (PR #71 review). `verified` is false when the page ships scripts and its style sheets hide
- * something this reader could not evaluate (hidingSelectors): its text may not be what a browser shows.
+ * only text sits in a template or a hidden element is seen as having almost no text, and is rendered (PR #71 review).
+ * `verified` is false when the page ships scripts and its author styles could hide something: its text may not be
+ * what a browser shows.
  * The title is the first title element that is not inside such content (an svg icon's title is not the page's).
  */
 export function pageText(html: string): { title: string; text: string; verified: boolean } {
@@ -470,29 +298,27 @@ export function pageText(html: string): { title: string; text: string; verified:
   // implied close for void and unclosed elements).
   let hidden = 0;
   let text = '';
-  const style = pageStyle(html);
-  // Author style sheets are read only on a page that ships scripts, the case a shell placeholder can arise in; on any
-  // other page, removing text a rule seems to hide could only lose content (PR #71 review).
-  const facts = style.scripts ? hidingSelectors(style.css, style.conditional, style.inlineVisible) : null;
-  let uncertain = facts?.uncertain ?? false;
-  // A rule hides an element only when nothing in the page's own styles could show it again: no declaration that sets
-  // the same property to a showing value could match it, and its own inline style does not.
-  const byRule = (name: string, attribs: Record<string, string>) => {
-    if (!facts) return false;
-    const matched = facts.hiders.filter((h) => fits(h.sel, name, attribs));
-    if (!matched.length) return false;
-    const inline = typeof attribs.style === 'string' ? hideDeclarations(attribs.style).props : null;
-    for (const h of matched) {
-      const shown = inline?.get(h.prop) === false || facts.showers.some((x) => x.prop === h.prop && (!x.sel || fits(x.sel, name, attribs)));
-      if (!shown) return true;
-      uncertain = true;
-    }
-    return false;
-  };
+  // Whether the page ships scripts (HTML standard, "the script element": no type, or a JavaScript or module type;
+  // data blocks such as JSON-LD do not run), and whether its author styles could hide anything: a <style> element
+  // with a hiding value, or a style attribute whose hiding is not beyond doubt. On such a page the static text may be
+  // a placeholder a browser never shows, so it is unverified, and the caller renders the page or fails closed
+  // (PR #71 review). A false positive costs one render, the right way to be wrong.
+  let scripts = false;
+  let styled = false;
+  let inStyle = false;
+  let styleText = '';
+  let template = 0;
   const parser = new Parser({
     onopentag(name, attribs) {
+      if (name === 'template') template++;
+      if (name === 'script') {
+        const type = (attribs.type ?? '').trim().toLowerCase();
+        if (!type || type === 'module' || /(java|ecma)script/.test(type)) scripts = true;
+      }
+      if (name === 'style' && !template) inStyle = true;
+      if (typeof attribs.style === 'string' && unclearStyle(attribs.style)) styled = true;
       if (hidden) { hidden++; return; }
-      if (notText(name, attribs, byRule)) {
+      if (notText(name, attribs)) {
         hidden = 1;
         if (name === 'title' && title === null) { title = ''; inTitle = true; }
         return;
@@ -500,10 +326,14 @@ export function pageText(html: string): { title: string; text: string; verified:
       text += name === 'br' ? '\n' : ' ';
     },
     ontext(t) {
+      if (inStyle) styleText += t;
       if (inTitle) title += t;
       else if (!hidden) text += t;
     },
     onclosetag(name) {
+      if (name === 'template' && template > 0) template--;
+      // A style element is scanned whole, so a value split across text chunks is still seen.
+      if (name === 'style' && inStyle) { inStyle = false; if (hidingPairs(styleText).some((p) => p.hides)) styled = true; styleText = ''; }
       if (hidden) {
         hidden--;
         if (!hidden) inTitle = false;
@@ -514,8 +344,7 @@ export function pageText(html: string): { title: string; text: string; verified:
   });
   parser.write(html);
   parser.end();
-  // Static text is trusted only when every hiding rule on a scripted page was evaluated (PR #71 review).
-  return { title: tidy(title ?? '').replace(/\n/g, ' '), text: tidy(text), verified: !uncertain };
+  return { title: tidy(title ?? '').replace(/\n/g, ' '), text: tidy(text), verified: !(scripts && styled) };
 }
 
 /**
