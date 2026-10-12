@@ -45,3 +45,21 @@ export const otherPaths = {
 } as const;
 
 export type BuilderPathKey = keyof typeof builderPaths;
+
+/** Hub sub-navigation drawn on Kit-Export (Brand) and Dashboard (Grow), canvas boards of the same names. */
+export const brandSubnav = [
+  { id: 'kit', label: 'Brand kit', href: otherPaths.brandBuild },
+  { id: 'voices', label: 'Voices', href: otherPaths.voices },
+  { id: 'claims', label: 'Claims', href: otherPaths.claims },
+  { id: 'verification', label: 'Verification', href: builderPaths.domain },
+];
+export const growSubnav = [
+  { id: 'engagement', label: 'Engagement', href: otherPaths.engageQueue },
+  { id: 'ambassadors', label: 'Ambassadors', href: builderPaths.dashboard },
+  { id: 'partners', label: 'Partners', href: otherPaths.partners },
+  { id: 'leads', label: 'Leads (experimental)', href: otherPaths.leads },
+  { id: 'influencer', label: 'Influencer (experimental)', href: otherPaths.influencer },
+];
+
+/** Each approval gate's screen, for "approve the gates first" links. */
+export const gatePaths = { purpose: builderPaths.gatePurpose, positioning: builderPaths.gatePositioning, voice: builderPaths.gateVoice } as const;

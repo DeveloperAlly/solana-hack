@@ -1,6 +1,5 @@
 // Data shapes for the Brand Builder page (issue #50). Screens, fixtures and the flow hook import from here.
 // Field sources are in each screen's "Data contract" comment, against the backend map (.agentic/what/context/backend_map.md §4).
-import type { KeyValueItem } from '../../ui/composites/KeyValueList';
 import type { ChoiceCardOption } from '../../ui/domain/BuilderChoiceCards';
 import type { CoverageRow } from '../../ui/domain/BuilderCoverageMap';
 import type { DnsCheckStatus, DnsRecord } from '../../ui/domain/BuilderDnsRecord';
@@ -96,9 +95,9 @@ export interface BasicsData {
 
 export interface OriginData {
   brand: BuilderBrand;
-  fact: { source: string; text: string };
+  /** A fact found in the sources, shown for confirmation first; absent when nothing was found. */
+  fact?: { source: string; text: string };
   answers: Answer[];
-  evidenceNote: string;
 }
 
 export interface GoldenCircleData {
@@ -135,9 +134,11 @@ export interface VoiceData {
 export interface GatePurposeData {
   brand: BuilderBrand;
   draft: string;
-  /** Alternative drafts for "Try another draft"; the first entry of `shorter` replaces the draft on "Make it shorter". */
+  /** Alternative drafts for "Try another draft"; `shorter` replaces the draft on "Make it shorter". */
   alternatives: string[];
   shorter: string;
+  /** "Drafted from 4 sources". */
+  draftMeta: string;
   basedOn: string[];
 }
 
@@ -169,7 +170,14 @@ export interface CoverageData {
 export interface PublishedData {
   brand: BuilderBrand;
   status: RegistrationStatus;
-  record: KeyValueItem[];
+  version: string;
+  hash: string;
+  approvedBy: string;
+  sections: string;
+  /** Transaction signature once registered. */
+  tx?: string;
+  /** When registration was last tried (failed). */
+  lastTry?: string;
   reason?: string;
   errorDetails?: string;
 }
