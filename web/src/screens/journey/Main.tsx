@@ -12,6 +12,7 @@
  * States (canvas note n-main): success = example shown; empty = example hidden (not registered yet); error = an invalid
  * address shows inline under the field. "Site unreachable" is not a Main state: it continues to J1, which offers paste or upload.
  */
+import { useJourneyTask } from './useJourneyTask';
 import { useNavigate } from 'react-router';
 import { PublicShell } from '../../ui/shells/PublicShell';
 import { Badge, Button, Container, Grid, Heading, Link, Stack, Text } from '../../ui/primitives';
@@ -37,6 +38,7 @@ export function Main({ data, state = 'success' }: MainProps) {
   const navHref = useNavHref();
   const navigate = useNavigate();
   const { actions } = useJourneyFlow();
+  const task = useJourneyTask();
   return (
     <PublicShell navHref={navHref}>
       <Container width="app">
@@ -59,7 +61,9 @@ export function Main({ data, state = 'success' }: MainProps) {
                   fields={[{ name: 'site', label: 'Your website', type: 'url', autoComplete: 'url', defaultValue: data.siteDefault, placeholder: data.sitePlaceholder, validate: siteUrl }]}
                   submitLabel="Read my site"
                   validateOnMount={state === 'error'}
-                  onSubmit={({ site }) => { actions.startJourney(site); navigate(to('read')); }}
+                  busy={task.busy}
+                  errors={{ site: task.error }}
+                  onSubmit={({ site }) => void task.run(() => actions.startJourney(site), () => navigate(to('read')))}
                 />
                 <Text variant="small" tone="secondary">
                   No sign-up to see what we find. No website? <Link href={to('basics')}>Start with a few questions</Link>. No wallet, ever.

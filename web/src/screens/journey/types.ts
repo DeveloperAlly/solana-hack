@@ -121,6 +121,7 @@ export interface ReadData {
 
 /** J2-Save. `linkError` is set when the emailed link came back expired or used. */
 export interface SaveData {
+  signedInEmail?: string;
   brandName: string;
   summary: string;
   saving: JourneySectionStatus[];

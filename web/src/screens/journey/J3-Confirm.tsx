@@ -32,12 +32,12 @@ import type { ConfirmData } from './types';
 
 export function J3Confirm({ data }: { data: ConfirmData }) {
   const to = useJourneyHref();
-  const { selections, actions } = useJourneyFlow('confirm');
+  const { selections, actions, live } = useJourneyFlow('confirm');
   const decided = data.facts.every((f) => selections.facts[f.id]);
   const hint = 'Accept, edit or reject each card first.';
   const confirmed = data.facts.filter((f) => ['accepted', 'edited'].includes(selections.facts[f.id]?.decision ?? '')).length;
   const cards = data.facts.length + 2;
-  const readiness = data.readinessBase + Math.round(((100 - data.readinessBase) * confirmed) / cards);
+  const readiness = live ? data.readinessBase : data.readinessBase + Math.round(((100 - data.readinessBase) * confirmed) / cards);
   return (
     <JourneyStepFrame
       step="confirm"
@@ -51,7 +51,7 @@ export function J3Confirm({ data }: { data: ConfirmData }) {
       }
     >
       <Card as="div">
-        <SampleFlag />
+        {!live && <SampleFlag />}
         <ProgressBar showLabel label={`Kit readiness ${readiness}%`} segments={[{ value: readiness, label: 'Ready' }]} caption="Rises as you confirm. Kit v1 needs the 3 gates; nothing else blocks it." />
       </Card>
       <JourneyAha n={2}>I'm confirming, not typing.</JourneyAha>

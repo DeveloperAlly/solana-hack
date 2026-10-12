@@ -43,7 +43,7 @@ export interface ReadProps {
 
 export function J1Read({ data, state = 'success' }: ReadProps) {
   const to = useJourneyHref();
-  const { selections } = useJourneyFlow('read');
+  const { selections, live } = useJourneyFlow('read');
   // The site typed on Main, else the fixture's; it names the page and the home source.
   const site = selections.site || data.site;
   const src = useJourneySources(data.sources.map((s) => (s.id === 'home' ? { ...s, label: site } : s)));
@@ -73,7 +73,7 @@ export function J1Read({ data, state = 'success' }: ReadProps) {
         start={
           <Stack gap={3}>
             <StatusList label="Sources" title surface="card" rows={src.rows} />
-            {blocked && <ReadBlockedSource key={blocked.id} source={blocked} onSupply={(how) => src.supply(blocked.id, how)} onSkip={() => src.skip(blocked.id)} />}
+            {blocked && <ReadBlockedSource key={blocked.id} source={blocked} onSupply={(how, input) => src.supply(blocked.id, how, input)} onSkip={() => src.skip(blocked.id)} />}
             <ReadAddMore onAdd={src.add} />
           </Stack>
         }
@@ -84,7 +84,7 @@ export function J1Read({ data, state = 'success' }: ReadProps) {
             {data.facts.length === 0 && noFacts[state]}
             {src.reading && data.facts.length > 0 && (
               <Card variant="subtle" as="div">
-                <Text variant="small" tone="secondary">Reading {src.reading.label}… <SampleFlag /> statuses</Text>
+                <Text variant="small" tone="secondary">Reading {src.reading.label}… {!live && <SampleFlag />} statuses</Text>
               </Card>
             )}
           </Stack>
