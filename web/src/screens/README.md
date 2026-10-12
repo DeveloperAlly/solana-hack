@@ -58,6 +58,14 @@ export const screens: ScreenEntry[] = [
 
 Artboard names must be unique. The gallery throws on a duplicate when it loads.
 
+## Links between screens
+Added in [issue #46](https://github.com/DeveloperAlly/solana-hack/issues/46) after a Codex review finding on [PR #68](https://github.com/DeveloperAlly/solana-hack/pull/68): bare links reset the gallery theme.
+- Link to another artboard with `ScreenLink` ([`../gallery/ScreenLink.tsx`](../gallery/ScreenLink.tsx)): `<ScreenLink artboard="Ledger" state="empty">`.
+- Where a component needs an href string (for example a `Button`), use `useScreenHref()` or `screenPath(artboard, state, params)` ([`../gallery/screenPath.ts`](../gallery/screenPath.ts)).
+- These keep the gallery theme (`?theme=`) and set a state only when asked.
+- As a backstop, the gallery rewrites a theme-less `/screens/...` URL to the theme chosen earlier in the tab ([`../gallery/useGalleryTheme.ts`](../gallery/useGalleryTheme.ts)).
+- [`../../scripts/check-gallery.mjs`](../../scripts/check-gallery.mjs) asserts that the theme survives navigation.
+
 ## States
 - Every screen renders its canvas states (empty, loading, error, success) through `state`.
 - The gallery's C28 DemoStateSwitcher puts the state in the URL: `/screens/<Artboard>?state=error`. Each state therefore has a link for demos and recordings.

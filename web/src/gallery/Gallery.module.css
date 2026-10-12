@@ -9,7 +9,10 @@
   background: var(--wl-bg-subnav);
   font-size: var(--wl-font-size-sm);
 }
-.bottom { position: sticky; bottom: 0; z-index: var(--wl-z-sticky); border-bottom: 0; border-top: var(--wl-border-width-default) dashed var(--wl-border-input); }
+.bottom { flex: none; border-bottom: 0; border-top: var(--wl-border-width-default) dashed var(--wl-border-input); }
+/* Screen view: the frame fills the viewport; the screen scrolls in the stage and the bar below it stays visible. */
+.frame { display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: var(--wl-bg-canvas); color: var(--wl-text-primary); }
+.stage { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .toolbarTitle { font-weight: var(--wl-font-weight-semibold); margin-right: auto; }
 .switch { display: flex; align-items: center; flex-wrap: wrap; gap: var(--wl-space-2); }
 .switchLabel { color: var(--wl-text-secondary); font-weight: var(--wl-font-weight-semibold); }
