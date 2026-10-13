@@ -9,7 +9,6 @@ export default {
   title: 'Grow, ambassador: join, generate, publish, verifying, paid',
   section: 'poc',
   target: 'preview',
-  requires: ['Amb-1-Campaigns', 'Amb-2-Detail', 'Amb-3-Generate', 'Amb-4-Publish', 'Amb-5a-Verifying', 'Amb-5b-Paid'],
   async run(j) {
     await j.step({
       did: 'Open /screens/Amb-1-Campaigns (first screen, by URL).',

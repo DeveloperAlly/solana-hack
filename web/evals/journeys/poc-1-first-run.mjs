@@ -237,6 +237,5 @@ export default {
   title: 'First run: landing to a verifiable first post (Main, J1 to J8)',
   section: 'poc',
   target: 'preview',
-  requires: ['Main', 'J1-Read', 'J2-Save', 'J3-Confirm', 'J4-Gaps-Voice', 'J5-Approve-Kit', 'J6-First-Post', 'J7-Proof', 'J8-Hub-FirstRun'],
   run: (j) => firstRunSteps(j),
 };

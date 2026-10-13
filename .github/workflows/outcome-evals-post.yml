@@ -1,0 +1,80 @@
+name: outcome evals post
+# Posts or updates the one outcome-evals comment on a PR from the `outcome-evals-comment` artifact of an eval run.
+# It never checks out code, so it is safe for fork PRs. Callers: outcome-evals-comment.yml (after a PR run, via
+# workflow_run) and web-preview.yml (after the post-merge run).
+# One concurrency group per resolved PR serialises every write to that PR's comment, and a write whose run started
+# earlier than the comment's current one is refused, so a slower, older run can never overwrite a newer scorecard.
+on:
+  workflow_call:
+    inputs:
+      run_id:
+        description: Workflow run that uploaded the outcome-evals-comment artifact
+        required: true
+        type: string
+      sha:
+        description: Commit the run tested
+        required: true
+        type: string
+      lookup:
+        description: "'head' (sha is a PR head) or 'merge' (sha is the merge commit of a PR)"
+        required: true
+        type: string
+permissions:
+  actions: read # download the artifact from the eval run
+  pull-requests: write # the one outcome-evals comment
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      pr: ${{ steps.pr.outputs.number }}
+    steps:
+      - id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.sha }}
+          LOOKUP: ${{ inputs.lookup }}
+        run: |
+          if [ "$LOOKUP" = head ]; then
+            pr=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" --jq ".[] | select(.head.sha == \"$SHA\") | .number" | head -n1)
+          else
+            pr=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/pulls" --jq '.[0].number // empty')
+          fi
+          echo "number=$pr" >> "$GITHUB_OUTPUT"
+          echo "PR for $SHA ($LOOKUP): ${pr:-none}"
+  post:
+    needs: resolve
+    if: needs.resolve.outputs.pr != ''
+    runs-on: ubuntu-latest
+    concurrency:
+      group: outcome-evals-comment-${{ needs.resolve.outputs.pr }}
+      cancel-in-progress: false
+    steps:
+      # actions/download-artifact v4.3.0, pinned to its tag commit.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: outcome-evals-comment
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: comment
+      - name: Post or update, refusing stale writes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ needs.resolve.outputs.pr }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          ours=$(jq -r .tested_at comment/meta.json)
+          ref=$(jq -r .ref comment/meta.json)
+          if [ "$ref" != "$SHA" ]; then echo "Artifact tested $ref, not $SHA; not posting"; exit 1; fi
+          head -c 60000 comment/comment.md > comment/body.md
+          existing=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- outcome-evals -->"))) | [.id, (.body | capture("tested_at=(?<t>[^ ]+) ").t // "")] | @tsv' | tail -n1)
+          id=$(printf '%s' "$existing" | cut -f1)
+          theirs=$(printf '%s' "$existing" | cut -f2)
+          if [ -n "$theirs" ] && [[ "$theirs" > "$ours" ]]; then
+            echo "The comment holds a newer run ($theirs) than this one ($ours); not overwriting."
+            exit 0
+          fi
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" -F body=@comment/body.md > /dev/null && echo "Updated comment $id on PR #$PR"
+          else
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" -F body=@comment/body.md > /dev/null && echo "Posted a comment on PR #$PR"
+          fi

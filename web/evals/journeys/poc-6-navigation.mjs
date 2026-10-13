@@ -28,7 +28,6 @@ export default {
   title: 'Navigation: nav, tabs and Back from every app screen; every dead end',
   section: 'poc',
   target: 'preview',
-  requires: ['Today'],
   notes: 'Each screen is opened by URL as the start of its own mini-journey; the nav and tab links on it are then followed by clicking, and Back is tested with the browser back button.',
   async run(j) {
     const crawl = await j.context.newPage();

@@ -1,41 +1,30 @@
 name: outcome evals (PR)
-# Every PR gets a product-outcome scorecard, whatever it changes (no path filter, any base branch).
-# There is no per-PR preview deploy, so the journeys run against the deployed build of the PR's base branch:
-# main ships jamjam.tech, ui/integration ships the jamjam-preview Worker, and any other base is compared with the
-# integration preview. The comment states the URL and the build id it tested and that this PR's changes are not in
-# that build; after a merge into ui/integration, web-preview.yml reruns on the new preview and updates the comment.
+# Every PR, from any branch or fork, into any base, with no path filter: build the PR head, serve it inside the
+# runner and run the journeys against it, so the scorecard shows what this PR produces. PRs into main also run the
+# live-product journey against jamjam.tech as its own section. Read-only; outcome-evals-comment.yml posts the result.
 on:
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: outcome-evals-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 jobs:
-  target:
-    runs-on: ubuntu-latest
-    outputs:
-      url: ${{ steps.pick.outputs.url }}
-      note: ${{ steps.pick.outputs.note }}
-    steps:
-      - id: pick
-        env:
-          BASE_REF: ${{ github.base_ref }}
-          PREVIEW_URL: ${{ vars.PREVIEW_URL || 'https://jamjam-preview.ally-b3e.workers.dev' }}
-        run: |
-          case "$BASE_REF" in
-            main) url="https://jamjam.tech"; what="main's deployed app" ;;
-            ui/integration) url="$PREVIEW_URL"; what="ui/integration's current preview" ;;
-            *) url="$PREVIEW_URL"; what="the ui/integration preview (base $BASE_REF has no deploy of its own)" ;;
-          esac
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-          echo "note=No per-PR preview exists, so this tested $what, which does not contain this PR's changes." >> "$GITHUB_OUTPUT"
-  outcome-evals:
-    needs: target
-    # A fork's token cannot comment; its scorecard is in the run summary of the post-merge preview run.
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    permissions:
-      contents: read
-      pull-requests: write # one outcome-evals comment per PR, updated in place
+  evals:
     uses: ./.github/workflows/outcome-evals.yml
     with:
-      base_url: ${{ needs.target.outputs.url }}
-      pr: ${{ format('{0}', github.event.pull_request.number) }}
-      note: ${{ needs.target.outputs.note }}
+      ref: ${{ github.event.pull_request.head.sha }}
+      live_url: ${{ github.base_ref == 'main' && 'https://jamjam.tech' || '' }}
+  # A same-repository PR's token can write, so it posts here directly. A fork PR's token cannot: its comment is
+  # posted by outcome-evals-comment.yml (workflow_run, from the default branch), which never runs fork code.
+  post:
+    needs: evals
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      actions: read
+      pull-requests: write
+    uses: ./.github/workflows/outcome-evals-post.yml
+    with:
+      run_id: ${{ format('{0}', github.run_id) }}
+      sha: ${{ github.event.pull_request.head.sha }}
+      lookup: head

@@ -9,7 +9,6 @@ export default {
   title: 'The loop (ADR-012): Today, Post-Detail, Brain, Learn-Rules, Verify, Grow, Events, Quests, Distribute',
   section: 'poc',
   target: 'preview',
-  requires: ['Today', 'Brain', 'Post-Detail', 'Learn-Rules', 'Verify-Home', 'Grow-Home', 'Events', 'Distribute-Adapt', 'Quests', 'Events-Board'],
   async run(j) {
     await j.step({
       did: 'Open /screens/Today (first screen, by URL).',

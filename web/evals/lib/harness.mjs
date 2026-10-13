@@ -53,6 +53,7 @@ export class Journey {
     this.network = [];
     this.netCursor = 0;
     this.downloads = [];
+    this.missing = []; // screens a step landed on that the target does not serve ("No such screen")
   }
 
   async open() {
@@ -104,6 +105,16 @@ export class Journey {
     } catch (e) {
       rec.error = 'Action failed: ' + e.message.split('\n')[0];
     }
+    // Not deployed is detected from where the journey actually goes, so it cannot drift from a hand-kept list:
+    // a step that lands on the gallery's "No such screen" page stops the journey as NOT DEPLOYED, not FAIL.
+    if (!rec.error) {
+      const m = /\/screens\/([^/?#]+)/.exec(this.page.url());
+      if (m && (await this.page.getByText('No such screen', { exact: true }).count().catch(() => 0))) {
+        this.missing.push(decodeURIComponent(m[1]));
+        rec.error = `Not deployed: ${this.base} has no screen "${decodeURIComponent(m[1])}"`;
+        rec.notDeployed = true;
+      }
+    }
     if (!rec.error && spec.checks) {
       try { rec.checks = await spec.checks(this.page, this); }
       catch (e) { rec.error = 'Check failed to run: ' + e.message.split('\n')[0]; }
@@ -129,7 +140,8 @@ export class Journey {
   async close() { await this.context?.close(); }
 
   toJSON() {
-    return { id: this.def.id, title: this.def.title, section: this.def.section, target: this.def.target, status: this.status, notes: this.def.notes || '', steps: this.steps, downloads: this.downloads, stopped: this.stopped };
+    const notDeployed = this.missing.length > 0;
+    return { id: this.def.id, title: this.def.title, section: this.def.section, target: this.def.target, status: notDeployed ? 'NOT DEPLOYED' : this.status, notes: notDeployed ? `Not deployed on ${this.base}: ${[...new Set(this.missing)].join(', ')}. ${this.def.notes || ''}`.trim() : this.def.notes || '', missing: this.missing, steps: this.steps, downloads: this.downloads, stopped: this.stopped };
   }
 }
 

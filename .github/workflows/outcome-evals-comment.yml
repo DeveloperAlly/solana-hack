@@ -1,0 +1,22 @@
+name: outcome evals comment
+# After an "outcome evals (PR)" run finishes, posts its scorecard on the PR. workflow_run runs in the base
+# repository's context with this file from the default branch, so it can write to fork PRs without running fork
+# code: it only downloads the comment artifact and posts it (outcome-evals-post.yml).
+on:
+  workflow_run:
+    workflows: ['outcome evals (PR)']
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  post:
+    # Same-repository PRs are posted by outcome-evals-pr.yml itself; this covers fork PRs.
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.head_repository.full_name != github.repository
+    permissions:
+      actions: read
+      pull-requests: write
+    uses: ./.github/workflows/outcome-evals-post.yml
+    with:
+      run_id: ${{ format('{0}', github.event.workflow_run.id) }}
+      sha: ${{ github.event.workflow_run.head_sha }}
+      lookup: head

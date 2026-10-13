@@ -7,7 +7,6 @@ export default {
   title: 'Superhub: create, review, publish, Verify',
   section: 'poc',
   target: 'preview',
-  requires: ['Today', 'Draft-Review', 'Content-Dashboard', 'Verify-Home', 'Verify-1-Match'],
   async run(j) {
     let todayDraft = '';
     await j.step({

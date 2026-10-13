@@ -20,7 +20,6 @@ export default [
     section: 'poc',
     target: 'preview',
     ...MOBILE,
-    requires: ['Main', 'J1-Read', 'J8-Hub-FirstRun'],
     run: (j) => firstRunSteps(j, { mobile: true }),
   },
   {
@@ -29,7 +28,6 @@ export default [
     section: 'poc',
     target: 'preview',
     ...MOBILE,
-    requires: ['M-1-Campaigns', 'M-2-Detail', 'M-3-Generate', 'M-4-Publish', 'M-5-Status'],
     async run(j) {
       await j.step({
         did: 'Open /screens/M-1-Campaigns at 390 px (first screen, by URL).',

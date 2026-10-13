@@ -13,7 +13,6 @@ export default {
   title: 'Brand Builder: sign in, domain, intake, 3 gates, coverage, kit v1, export',
   section: 'poc',
   target: 'preview',
-  requires: ['Onboard-1-SignIn', 'Onboard-2-Domain', 'BB-1-Basics', 'Onboard-3-Sources', 'Onboard-3b-Profiling', 'BB-2-Origin', 'BB-3-GoldenCircle', 'BB-Gate1-Purpose', 'BB-4-Alternatives', 'BB-Gate2-Positioning', 'BB-5-Audience', 'BB-6-Voice', 'BB-Gate3-Voice', 'Coverage-Map', 'Onboard-6-Published', 'Kit-Export'],
   async run(j) {
     await j.step({
       did: 'Open /screens/Onboard-1-SignIn (first screen, by URL).',

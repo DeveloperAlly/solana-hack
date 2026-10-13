@@ -22,7 +22,6 @@ export default {
   title: 'Brand isolation: switch brand mid-edit and mid-approval',
   section: 'poc',
   target: 'preview',
-  requires: ['Today', 'Content-Dashboard', 'Draft-Review'],
   async run(j) {
     await j.step({
       did: 'Open /screens/Content-Dashboard (first screen, by URL), click "Review" on the X draft.',

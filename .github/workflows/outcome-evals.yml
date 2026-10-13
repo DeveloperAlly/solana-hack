@@ -1,61 +1,41 @@
 name: outcome evals
-# Product-outcome evals (web/evals): user journeys in real Chromium against a deployed preview. Uploads the
-# self-contained report (screenshots, every step, every API call) as an artifact and posts or updates one comment
-# on the PR with the scorecard. Called by web-preview.yml after each preview deploy and by outcome-evals-pr.yml on
-# every PR. The comment names the URL and the build id it tested, and says what that build is.
-# Journey FAILs are findings and do not fail this workflow; a harness crash or missing configuration does.
-# Configuration: repository variables EVAL_SITE (the site the journeys type in) and EVAL_BRAND_NAME (the brand
-# name they type). They identify a real brand, so they live only in repository settings, never in code; the
-# PR comment replaces them with "the configured test site" and "the configured brand name" and carries no screenshots.
+# Product-outcome evals (web/evals): user journeys in real Chromium, with machine-captured evidence.
+# Read-only: it runs the journeys and uploads two artifacts, the full report (screenshots, every step, every API
+# call) and the PR comment with its stamp. Posting is outcome-evals-post.yml's job, so fork code never runs with a
+# write token.
+#   - No base_url: builds `ref` (the PR head) with its build id stamped, serves it inside the runner with
+#     `vite preview` (the /screens POC makes no API calls), and tests that, so a PR's scorecard is its own build.
+#   - base_url: tests that deployed preview, waiting until it serves `ref` (post-merge).
+#   - live_url: also runs the live-product journey there, reported as its own section.
+# Configuration: repository variables EVAL_SITE and EVAL_BRAND_NAME (the site and brand name the journeys type). They
+# identify a real brand, so they live only in repository settings; the public comment replaces them with "the
+# configured test site" and "the configured brand name" and carries no screenshots.
+# Journey FAILs are findings and do not fail this workflow; a harness crash, missing configuration or a build
+# mismatch does.
 on:
   workflow_call:
     inputs:
-      note:
-        description: One sentence on what was tested (which build, and whether it contains the PR's changes)
-        required: false
-        type: string
-        default: ''
-      expect_build:
-        description: Commit the preview should serve; the run waits for it (empty to test whatever is served)
-        required: false
-        type: string
-        default: ''
-      base_url:
-        description: Deployed preview to test (its /screens gallery is driven)
+      ref:
+        description: Commit to test (built locally, or expected on base_url)
         required: true
         type: string
-      pr:
-        description: PR number to comment on; when empty, the PRs whose merge produced this commit
-        required: false
-        type: string
-        default: ''
-  workflow_dispatch:
-    inputs:
-      note:
-        description: One sentence on what was tested (which build, and whether it contains the PR's changes)
-        required: false
-        type: string
-        default: ''
-      expect_build:
-        description: Commit the preview should serve; the run waits for it (empty to test whatever is served)
-        required: false
-        type: string
-        default: ''
       base_url:
-        description: Deployed preview to test
-        required: true
+        description: Deployed preview to test instead of a local build of ref
+        required: false
         type: string
-      pr:
-        description: PR number to comment on (optional)
+        default: ''
+      live_url:
+        description: Live app to run the live-product journey against (empty to skip)
+        required: false
+        type: string
+        default: ''
+      note:
+        description: One sentence added to the comment
         required: false
         type: string
         default: ''
 permissions:
   contents: read
-  pull-requests: write # post or update the one outcome-evals comment
-concurrency:
-  group: outcome-evals-${{ inputs.pr || github.sha }}
-  cancel-in-progress: true
 jobs:
   evals:
     runs-on: ubuntu-latest
@@ -65,66 +45,61 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      - name: Build and serve this commit inside the runner
+        id: serve
+        if: inputs.base_url == ''
+        env:
+          JAMJAM_BUILD_ID: ${{ inputs.ref }}
+        run: |
+          npm run build
+          nohup npx vite preview --host 127.0.0.1 --port 4173 --strictPort > "$RUNNER_TEMP/preview.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4173/screens > /dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:4173/screens > /dev/null || { cat "$RUNNER_TEMP/preview.log"; exit 1; }
+          echo "url=http://127.0.0.1:4173" >> "$GITHUB_OUTPUT"
       - name: Install Chromium
         run: npx --yes playwright@$(node -p "require('playwright-core/package.json').version") install --with-deps chromium
       - name: Run the journeys
         id: evals
         env:
-          BASE_URL: ${{ inputs.base_url }}
+          BASE_URL: ${{ inputs.base_url || steps.serve.outputs.url }}
+          LIVE_URL: ${{ inputs.live_url }}
+          EXPECT_BUILD: ${{ inputs.ref }}
           EVAL_NOTE: ${{ inputs.note }}
-          EXPECT_BUILD: ${{ inputs.expect_build }}
           EVAL_SITE: ${{ vars.EVAL_SITE }}
           EVAL_BRAND_NAME: ${{ vars.EVAL_BRAND_NAME }}
+          KIND: ${{ inputs.base_url == '' && 'pr' || 'deployed' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           out="proof/evals/run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          npm run evals -- --base "$BASE_URL" --out "$out"
+          npm run evals -- --base "$BASE_URL" ${LIVE_URL:+--live "$LIVE_URL"} --out "$out"
+          mkdir -p "$RUNNER_TEMP/comment"
+          node evals/pr-comment.mjs --results "$out/results.json" --kind "$KIND" --run-url "$RUN_URL" > "$RUNNER_TEMP/comment/comment.md"
+          node -e "const r=require('./$out/results.json');process.stdout.write(JSON.stringify({ref:process.env.EXPECT_BUILD,build:r.build,tested_at:r.startedAt}))" > "$RUNNER_TEMP/comment/meta.json"
+          cat "$RUNNER_TEMP/comment/comment.md" >> "$GITHUB_STEP_SUMMARY"
           echo "out=web/$out" >> "$GITHUB_OUTPUT"
       - name: Upload the report
-        id: upload
         if: always() && steps.evals.outputs.out != ''
         # actions/upload-artifact v4.6.2, pinned to its tag commit.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: outcome-evals-report-${{ github.run_id }}-${{ github.run_attempt }}
+          name: outcome-evals-report
           path: ${{ steps.evals.outputs.out }}
           if-no-files-found: error
           retention-days: 30
-      - name: Find the PR
-        id: pr
-        if: always() && steps.evals.outputs.out != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_INPUT: ${{ inputs.pr }}
-        run: |
-          pr="$PR_INPUT"
-          if [ -z "$pr" ]; then
-            pr=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" --jq '.[0].number // empty' || true)
-          fi
-          echo "number=$pr" >> "$GITHUB_OUTPUT"
-          echo "PR: ${pr:-none}"
-      - name: Post or update the PR comment
-        if: always() && steps.evals.outputs.out != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OUT: ${{ github.workspace }}/${{ steps.evals.outputs.out }}
-          PR: ${{ steps.pr.outputs.number }}
-          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
-          EVAL_SITE: ${{ vars.EVAL_SITE }}
-          EVAL_BRAND_NAME: ${{ vars.EVAL_BRAND_NAME }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          node evals/pr-comment.mjs --results "$OUT/results.json" --artifact-url "$ARTIFACT_URL" --run-url "$RUN_URL" > "$RUNNER_TEMP/comment.md"
-          cat "$RUNNER_TEMP/comment.md" >> "$GITHUB_STEP_SUMMARY"
-          if [ -z "$PR" ]; then echo "No PR for this commit; the scorecard is in the job summary."; exit 0; fi
-          id=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- outcome-evals -->"))) | .id' | tail -n1)
-          if [ -n "$id" ]; then
-            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" -F body=@"$RUNNER_TEMP/comment.md" > /dev/null && echo "Updated comment $id on PR #$PR"
-          else
-            gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" -F body=@"$RUNNER_TEMP/comment.md" > /dev/null && echo "Posted a comment on PR #$PR"
-          fi
+      - name: Upload the PR comment
+        if: steps.evals.outputs.out != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: outcome-evals-comment
+          path: ${{ runner.temp }}/comment
+          if-no-files-found: error
+          retention-days: 7
