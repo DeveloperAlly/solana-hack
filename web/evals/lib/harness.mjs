@@ -45,6 +45,18 @@ export function missingScreenOutcome(mode, base, screen) {
   return { notDeployed: true, screen, error: `Not deployed: ${base} has no screen "${screen}"` };
 }
 
+/**
+ * A journey's status from its steps. FAIL is sticky: any failed step that is not a not-deployed landing makes it FAIL.
+ * NOT DEPLOYED only replaces PASS (no real failure, but a screen the journey needed is not on this deployed build).
+ * Steps after a stop are "not reached" and do not count.
+ */
+export function journeyStatus(steps) {
+  const ran = steps.filter((s) => !s.skipped);
+  if (ran.some((s) => !s.pass && !s.notDeployed)) return 'FAIL';
+  if (ran.some((s) => s.notDeployed)) return 'NOT DEPLOYED';
+  return 'PASS';
+}
+
 export function q(s, max = 400) {
   const t = String(s ?? '').replace(/\s+/g, ' ').trim();
   return '"' + (t.length > max ? t.slice(0, max) + '" [truncated]' : t + '"');
@@ -157,7 +169,7 @@ export class Journey {
 
   toJSON() {
     const notDeployed = this.missing.length > 0;
-    return { id: this.def.id, title: this.def.title, section: this.def.section, target: this.def.target, status: notDeployed ? 'NOT DEPLOYED' : this.status, notes: notDeployed ? `Not deployed on ${this.base}: ${[...new Set(this.missing)].join(', ')}. ${this.def.notes || ''}`.trim() : this.def.notes || '', missing: this.missing, steps: this.steps, downloads: this.downloads, stopped: this.stopped };
+    return { id: this.def.id, title: this.def.title, section: this.def.section, target: this.def.target, status: journeyStatus(this.steps), notes: notDeployed ? `Not deployed on ${this.base}: ${[...new Set(this.missing)].join(', ')}. ${this.def.notes || ''}`.trim() : this.def.notes || '', missing: this.missing, steps: this.steps, downloads: this.downloads, stopped: this.stopped };
   }
 }
 

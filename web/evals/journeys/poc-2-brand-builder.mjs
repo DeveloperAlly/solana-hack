@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { unzipSync, strFromU8 } from 'fflate';
 import { seesText, controlState, urlIs, visibleText, q } from '../lib/harness.mjs';
-import { SITE_BARE, HOST, BRAND_NAME, EMAIL, btn, link, click, namesEnteredBrand } from './poc-common.mjs';
+import { SITE_BARE, HOST, BRAND_NAME, EMAIL, inputCheck, btn, link, click, namesEnteredBrand } from './poc-common.mjs';
 
 const NEW_POSITIONING = `For founders who need proof, ${BRAND_NAME} turns systems thinking into shipped product.`;
 const cont = (p) => link(p, 'Continue', true);
@@ -31,7 +31,7 @@ export default {
       },
       checks: async (p) => {
         const vals = await p.locator('main input').evaluateAll((es) => es.map((e) => `${e.labels?.[0]?.innerText}: "${e.value}"`));
-        return [await urlIs(p, 'On Onboard-2-Domain', /Onboard-2-Domain/), { label: 'Brand name and domain not prefilled with a demo brand', pass: !vals.some((v) => /JamJam|jamjam\.tech/.test(v)), actual: 'input values: ' + vals.join('; ') }];
+        return [await urlIs(p, 'On Onboard-2-Domain', /Onboard-2-Domain/), inputCheck({ label: 'Brand name and domain not prefilled with a demo brand', pass: !vals.some((v) => /JamJam|jamjam\.tech/.test(v)), actual: 'input values: ' + vals.join('; ') })];
       },
     });
     await j.step({

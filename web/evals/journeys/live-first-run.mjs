@@ -58,7 +58,8 @@ export default {
         const n = m ? Number(m[1]) : 0;
         const coverage = await visibleText(p.getByText(/kit sections found/), 200);
         const empty = await visibleText(p.getByText(/Nothing to keep yet/), 200);
-        const links = await p.locator('main a').evaluateAll((as) => as.map((a) => a.href).filter((h) => /^https?:/.test(h) && !h.includes('jamjam.tech')));
+        // Each fact card's source link ("Open the page"); the app's own navigation is not a source.
+        const links = await p.locator('main a').evaluateAll((as) => as.filter((a) => /Open the page/.test(a.innerText)).map((a) => a.href));
         // The run the page itself polled (workflow engine): its final output and per-step trace, verbatim from the API.
         const runStatus = (x) => { try { return JSON.parse(x.responseBody).run?.status; } catch { return null; } };
         const runRes = [...j.network].reverse().find((x) => /\/api\/runs\//.test(x.path) && ['done', 'failed', 'error'].includes(runStatus(x)));
@@ -75,7 +76,7 @@ export default {
         return [
           { label: 'Extract run kept at least one fact (API)', pass: runFacts > 0, actual: runLine },
           { label: 'At least one fact found', pass: n > 0, actual: `Sources panel: ${sources}; coverage: ${coverage}; ${empty}` },
-          { label: `Facts link to ${host}`, pass: links.some((h) => h.includes(host)), actual: links.length ? 'source links: ' + links.join(', ') : 'no source links on page' },
+          { label: `Every fact links to a page on ${host}`, pass: links.length > 0 && links.every((h) => new URL(h).host === host), actual: links.length ? `${links.length} source links: ` + [...new Set(links)].join(', ') : 'no source links on page' },
         ];
       },
     });

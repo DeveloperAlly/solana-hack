@@ -1,17 +1,15 @@
 name: outcome evals
 # Product-outcome evals (web/evals): user journeys in real Chromium, with machine-captured evidence.
-# Read-only: it runs the journeys and uploads two artifacts, the full report (screenshots, every step, every API
-# call) and the PR comment with its stamp. Posting is outcome-evals-post.yml's job, so fork code never runs with a
-# write token.
+# Read-only: it runs the journeys and uploads the full report (screenshots, every step, every API call; tokens
+# redacted) and results.json. Posting is outcome-evals-post.yml's job, which validates results.json and renders the
+# comment with trusted code, so nothing fork code writes is posted as-is.
 #   - No base_url: builds `ref` (the PR head) with its build id stamped, serves it inside the runner with
 #     `vite preview` (the /screens POC makes no API calls), and tests that, so a PR's scorecard is its own build.
 #   - base_url: tests that deployed preview, waiting until it serves `ref` (post-merge).
 #   - live_url: also runs the live-product journey there, reported as its own section.
-# Configuration: repository variables EVAL_SITE and EVAL_BRAND_NAME (the site and brand name the journeys type). They
-# identify a real brand, so they live only in repository settings; the public comment replaces them with "the
-# configured test site" and "the configured brand name" and carries no screenshots.
-# Journey FAILs are findings and do not fail this workflow; a harness crash, missing configuration or a build
-# mismatch does.
+# Public CI types a neutral test site the project owns (jamjam.tech, brand "JamJam"), never a person's site, so the
+# artifacts can be public. Runs against a real customer or owner site happen only outside this repo (web/evals/README.md).
+# Journey FAILs are findings and do not fail this workflow; a harness crash or a build mismatch does.
 on:
   workflow_call:
     inputs:
@@ -74,8 +72,9 @@ jobs:
           LIVE_URL: ${{ inputs.live_url }}
           EXPECT_BUILD: ${{ inputs.ref }}
           EVAL_NOTE: ${{ inputs.note }}
-          EVAL_SITE: ${{ vars.EVAL_SITE }}
-          EVAL_BRAND_NAME: ${{ vars.EVAL_BRAND_NAME }}
+          # The public test site and brand name: neutral, owned by the project. Never a person's site.
+          EVAL_SITE: https://jamjam.tech
+          EVAL_BRAND_NAME: JamJam
           KIND: ${{ inputs.base_url == '' && 'pr' || 'deployed' }}
           # pr-head: a missing screen is a regression (FAIL); deployed: an older build may not have it yet (NOT DEPLOYED).
           EVAL_MODE: ${{ inputs.base_url == '' && 'pr-head' || 'deployed' }}
@@ -83,10 +82,8 @@ jobs:
         run: |
           out="proof/evals/run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           npm run evals -- --base "$BASE_URL" ${LIVE_URL:+--live "$LIVE_URL"} --out "$out"
-          mkdir -p "$RUNNER_TEMP/comment"
-          node evals/pr-comment.mjs --results "$out/results.json" --kind "$KIND" --run-url "$RUN_URL" > "$RUNNER_TEMP/comment/comment.md"
-          node -e "const r=require('./$out/results.json');process.stdout.write(JSON.stringify({ref:process.env.EXPECT_BUILD,build:r.build,tested_at:r.startedAt}))" > "$RUNNER_TEMP/comment/meta.json"
-          cat "$RUNNER_TEMP/comment/comment.md" >> "$GITHUB_STEP_SUMMARY"
+          # The job summary of this run (its own code may be a fork's; posting to the PR is done elsewhere).
+          node evals/pr-comment.mjs --results "$out/results.json" --kind "$KIND" --sha "$EXPECT_BUILD" --tested-at "$(node -p "require('./$out/results.json').startedAt")" --run-url "$RUN_URL" ${LIVE_URL:+--live-url "$LIVE_URL"} >> "$GITHUB_STEP_SUMMARY" || true
           echo "out=web/$out" >> "$GITHUB_OUTPUT"
       - name: Upload the report
         if: always() && steps.evals.outputs.out != ''
@@ -97,11 +94,11 @@ jobs:
           path: ${{ steps.evals.outputs.out }}
           if-no-files-found: error
           retention-days: 30
-      - name: Upload the PR comment
+      - name: Upload results.json for the comment
         if: steps.evals.outputs.out != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: outcome-evals-comment
-          path: ${{ runner.temp }}/comment
+          name: outcome-evals-results
+          path: ${{ steps.evals.outputs.out }}/results.json
           if-no-files-found: error
           retention-days: 7

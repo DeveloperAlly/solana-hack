@@ -16,7 +16,7 @@ function firstFail(j) { return j.steps.find((s) => !s.pass && !s.skipped); }
 
 function checkLines(s) {
   if (s.error && !s.checks.length) return [`ERROR: ${s.error}`];
-  return s.checks.map((c) => `${c.pass ? 'PASS' : 'FAIL'} ${c.label}: ${c.actual}`).concat(s.error ? [`ERROR: ${s.error}`] : []);
+  return s.checks.map((c) => `${c.inconclusive ? 'INCONCLUSIVE' : c.pass ? 'PASS' : 'FAIL'} ${c.label}: ${c.actual}`).concat(s.error ? [`ERROR: ${s.error}`] : []);
 }
 
 export function renderMarkdown(run) {
@@ -84,7 +84,7 @@ tr.FAIL b{color:var(--fail)}tr.PASS b{color:var(--pass)}tr.NOT-DEPLOYED b{color:
 .badge{display:inline-block;padding:1px 8px;border-radius:3px;font-weight:700;font-size:13px;border:1px solid}
 .b-FAIL{color:var(--fail)}.b-PASS{color:var(--pass)}.b-SKIP,.b-NOT-DEPLOYED{color:var(--skip)}
 .step{border:1px solid var(--line);border-radius:6px;padding:12px;margin:12px 0}.step.fail{border:2px solid var(--fail);background:var(--failbg)}
-.step.skip{opacity:.7}.k{font-weight:600}ul.checks{margin:4px 0;padding-left:20px}li.f{color:var(--fail)}li.p{color:var(--pass)}
+.step.skip{opacity:.7}.k{font-weight:600}ul.checks{margin:4px 0;padding-left:20px}li.f{color:var(--fail)}li.p{color:var(--pass)}li.i{color:var(--skip)}
 img{max-width:1000px;width:100%;border:1px solid var(--line);display:block;margin-top:8px}.cap{font-size:12px;color:var(--mute);word-break:break-all}
 details{margin:4px 0}summary{cursor:pointer}pre{background:var(--code);padding:8px;overflow:auto;max-height:420px;font-size:12px;white-space:pre-wrap;word-break:break-word}
 code{font-size:13px}
@@ -101,7 +101,7 @@ ${sec('live')}${sec('poc')}
 function journeyHtml(j, outDir) {
   const steps = stepOrder(j.steps).map((s) => {
     const st = s.skipped ? 'SKIP' : s.pass ? 'PASS' : 'FAIL';
-    const checks = s.skipped ? `<p>${esc(s.error)}</p>` : `<ul class="checks">${s.checks.map((c) => `<li class="${c.pass ? 'p' : 'f'}"><b>${c.pass ? 'PASS' : 'FAIL'}</b> ${esc(c.label)}: <code>${esc(c.actual)}</code></li>`).join('')}${s.error ? `<li class="f"><b>ERROR</b> ${esc(s.error)}</li>` : ''}</ul>`;
+    const checks = s.skipped ? `<p>${esc(s.error)}</p>` : `<ul class="checks">${s.checks.map((c) => `<li class="${c.inconclusive ? 'i' : c.pass ? 'p' : 'f'}"><b>${c.inconclusive ? 'INCONCLUSIVE' : c.pass ? 'PASS' : 'FAIL'}</b> ${esc(c.label)}: <code>${esc(c.actual)}</code></li>`).join('')}${s.error ? `<li class="f"><b>ERROR</b> ${esc(s.error)}</li>` : ''}</ul>`;
     const net = s.network?.length ? `<details><summary>${s.network.length} API call${s.network.length > 1 ? 's' : ''} this step triggered</summary>${s.network.map((n) => `<details><summary><code>${esc(n.method)} ${esc(n.path)}</code> → ${esc(n.status)} · ${n.ms} ms · ${esc(n.startedAt)}</summary><div class="k">Request body</div><pre>${esc(pretty(n.requestBody))}</pre><div class="k">Response body</div><pre>${esc(pretty(n.responseBody))}</pre></details>`).join('')}</details>` : '';
     const im = img(outDir, s.shot);
     return `<div class="step ${st === 'FAIL' ? 'fail' : st === 'SKIP' ? 'skip' : ''}"><div><span class="badge b-${st}">${st === 'SKIP' ? 'NOT REACHED' : st}</span> <b>Step ${s.n}.</b> ${esc(s.did)}</div>

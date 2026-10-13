@@ -1,5 +1,6 @@
-// Eval configuration. The test site and brand name identify a real brand, so they are never committed: they come
-// from the environment (locally) or from the repository variables EVAL_SITE and EVAL_BRAND_NAME (in CI).
+// Eval configuration: the site and brand name the journeys type in. Nothing is defaulted here; the caller must say.
+// Public CI passes a neutral site the project owns (.github/workflows/outcome-evals.yml). Runs against anyone's real
+// site happen only outside the public repo, with EVAL_SITE and EVAL_BRAND_NAME set locally (see README.md).
 let cached;
 export function evalConfig() {
   if (cached) return cached;
@@ -7,24 +8,11 @@ export function evalConfig() {
   const brandName = (process.env.EVAL_BRAND_NAME || '').trim();
   const missing = [!site && 'EVAL_SITE', !brandName && 'EVAL_BRAND_NAME'].filter(Boolean);
   if (missing.length) {
-    console.error(`outcome evals: ${missing.join(' and ')} not set. Set EVAL_SITE to the site the journeys type in (https://...) and EVAL_BRAND_NAME to the brand name they type; in CI these are repository variables of the same names.`);
+    console.error(`outcome evals: ${missing.join(' and ')} not set. Set EVAL_SITE to the site the journeys type in (https://...) and EVAL_BRAND_NAME to the brand name they type; public CI sets them in .github/workflows/outcome-evals.yml.`);
     process.exit(2);
   }
   let url;
   try { url = new URL(site.includes('://') ? site : `https://${site}`); } catch { console.error(`outcome evals: EVAL_SITE is not a web address: ${JSON.stringify(site)}`); process.exit(2); }
   cached = { site: url.origin, host: url.host, brandName };
   return cached;
-}
-
-/** Replaces the configured site and brand name in text bound for public places (PR comments). */
-export function redactIdentity(text) {
-  const { host, brandName } = evalConfig();
-  const label = host.split('.')[0];
-  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  let t = String(text ?? '');
-  t = t.replace(new RegExp(`https?://(www\\.)?${esc(host)}/?`, 'gi'), 'the configured test site');
-  t = t.replace(new RegExp(esc(host), 'gi'), 'the configured test site');
-  if (label.length > 3) t = t.replace(new RegExp(esc(label), 'gi'), 'the configured test site');
-  t = t.replace(new RegExp(esc(brandName), 'gi'), 'the configured brand name');
-  return t;
 }

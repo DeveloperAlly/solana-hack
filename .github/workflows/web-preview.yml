@@ -90,5 +90,6 @@ jobs:
     uses: ./.github/workflows/outcome-evals-post.yml
     with:
       run_id: ${{ format('{0}', github.run_id) }}
-      sha: ${{ github.sha }}
       lookup: merge
+      kind: deployed
+      live_url: https://jamjam.tech

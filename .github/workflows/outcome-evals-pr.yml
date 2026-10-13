@@ -1,7 +1,8 @@
 name: outcome evals (PR)
 # Every PR, from any branch or fork, into any base, with no path filter: build the PR head, serve it inside the
 # runner and run the journeys against it, so the scorecard shows what this PR produces. PRs into main also run the
-# live-product journey against jamjam.tech as its own section. Read-only; outcome-evals-comment.yml posts the result.
+# live-product journey against jamjam.tech as its own section. The journeys run read-only; the post job (same-repo
+# PRs) or outcome-evals-comment.yml (forks) renders and posts the comment with trusted code.
 on:
   pull_request:
 permissions:
@@ -26,5 +27,6 @@ jobs:
     uses: ./.github/workflows/outcome-evals-post.yml
     with:
       run_id: ${{ format('{0}', github.run_id) }}
-      sha: ${{ github.event.pull_request.head.sha }}
       lookup: head
+      kind: pr
+      live_url: ${{ github.base_ref == 'main' && 'https://jamjam.tech' || '' }}

@@ -3,7 +3,7 @@
 // Usage (from web/): npm run evals -- --base <preview url> [--live <live app url>] [--out <dir>] [--only id,id]
 //   --base   the deployed preview whose /screens gallery is driven (default: the integration preview)
 // Required env: EVAL_SITE (the site typed wherever a journey asks for one, e.g. https://example.org) and
-//   EVAL_BRAND_NAME (the brand name typed where asked). CI reads them from repository variables of the same names.
+//   EVAL_BRAND_NAME (the brand name typed where asked). Public CI sets a neutral site it owns; see README.md.
 // Optional env: EVAL_MODE=pr-head when --base is the build of the commit under review (a missing screen is then a
 //   regression, FAIL); anything else is a deployed build, where a missing screen is NOT DEPLOYED.
 //   --live   also run the live-product journeys against this app (real integrations; creates a brand there). Off unless given.
@@ -65,9 +65,11 @@ run.mode = runMode(); // pr-head | deployed (EVAL_MODE)
 for (const def of defs) {
   const j = new Journey(def, { browser, outDir, base, liveBase });
   await j.open();
-  try { await def.run(j); } catch (e) { j.status = 'FAIL'; j.stopped = 'journey crashed: ' + e.message.split('\n')[0]; }
+  let crashed = false;
+  try { await def.run(j); } catch (e) { crashed = true; j.stopped = 'journey crashed: ' + e.message.split('\n')[0]; }
   await j.close();
   const res = j.toJSON();
+  if (crashed) res.status = 'FAIL';
   run.journeys.push(res);
   console.log(`${res.status} ${def.id}`);
 }

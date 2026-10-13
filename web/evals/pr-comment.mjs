@@ -1,41 +1,46 @@
 #!/usr/bin/env node
-// Builds the one PR comment for a product-outcome eval run: the scorecard and a link to the full report.
-// Usage: EVAL_SITE=... EVAL_BRAND_NAME=... node evals/pr-comment.mjs --results <dir>/results.json --kind pr|deployed
-//          [--artifact-url <url>] [--run-url <url>] > comment.md
-// The second line is a machine-readable stamp (tested build and time) the poster uses to refuse stale overwrites.
-// The comment is public, so the configured test site and brand name are replaced by "the configured test site" and "the configured brand name", and
-// it carries no screenshots (they can show the site); the screenshots stay in the report inside the workflow artifact.
+// Renders the one PR comment for an eval run. Runs in the trusted posting job with this repository's own code: the
+// results file may come from fork code, so it is strictly validated (lib/validate.mjs) and only escaped, bounded
+// fields are shown; the only links are the ones built here from trusted arguments. The tested commit and time come
+// from the caller (the workflow run's own metadata), never from the file.
+// Usage: node evals/pr-comment.mjs --results results.json --kind pr|deployed --sha <commit> --tested-at <ISO time>
+//          --run-url <https://github.com/.../actions/runs/N> [--live-url <url>] > comment.md
+// The second line is a machine-readable stamp the poster uses to refuse stale overwrites.
 import fs from 'node:fs';
-import { redactIdentity } from './lib/config.mjs';
+import { validateResults } from './lib/validate.mjs';
 
 const args = process.argv.slice(2);
-const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
-const resultsPath = arg('--results');
-if (!resultsPath) throw new Error('--results is required');
-const run = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
-const cell = (s, n = 160) => String(s ?? '').replace(/\|/g, '/').replace(/\s+/g, ' ').slice(0, n);
+const arg = (k, d = '') => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
+const fail = (m) => { console.error(`pr-comment: ${m}`); process.exit(1); };
 
-const firstFail = (j) => j.steps.find((s) => !s.pass && !s.skipped);
 const kind = arg('--kind', 'pr');
-const L = ['<!-- outcome-evals -->', `<!-- outcome-evals-meta build=${run.build} tested_at=${run.startedAt} -->`, '## Product outcomes', ''];
-const live = run.journeys.some((j) => j.section === 'live');
-L.push(kind === 'pr'
-  ? `Tested this PR's build \`${run.build}\` at ${run.base}, built from the PR head and served inside the CI runner, at ${run.startedAt}.`
-  : `Tested the deployed preview ${run.base}, serving build \`${run.build}\`, at ${run.startedAt}.`);
-if (live) L.push(`The live product journey ran separately against ${run.liveBase} (real integrations).`);
-if (run.note) L.push(run.note);
-L.push('', 'Real Chromium, user journeys driven by clicking and typing; "actual" text is verbatim from the page. Screenshots, every step and every API call are in the report in the workflow artifact.', '');
-L.push('| Section | Journey | Result | First failing step | Expected | Actual |', '|---|---|---|---|---|---|');
-for (const j of run.journeys) {
-  const f = firstFail(j);
-  const failed = f ? (f.checks.find((c) => !c.pass) || { label: 'action', actual: f.error }) : null;
-  L.push(`| ${j.section === 'live' ? `Live product (${cell(run.liveBase, 40)})` : kind === 'pr' ? "This PR's build (POC, sample data)" : 'Deployed preview (POC, sample data)'} | ${cell(j.title, 90)} | **${j.status}** | ${f ? `${f.n}. ${cell(f.did, 120)}` : j.status === 'NOT DEPLOYED' ? cell(j.notes) : '-'} | ${f ? cell(f.expected) : ''} | ${failed ? `${cell(failed.label, 60)}: ${cell(failed.actual)}` : ''} |`);
-}
-const counts = run.journeys.reduce((a, j) => ((a[j.status] = (a[j.status] || 0) + 1), a), {});
-L.push('', `Totals: ${Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(', ')}.`);
+if (!['pr', 'deployed'].includes(kind)) fail('--kind must be pr or deployed');
+const sha = arg('--sha');
+if (!/^[0-9a-f]{40}$/.test(sha)) fail('--sha must be a full commit sha');
+const testedAt = arg('--tested-at');
+if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/.test(testedAt)) fail('--tested-at must be an ISO UTC time');
+const runUrl = arg('--run-url');
+if (!/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/actions\/runs\/\d+$/.test(runUrl)) fail('--run-url must be a GitHub Actions run URL');
+const liveUrl = arg('--live-url');
+if (liveUrl && !/^https:\/\/[a-z0-9.-]+$/.test(liveUrl)) fail('--live-url must be a bare https origin');
 
-const links = [];
-if (arg('--artifact-url')) links.push(`[Full report with every step, screenshot and API call (report.html in the artifact)](${arg('--artifact-url')})`);
-if (arg('--run-url')) links.push(`[Workflow run](${arg('--run-url')})`);
-if (links.length) L.push('', links.join(' · '));
-process.stdout.write(redactIdentity(L.join('\n')) + '\n');
+let journeys;
+try { journeys = validateResults(JSON.parse(fs.readFileSync(arg('--results'), 'utf8'))); } catch (e) { fail(e.message); }
+
+const short = sha.slice(0, 7);
+const L = ['<!-- outcome-evals -->', `<!-- outcome-evals-meta build=${sha} tested_at=${testedAt} -->`, '## Product outcomes', ''];
+L.push(kind === 'pr'
+  ? `Tested this PR's build \`${short}\` (${sha}), built from the PR head and served inside the CI runner. Run started ${testedAt}.`
+  : `Tested the deployed preview, serving build \`${short}\` (${sha}), after merge. Run started ${testedAt}.`);
+if (journeys.some((j) => j.section === 'live') && liveUrl) L.push(`The live product journey ran separately against ${liveUrl} (real integrations).`);
+L.push('', 'User journeys in real Chromium, driven by clicking and typing, with the public test site. Each step\'s screenshot, verbatim page text and API calls are in the report in the workflow artifact.', '');
+L.push('| Section | Journey | Result | First failing step | Expected | Actual |', '|---|---|---|---|---|---|');
+for (const j of journeys) {
+  const section = j.section === 'live' ? 'Live product' : kind === 'pr' ? "This PR's build (POC, sample data)" : 'Deployed preview (POC, sample data)';
+  const f = j.firstFail;
+  const first = f ? `${f.n}. ${f.did}` : j.status === 'NOT DEPLOYED' ? `missing: ${j.missing.join(', ')}` : '-';
+  L.push(`| ${section} | \`${j.id}\` | **${j.status}** | ${first} | ${f ? f.expected : ''} | ${f ? `${f.label}: ${f.actual}` : ''} |`);
+}
+const counts = journeys.reduce((a, j) => ((a[j.status] = (a[j.status] || 0) + 1), a), {});
+L.push('', `Totals: ${Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(', ')}.`, '', `[Workflow run and report artifact](${runUrl})`);
+process.stdout.write(L.join('\n') + '\n');
