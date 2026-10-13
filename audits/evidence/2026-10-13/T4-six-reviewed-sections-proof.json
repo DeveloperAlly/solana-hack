@@ -1,0 +1,331 @@
+{
+  "observedAt": "2026-10-13T00:44:18.379Z",
+  "status": 200,
+  "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+  "sections": [
+    {
+      "section": "purpose",
+      "body": "I turn frontier AI research into products that ship, sell and get used. I work at the seam between research and reality, across the full stack from the protocol layer to the story.",
+      "citations": [
+        "5597888e-0c7d-8b7c-b208-708d3c71d407",
+        "6f59aa0f-9cea-8b79-b3db-b742a75b94b7",
+        "427079be-5172-87ae-9bdc-054eccc6c104",
+        "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+        "6d3953d4-8fcd-4125-af56-d14d53878b3c"
+      ],
+      "status": "drafted",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "updatedAt": "2026-10-13T00:40:24.63+00:00"
+    },
+    {
+      "section": "positioning",
+      "body": "I take research-grade AI and turn it into things people can use, buy and believe in. I work across the full stack, from the protocol layer to the story. As founder and CEO of Lilypad, I led a decentralised GPU network for verifiable AI inference across thousands of nodes. My intended audience and alternatives are not yet specified.",
+      "citations": [
+        "5597888e-0c7d-8b7c-b208-708d3c71d407",
+        "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+        "96ff84a9-303c-8977-a2de-8cd45be56269"
+      ],
+      "status": "drafted",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "updatedAt": "2026-10-13T00:40:44.46+00:00"
+    },
+    {
+      "section": "origin",
+      "body": "I am a mechatronics engineer and computer scientist. For eight-plus years, I have worked on AI and infrastructure, turning frontier research into products that ship, sell and get used. I was founder and CEO of Lilypad, a decentralised GPU network for verifiable AI inference across thousands of nodes, open-sourced when I led its wind-down in 2025 and arXiv-published. My previous roles include developer relations and go-to-market at IBM and the Filecoin Foundation, and technical architecture at Accenture.",
+      "citations": [
+        "5597888e-0c7d-8b7c-b208-708d3c71d407",
+        "427079be-5172-87ae-9bdc-054eccc6c104",
+        "11cd0bcb-4ae7-8625-b600-275393edffbc",
+        "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+        "6f59aa0f-9cea-8b79-b3db-b742a75b94b7",
+        "96ff84a9-303c-8977-a2de-8cd45be56269",
+        "f48362e9-3835-8125-aac8-1d457ae39f92",
+        "e3604fa5-b4ee-8976-9c06-e71946ac9cac"
+      ],
+      "status": "drafted",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "updatedAt": "2026-10-13T00:43:56.447+00:00"
+    },
+    {
+      "section": "audience",
+      "body": "The intended audience has not yet been specified. No target people or audience roles have been confirmed. Audience personas are deferred until that information is supplied.",
+      "citations": [
+        "11cd0bcb-4ae7-8625-b600-275393edffbc",
+        "6f59aa0f-9cea-8b79-b3db-b742a75b94b7",
+        "96ff84a9-303c-8977-a2de-8cd45be56269",
+        "7f35997b-e5b6-8987-aad8-94dcad2b7677",
+        "e3604fa5-b4ee-8976-9c06-e71946ac9cac",
+        "6b60e562-1f81-8889-a4d9-f5a710ff0eb2"
+      ],
+      "status": "drafted",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "updatedAt": "2026-10-13T00:41:17.755+00:00"
+    },
+    {
+      "section": "voice",
+      "body": "Saved template: Candid founder (candid_founder). Dial settings (1–5): formality 2; energy 3; humour 2; warmth 3; sentence length 2; jargon 2; emoji 1; call to action 3. Claims gate: Strict (5)—every claim needs evidence. Saved voice sample: I turn frontier AI research into product that ships, sells & gets used.",
+      "citations": [
+        "136d5a4f-4ba8-4481-886a-b71a3599e9a9",
+        "fd54bf18-2273-4e68-8321-298abe52c3b8",
+        "864f408a-91d6-4454-8e4a-dab5d7a48fc8",
+        "9360145b-056e-4538-977d-7882552e9ecc",
+        "d375008d-80f4-4a7f-8a64-7694fa76b485",
+        "cef05442-31a0-4b47-b9d2-37322a0436c5",
+        "226ab736-2ec7-425d-8480-79f2f564ee46",
+        "7224b076-fdc6-49c0-907e-f863ce99e640",
+        "e4973d27-7b42-4082-9b3c-ceff99f8c462",
+        "9bbd88d8-e925-4e13-8d48-751b63a43c56"
+      ],
+      "status": "drafted",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "updatedAt": "2026-10-13T00:44:01.726+00:00"
+    },
+    {
+      "section": "messaging",
+      "body": "Tagline: From research to real-world AI products.\nDescription: I turn frontier AI research into products that ship, sell and get used, working across the full stack from the protocol layer to the story.\nKey messages:\n- I turn frontier AI research into product that ships, sells & gets used.\n- I work the whole stack, from the protocol layer to the story.\n- I am endlessly curious about how minds, biological and artificial, actually work.",
+      "citations": [
+        "6f59aa0f-9cea-8b79-b3db-b742a75b94b7",
+        "5597888e-0c7d-8b7c-b208-708d3c71d407",
+        "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+        "cdd32081-6ca1-8834-b9db-2c73ef071d09",
+        "f48362e9-3835-8125-aac8-1d457ae39f92"
+      ],
+      "status": "drafted",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "updatedAt": "2026-10-13T00:44:06.253+00:00"
+    }
+  ],
+  "eligibleEvidence": [
+    {
+      "id": "11cd0bcb-4ae7-8625-b600-275393edffbc",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null,
+      "claim": "Mechatronics engineer and computer scientist.",
+      "quote": "Mechatronics engineer and computer scientist.",
+      "origin": "source",
+      "trust": "owned"
+    },
+    {
+      "id": "427079be-5172-87ae-9bdc-054eccc6c104",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null,
+      "claim": "I live at the seam between research and reality.",
+      "quote": "I live at the seam between research and reality.",
+      "origin": "source",
+      "trust": "owned"
+    },
+    {
+      "id": "4cf29db0-3946-8fb6-b6e6-5de15b97319f",
+      "reviewStatus": "rejected",
+      "ownerDecision": null,
+      "editedFrom": null,
+      "claim": "The throughline never changes. The hardest part of frontier technology is rarely the technology; it is the translation: scoping what is buildable now, shipping it reliably, and telling the story that makes engineers, executives and markets move together.",
+      "quote": "The throughline never changes. The hardest part of frontier technology is rarely the technology; it is the translation: scoping what is buildable now, shipping it reliably, and telling the story that makes engineers, executives and markets move together.",
+      "origin": "source",
+      "trust": "owned"
+    },
+    {
+      "id": "5597888e-0c7d-8b7c-b208-708d3c71d407",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null,
+      "claim": "I take research-grade AI and turn it into things people can use, buy, and believe in.",
+      "quote": "I take research-grade AI and turn it into things people can use, buy, and believe in.",
+      "origin": "source",
+      "trust": "owned"
+    },
+    {
+      "id": "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null,
+      "claim": "I work the whole stack, from the protocol layer to the story.",
+      "quote": "I work the whole stack, from the protocol layer to the story.",
+      "origin": "source",
+      "trust": "owned"
+    },
+    {
+      "id": "6f12bbac-9721-866d-ac50-fa481baa2369",
+      "reviewStatus": "rejected",
+      "ownerDecision": "rejected",
+      "editedFrom": null,
+      "claim": "When I am not shipping, I am reading sci-fi, thinking about robotics and the philosophy of AI, writing, and chasing a properly good cup of coffee.",
+      "quote": "When I am not shipping, I am reading sci-fi, thinking about robotics and the philosophy of AI, writing, and chasing a properly good cup of coffee.",
+      "origin": "source",
+      "trust": "owned"
+    },
+    {
+      "id": "6f59aa0f-9cea-8b79-b3db-b742a75b94b7",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null,
+      "claim": "I turn frontier AI research into product that ships, sells & gets used.",
+      "quote": "I turn frontier AI research into product that ships, sells & gets used.",
+      "origin": "source",
+      "trust": "owned"
+    },
+    {
+      "id": "7f35997b-e5b6-8987-aad8-94dcad2b7677",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": null,
+      "claim": "I think out loud on X and post the longer-form on LinkedIn.",
+      "quote": "I think out loud on X and post the longer-form on LinkedIn.",
+      "origin": "source",
+      "trust": "owned"
+    },
+    {
+      "id": "96ff84a9-303c-8977-a2de-8cd45be56269",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null,
+      "claim": "Founder & CEO of Lilypad, a decentralised GPU network for verifiable AI inference across thousands of nodes, open-sourced when I led its wind-down in 2025, and arXiv-published.",
+      "quote": "Founder & CEO of Lilypad, a decentralised GPU network for verifiable AI inference across thousands of nodes, open-sourced when I led its wind-down in 2025, and arXiv-published.",
+      "origin": "source",
+      "trust": "owned"
+    },
+    {
+      "id": "cdd32081-6ca1-8834-b9db-2c73ef071d09",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null,
+      "claim": "I am endlessly curious about how minds, biological and artificial, actually work.",
+      "quote": "I am endlessly curious about how minds, biological and artificial, actually work.",
+      "origin": "source",
+      "trust": "owned"
+    },
+    {
+      "id": "e3604fa5-b4ee-8976-9c06-e71946ac9cac",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null,
+      "claim": "Previously developer relations and go-to-market at IBM and the Filecoin Foundation, and technical architecture at Accenture.",
+      "quote": "Previously developer relations and go-to-market at IBM and the Filecoin Foundation, and technical architecture at Accenture.",
+      "origin": "source",
+      "trust": "owned"
+    },
+    {
+      "id": "f48362e9-3835-8125-aac8-1d457ae39f92",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null,
+      "claim": "For eight-plus years I have taken the bleeding edge of AI and infrastructure and shipped it, most recently as founder and CEO of Lilypad, a decentralised GPU compute network for verifiable, trustless AI inference at scale.",
+      "quote": "For eight-plus years I have taken the bleeding edge of AI and infrastructure and shipped it, most recently as founder and CEO of Lilypad, a decentralised GPU compute network for verifiable, trustless AI inference at scale.",
+      "origin": "source",
+      "trust": "owned"
+    },
+    {
+      "id": "6d3953d4-8fcd-4125-af56-d14d53878b3c",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": "4cf29db0-3946-8fb6-b6e6-5de15b97319f",
+      "claim": "I translate frontier technology into buildable scope, reliable delivery and stories that align engineers, executives and markets.",
+      "quote": null,
+      "origin": "owner_answer",
+      "trust": "owner_answer"
+    },
+    {
+      "id": "136d5a4f-4ba8-4481-886a-b71a3599e9a9",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": null,
+      "claim": "template: candid_founder",
+      "quote": null,
+      "origin": "owner_answer",
+      "trust": "owner_answer"
+    },
+    {
+      "id": "226ab736-2ec7-425d-8480-79f2f564ee46",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": null,
+      "claim": "jargon: 2",
+      "quote": null,
+      "origin": "owner_answer",
+      "trust": "owner_answer"
+    },
+    {
+      "id": "7224b076-fdc6-49c0-907e-f863ce99e640",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": null,
+      "claim": "emoji: 1",
+      "quote": null,
+      "origin": "owner_answer",
+      "trust": "owner_answer"
+    },
+    {
+      "id": "864f408a-91d6-4454-8e4a-dab5d7a48fc8",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": null,
+      "claim": "energy: 3",
+      "quote": null,
+      "origin": "owner_answer",
+      "trust": "owner_answer"
+    },
+    {
+      "id": "9360145b-056e-4538-977d-7882552e9ecc",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": null,
+      "claim": "humour: 2",
+      "quote": null,
+      "origin": "owner_answer",
+      "trust": "owner_answer"
+    },
+    {
+      "id": "9bbd88d8-e925-4e13-8d48-751b63a43c56",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": null,
+      "claim": "claims: 5",
+      "quote": null,
+      "origin": "owner_answer",
+      "trust": "owner_answer"
+    },
+    {
+      "id": "cef05442-31a0-4b47-b9d2-37322a0436c5",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": null,
+      "claim": "sentence_length: 2",
+      "quote": null,
+      "origin": "owner_answer",
+      "trust": "owner_answer"
+    },
+    {
+      "id": "d375008d-80f4-4a7f-8a64-7694fa76b485",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": null,
+      "claim": "warmth: 3",
+      "quote": null,
+      "origin": "owner_answer",
+      "trust": "owner_answer"
+    },
+    {
+      "id": "e4973d27-7b42-4082-9b3c-ceff99f8c462",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": null,
+      "claim": "cta: 3",
+      "quote": null,
+      "origin": "owner_answer",
+      "trust": "owner_answer"
+    },
+    {
+      "id": "fd54bf18-2273-4e68-8321-298abe52c3b8",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": null,
+      "claim": "formality: 2",
+      "quote": null,
+      "origin": "owner_answer",
+      "trust": "owner_answer"
+    }
+  ],
+  "scope": "All6reviewed corrected drafts beforeapproval; no registration claimed. Nativeedits correctthisinstance; generatorunknownhandling remainsopen."
+}
