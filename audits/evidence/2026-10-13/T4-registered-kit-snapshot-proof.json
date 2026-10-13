@@ -1,0 +1,138 @@
+{
+  "observedAt": "2026-10-13T01:45:26.086Z",
+  "httpStatus": 200,
+  "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+  "kit": {
+    "id": "b3efe40d-c24f-42b0-855b-454b09a001f1",
+    "version": 1,
+    "hash": "sha256:29448abeacc092b312c21fac6364cbefd42e56f71582e0a6cfb46b583799a28d",
+    "status": "registered",
+    "signature": "3oGRrSin1WpuhcYG4nS2oDY3xmQyYxWu5a9CjeuC6k61e5kkcZdrPt6vZvgKv5gXANYmHUVKiYnxKuQeALwP7Tcd",
+    "error": null
+  },
+  "policy": {
+    "claims": "5",
+    "template": "candid_founder"
+  },
+  "sections": [
+    {
+      "section": "audience",
+      "body": "The intended audience has not yet been specified. No target people or audience roles have been confirmed. Audience personas are deferred until that information is supplied.",
+      "status": "approved",
+      "citations": [
+        "11cd0bcb-4ae7-8625-b600-275393edffbc",
+        "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+        "6f59aa0f-9cea-8b79-b3db-b742a75b94b7",
+        "7f35997b-e5b6-8987-aad8-94dcad2b7677",
+        "96ff84a9-303c-8977-a2de-8cd45be56269",
+        "e3604fa5-b4ee-8976-9c06-e71946ac9cac"
+      ],
+      "bodyMatchesReviewed": true,
+      "citationIdsMatchReviewed": true
+    },
+    {
+      "section": "messaging",
+      "body": "Tagline: From research to real-world AI products.\nDescription: I turn frontier AI research into products that ship, sell and get used, working across the full stack from the protocol layer to the story.\nKey messages:\n- I turn frontier AI research into product that ships, sells & gets used.\n- I work the whole stack, from the protocol layer to the story.\n- I am endlessly curious about how minds, biological and artificial, actually work.",
+      "status": "approved",
+      "citations": [
+        "5597888e-0c7d-8b7c-b208-708d3c71d407",
+        "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+        "6f59aa0f-9cea-8b79-b3db-b742a75b94b7",
+        "cdd32081-6ca1-8834-b9db-2c73ef071d09",
+        "f48362e9-3835-8125-aac8-1d457ae39f92"
+      ],
+      "bodyMatchesReviewed": true,
+      "citationIdsMatchReviewed": true
+    },
+    {
+      "section": "origin",
+      "body": "I am a mechatronics engineer and computer scientist. For eight-plus years, I have worked on AI and infrastructure, turning frontier research into products that ship, sell and get used. I was founder and CEO of Lilypad, a decentralised GPU network for verifiable AI inference across thousands of nodes, open-sourced when I led its wind-down in 2025 and arXiv-published. My previous roles include developer relations and go-to-market at IBM and the Filecoin Foundation, and technical architecture at Accenture.",
+      "status": "approved",
+      "citations": [
+        "11cd0bcb-4ae7-8625-b600-275393edffbc",
+        "427079be-5172-87ae-9bdc-054eccc6c104",
+        "5597888e-0c7d-8b7c-b208-708d3c71d407",
+        "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+        "6f59aa0f-9cea-8b79-b3db-b742a75b94b7",
+        "96ff84a9-303c-8977-a2de-8cd45be56269",
+        "e3604fa5-b4ee-8976-9c06-e71946ac9cac",
+        "f48362e9-3835-8125-aac8-1d457ae39f92"
+      ],
+      "bodyMatchesReviewed": true,
+      "citationIdsMatchReviewed": true
+    },
+    {
+      "section": "positioning",
+      "body": "I take research-grade AI and turn it into things people can use, buy and believe in. I work across the full stack, from the protocol layer to the story. As founder and CEO of Lilypad, I led a decentralised GPU network for verifiable AI inference across thousands of nodes. My intended audience and alternatives are not yet specified.",
+      "status": "approved",
+      "citations": [
+        "5597888e-0c7d-8b7c-b208-708d3c71d407",
+        "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+        "96ff84a9-303c-8977-a2de-8cd45be56269"
+      ],
+      "bodyMatchesReviewed": true,
+      "citationIdsMatchReviewed": true
+    },
+    {
+      "section": "purpose",
+      "body": "I turn frontier AI research into products that ship, sell and get used. I work at the seam between research and reality, across the full stack from the protocol layer to the story.",
+      "status": "approved",
+      "citations": [
+        "427079be-5172-87ae-9bdc-054eccc6c104",
+        "5597888e-0c7d-8b7c-b208-708d3c71d407",
+        "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+        "6d3953d4-8fcd-4125-af56-d14d53878b3c",
+        "6f59aa0f-9cea-8b79-b3db-b742a75b94b7"
+      ],
+      "bodyMatchesReviewed": true,
+      "citationIdsMatchReviewed": true
+    },
+    {
+      "section": "voice",
+      "body": "Saved template: Candid founder (candid_founder). Dial settings (1\u20135): formality 2; energy 3; humour 2; warmth 3; sentence length 2; jargon 2; emoji 1; call to action 3. Claims gate: Strict (5)\u2014every claim needs evidence. Saved voice sample: I turn frontier AI research into product that ships, sells & gets used.",
+      "status": "approved",
+      "citations": [
+        "136d5a4f-4ba8-4481-886a-b71a3599e9a9",
+        "226ab736-2ec7-425d-8480-79f2f564ee46",
+        "7224b076-fdc6-49c0-907e-f863ce99e640",
+        "864f408a-91d6-4454-8e4a-dab5d7a48fc8",
+        "9360145b-056e-4538-977d-7882552e9ecc",
+        "9bbd88d8-e925-4e13-8d48-751b63a43c56",
+        "cef05442-31a0-4b47-b9d2-37322a0436c5",
+        "d375008d-80f4-4a7f-8a64-7694fa76b485",
+        "e4973d27-7b42-4082-9b3c-ceff99f8c462",
+        "fd54bf18-2273-4e68-8321-298abe52c3b8"
+      ],
+      "bodyMatchesReviewed": true,
+      "citationIdsMatchReviewed": true
+    }
+  ],
+  "gates": [
+    {
+      "gate": "purpose",
+      "approvedAt": "2026-10-13T00:45:17.586+00:00",
+      "ownerMatches": true
+    },
+    {
+      "gate": "positioning",
+      "approvedAt": "2026-10-13T00:45:19.982+00:00",
+      "ownerMatches": true
+    },
+    {
+      "gate": "voice",
+      "approvedAt": "2026-10-13T00:45:22.367+00:00",
+      "ownerMatches": true
+    }
+  ],
+  "checks": {
+    "liveSectionRowsUnchanged": true,
+    "gatesUnchangedIgnoringOrder": true,
+    "voiceRowUnchanged": true,
+    "allSnapshotEvidenceEligible": true,
+    "canonicalPayloadHashMatches": true
+  },
+  "citationCount": 37,
+  "snapshotEvidenceCount": 21,
+  "independentGrade": 98,
+  "scope": "registered kit persisted snapshot; external chain confirmation independently pending"
+}
