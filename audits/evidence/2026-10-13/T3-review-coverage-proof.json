@@ -1,0 +1,177 @@
+{
+  "observedAt": "2026-10-13T00:31:57.194Z",
+  "status": 200,
+  "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+  "evidence": [
+    {
+      "id": "11cd0bcb-4ae7-8625-b600-275393edffbc",
+      "section": "origin",
+      "claim": "Mechatronics engineer and computer scientist.",
+      "quote": "Mechatronics engineer and computer scientist.",
+      "trust": "owned",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null
+    },
+    {
+      "id": "427079be-5172-87ae-9bdc-054eccc6c104",
+      "section": "purpose",
+      "claim": "I live at the seam between research and reality.",
+      "quote": "I live at the seam between research and reality.",
+      "trust": "owned",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null
+    },
+    {
+      "id": "4cf29db0-3946-8fb6-b6e6-5de15b97319f",
+      "section": "positioning",
+      "claim": "The throughline never changes. The hardest part of frontier technology is rarely the technology; it is the translation: scoping what is buildable now, shipping it reliably, and telling the story that makes engineers, executives and markets move together.",
+      "quote": "The throughline never changes. The hardest part of frontier technology is rarely the technology; it is the translation: scoping what is buildable now, shipping it reliably, and telling the story that makes engineers, executives and markets move together.",
+      "trust": "owned",
+      "reviewStatus": "rejected",
+      "ownerDecision": null,
+      "editedFrom": null
+    },
+    {
+      "id": "5597888e-0c7d-8b7c-b208-708d3c71d407",
+      "section": "purpose",
+      "claim": "I take research-grade AI and turn it into things people can use, buy, and believe in.",
+      "quote": "I take research-grade AI and turn it into things people can use, buy, and believe in.",
+      "trust": "owned",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null
+    },
+    {
+      "id": "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+      "section": "positioning",
+      "claim": "I work the whole stack, from the protocol layer to the story.",
+      "quote": "I work the whole stack, from the protocol layer to the story.",
+      "trust": "owned",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null
+    },
+    {
+      "id": "6f12bbac-9721-866d-ac50-fa481baa2369",
+      "section": "messaging",
+      "claim": "When I am not shipping, I am reading sci-fi, thinking about robotics and the philosophy of AI, writing, and chasing a properly good cup of coffee.",
+      "quote": "When I am not shipping, I am reading sci-fi, thinking about robotics and the philosophy of AI, writing, and chasing a properly good cup of coffee.",
+      "trust": "owned",
+      "reviewStatus": "rejected",
+      "ownerDecision": "rejected",
+      "editedFrom": null
+    },
+    {
+      "id": "6f59aa0f-9cea-8b79-b3db-b742a75b94b7",
+      "section": "purpose",
+      "claim": "I turn frontier AI research into product that ships, sells & gets used.",
+      "quote": "I turn frontier AI research into product that ships, sells & gets used.",
+      "trust": "owned",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null
+    },
+    {
+      "id": "7f35997b-e5b6-8987-aad8-94dcad2b7677",
+      "section": "voice",
+      "claim": "I think out loud on X and post the longer-form on LinkedIn.",
+      "quote": "I think out loud on X and post the longer-form on LinkedIn.",
+      "trust": "owned",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": null
+    },
+    {
+      "id": "96ff84a9-303c-8977-a2de-8cd45be56269",
+      "section": "origin",
+      "claim": "Founder & CEO of Lilypad, a decentralised GPU network for verifiable AI inference across thousands of nodes, open-sourced when I led its wind-down in 2025, and arXiv-published.",
+      "quote": "Founder & CEO of Lilypad, a decentralised GPU network for verifiable AI inference across thousands of nodes, open-sourced when I led its wind-down in 2025, and arXiv-published.",
+      "trust": "owned",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null
+    },
+    {
+      "id": "cdd32081-6ca1-8834-b9db-2c73ef071d09",
+      "section": "messaging",
+      "claim": "I am endlessly curious about how minds, biological and artificial, actually work.",
+      "quote": "I am endlessly curious about how minds, biological and artificial, actually work.",
+      "trust": "owned",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null
+    },
+    {
+      "id": "e3604fa5-b4ee-8976-9c06-e71946ac9cac",
+      "section": "origin",
+      "claim": "Previously developer relations and go-to-market at IBM and the Filecoin Foundation, and technical architecture at Accenture.",
+      "quote": "Previously developer relations and go-to-market at IBM and the Filecoin Foundation, and technical architecture at Accenture.",
+      "trust": "owned",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null
+    },
+    {
+      "id": "f48362e9-3835-8125-aac8-1d457ae39f92",
+      "section": "purpose",
+      "claim": "For eight-plus years I have taken the bleeding edge of AI and infrastructure and shipped it, most recently as founder and CEO of Lilypad, a decentralised GPU compute network for verifiable, trustless AI inference at scale.",
+      "quote": "For eight-plus years I have taken the bleeding edge of AI and infrastructure and shipped it, most recently as founder and CEO of Lilypad, a decentralised GPU compute network for verifiable, trustless AI inference at scale.",
+      "trust": "owned",
+      "reviewStatus": "approved",
+      "ownerDecision": "confirmed",
+      "editedFrom": null
+    },
+    {
+      "id": "6d3953d4-8fcd-4125-af56-d14d53878b3c",
+      "section": "positioning",
+      "claim": "I translate frontier technology into buildable scope, reliable delivery and stories that align engineers, executives and markets.",
+      "quote": null,
+      "trust": "owner_answer",
+      "reviewStatus": "approved",
+      "ownerDecision": null,
+      "editedFrom": "4cf29db0-3946-8fb6-b6e6-5de15b97319f"
+    }
+  ],
+  "remainingReviewCards": [],
+  "conflicts": [],
+  "remainingGapsBeforeSkip": {
+    "id": "missing",
+    "section": "Positioning · Audience",
+    "status": "needs-you",
+    "statement": "Nothing in your sources answers these yet: What do people use instead of you today? Whose opinion matters most?",
+    "note": "2 short questions next."
+  },
+  "questionsBeforeSkip": 2,
+  "readinessBase": 58,
+  "coverage": {
+    "covered": 5,
+    "total": 6,
+    "ratio": 0.8333333333333334
+  },
+  "honestUnknownSkips": [
+    {
+      "observedAt": "2026-10-13T00:33:22.189Z",
+      "status": 200,
+      "step": "alternatives",
+      "submittedData": {},
+      "skipped": true,
+      "updatedAt": "2026-10-13T00:33:21.871+00:00"
+    },
+    {
+      "observedAt": "2026-10-13T00:33:47.247Z",
+      "status": 200,
+      "step": "audience",
+      "submittedData": {},
+      "skipped": true,
+      "updatedAt": "2026-10-13T00:33:46.949+00:00"
+    }
+  ],
+  "afterSkip": {
+    "observedAt": "2026-10-13T00:37:29.443Z",
+    "status": 200,
+    "questions": []
+  },
+  "scope": "Facts/quotes review, conditional no-conflict check, coverage and question relevance only. Skippedanswers remainunknown; T3.05 answeringgaps notclaimed. Voice browserrestoration stillpending."
+}
