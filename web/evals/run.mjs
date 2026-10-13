@@ -4,6 +4,8 @@
 //   --base   the deployed preview whose /screens gallery is driven (default: the integration preview)
 // Required env: EVAL_SITE (the site typed wherever a journey asks for one, e.g. https://example.org) and
 //   EVAL_BRAND_NAME (the brand name typed where asked). CI reads them from repository variables of the same names.
+// Optional env: EVAL_MODE=pr-head when --base is the build of the commit under review (a missing screen is then a
+//   regression, FAIL); anything else is a deployed build, where a missing screen is NOT DEPLOYED.
 //   --live   also run the live-product journeys against this app (real integrations; creates a brand there). Off unless given.
 // Writes <out>/report.html (screenshots inlined), report.md and results.json; default out is proof/evals/<timestamp>/.
 // Exit code: 0 when the run completed (journey FAILs are findings, not crashes); 1 if the harness crashed or EVAL_STRICT=1 and any journey failed.
@@ -14,6 +16,7 @@ import { chromium } from 'playwright-core';
 import { Journey, ensureDir } from './lib/harness.mjs';
 import { renderHtml, renderMarkdown } from './lib/report.mjs';
 import { evalConfig } from './lib/config.mjs';
+import { runMode } from './lib/harness.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -57,6 +60,7 @@ async function servedBuild() {
 run.build = await servedBuild();
 console.log(`Testing ${base}, build ${run.build}`);
 run.note = process.env.EVAL_NOTE || '';
+run.mode = runMode(); // pr-head | deployed (EVAL_MODE)
 
 for (const def of defs) {
   const j = new Journey(def, { browser, outDir, base, liveBase });

@@ -77,6 +77,8 @@ jobs:
           EVAL_SITE: ${{ vars.EVAL_SITE }}
           EVAL_BRAND_NAME: ${{ vars.EVAL_BRAND_NAME }}
           KIND: ${{ inputs.base_url == '' && 'pr' || 'deployed' }}
+          # pr-head: a missing screen is a regression (FAIL); deployed: an older build may not have it yet (NOT DEPLOYED).
+          EVAL_MODE: ${{ inputs.base_url == '' && 'pr-head' || 'deployed' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           out="proof/evals/run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"

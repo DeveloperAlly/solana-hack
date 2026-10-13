@@ -29,6 +29,22 @@ function redactObj(o) {
 }
 
 /** Quote a DOM string verbatim, collapsing only whitespace runs, truncating long text with a marker. */
+/**
+ * Run mode: 'pr-head' when the target is the build of the commit under review (CI builds and serves it in the runner),
+ * 'deployed' when it is an already deployed build (post-merge preview, live app, or any URL tested by hand).
+ */
+export function runMode() { return process.env.EVAL_MODE === 'pr-head' ? 'pr-head' : 'deployed'; }
+
+/**
+ * What landing on "No such screen" means. Against the PR's own build every screen the journey reaches must exist, so a
+ * missing one is a regression the PR introduced: FAIL. Against an older deployed build it may simply not have shipped
+ * yet: NOT DEPLOYED. Either way the journey stops at that step.
+ */
+export function missingScreenOutcome(mode, base, screen) {
+  if (mode === 'pr-head') return { notDeployed: false, screen, error: `Regression: this PR's build at ${base} has no screen "${screen}" (a screen the journey reaches was removed or broken)` };
+  return { notDeployed: true, screen, error: `Not deployed: ${base} has no screen "${screen}"` };
+}
+
 export function q(s, max = 400) {
   const t = String(s ?? '').replace(/\s+/g, ' ').trim();
   return '"' + (t.length > max ? t.slice(0, max) + '" [truncated]' : t + '"');
@@ -54,6 +70,7 @@ export class Journey {
     this.netCursor = 0;
     this.downloads = [];
     this.missing = []; // screens a step landed on that the target does not serve ("No such screen")
+    this.mode = runMode();
   }
 
   async open() {
@@ -105,14 +122,13 @@ export class Journey {
     } catch (e) {
       rec.error = 'Action failed: ' + e.message.split('\n')[0];
     }
-    // Not deployed is detected from where the journey actually goes, so it cannot drift from a hand-kept list:
-    // a step that lands on the gallery's "No such screen" page stops the journey as NOT DEPLOYED, not FAIL.
+    // Missing screens are detected from where the journey actually goes, so they cannot drift from a hand-kept list.
     if (!rec.error) {
       const m = /\/screens\/([^/?#]+)/.exec(this.page.url());
       if (m && (await this.page.getByText('No such screen', { exact: true }).count().catch(() => 0))) {
-        this.missing.push(decodeURIComponent(m[1]));
-        rec.error = `Not deployed: ${this.base} has no screen "${decodeURIComponent(m[1])}"`;
-        rec.notDeployed = true;
+        const o = missingScreenOutcome(this.mode, this.base, decodeURIComponent(m[1]));
+        rec.error = o.error;
+        if (o.notDeployed) { this.missing.push(o.screen); rec.notDeployed = true; }
       }
     }
     if (!rec.error && spec.checks) {

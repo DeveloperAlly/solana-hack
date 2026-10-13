@@ -21,7 +21,7 @@ function checkLines(s) {
 
 export function renderMarkdown(run) {
   const L = [];
-  L.push(`# Product-outcome evals`, '', `Run ${run.startedAt} → ${run.finishedAt}. Preview: ${run.base} (build ${run.build}). Live: ${run.liveBase}. Test site: ${run.site}.`, '');
+  L.push(`# Product-outcome evals`, '', `Run ${run.startedAt} → ${run.finishedAt}. Target: ${run.base} (build ${run.build}, mode ${run.mode}). Live: ${run.liveBase}. Test site: ${run.site}.`, '');
   if (run.note) L.push(run.note, '');
   L.push('| # | Journey | Section | Result | First failing step |', '|---|---|---|---|---|');
   run.journeys.forEach((j, i) => {
@@ -90,7 +90,7 @@ details{margin:4px 0}summary{cursor:pointer}pre{background:var(--code);padding:8
 code{font-size:13px}
 </style></head><body>
 <h1>Product outcome evals</h1>
-<p class="meta">Run ${esc(run.startedAt)} to ${esc(run.finishedAt)} · real Chromium (Playwright ${esc(run.playwright)}) · preview ${esc(run.base)} (build ${esc(run.build)}) · live ${esc(run.liveBase)} · test site ${esc(run.site)}</p>
+<p class="meta">Run ${esc(run.startedAt)} to ${esc(run.finishedAt)} · real Chromium (Playwright ${esc(run.playwright)}) · target ${esc(run.base)} (build ${esc(run.build)}, mode ${esc(run.mode)}) · live ${esc(run.liveBase)} · test site ${esc(run.site)}</p>
 ${run.note ? `<p class="meta">${esc(run.note)}</p>` : ''}
 <p class="meta">Screenshots are raw Playwright captures. "Actual" text is quoted verbatim from the page DOM (whitespace collapsed). Labels before each quote are the check's name.</p>
 <table><thead><tr><th>#</th><th>Journey</th><th>Section</th><th>Result</th><th>First failing step</th></tr></thead><tbody>${rows}</tbody></table>
