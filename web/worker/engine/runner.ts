@@ -281,7 +281,7 @@ export function referencedSteps(inner: unknown, state: RunState): Record<string,
   return out;
 }
 
-/** Workflows event types: letters, digits, '-' and '_' only, kept short (instance ids are at most 100 characters). */
+/** Event types and child instance ids: letters, digits, - and _ only (live: an id with "." was refused as instance.invalid_id); ids are at most 100 characters. */
 const eventType = (name: string) => name.replace(/[^\w-]/g, '_').slice(0, 60);
 
 /** Runs a map step's items as child instances in waves, and collects each child's report in order. */
@@ -294,7 +294,7 @@ async function fanOut(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepContex
       const j = w + k;
       const event = eventType(`${name}-${j}`);
       const child: ChildSpec = { parent: ctx.run.id, event, at: i, name: `${name}[${j}]`, trace: `${s.id}[${j}]`, last: false, item, steps };
-      return { j, event, id: `${ctx.run.id}.${event}`.slice(0, 100), params: { runId: ctx.run.id, child } as RunParams };
+      return { j, event, id: `${ctx.run.id}-${event}`.slice(0, 100), params: { runId: ctx.run.id, child } as RunParams };
     });
     await step.do(`${name}:spawn:${w}`, BOOKKEEPING, async () => { await fanout.spawn(wave.map(({ id, params }) => ({ id, params }))); return null; });
     // Every wait in the wave is registered at once (the Workers API page: "wait for multiple events at once"), so a
