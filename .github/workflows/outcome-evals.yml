@@ -1,7 +1,8 @@
 name: outcome evals
 # Product-outcome evals (web/evals): user journeys in real Chromium against a deployed preview. Uploads the
 # self-contained report (screenshots, every step, every API call) as an artifact and posts or updates one comment
-# on the PR with the scorecard. Called by web-preview.yml after each preview deploy and by web-ci.yml on PRs.
+# on the PR with the scorecard. Called by web-preview.yml after each preview deploy and by outcome-evals-pr.yml on
+# every PR. The comment names the URL and the build id it tested, and says what that build is.
 # Journey FAILs are findings and do not fail this workflow; a harness crash or missing configuration does.
 # Configuration: repository variables EVAL_SITE (the site the journeys type in) and EVAL_BRAND_NAME (the brand
 # name they type). They identify a real brand, so they live only in repository settings, never in code; the
@@ -9,6 +10,16 @@ name: outcome evals
 on:
   workflow_call:
     inputs:
+      note:
+        description: One sentence on what was tested (which build, and whether it contains the PR's changes)
+        required: false
+        type: string
+        default: ''
+      expect_build:
+        description: Commit the preview should serve; the run waits for it (empty to test whatever is served)
+        required: false
+        type: string
+        default: ''
       base_url:
         description: Deployed preview to test (its /screens gallery is driven)
         required: true
@@ -20,6 +31,16 @@ on:
         default: ''
   workflow_dispatch:
     inputs:
+      note:
+        description: One sentence on what was tested (which build, and whether it contains the PR's changes)
+        required: false
+        type: string
+        default: ''
+      expect_build:
+        description: Commit the preview should serve; the run waits for it (empty to test whatever is served)
+        required: false
+        type: string
+        default: ''
       base_url:
         description: Deployed preview to test
         required: true
@@ -56,6 +77,8 @@ jobs:
         id: evals
         env:
           BASE_URL: ${{ inputs.base_url }}
+          EVAL_NOTE: ${{ inputs.note }}
+          EXPECT_BUILD: ${{ inputs.expect_build }}
           EVAL_SITE: ${{ vars.EVAL_SITE }}
           EVAL_BRAND_NAME: ${{ vars.EVAL_BRAND_NAME }}
         run: |

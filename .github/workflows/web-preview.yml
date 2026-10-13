@@ -78,3 +78,5 @@ jobs:
     uses: ./.github/workflows/outcome-evals.yml
     with:
       base_url: ${{ needs.preview.outputs.url }}
+      expect_build: ${{ github.sha }}
+      note: This ran after merge, against the preview deployed from this commit.

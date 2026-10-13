@@ -15,7 +15,8 @@ const cell = (s, n = 160) => String(s ?? '').replace(/\|/g, '/').replace(/\s+/g,
 
 const firstFail = (j) => j.steps.find((s) => !s.pass && !s.skipped);
 const L = ['<!-- outcome-evals -->', '## Product outcomes', ''];
-L.push(`Run ${run.startedAt} against ${run.base} (live: ${run.liveBase}). Real Chromium, user journeys driven by clicking and typing; "actual" text is verbatim from the page. Screenshots, every step and every API call are in the report in the workflow artifact.`, '');
+L.push(`Tested ${run.base}, serving build \`${run.build}\`, at ${run.startedAt} (live: ${run.liveBase}).${run.note ? ' ' + run.note : ''}`, '');
+L.push(`Real Chromium, user journeys driven by clicking and typing; "actual" text is verbatim from the page. Screenshots, every step and every API call are in the report in the workflow artifact.`, '');
 L.push('| Journey | Result | First failing step | Expected | Actual |', '|---|---|---|---|---|');
 for (const j of run.journeys) {
   const f = firstFail(j);
