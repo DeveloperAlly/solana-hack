@@ -1,0 +1,52 @@
+{
+  "observedAt": "2026-10-13T00:54:22.075Z",
+  "initial": {
+    "url": "https://jamjam.tech/journey/gapsVoice",
+    "assets": [
+      "https://jamjam.tech/assets/index-Cl16lvK5.js"
+    ],
+    "samplesRequests": [],
+    "savedSampleVisible": 1,
+    "claimsDisplayed": "5",
+    "reviewReady": true
+  },
+  "refreshed": {
+    "url": "https://jamjam.tech/journey/gapsVoice",
+    "assets": [
+      "https://jamjam.tech/assets/index-Cl16lvK5.js"
+    ],
+    "samplesRequests": [],
+    "savedSampleVisible": 1,
+    "claimsDisplayed": "5",
+    "reviewReady": true
+  },
+  "persisted": {
+    "status": 200,
+    "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+    "ownerMatches": true,
+    "voice": {
+      "data": {
+        "cta": "3",
+        "emoji": "1",
+        "claims": "5",
+        "energy": "3",
+        "humour": "2",
+        "jargon": "2",
+        "sample": "I turn frontier AI research into product that ships, sells & gets used.",
+        "warmth": "3",
+        "template": "candid_founder",
+        "formality": "2",
+        "sentence_length": "2"
+      },
+      "skipped": false,
+      "updatedAt": "2026-10-13T00:36:52.463+00:00"
+    }
+  },
+  "totalSamplesRequests": 0,
+  "fixCommit": "ee856f43436b85117d51fa4bf53b419179ed0ae4",
+  "deploymentRun": "https://github.com/DeveloperAlly/solana-hack/actions/runs/38328468044",
+  "independentGrade": 97,
+  "scope": "Saved voice restoration on actual return and ordinary refresh; no voice generation, auth, approval or registration mutation.",
+  "initialScreenshotSha256": "3488f3f8467ed5957c7cb35b681f902f5e64ede5ee77af5439ae27c6b4643143",
+  "refreshedScreenshotSha256": "3488f3f8467ed5957c7cb35b681f902f5e64ede5ee77af5439ae27c6b4643143"
+}
