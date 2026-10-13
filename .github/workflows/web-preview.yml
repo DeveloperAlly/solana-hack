@@ -5,7 +5,7 @@ name: web preview
 on:
   push:
     branches: [ui/integration]
-    paths: ['web/**', '.github/workflows/web-preview.yml']
+    paths: ['web/**', '.github/workflows/web-preview.yml', '.github/workflows/outcome-evals*.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,6 +16,8 @@ jobs:
   preview:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
     defaults:
       run:
         working-directory: web
@@ -31,7 +33,10 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix worker # the Worker bundle imports its own deps (Solana SDK)
       # No Supabase settings: the preview build has no sign-in and the gallery makes no API calls.
+      # JAMJAM_BUILD_ID stamps this commit into index.html, so the gallery check can tell it is served (vite.config.ts).
       - run: npm run build
+        env:
+          JAMJAM_BUILD_ID: ${{ github.sha }}
       # wrangler.preview.jsonc: Worker jamjam-preview, workers_dev only, no routes, no custom domain, no secrets.
       - name: Deploy to Cloudflare (jamjam-preview, workers.dev)
         id: deploy
@@ -66,3 +71,25 @@ jobs:
             web/proof/deployed-gallery.txt
             web/proof/deployed-check.txt
           if-no-files-found: ignore
+  # Product-outcome evals against the preview just deployed (it must serve this commit's build) plus the live-product
+  # journey on jamjam.tech; the scorecard updates the comment on the PR that was merged.
+  outcome-evals:
+    needs: preview
+    if: ${{ !cancelled() && needs.preview.outputs.url != '' }}
+    uses: ./.github/workflows/outcome-evals.yml
+    with:
+      ref: ${{ github.sha }}
+      base_url: ${{ needs.preview.outputs.url }}
+      live_url: https://jamjam.tech
+      note: This ran after merge, against the preview deployed from the merge commit.
+  outcome-evals-post:
+    needs: outcome-evals
+    permissions:
+      actions: read
+      pull-requests: write
+    uses: ./.github/workflows/outcome-evals-post.yml
+    with:
+      run_id: ${{ format('{0}', github.run_id) }}
+      lookup: merge
+      kind: deployed
+      live_url: https://jamjam.tech

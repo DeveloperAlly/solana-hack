@@ -1,0 +1,104 @@
+name: outcome evals
+# Product-outcome evals (web/evals): user journeys in real Chromium, with machine-captured evidence.
+# Read-only: it runs the journeys and uploads the full report (screenshots, every step, every API call; tokens
+# redacted) and results.json. Posting is outcome-evals-post.yml's job, which validates results.json and renders the
+# comment with trusted code, so nothing fork code writes is posted as-is.
+#   - No base_url: builds `ref` (the PR head) with its build id stamped, serves it inside the runner with
+#     `vite preview` (the /screens POC makes no API calls), and tests that, so a PR's scorecard is its own build.
+#   - base_url: tests that deployed preview, waiting until it serves `ref` (post-merge).
+#   - live_url: also runs the live-product journey there, reported as its own section.
+# Public CI types a neutral test site the project owns (jamjam.tech, brand "JamJam"), never a person's site, so the
+# artifacts can be public. Runs against a real customer or owner site happen only outside this repo (web/evals/README.md).
+# Journey FAILs are findings and do not fail this workflow; a harness crash or a build mismatch does.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit to test (built locally, or expected on base_url)
+        required: true
+        type: string
+      base_url:
+        description: Deployed preview to test instead of a local build of ref
+        required: false
+        type: string
+        default: ''
+      live_url:
+        description: Live app to run the live-product journey against (empty to skip)
+        required: false
+        type: string
+        default: ''
+      note:
+        description: One sentence added to the comment
+        required: false
+        type: string
+        default: ''
+permissions:
+  contents: read
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Build and serve this commit inside the runner
+        id: serve
+        if: inputs.base_url == ''
+        env:
+          JAMJAM_BUILD_ID: ${{ inputs.ref }}
+        run: |
+          npm run build
+          nohup npx vite preview --host 127.0.0.1 --port 4173 --strictPort > "$RUNNER_TEMP/preview.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4173/screens > /dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:4173/screens > /dev/null || { cat "$RUNNER_TEMP/preview.log"; exit 1; }
+          echo "url=http://127.0.0.1:4173" >> "$GITHUB_OUTPUT"
+      - name: Install Chromium
+        run: npx --yes playwright@$(node -p "require('playwright-core/package.json').version") install --with-deps chromium
+      - name: Run the journeys
+        id: evals
+        env:
+          BASE_URL: ${{ inputs.base_url || steps.serve.outputs.url }}
+          LIVE_URL: ${{ inputs.live_url }}
+          EXPECT_BUILD: ${{ inputs.ref }}
+          EVAL_NOTE: ${{ inputs.note }}
+          # The public test site and brand name: neutral, owned by the project. Never a person's site.
+          EVAL_SITE: https://jamjam.tech
+          EVAL_BRAND_NAME: JamJam
+          KIND: ${{ inputs.base_url == '' && 'pr' || 'deployed' }}
+          # pr-head: a missing screen is a regression (FAIL); deployed: an older build may not have it yet (NOT DEPLOYED).
+          EVAL_MODE: ${{ inputs.base_url == '' && 'pr-head' || 'deployed' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          out="proof/evals/run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          npm run evals -- --base "$BASE_URL" ${LIVE_URL:+--live "$LIVE_URL"} --out "$out"
+          # The job summary of this run (its own code may be a fork's; posting to the PR is done elsewhere).
+          node evals/pr-comment.mjs --results "$out/results.json" --kind "$KIND" --sha "$EXPECT_BUILD" --tested-at "$(node -p "require('./$out/results.json').startedAt")" --run-url "$RUN_URL" ${LIVE_URL:+--live-url "$LIVE_URL"} >> "$GITHUB_STEP_SUMMARY" || true
+          echo "out=web/$out" >> "$GITHUB_OUTPUT"
+      - name: Upload the report
+        if: always() && steps.evals.outputs.out != ''
+        # actions/upload-artifact v4.6.2, pinned to its tag commit.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: outcome-evals-report
+          path: ${{ steps.evals.outputs.out }}
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload results.json for the comment
+        if: steps.evals.outputs.out != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: outcome-evals-results
+          path: ${{ steps.evals.outputs.out }}/results.json
+          if-no-files-found: error
+          retention-days: 7
