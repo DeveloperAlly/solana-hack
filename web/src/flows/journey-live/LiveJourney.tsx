@@ -195,13 +195,18 @@ export function LiveJourneyProvider({ children }: { children: ReactNode }) {
     preparing.current.add(key); setLoading(true); setError(undefined);
     try {
       if (target === 'gapsVoice') {
-        if (!samples.current[0].length) await fetchVoice(1);
-        const savedVoice = s.answers.find(a => a.step === 'voice')?.data;
-        if (savedVoice?.template && savedVoice.sample && heldSelections.current.voice.mode === 'picks' && !heldSelections.current.voice.picks[2]) {
-          const restored = { template: savedVoice.template, label: templateById(savedVoice.template)?.label || savedVoice.template, text: savedVoice.sample, answer: savedVoice };
-          setVoiceRounds(prev => { const next: [VoiceSample[], VoiceSample[]] = [prev[0], [restored]]; samples.current = next; return next; });
-          patch({ voice: { mode: 'picks', round: 2, picks: { 1: savedVoice.template, 2: savedVoice.template } }, answers: { ...heldSelections.current.answers, claims: savedVoice.claims || '5' } });
-        }
+        const voiceAnswer = s.answers.find(a => a.step === 'voice');
+        const savedVoice = voiceAnswer?.data;
+        const savedTemplate = savedVoice?.template ? templateById(savedVoice.template) : undefined;
+        if (!voiceAnswer?.skipped && savedTemplate && savedVoice?.sample?.trim() && ['3', '4', '5'].includes(savedVoice.claims)) {
+          // Restore the owner's saved sample and dials before any optional generation.
+          if (heldSelections.current.voice.mode === 'picks' && !heldSelections.current.voice.picks[2]) {
+            const restored = { template: savedTemplate.value, label: savedTemplate.label, text: savedVoice.sample, answer: savedVoice };
+            const restoredRounds: [VoiceSample[], VoiceSample[]] = [[restored], [restored]];
+            samples.current = restoredRounds; setVoiceRounds(restoredRounds);
+            patch({ voice: { mode: 'picks', round: 2, picks: { 1: savedTemplate.value, 2: savedTemplate.value } }, answers: { ...heldSelections.current.answers, claims: savedVoice.claims } });
+          }
+        } else if (!samples.current[0].length) await fetchVoice(1);
       }
       if (target === 'approveKit') {
         for (const section of ['purpose', 'positioning', 'audience', 'voice', 'origin', 'messaging']) {
