@@ -1,0 +1,31 @@
+{
+  "observedAt": "2026-10-13T01:59:39.905Z",
+  "httpStatus": 200,
+  "post": {
+    "id": "9a07c251-fa57-8c4a-bfc0-5e6757381565",
+    "brand_id": "577c80cf-71df-4654-9ec4-8b34988bf268",
+    "channel": "LinkedIn",
+    "body": "I think out loud on X and post the longer-form on LinkedIn.\nI work the whole stack, from the protocol layer to the story.\nI turn frontier AI research into product that ships, sells & gets used.\nFollow me for more insights.",
+    "status": "registered",
+    "kit_version": 1,
+    "rev": 6,
+    "hash": "sha256:31437df1afa60b6d34a1a11d18192f7139550d754b83b0d46c576764a022d83b",
+    "signature": "5o6upmmSqhRwBg4BdVGYjafD4vyHrmFQNYC6duTwm271xj1UMjGEXNVN2o9fXQQZZ6sYJA2knTC3F4z6rgY8v9ej",
+    "approved_at": "2026-10-13T01:59:13.367+00:00",
+    "registered_at": "2026-10-13T01:59:16.293+00:00"
+  },
+  "checks": {
+    "bodyExactlyReviewedRevision4": true,
+    "normalizedHashMatchesRegisteredHash": true,
+    "approvalOwnerMatches": true,
+    "approvalAfterReview": true,
+    "registrationAfterApproval": true,
+    "sameOriginalPost": true,
+    "sameKitVersion": true
+  },
+  "reviewedContentRevision": 4,
+  "registeredLifecycleRevision": 6,
+  "revisionNote": "approval and registration increment lifecycle revision; body unchanged",
+  "scope": "fresh persisted registered post and explicit approval; external public verification separately pending",
+  "independentGrade": 98
+}
