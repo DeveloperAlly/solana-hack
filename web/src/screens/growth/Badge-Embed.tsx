@@ -33,7 +33,7 @@ export function BadgeEmbed({ data, state = 'success' }: ScreenProps<BadgeEmbedDa
       meta="Drawn, not built: the badge image route does not exist yet. Defined in: issue #82 (Check-it badge); pitch deck v2, Business model slide."
     >
       <StateView
-        state={data.posts.length === 0 ? 'empty' : state}
+        state={state}
         loading={{ title: 'Loading your posts', body: 'Reading your registered posts.' }}
         error={{ title: 'Could not load your posts', body: 'Reload the page in a minute.' }}
         empty={{ title: 'No registered posts yet', body: 'Approve and register a post first. Only registered posts can carry the badge.', actions: <Button href="/create" variant="secondary">Create a post</Button> }}

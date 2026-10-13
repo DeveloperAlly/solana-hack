@@ -23,7 +23,7 @@ const drafts: Record<string, DraftContent> = Object.fromEntries(
   contentDashboard.drafts.map((d) => [
     d.id,
     d.id === 'd1'
-      ? { title: 'X post · Core voice', context: 'aDNA · first post after kit v[n] · drafted from your brief', channel: 'X', versions: drawnVersions(draft), slopFixes: [{ removed: '[generic opener]' }, { removed: '[hype adjective]', added: '[plain word]' }] }
+      ? { title: 'X post · Core voice', context: 'first post after kit v[n] · drafted from your brief', namesBrand: true, channel: 'X', versions: drawnVersions(draft), slopFixes: [{ removed: '[generic opener]' }, { removed: '[hype adjective]', added: '[plain word]' }] }
       : { title: `${d.format} · ${d.meta.split(' · ')[0]}`, context: d.meta, channel: d.channel, versions: drawnVersions(d.title), slopFixes: fixes(d.slop) },
   ]),
 );

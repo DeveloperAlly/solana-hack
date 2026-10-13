@@ -4,7 +4,8 @@ import { Button, Field, Stack } from '../../../ui/primitives';
 import { StatePanel } from '../../../ui/composites/StatePanel';
 import type { DraftReviewState } from '../hooks/useDraftReview';
 import { draftStatusLabel, MANUAL_ROUTE, type Decision } from '../hooks/draftStatus';
-import { useHubLinks } from '../paths';
+import { useVerifyLinks } from '../../public-next/paths';
+import { useScreenHref } from '../../../gallery/screenPath';
 
 export interface DraftDecisionProps {
   review: DraftReviewState;
@@ -18,7 +19,8 @@ export interface DraftDecisionProps {
  * its URL is pasted back. The status badge comes from the same function as the dashboard's buckets.
  */
 export function DraftDecision({ review, route }: DraftDecisionProps) {
-  const links = useHubLinks();
+  const verify = useVerifyLinks();
+  const href = useScreenHref();
   const [url, setUrl] = useState('');
   const awaitingUrl = review.status === 'awaiting-url';
   const urlForm = review.publish === MANUAL_ROUTE && awaitingUrl && (
@@ -36,7 +38,8 @@ export function DraftDecision({ review, route }: DraftDecisionProps) {
     registered: {
       title: 'Registered on Solana (devnet)',
       body: `The post's hash, kit version and your name are on the public record. Route: ${route}.`,
-      actions: <Button href={links.verifyMatch}>Check it on Verify</Button>,
+      // Verify checks this post's own words (the registration is public); Your proof lists it under this brand.
+      actions: <><Button href={verify.check(review.text)}>Check it on Verify</Button><Button variant="secondary" href={href('Verify-Home')}>See it in your proof</Button></>,
     },
     rejected: { title: 'Rejected', body: 'This draft will not be posted. It moves to the Rejected tab.', actions: <Button variant="secondary" onClick={review.reopen}>Undo</Button> },
     rewrite: { title: 'Rewrite requested', body: 'The writer drafts a new version; it comes back through the same checks.', actions: <Button variant="secondary" onClick={review.reopen}>Undo</Button> },

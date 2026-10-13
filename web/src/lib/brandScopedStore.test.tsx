@@ -23,4 +23,15 @@ describe('createBrandScopedStore', () => {
     act(() => drafts.reset());
     expect(screen.getByText('default')).toBeInTheDocument();
   });
+
+  it('forBrand reads and writes one named brand, the same state the active-brand store shows for it', () => {
+    const account = createStore({ brand: 'jamjam' });
+    const drafts = createBrandScopedStore<{ text: string }>({ read: () => account.read().brand, use: () => account.use()[0].brand });
+    const gamerslab = drafts.forBrand('gamerslab');
+    expect(drafts.forBrand('gamerslab')).toBe(gamerslab);
+    act(() => gamerslab.set({ text: 'GamersLab draft' }));
+    expect(drafts.read()).toEqual({});
+    act(() => account.set({ brand: 'gamerslab' }));
+    expect(drafts.read()).toEqual({ text: 'GamersLab draft' });
+  });
 });

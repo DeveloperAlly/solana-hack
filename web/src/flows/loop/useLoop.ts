@@ -2,9 +2,12 @@ import { useMemo } from 'react';
 import { approve, isCurrent } from '../../lib/approval';
 import type { Gate } from '../../domain/approval';
 import { nextBrainVersion, type Brain, type BrainRule } from '../../domain/brain';
-import type { Proposal } from '../../domain/proposal';
+import { withDecision, type Proposal } from '../../domain/proposal';
 import type { PayoutRecord } from '../../domain/quest';
-import { loopStore, today } from './store';
+import { loopStore, today, type ProposalChange } from './store';
+import { brainFor, noBrain, OWNER } from '../../domain/fixtures/brain';
+import { proposalsFor } from '../../domain/fixtures/proposals';
+import { useActiveBrand } from '../brand/activeBrand';
 
 /** The loop fixtures a screen starts from: the Brain, the learn loop's proposals, and who approves. */
 export interface LoopBase {
@@ -51,7 +54,13 @@ export function useLoop(base: LoopBase): LoopFlow {
   const [state, set] = loopStore.use();
   const version = state.brainVersion ?? base.brain.version;
 
-  const proposals = useMemo(() => base.proposals.map((p) => ({ ...p, ...state.proposals[p.id] })), [base.proposals, state.proposals]);
+  // A recorded decision replaces the fixture's whole decision (status with its record), so the pair always matches the type.
+  const proposals = useMemo(() => base.proposals.map((p): Proposal => {
+    const c = state.proposals[p.id];
+    if (!c) return p;
+    const decided = c.decision ? withDecision(p, c.decision) : p;
+    return { ...decided, brainVersion: c.brainVersion ?? p.brainVersion };
+  }), [base.proposals, state.proposals]);
 
   // A suggested rule is its proposal: its status is derived from the proposal, never stored twice, so rejecting on
   // Learn-Rules or approving on Today shows the same on the Brain (Codex review on PR 111). A rejected suggestion
@@ -61,7 +70,7 @@ export function useLoop(base: LoopBase): LoopFlow {
     const fromProposal = (r: BrainRule): BrainRule[] => {
       const p = r.status === 'suggested' ? proposals.find((x) => x.ruleId === r.id) : undefined;
       if (p?.status === 'rejected') return [];
-      if (p?.status === 'approved') return [{ ...r, status: 'active', decided: { by: base.approver, at: p.decided?.at ?? '' } }];
+      if (p?.status === 'approved') return [{ ...r, status: 'active', decided: { by: base.approver, at: p.decided.at } }];
       return [r];
     };
     return {
@@ -81,7 +90,7 @@ export function useLoop(base: LoopBase): LoopFlow {
     const at = today();
     set({ ...change(at, next), brainVersion: next, history: [{ version: next, summary: `${summary} by ${base.approver}`, at }, ...s.history] });
   }
-  const setProposal = (p: Proposal, change: object) => {
+  const setProposal = (p: Proposal, change: ProposalChange) => {
     const s = loopStore.read();
     return { proposals: { ...s.proposals, [p.id]: { ...s.proposals[p.id], ...change } } };
   };
@@ -92,10 +101,10 @@ export function useLoop(base: LoopBase): LoopFlow {
     proposal,
     approveProposal: (p) => {
       const rule = base.brain.rules.find((r) => r.id === p.ruleId);
-      if (rule) bump(`Rule "${rule.text}" approved`, (at, version) => setProposal(p, { status: 'approved', decided: { at, version } }));
+      if (rule) bump(`Rule "${rule.text}" approved`, (at, version) => setProposal(p, { decision: { status: 'approved', decided: { at, version } } }));
     },
-    rejectProposal: (p) => set(setProposal(p, { status: 'rejected', decided: { at: today() } })),
-    trialProposal: (p) => set(setProposal(p, { status: 'trial' })),
+    rejectProposal: (p) => set(setProposal(p, { decision: { status: 'rejected', decided: { at: today() } } })),
+    trialProposal: (p) => set(setProposal(p, { decision: { status: 'trial' } })),
     recheckProposal: (p) => set(setProposal(p, { brainVersion: version })),
     retireRule: (r) => bump(`Rule "${r.text}" retired`, (at) => ({ rules: { ...loopStore.read().rules, [r.id]: { status: 'retired', decided: { by: base.approver, at } } } })),
     approveItem: (id, inputs, gate) => {
@@ -117,4 +126,14 @@ export function useLoop(base: LoopBase): LoopFlow {
       set({ payouts: [...s.payouts, { ...record, at: today() }], outcomes: { ...s.outcomes, [record.submissionId]: outcome } });
     },
   };
+}
+
+/**
+ * The loop base of the one active brand (its Brain and proposals; flows/brand), for flows that read the loop without a
+ * screen's data (Quests). A brand with no loop data gets no Brain, never another brand's.
+ * INTEGRATION: X18 brand memory and the N5 learn loop serve these (ADR-013).
+ */
+export function useActiveLoopBase(): LoopBase {
+  const brand = useActiveBrand();
+  return { brain: brainFor(brand.id) ?? noBrain(brand.name), proposals: proposalsFor(brand.id), approver: OWNER };
 }

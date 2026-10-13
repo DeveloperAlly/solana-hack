@@ -8,6 +8,7 @@ import { SampleFlag } from '../../../ui/composites/SampleFlag';
 import { useDraftReview } from '../hooks/useDraftReview';
 import { useHubLinks } from '../paths';
 import { useOpenDraft } from '../../../flows/drafts/openDraft';
+import { useActiveBrand } from '../../../flows/brand/activeBrand';
 import type { DraftContent, DraftReviewData } from '../types';
 import { ChecksAndPublish } from './ChecksAndPublish';
 import { DraftPostCard } from './DraftPostCard';
@@ -30,9 +31,11 @@ export function DraftReviewBody({ data, draftId, draft, state, drawnDraft }: Dra
   const links = useHubLinks();
   const openDraft = useOpenDraft();
   const review = useDraftReview(data, draftId, draft, state === 'loading');
+  const brand = useActiveBrand();
+  const context = draft.namesBrand ? `${brand.name} · ${draft.context}` : draft.context;
   return (
     <>
-      <PageHeader badges={<SampleFlag />} title={draft.title} intro={draft.context} back={{ href: links.content, label: 'Back to drafts awaiting approval' }} />
+      <PageHeader badges={<SampleFlag />} title={draft.title} intro={context} back={{ href: links.content, label: 'Back to drafts awaiting approval' }} />
       <Columns end={<ChecksAndPublish review={review} data={data} />}>
         <StateView
           state={state}

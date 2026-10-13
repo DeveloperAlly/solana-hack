@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, screen, within } from '@testing-library/react';
+import { act, cleanup as cleanupScreens, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { renderWithRouter } from '../../test/render';
@@ -11,6 +11,9 @@ import { Brain } from './Brain';
 import { LearnRules } from './LearnRules';
 import { PostDetail } from './PostDetail';
 import { VerifyHome } from './VerifyHome';
+import { screens } from './registry';
+import { screens as growthScreens } from '../growth/registry';
+import { GalleryModeContext } from '../../ui/hooks/galleryMode';
 import { brainScreen, learnRules, learnRulesCollecting, postDetail, today, verifyHome } from './fixtures';
 
 vi.mock('../../lib/supabase', () => ({ supabase: null }));
@@ -217,8 +220,132 @@ describe('Brain and Learn-Rules share the Brain', () => {
     expect(within(screen.getByRole('list', { name: 'Decided' })).getByText(/Open X threads with the problem, not the product · retired/)).toBeInTheDocument();
   });
 
+  it('loop data follows the active brand: GamersLab shows its own Brain; kit gates are read-only, not learned rules', () => {
+    const entry = screens.find((s) => s.artboard === 'Brain')!;
+    act(() => selectBrand('gamerslab'));
+    const { unmount } = renderWithRouter(entry.render('success'));
+    expect(screen.getByText(/Everything JamJam knows about GamersLab/)).toBeInTheDocument();
+    expect(screen.getByText('Brain v1')).toBeInTheDocument();
+    expect(screen.queryByText(/Every agent reads the folder first/)).toBeNull();
+    const learned = screen.getByRole('table', { name: 'Learned rules, their evidence and status' });
+    expect(within(learned).queryAllByRole('rowheader')).toHaveLength(0);
+    expect(screen.getByText(/active · 0 suggested, waiting on you/)).toBeInTheDocument();
+    const gates = screen.getByRole('table', { name: 'Kit gates and your edits, and their status' });
+    const gate = within(gates).getByRole('rowheader', { name: 'Never claim a user count without a source' }).closest('tr')!;
+    expect(within(gate).getByText('From the approved kit')).toBeInTheDocument();
+    expect(within(gate).queryByRole('button', { name: /Retire/ })).toBeNull();
+    unmount();
+    act(() => selectBrand('adna'));
+    renderWithRouter(entry.render('success'));
+    expect(screen.getByText('Brain v3.1')).toBeInTheDocument();
+  });
+
+  it('no loop screen shows a success layout with zero data: first-run brands get each empty state (Verify lists kit v1), aDNA its success', () => {
+    for (const brand of ['jamjam', 'gamerslab', 'adna']) {
+      act(() => selectBrand(brand));
+      for (const entry of screens) {
+        const { container, unmount } = renderWithRouter(entry.render('success'));
+        const shown = container.querySelector('[data-state]')?.getAttribute('data-state');
+        // A first-run brand has nothing yet on every screen except Verify-Home, which lists its registered kit v1.
+        const expected = brand === 'adna' || entry.artboard === 'Verify-Home' ? 'success' : 'empty';
+        expect(`${brand} ${entry.artboard}: ${shown}`).toBe(`${brand} ${entry.artboard}: ${expected}`);
+        unmount();
+      }
+    }
+    act(() => selectBrand('jamjam'));
+    renderWithRouter(screens.find((s) => s.artboard === 'Verify-Home')!.render('success'));
+    expect(screen.getByRole('rowheader', { name: 'Kit v1' })).toBeInTheDocument();
+    expect(screen.getByText(/No one has pasted text that claimed to be from JamJam/)).toBeInTheDocument();
+    expect(screen.queryByText(/0 people/)).toBeNull();    cleanupScreens();
+    renderWithRouter(screens.find((s) => s.artboard === 'Today')!.render('success'));
+    expect(screen.getByText('2 of 6 steps live · Learn starts after 14 days of results')).toBeInTheDocument();
+    expect(screen.getByText('Draft your first post', { exact: false })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Evidence and the proposed rule' })).toBeNull();
+    expect(screen.queryByText('[detail]', { exact: false })).toBeNull();
+  });
+
+  it('loading and error always win: every brand-scoped screen (loop and Grow), for a first-run brand, shows its loading and error panels', () => {
+    act(() => selectBrand('jamjam'));
+    const missing: string[] = [];
+    // Brand-scoped screens are the ones ActiveBrandLoop renders: every loop screen and Grow's brand screens.
+    const brandScoped = [...screens, ...growthScreens.filter((s) => ['Grow-Home', 'Distribute-Adapt', 'Events', 'Event-Detail', 'Quests', 'Referral', 'Badge-Embed', 'Tips-Received', 'Invite-Team'].includes(s.artboard))];
+    expect(brandScoped).toHaveLength(15);
+    for (const entry of brandScoped) {
+      for (const state of ['loading', 'error'] as const) {
+        if (!entry.states.includes(state)) continue;
+        const { container, unmount } = renderWithRouter(<GalleryModeContext.Provider value={true}>{entry.render(state)}</GalleryModeContext.Provider>);
+        const shown = state === 'loading' ? container.querySelector('[aria-busy="true"]') : container.querySelector('[role="alert"]');
+        if (!shown) missing.push(`${entry.artboard} (${state})`);
+        unmount();
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it('every brand-scoped screen names only the active brand (JamJam is also the product name, so it is allowed)', () => {
+    const names: Record<string, string> = { adna: 'aDNA', gamerslab: 'GamersLab', filmfun: 'film.fun' };
+    const brandScoped = [...screens, ...growthScreens.filter((s) => ['Grow-Home', 'Distribute-Adapt', 'Events', 'Event-Detail', 'Quests', 'Referral', 'Badge-Embed', 'Tips-Received', 'Invite-Team'].includes(s.artboard))];
+    const leaks: string[] = [];
+    for (const brand of ['adna', 'jamjam', 'gamerslab']) {
+      act(() => selectBrand(brand));
+      const others = Object.entries(names).filter(([id]) => id !== brand).map(([, n]) => n);
+      for (const entry of brandScoped) {
+        for (const state of entry.states) {
+          const { container, unmount } = renderWithRouter(<GalleryModeContext.Provider value={true}>{entry.render(state)}</GalleryModeContext.Provider>);
+          const text = container.textContent ?? '';
+          for (const other of others) if (text.includes(other)) leaks.push(`${brand} ${entry.artboard} (${state}) shows ${other}`);
+          unmount();
+        }
+      }
+    }
+    expect(leaks).toEqual([]);
+  });
+
+  // "JamJam" is allowed everywhere above (the product's name), so the check above alone would miss "Bring people onto
+  // JamJam" under GamersLab. Where a screen names the brand, the active brand's name must be the one it names.
+  it('where a screen names the brand, it names the active brand', () => {
+    const names: Record<string, string> = { adna: 'aDNA', jamjam: 'JamJam', gamerslab: 'GamersLab' };
+    const naming: Record<string, (name: string) => string> = {
+      Today: (n) => `Where ${n} is in the loop`,
+      Brain: (n) => `Everything JamJam knows about ${n}`,
+      'Verify-Home': (n) => `What ${n} has registered on Solana`,
+      'Grow-Home': (n) => `People who post for ${n},`,
+      Events: (n) => `Every event ${n} hosts`,
+      'Invite-Team': (n) => `Bring people onto ${n}.`,
+    };
+    const all = [...screens, ...growthScreens];
+    const wrong: string[] = [];
+    for (const [brand, name] of Object.entries(names)) {
+      act(() => selectBrand(brand));
+      for (const [artboard, phrase] of Object.entries(naming)) {
+        const entry = all.find((s) => s.artboard === artboard)!;
+        const { container, unmount } = renderWithRouter(<GalleryModeContext.Provider value={true}>{entry.render('success')}</GalleryModeContext.Provider>);
+        if (!(container.textContent ?? '').includes(phrase(name))) wrong.push(`${brand} ${artboard}: no "${phrase(name)}"`);
+        unmount();
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  it('a brand with no loop data says so, never showing another brand', () => {
+    act(() => selectBrand('filmfun'));
+    renderWithRouter(screens.find((s) => s.artboard === 'Today')!.render('success'));
+    expect(screen.getByRole('heading', { level: 1, name: 'Nothing here for film.fun yet' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Needs you/ })).toBeNull();
+    expect(screen.queryByText(/Tuesday, aDNA/)).toBeNull();
+  });
+
+  it('an approved proposal keeps the Brain version its approval made after later approvals', async () => {
+    renderWithRouter(<LearnRules data={learnRules} />);
+    const x = screen.getAllByRole('region').find((r) => within(r).queryByRole('heading', { name: 'Open X threads with the problem, not the product' }))!;
+    await userEvent.click(within(x).getByRole('button', { name: 'Approve rule' }));
+    const decided = within(screen.getByRole('list', { name: 'Decided' }));
+    expect(decided.getByText(/Lead with the problem · active in Brain v3.1/)).toBeInTheDocument();
+    expect(decided.getByText(/Open X threads with the problem, not the product · active in Brain v3.2/)).toBeInTheDocument();
+  });
+
   it('collecting shows nothing to suggest yet', () => {
-    renderWithRouter(<LearnRules data={learnRulesCollecting} />);
+    renderWithRouter(<LearnRules data={learnRulesCollecting} state="empty" />);
     expect(screen.getByText('Nothing to suggest yet')).toBeInTheDocument();
   });
 

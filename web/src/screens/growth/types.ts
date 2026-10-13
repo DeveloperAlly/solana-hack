@@ -78,6 +78,8 @@ export interface ReferralData {
 
 export interface ReferralLandingData {
   inviter: string;
+  /** The brand the inviter came from, when the landing was opened from that brand's Referral; else not shown. */
+  fromBrand?: string;
   offer: ReferralOffer;
   /** What JamJam does, one line per step of the loop (pitch deck slide 03). */
   loop: { title: string; body: string }[];
@@ -256,6 +258,8 @@ export interface AdaptData {
 // Events (canvas v21 Events and Event-Detail) -----------------------------------------------------------------------
 
 export interface EventsData {
+  /** The signed-in brand whose events these are (set from the active brand by screens/growth/brandData.ts). */
+  brand: string;
   /** The sample "today" (local date) that splits Upcoming from Past and says which event is on the day. */
   today: string;
   events: BrandEvent[];
@@ -311,6 +315,8 @@ export interface EventsBoardData {
 
 export interface EventRatingData extends EventsBoardData {
   defaultId: string;
+  /** The brand whose Events opened this rating, for the way back; a standalone visit goes back to the board. */
+  fromBrand?: string;
 }
 
 // Quests (canvas v24 Quests) ---------------------------------------------------------------------------------------

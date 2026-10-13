@@ -35,7 +35,6 @@ export function LearnRules({ data, state = 'success' }: { data: LearnRulesData; 
   const { links, to } = useLoopLinks();
   const open = loop.proposals.filter((p) => p.status === 'pending' || p.status === 'trial');
   const version = loop.brain.version;
-  const collecting = data.collecting.days < data.collecting.needed;
   return (
     <LoopFrame artboard="Learn-Rules" tag="COMING SOON" brandName={data.brain.brandName}>
       <PageHeader
@@ -44,7 +43,7 @@ export function LearnRules({ data, state = 'success' }: { data: LearnRulesData; 
         badges={<><Badge>{open.length} waiting</Badge><SampleFlag /></>}
       />
       <StateView
-        state={collecting ? 'empty' : state}
+        state={state}
         empty={{ title: 'Nothing to suggest yet', body: `Learn needs ${data.collecting.needed} days of results; it has ${data.collecting.days}. Suggestions appear here, and nothing changes until you approve one.`, actions: <Button variant="secondary" href={links.contentDashboard}>Keep posting</Button> }}
         loading={{ title: 'Loading suggestions' }}
         error={{ title: "Couldn't load suggestions", body: 'Nothing in the Brain changed.', actions: <Button variant="secondary" href={links.learnRules}>Try again</Button> }}

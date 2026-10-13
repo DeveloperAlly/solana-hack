@@ -15,6 +15,7 @@
  * States (C28): success = the catalog (a filter or search with no match shows the empty view; Live does today);
  * loading = reading connections; error = connections could not be read.
  */
+import { listState } from './listState';
 import { Alert, Button } from '../../ui/primitives';
 import { StateView } from '../../ui/composites/StateView';
 import { EmptyState } from '../../ui/composites/EmptyState';
@@ -48,7 +49,7 @@ export function Platforms({ data, state = 'success' }: ScreenProps<PlatformsData
       <Alert tone="info" title="Works everywhere today">{data.everywhere}</Alert>
       <GrowthPlatformControls filter={flow.filter} onFilter={flow.setFilter} query={flow.query} onQuery={flow.setQuery} count={flow.count} />
       <StateView
-        state={flow.count === 0 ? 'empty' : state}
+        state={listState(state, flow.count)}
         views={{ empty: noMatch }}
         loading={{ title: 'Loading platforms', body: 'Reading which accounts are connected.' }}
         error={{ title: 'Could not load your connections', body: 'Connection status could not be read. Reload the page in a minute.' }}

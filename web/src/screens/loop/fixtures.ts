@@ -2,9 +2,13 @@
 // Verify-Home (https://claude.ai/artifact/9aUT9mW2ZHvYsK4SFu1syn). The demo brand is aDNA, as the boards draw it;
 // people, events and figures the boards bracket stay bracketed. The Brain, posts and proposals are the shared
 // fixtures in src/domain/fixtures, so every page agrees.
-import { adnaBrain, adnaBrainFirstRun, OWNER } from '../../domain/fixtures/brain';
+import { adnaBrain, adnaBrainFirstRun, brainFor, firstRunBrain, OWNER } from '../../domain/fixtures/brain';
+import type { LoopBase } from '../../flows/loop/useLoop';
+import { adnaGrow, firstRunGrow, type GrowBrandData } from '../growth/brandData';
+import { stageById, type LoopStageId } from '../../config/nav';
+import type { LoopStepState } from '../../domain/loop';
 import { adnaPosts } from '../../domain/fixtures/posts';
-import { adnaProposals } from '../../domain/fixtures/proposals';
+import { adnaProposals, proposalsFor } from '../../domain/fixtures/proposals';
 import type { LearnRulesData, PostDetailData, TodayData, VerifyHomeData } from './types';
 
 /** The Brain screen's data, and the base every loop screen extends. */
@@ -76,3 +80,68 @@ export const verifyHome: VerifyHomeData = {
 };
 
 export const verifyHomeEmpty: VerifyHomeData = { ...verifyHome, kpis: [], registered: [], noMatch: [] };
+
+/** Every loop screen's data for one brand: the full set and the empty variant each screen's empty state shows. */
+export interface LoopBrandData {
+  today: TodayData;
+  todayAllClear: TodayData;
+  postDetail: PostDetailData;
+  postDetailEmpty: PostDetailData;
+  brain: LoopBase;
+  brainFirstRun: LoopBase;
+  learnRules: LearnRulesData;
+  learnRulesCollecting: LearnRulesData;
+  verifyHome: VerifyHomeData;
+  verifyHomeEmpty: VerifyHomeData;
+  /** The Grow screens' data for this brand (screens/growth/brandData.ts). */
+  grow: GrowBrandData;
+}
+
+const adna: LoopBrandData = { today, todayAllClear, postDetail, postDetailEmpty, brain: brainScreen, brainFirstRun, learnRules, learnRulesCollecting, verifyHome, verifyHomeEmpty, grow: adnaGrow };
+
+/**
+ * A demo brand the canvas draws no loop data for, on its first run: kit v1 and the kit gate rules in the Brain, nothing
+ * waiting, no posts, nothing registered, and Learn collecting. Copy the canvas does not give is bracketed.
+ */
+/** On a first run the kit is live and the first post is where the work is. */
+const firstRunSteps: Partial<Record<LoopStageId, LoopStepState>> = { brand: 'live', create: 'current' };
+/** What a first-run step says: the next action where work is, else the step's own line (config/nav.ts), to teach. */
+const firstRunDetail: Partial<Record<LoopStageId, string>> = { create: 'Draft your first post' };
+
+function firstRunBrand(id: string, name: string, domain: string): LoopBrandData {
+  const b: LoopBase = { brain: brainFor(id) ?? firstRunBrain(name, domain), proposals: proposalsFor(id), approver: OWNER };
+  const day: TodayData = {
+    ...b,
+    weekday: 'Tuesday',
+    status: `${domain} · Kit v1 on Solana`,
+    loopNote: 'Learn starts after 14 days of results',
+    loop: today.loop.map((s) => ({ ...s, state: firstRunSteps[s.stage] ?? 'not-started', detail: firstRunDetail[s.stage] ?? stageById(s.stage).summary })),
+    queue: [],
+    done: [],
+    learned: undefined,
+    next: [],
+    proof: undefined,
+  };
+  const learn: LearnRulesData = { ...b, collecting: { days: 0, needed: 14 } };
+  // The first run ends with kit v1 approved and registered (Today says so), so Verify lists that one record.
+  const proof: VerifyHomeData = {
+    brandName: name,
+    kpis: [{ label: 'Kit', value: 'v1', sub: 'registered [date]' }],
+    registered: [{ id: 'reg-kit-1', kind: 'kit', what: 'Kit v1', when: '[date]', approver: OWNER, record: 'Verify-4-Kit-Account-Claim' }],
+    noMatch: [],
+  };
+  const proofEmpty: VerifyHomeData = { ...proof, kpis: [], registered: [] };
+  return { today: day, todayAllClear: day, postDetail: { ...b, posts: [] }, postDetailEmpty: { ...b, posts: [] }, brain: b, brainFirstRun: b, learnRules: learn, learnRulesCollecting: learn, verifyHome: proof, verifyHomeEmpty: proofEmpty, grow: firstRunGrow(name) };
+}
+
+const byBrand: Record<string, LoopBrandData> = {
+  adna,
+  jamjam: firstRunBrand('jamjam', 'JamJam', 'jamjam.tech'),
+  gamerslab: firstRunBrand('gamerslab', 'GamersLab', '[gamerslab domain]'),
+};
+
+/**
+ * The loop data for a brand id (the one active brand, flows/brand), or undefined when there is none yet: screens then
+ * say so, never showing another brand's data (Codex review on PR 111).
+ */
+export const loopDataFor = (brandId: string): LoopBrandData | undefined => byBrand[brandId];

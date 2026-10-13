@@ -25,7 +25,7 @@ describe('Draft-Review flow (n-dr, n-drb, n-dre)', () => {
     expect(within(publish()).queryByRole('link', { name: 'Check it on Verify' })).toBeNull();
     await userEvent.click(within(publish()).getByRole('button', { name: 'Register on Solana' }));
     expect(within(publish()).getByRole('heading', { name: 'Registered on Solana (devnet)' })).toBeInTheDocument();
-    expect(within(publish()).getByRole('link', { name: 'Check it on Verify' })).toHaveAttribute('href', '/screens/Verify-1-Match');
+    expect(within(publish()).getByRole('link', { name: 'Check it on Verify' })).toHaveAttribute('href', expect.stringMatching(/^\/screens\/Verify-1-Match\?q=%5BDraft%20post/));
   });
 
   it('the no-AI-slop pass and the claims gate run on edits and block approval', async () => {

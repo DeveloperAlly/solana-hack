@@ -20,7 +20,7 @@ export const adnaProposals: Proposal[] = [
   {
     id: 'p-lead', ruleId: 'r-lead', scope: 'All voices', title: 'Lead with the problem',
     evidence: '[What the edits showed]', cites: { label: 'In the Brain', artboard: 'Brain' }, signal: 'edit-to-rule',
-    evaluator: { name: evaluator, verdict: 'the pattern holds', smallSample: false }, brainVersion: '3', status: 'approved', decided: { at: '10 Oct' },
+    evaluator: { name: evaluator, verdict: 'the pattern holds', smallSample: false }, brainVersion: '3', status: 'approved', decided: { at: '10 Oct', version: '3.1' },
   },
   {
     id: 'p-emojis', ruleId: 'r-emojis', scope: 'Create · X', title: 'Use more emojis on X',
@@ -28,3 +28,6 @@ export const adnaProposals: Proposal[] = [
     evaluator: { name: evaluator, verdict: 'not supported', smallSample: true }, brainVersion: '3', status: 'rejected', decided: { at: '2 Oct' },
   },
 ];
+
+/** The learn loop's proposals for a demo brand by id; only aDNA has results to learn from yet. */
+export const proposalsFor = (brandId: string): Proposal[] => (brandId === 'adna' ? adnaProposals : []);

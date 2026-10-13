@@ -50,3 +50,40 @@ export const adnaBrainFirstRun: Brain = {
   rules: adnaBrain.rules.filter((r) => r.origin !== 'learn'),
   history: [{ version: '1', summary: 'Kit v1 approved and registered', at: '[date]' }],
 };
+
+/**
+ * A brand on its first run, for demo brands the canvas draws no Brain for (JamJam, GamersLab): kit v1, one voice, the
+ * two kit gate rules every brand starts with, and bracketed placeholders where the brand's own facts and audience go.
+ * Never another brand's facts (Codex review on PR 111).
+ */
+export function firstRunBrain(brandName: string, domain: string): Brain {
+  return {
+    brandName,
+    version: '1',
+    kit: { version: 1, registered: true, sections: 17, factCount: 1, sources: 1, expiringFacts: 0, audience: `[${brandName} audience]` },
+    voices: [{ id: 'founder', name: 'Founder voice', version: 'v1', dials: '[dials]' }],
+    facts: [{ id: 'f-1', quote: `[A fact quoted from ${domain}]`, source: { kind: 'page', label: domain, at: '[date]' } }],
+    rules: adnaBrain.rules.filter((r) => r.origin === 'kit').map((r) => ({ ...r, decided: undefined })),
+    history: [{ version: '1', summary: 'Kit v1 approved and registered', at: '[date]' }],
+  };
+}
+
+/** No Brain yet: a brand the demo has no loop data for. Version "0" until its kit is approved; nothing else. */
+export const noBrain = (brandName: string): Brain => ({
+  brandName,
+  version: '0',
+  kit: { version: 0, registered: false, sections: 17, factCount: 0, sources: 0, expiringFacts: 0, audience: '' },
+  voices: [],
+  facts: [],
+  rules: [],
+  history: [],
+});
+
+const brains: Record<string, Brain> = {
+  adna: adnaBrain,
+  jamjam: firstRunBrain('JamJam', 'jamjam.tech'),
+  gamerslab: firstRunBrain('GamersLab', '[gamerslab domain]'),
+};
+
+/** The Brain of a demo brand by id, or undefined when the demo has none for it (one source for every page). */
+export const brainFor = (brandId: string): Brain | undefined => brains[brandId];

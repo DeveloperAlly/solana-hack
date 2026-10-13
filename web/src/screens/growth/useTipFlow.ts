@@ -2,7 +2,9 @@ import { useState } from 'react';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { uniqueId } from '../../lib/id';
 import { firstBlocking, tipAmountCheck, walletCheck } from './checks';
-import { growthSession, nowIso } from './session';
+import { growthSession } from './session';
+import { nowIso } from '../../lib/time';
+import { standaloneVisit } from './linkedBrand';
 import { splitTip } from './format';
 import { useVisitedPost } from './useBadge';
 import type { ApprovedPost, Check, TipSheetData } from './types';
@@ -14,7 +16,8 @@ export type TipStep = 'amount' | 'review' | 'sending' | 'sent' | 'failed';
 const startStep: Record<ScreenState, TipStep> = { success: 'amount', empty: 'amount', loading: 'sending', error: 'failed' };
 
 export interface TipFlow {
-  post: ApprovedPost;
+  /** The post being tipped; undefined when the link names a post that is not registered. */
+  post: ApprovedPost | undefined;
   open: boolean;
   setOpen: (open: boolean) => void;
   step: TipStep;
@@ -31,11 +34,13 @@ export interface TipFlow {
   retry: () => void;
 }
 
-/** Tip-Sheet flow state: the sheet, the amount, the fee split and the step machine; a sent tip joins Tips-Received. */
+/**
+ * Tip-Sheet flow state: the sheet, the amount, the fee split and the step machine. A sent tip goes to the post's own
+ * brand, the creator, so it joins that brand's Tips-Received whichever brand is active (Codex review on PR 111).
+ */
 export function useTipFlow(data: TipSheetData, state: ScreenState): TipFlow {
-  const visited = useVisitedPost(data.posts, data.defaultPostId);
-  const post = visited.post ?? data.posts[0];
-  const [session, set] = growthSession.use();
+  const { post } = useVisitedPost(data.posts, data.defaultPostId);
+  const [session, set] = growthSession.forBrand(post?.brand.id ?? standaloneVisit).use();
   const [open, setOpen] = useState(true);
   const [step, setStep] = useState<TipStep>(startStep[state]);
   const [raw, setRaw] = useState('');
@@ -50,7 +55,7 @@ export function useTipFlow(data: TipSheetData, state: ScreenState): TipFlow {
   const check = firstBlocking([walletCheck(data.creator.wallet), tipAmountCheck(raw)], 'Ready to review.');
   const amount = check.blocking ? null : Number(raw.trim());
   function confirm() {
-    if (step !== 'review' || amount === null) return;
+    if (step !== 'review' || amount === null || !post) return;
     // INTEGRATION: the fan's wallet signs a USDC transfer to data.creator.wallet plus the 3% fee (not built yet;
     // backend map has no tips row). JamJam never holds the money (ADR-006).
     set({ tipsSent: [{ id: uniqueId('tip'), postId: post.id, postLabel: post.label, from: '[your wallet]', amount, at: nowIso(), signature: null }, ...session.tipsSent] });

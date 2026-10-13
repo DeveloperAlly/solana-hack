@@ -26,6 +26,7 @@ import { roleLabel } from '../../domain/event';
 import { GrowthFrame } from './components/GrowthFrame';
 import { EventKpis } from './components/EventKpis';
 import { EventPlan } from './components/EventPlan';
+import { EventDetailAbsent } from './components/EventDetailAbsent';
 import { eventDay, eventTime } from './eventPlan';
 import { dataLoaded, listState } from './listState';
 import { growthArtboards, useGrowthLinks } from './paths';
@@ -39,8 +40,10 @@ const timingAlert = {
 };
 
 export function EventDetail({ data, state = 'success' }: ScreenProps<EventDetailData>) {
-  const flow = useEventDetail(data);
+  const lookup = useEventDetail(data);
   const links = useGrowthLinks();
+  if (lookup.kind !== 'found') return <EventDetailAbsent lookup={lookup} state={state} />;
+  const { flow } = lookup;
   const e = flow.event;
   const role = e.role ? `you’re ${roleLabel(e.role).toLowerCase()}` : 'role not set';
   // A cancelled event (the error state) is still in hand; while loading nothing is actionable.
@@ -50,7 +53,7 @@ export function EventDetail({ data, state = 'success' }: ScreenProps<EventDetail
     <Stack gap={4}>
       <EventPeopleCard title="Who’s going" people={e.going} empty="No ambassadors asked yet." link={{ label: 'Invite more ambassadors', href: links.to('Dashboard') }} />
       <EventResultsCard results={flow.timing === 'after' ? e.results : null} pending="Appear after the event: posts verified, reach, leads, cost. Learn compares events so you know which are worth it." link={{ label: 'Learn', href: links.to('Analytics') }} />
-      <GrowAreaCard title="Was it worth it?" body="After the event, rate it on the public events board." links={[{ label: 'Rate this event', href: e.boardId ? links.rating(e.boardId) : links.to(growthArtboards.eventsBoard) }]} />
+      <GrowAreaCard title="Was it worth it?" body="After the event, rate it on the public events board." links={[{ label: 'Rate this event', href: e.boardId ? links.fromBrand(growthArtboards.eventRating, { event: e.boardId }) : links.to(growthArtboards.eventsBoard) }]} />
     </Stack>
   );
   return (

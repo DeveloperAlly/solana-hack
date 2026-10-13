@@ -38,7 +38,7 @@ export function PostDetail({ data, state = 'success' }: { data: PostDetailData; 
   return (
     <LoopFrame artboard="Post-Detail" tag="COMING SOON" brandName={data.brain.brandName}>
       <StateView
-        state={p ? state : 'empty'}
+        state={state}
         empty={{ level: 1, title: 'No posts yet', body: 'Approve a first draft and it shows here, through every step of the loop.', actions: <Button href={links.contentDashboard}>Go to drafts</Button> }}
         loading={{ level: 1, title: 'Loading the post' }}
         error={{ level: 1, title: "Couldn't load this post", body: 'Nothing about it changed.', actions: <Button variant="secondary" href={links.post}>Try again</Button> }}

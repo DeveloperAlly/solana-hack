@@ -14,8 +14,22 @@ const statusBadge: Record<BrainRule['status'], { label: string; tone: 'neutral' 
 const decidedVerb: Record<BrainRule['status'], string> = { suggested: 'suggested', active: 'approved', retired: 'retired' };
 const fromLine = (r: BrainRule) => [r.evidence.map((e) => e.label).join(', '), r.decided && `${decidedVerb[r.status]} ${r.decided.at}`].filter(Boolean).join(' · ');
 
-/** The Brain's learned-rules table (canvas Brain): approve a suggestion through its proposal's gate, retire a rule. */
-export function BrainRules({ loop }: { loop: LoopFlow }) {
+export interface BrainRulesProps {
+  loop: LoopFlow;
+  /** The rules to list: the learned ones, or the standing ones (kit gates and your edits); domain/brain.ts brainRules. */
+  rules: BrainRule[];
+  /** Accessible name of the table. */
+  caption: string;
+  /** Shown when there are none. */
+  empty: string;
+}
+
+/**
+ * A Brain rules table (canvas Brain). A learned suggestion is approved through its proposal's gate; an active learned
+ * rule or one of your edits can be retired; a kit gate is read-only, because it comes from the approved kit and only a
+ * new kit version changes it.
+ */
+export function BrainRules({ loop, rules, caption, empty }: BrainRulesProps) {
   const { links } = useLoopLinks();
   const proposalFor = (r: BrainRule) => loop.proposals.find((p) => p.ruleId === r.id);
   // A learned rule's line is its proposal's (domain/proposal.ts proposalNote); a retired rule says when it was retired.
@@ -29,16 +43,17 @@ export function BrainRules({ loop }: { loop: LoopFlow }) {
       const gate = proposalGate(p, loop.brain.version);
       return <><Button variant="secondary" href={links.learnRules}>Evidence</Button><Button onClick={() => loop.approveProposal(p)} disabled={gate.blocking} aria-label={`Approve: ${r.text}`}>Approve</Button>{gate.blocking && <Text as="span" variant="small" tone="secondary">{gate.label}</Text>}</>;
     }
+    if (r.origin === 'kit') return <Text as="span" variant="small" tone="secondary">From the approved kit</Text>;
     if (r.status === 'active') return <Button variant="secondary" onClick={() => loop.retireRule(r)} aria-label={`Retire: ${r.text}`}>Retire</Button>;
     return <Text as="span" variant="small" tone="secondary">{r.decided ? `Retired ${r.decided.at}` : 'Retired'}</Text>;
   }
   return (
     <DataTable
-      caption="Every rule, its evidence and status"
+      caption={caption}
       hideCaption
-      rows={loop.brain.rules}
+      rows={rules}
       rowKey={(r) => r.id}
-      empty={<Text variant="small" tone="secondary">Rules appear after 14 days of results. Until then, drafts follow the kit and your voices.</Text>}
+      empty={<Text variant="small" tone="secondary">{empty}</Text>}
       columns={[
         { key: 'text', header: 'Rule', rowHeader: true },
         { key: 'appliesTo', header: 'Applies to' },

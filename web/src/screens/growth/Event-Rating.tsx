@@ -32,6 +32,10 @@ export function EventRating({ data, state = 'success' }: ScreenProps<EventRating
   const links = useGrowthLinks();
   const e = flow.event;
   const registry = <Link href={links.to('Ledger')}>registry (not built yet)</Link>;
+  // Opened from a brand's Events or Event-Detail, the way back is to that brand's events; a standalone visit's is the board.
+  const back = data.fromBrand
+    ? { href: links.to(growthArtboards.events), label: `${data.fromBrand} events` }
+    : { href: links.carry(growthArtboards.eventsBoard), label: 'All events' };
   const quotes = e.ratings.map((r) => {
     const reply = e.replies.find((x) => x.ratingId === r.id);
     const now = currentVersion(r);
@@ -45,7 +49,7 @@ export function EventRating({ data, state = 'success' }: ScreenProps<EventRating
     };
   });
   return (
-    <PublicFrame tag="ROADMAP" title={e.name} back={{ href: links.to(growthArtboards.eventsBoard), label: 'All events' }}
+    <PublicFrame tag="ROADMAP" title={e.name} back={back}
       intro={`${e.place} · ${e.when} · organiser ${e.organiser} · ${registeredLabel(e.summary)}`}
       meta="Roadmap: designed, not built. One rating per attendee per event; only its author can edit it, and each edit is a new version with the earlier ones kept. Defined in: canvas v26 Event-Rating.">
       <StateView state={state === 'empty' ? 'success' : state} loading={{ title: 'Loading ratings', body: 'Reading this event’s attendee ratings.' }}

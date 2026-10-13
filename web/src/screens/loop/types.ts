@@ -28,9 +28,11 @@ export interface TodayData extends LoopBase {
   /** Quests whose submissions can reach the queue (ambassador posts with a questId). */
   quests?: Quest[];
   done: string[];
-  learned: string;
+  /** The latest learn finding; absent until Learn has results. */
+  learned?: string;
   next: { when: string; what: string }[];
-  proof: string;
+  /** Badge traffic this week; absent until the badge is on the brand's site. */
+  proof?: string;
 }
 
 export interface PostDetailData extends LoopBase {
@@ -49,6 +51,8 @@ export interface RegisteredRow {
   when: string;
   approver: string;
   record: ArtboardName;
+  /** The registered text, when Verify can check it by its words (a post registered this session). */
+  text?: string;
 }
 
 export interface VerifyHomeData {

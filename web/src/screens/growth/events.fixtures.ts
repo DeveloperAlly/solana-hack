@@ -72,7 +72,7 @@ export const brandEvents: BrandEvent[] = [
   }),
 ];
 
-const base: EventsData = { today, events: brandEvents, drafts: eventDrafts, lumaCalendar: 'lu.ma/[your-calendar]' };
+const base: EventsData = { brand: 'aDNA', today, events: brandEvents, drafts: eventDrafts, lumaCalendar: 'lu.ma/[your-calendar]' };
 
 export const events: EventsData = base;
 /** No events yet, and Luma not connected (canvas Events: "no events (connect Luma or add one)"). */

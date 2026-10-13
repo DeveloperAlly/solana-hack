@@ -8,7 +8,7 @@ import { createBrandScopedStore } from '../../lib/brandScopedStore';
 import { activeBrand } from '../brand/activeBrand';
 import type { PersonApproval } from '../../domain/approval';
 import type { BrainChange, RuleStatus } from '../../domain/brain';
-import type { ProposalStatus } from '../../domain/proposal';
+import type { ProposalDecision } from '../../domain/proposal';
 import type { PayoutRecord } from '../../domain/quest';
 
 export interface RuleChange {
@@ -16,11 +16,11 @@ export interface RuleChange {
   decided: { by: string; at: string };
 }
 
+/** A proposal's change this session: a whole decision (status with its record, as the type requires), or a re-check. */
 export interface ProposalChange {
-  status?: ProposalStatus;
+  decision?: ProposalDecision;
   /** Re-judged against this Brain version. */
   brainVersion?: string;
-  decided?: { at: string; version?: string };
 }
 
 export interface LoopState {

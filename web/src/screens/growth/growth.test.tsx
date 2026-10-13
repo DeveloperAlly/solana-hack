@@ -129,7 +129,8 @@ describe('Refer a friend', () => {
   it('leads to the landing, where the friend claims with an email', async () => {
     const user = at(screenPath('Referral'));
     await user.click(screen.getByRole('link', { name: 'See what your friend sees' }));
-    expect(screen.getByRole('heading', { level: 1, name: '[Founder name] invited you to JamJam' })).toBeInTheDocument();
+    // Opened from aDNA's Referral, the friend sees where the inviter is from (Codex review on PR 111).
+    expect(screen.getByRole('heading', { level: 1, name: '[Founder name] at aDNA invited you to JamJam' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Claim 2 months free' }));
     expect(screen.queryByText('Check your email')).toBeNull();
     await user.type(screen.getByLabelText('Your email'), 'me@example.com');
@@ -243,7 +244,7 @@ describe('Team invites', () => {
     expect(screen.getByText('partner@example.com')).toBeInTheDocument();
     expect(screen.getByText('Founder, Technical')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Accept invite' }));
-    expect(screen.getByText('You’re on JamJam’s team')).toBeInTheDocument();
+    expect(screen.getByText('You’re on aDNA’s team')).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'See the team' }));
     expect(within(screen.getByRole('list', { name: 'Members' })).getByText('partner@example.com')).toBeInTheDocument();
     // An accepted member cannot be invited again (Codex review on PR #89). Free a seat first: all 3 are in use.

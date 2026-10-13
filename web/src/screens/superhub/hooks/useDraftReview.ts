@@ -6,6 +6,10 @@ import { decisionInputs, draftStatusOf, isPostUrl, type Decision, type DraftReco
 import { approve, isCurrent, isStale, type Approval } from '../../../lib/approval';
 import { publishRoutesFor } from './publishRoutes';
 import { useActiveBrand } from '../../../flows/brand/activeBrand';
+import { useBrandCatalog } from '../../../flows/brand/brandCatalog';
+import { registerPost } from '../../../flows/registry/registeredPosts';
+import { OWNER } from '../../../domain/fixtures/brain';
+import { nowIso } from '../../../lib/time';
 
 export const polishLabels: Record<PolishAction, string> = { review: 'Review', shorten: 'Shorten', clarify: 'Clarify', beautify: 'Beautify' };
 
@@ -21,6 +25,7 @@ export function useDraftReview(data: DraftReviewData, draftId: string, draft: Dr
   const [session, update] = useHubSession();
   // Where this draft can go comes from its channel (config/platforms.ts), never one list for every draft.
   const brand = useActiveBrand();
+  const catalogBrand = useBrandCatalog().brands.find((b) => b.id === brand.id);
   const routes = publishRoutesFor(draft.channel, brand.name);
   // A decision already taken on this draft (hub session) is where a reopened draft starts.
   const [recorded] = useState<DraftRecord | undefined>(session.drafts[draftId]);
@@ -115,7 +120,24 @@ export function useDraftReview(data: DraftReviewData, draftId: string, draft: Dr
     approve: () => canApprove && setDecision('approved'),
     // INTEGRATION: registration (SAS attestation by the Registrar) runs only on an approved post, then it is published.
     // Register goes through the same blocking checks as Approve.
-    register: () => decision === 'approved' && blockers.length === 0 && !busy && setDecision('registered'),
+    register: () => {
+      if (decision !== 'approved' || blockers.length > 0 || busy) return;
+      setDecision('registered');
+      // The registration is public (flows/registry): Verify finds it by its text, and this brand's Verify-Home lists it.
+      registerPost({
+        id: `${brand.id}:${draftId}`,
+        brand: { id: brand.id, name: brand.name, domain: catalogBrand?.domain ?? '[domain]', domainVerified: Boolean(catalogBrand?.verified) },
+        text,
+        kitVersion: 1,
+        approver: OWNER,
+        approvedAt: nowIso(),
+        published: null,
+        label: draft.title,
+        signature: null,
+        bannedPhrases: [],
+        retraction: null,
+      });
+    },
     reject: () => setDecision('rejected'),
     askRewrite: () => setDecision('rewrite'),
     reopen: () => setDecision(null),

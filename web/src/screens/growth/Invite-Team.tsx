@@ -18,17 +18,20 @@ import { Heading } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { Columns } from '../../ui/layouts/Columns';
 import { StateView } from '../../ui/composites/StateView';
-import { ScreenLink } from '../../gallery/ScreenLink';
+import { Link } from '../../ui/primitives';
 import { GrowthFrame } from './components/GrowthFrame';
 import { GrowthInviteForm } from './components/GrowthInviteForm';
 import { GrowthSeatSummary } from './components/GrowthSeatSummary';
 import { GrowthTeamList } from './components/GrowthTeamList';
-import { growthArtboards } from './paths';
+import { growthArtboards, useGrowthLinks } from './paths';
 import { useTeam } from './useTeam';
 import type { ScreenProps, TeamData } from './types';
 
 export function InviteTeam({ data, state = 'success' }: ScreenProps<TeamData>) {
   const flow = useTeam(data);
+  const links = useGrowthLinks();
+  // The preview is this brand's invite: the newest open one, else Invite-Accept says none is open.
+  const preview = links.fromBrand(growthArtboards.accept, { invite: flow.invites[0]?.id });
   return (
     <GrowthFrame
       artboard="Invite-Team"
@@ -36,7 +39,7 @@ export function InviteTeam({ data, state = 'success' }: ScreenProps<TeamData>) {
       tag="COMING SOON"
       intro={`Bring people onto ${data.brand}. They write from your kit, and you approve every piece.`}
       meta="Drawn, not built: invites need memberships and email. Defined in: issue #82 (Invite a teammate or partner); canvas Partners."
-      actions={<ScreenLink artboard={growthArtboards.accept}>Preview the invite</ScreenLink>}
+      actions={<Link href={preview}>Preview the invite</Link>}
     >
       <StateView
         state={state === 'empty' ? 'success' : state}

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { matchPost } from './matchPost';
+import { useRegisteredPosts } from '../../flows/registry/registeredPosts';
 import { verifyParams } from './paths';
 import type { VerifyCheckData, VerifyOutcome } from './types';
 
@@ -45,7 +46,9 @@ export function useVerifyCheck(data: VerifyCheckData, state: ScreenState): Verif
     setInputError(null);
   }
 
-  const outcome = useMemo(() => matchPost(query, data.posts), [query, data.posts]);
+  // Posts registered this session (any brand: registration is public) are checked with the loaded ones.
+  const registered = useRegisteredPosts();
+  const outcome = useMemo(() => matchPost(query, [...registered, ...data.posts]), [query, registered, data.posts]);
 
   function check(text: string) {
     if (!text) {

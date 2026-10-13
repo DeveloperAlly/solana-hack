@@ -12,20 +12,21 @@
  * States (C28): success = verified post with the badge and "Make yours"; empty = the badge's post is not registered;
  * loading = checking; error = could not check.
  */
-import { Stack, Text } from '../../ui/primitives';
+import { resolveState } from '../resolveState';
+import { Link, Stack, Text } from '../../ui/primitives';
 import { Columns } from '../../ui/layouts/Columns';
 import { StateView } from '../../ui/composites/StateView';
 import { GrowthCheckBadge } from '../../ui/domain/GrowthCheckBadge';
-import { ScreenLink } from '../../gallery/ScreenLink';
 import { VerifyMatchResult } from '../public-next/components/VerifyMatchResult';
 import { PublicFrame } from './components/PublicFrame';
 import { GrowthMakeYoursCard } from './components/GrowthMakeYoursCard';
-import { growthArtboards } from './paths';
+import { growthArtboards, useGrowthLinks } from './paths';
 import { useVisitedPost } from './useBadge';
 import type { ScreenProps, VerifyBadgeLandingData } from './types';
 
 export function VerifyBadgeLanding({ data, state = 'success' }: ScreenProps<VerifyBadgeLandingData>) {
   const { post, style } = useVisitedPost(data.posts, data.defaultPostId);
+  const links = useGrowthLinks();
   return (
     <PublicFrame
       title="Is this official?"
@@ -34,7 +35,7 @@ export function VerifyBadgeLanding({ data, state = 'success' }: ScreenProps<Veri
       meta="Drawn, not built: Verify looks posts up by their text today, not by a badge link. Defined in: issue #82 (Check-it badge)."
     >
       <StateView
-        state={post ? state : 'empty'}
+        state={resolveState(state, !post)}
         loading={{ title: 'Checking', body: 'Looking for the registration on Solana.' }}
         error={{ title: 'Could not check right now', body: 'Solana could not be checked just now, so this cannot be confirmed. Try again in a minute.' }}
         empty={{ title: 'This badge points at nothing registered', body: 'Treat the post as unverified. A real badge always opens a registered post.' }}
@@ -47,7 +48,7 @@ export function VerifyBadgeLanding({ data, state = 'success' }: ScreenProps<Veri
                 <Text variant="small" tone="secondary">The badge you clicked</Text>
               </Stack>
               <VerifyMatchResult post={post} />
-              <ScreenLink artboard={growthArtboards.tip}>Tip {post.brand.name} in USDC</ScreenLink>
+              <Link href={links.carry(growthArtboards.tip, { post: post.id })}>Tip {post.brand.name} in USDC</Link>
             </Stack>
           </Columns>
         )}

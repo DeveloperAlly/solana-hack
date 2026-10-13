@@ -17,7 +17,16 @@ export const signalLabels: Record<SignalSource, string> = {
 
 export type ProposalStatus = 'pending' | 'trial' | 'approved' | 'rejected';
 
-export interface Proposal {
+/**
+ * Where a proposal stands, and the record of its decision. The type enforces the record: an approved proposal names
+ * the Brain version its approval made, and a rejected one when it was rejected.
+ */
+export type ProposalDecision =
+  | { status: 'pending' | 'trial'; decided?: undefined }
+  | { status: 'approved'; decided: { at: string; version: string } }
+  | { status: 'rejected'; decided: { at: string } };
+
+interface ProposalFields {
   id: string;
   /** The suggested Brain rule this proposal would make active. */
   ruleId: string;
@@ -33,9 +42,14 @@ export interface Proposal {
   evaluator: { name: string; verdict: string; smallSample: boolean };
   /** The Brain version it was judged against. */
   brainVersion: string;
-  status: ProposalStatus;
-  /** When it was decided, and the Brain version an approval made (decided proposals). */
-  decided?: { at: string; version?: string };
+}
+
+export type Proposal = ProposalFields & ProposalDecision;
+
+/** A proposal with a new decision: status and its record are replaced together, so they always match the type. */
+export function withDecision(p: Proposal, d: ProposalDecision): Proposal {
+  const { status: _status, decided: _decided, ...fields } = p;
+  return { ...fields, ...d } as Proposal;
 }
 
 /**
@@ -53,13 +67,14 @@ export function proposalGate(p: Proposal, brainVersion: string): Gate {
  * current status wins: a retired rule says retired, whatever the proposal decided. Otherwise from the proposal: a
  * pending one says what approving does; an approved one is active in the Brain version it made; a rejected one says so.
  */
-export function proposalNote(p: Pick<Proposal, 'status' | 'decided'>, brainVersion: string, rule?: Pick<BrainRule, 'status' | 'decided'>): string {
+export function proposalNote(p: ProposalDecision, brainVersion: string, rule?: Pick<BrainRule, 'status' | 'decided'>): string {
   if (rule?.status === 'retired') return rule.decided ? `retired ${rule.decided.at}` : 'retired';
-  const notes: Record<ProposalStatus, () => string> = {
-    pending: () => `becomes Brain v${nextBrainVersion(brainVersion)} if you approve`,
-    trial: () => `on trial for half of new drafts; becomes Brain v${nextBrainVersion(brainVersion)} if you approve`,
-    approved: () => `active in Brain v${p.decided?.version ?? brainVersion}`,
+  const next = nextBrainVersion(brainVersion);
+  const notes: { [S in ProposalStatus]: (d: Extract<ProposalDecision, { status: S }>) => string } = {
+    pending: () => `becomes Brain v${next} if you approve`,
+    trial: () => `on trial for half of new drafts; becomes Brain v${next} if you approve`,
+    approved: (d) => `active in Brain v${d.decided.version}`,
     rejected: () => 'rejected',
   };
-  return notes[p.status]();
+  return (notes[p.status] as (d: ProposalDecision) => string)(p);
 }

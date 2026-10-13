@@ -1,0 +1,46 @@
+[
+  {
+    "name": "today",
+    "ok": true
+  },
+  {
+    "name": "m-today",
+    "ok": true
+  },
+  {
+    "name": "post-detail",
+    "ok": true
+  },
+  {
+    "name": "brain",
+    "ok": true
+  },
+  {
+    "name": "learn-rules",
+    "ok": true
+  },
+  {
+    "name": "verify-home",
+    "ok": true
+  },
+  {
+    "name": "first-run-jamjam",
+    "ok": true
+  },
+  {
+    "name": "grow-quests-brands",
+    "ok": true
+  },
+  {
+    "name": "handoffs-adna",
+    "ok": true
+  },
+  {
+    "name": "handoffs-jamjam",
+    "ok": true
+  },
+  {
+    "name": "handoffs-gamerslab",
+    "ok": true
+  }
+]

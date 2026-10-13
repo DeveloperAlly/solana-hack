@@ -2,6 +2,7 @@
 // (web/src/gallery/screenPath.ts), which keep ?theme=; this file only names the artboards and adds the page params.
 import { useSearchParams } from 'react-router';
 import { useScreenHref } from '../../gallery/screenPath';
+import { activeBrand } from '../../flows/brand/activeBrand';
 import type { ArtboardName } from '../../config/artboards';
 
 export const growthArtboards = {
@@ -24,9 +25,17 @@ export const growthArtboards = {
   quests: 'Quests',
 } as const satisfies Record<string, ArtboardName>;
 
-/** Query keys these screens read: `platform` picks the Platform-Detail platform; `event` the event on Event-Detail and Event-Rating. */
-export const growthParams = { platform: 'platform', event: 'event' } as const;
+/**
+ * Query keys these screens read: `platform` picks the Platform-Detail platform; `event` the event on Event-Detail and
+ * Event-Rating. A handoff from a brand screen to a public page carries `brand` (whose page it is) and the entity it is
+ * about: `invite` (Invite-Accept) or `post` (Verify-Badge-Landing, Tip-Sheet). Without `brand` a public page is a
+ * standalone visit and shows its neutral default (Codex review on PR 111).
+ */
+export const growthParams = { platform: 'platform', event: 'event', brand: 'brand', invite: 'invite', post: 'post' } as const;
 type GrowthParam = keyof typeof growthParams;
+
+/** The entity a handoff is about, by query key; a key left undefined is not written. */
+export type HandoffEntity = Partial<Record<Exclude<GrowthParam, 'brand'>, string>>;
 
 export interface GrowthLinks {
   to: (artboard: ArtboardName) => string;
@@ -34,25 +43,35 @@ export interface GrowthLinks {
   platform: (id: string) => string;
   /** Event-Detail opened on one brand event. */
   event: (id: string) => string;
-  /** Event-Rating opened on one board event. */
-  rating: (id: string) => string;
+  /** A public page opened from a brand screen: the active brand and the entity rides along, so the page is that brand's. */
+  fromBrand: (artboard: ArtboardName, entity?: HandoffEntity) => string;
+  /** A link between public pages: carries this page's `?brand=` only when it has one, so a standalone visit stays neutral. */
+  carry: (artboard: ArtboardName, entity?: HandoffEntity) => string;
 }
 
 export function useGrowthLinks(): GrowthLinks {
   const href = useScreenHref();
-  const withParam = (artboard: ArtboardName, key: GrowthParam, value: string) => {
+  const active = activeBrand.use();
+  const linked = useGrowthParam('brand');
+  const withParams = (artboard: ArtboardName, values: Partial<Record<GrowthParam, string>>) => {
     const path = href(artboard);
-    return `${path}${path.includes('?') ? '&' : '?'}${growthParams[key]}=${encodeURIComponent(value)}`;
+    const query = Object.entries(values)
+      .filter((kv): kv is [GrowthParam, string] => Boolean(kv[1]))
+      .map(([key, value]) => `${growthParams[key]}=${encodeURIComponent(value)}`)
+      .join('&');
+    if (!query) return path;
+    return `${path}${path.includes('?') ? '&' : '?'}${query}`;
   };
   return {
     to: (artboard) => href(artboard),
-    platform: (id) => withParam(growthArtboards.platformDetail, 'platform', id),
-    event: (id) => withParam(growthArtboards.eventDetail, 'event', id),
-    rating: (id) => withParam(growthArtboards.eventRating, 'event', id),
+    platform: (id) => withParams(growthArtboards.platformDetail, { platform: id }),
+    event: (id) => withParams(growthArtboards.eventDetail, { event: id }),
+    fromBrand: (artboard, entity) => withParams(artboard, { brand: active, ...entity }),
+    carry: (artboard, entity) => withParams(artboard, { brand: linked ?? undefined, ...entity }),
   };
 }
 
-/** A growth query value (`?platform=`, `?event=`), or null. */
+/** A growth query value (`?platform=`, `?event=`, `?brand=`, `?invite=`, `?post=`), or null. */
 export function useGrowthParam(key: GrowthParam): string | null {
   const [params] = useSearchParams();
   return params.get(growthParams[key]);
