@@ -289,6 +289,7 @@ async function fanOut(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepContex
   const fanout = deps.fanout!;
   const steps = referencedSteps(s.step, ctx.state);
   const out: unknown[] = [];
+  const failures: string[] = [];
   for (let w = 0; w < items.length; w += FANOUT_WAVE) {
     const wave = items.slice(w, w + FANOUT_WAVE).map((item, k) => {
       const j = w + k;
@@ -301,10 +302,17 @@ async function fanOut(env: Env, step: StepApi, deps: RunnerDeps, ctx: StepContex
     // child that finishes first is never reporting to a parent still waiting on an earlier child.
     const reports = await Promise.all(wave.map((c) => step.waitForEvent!<ChildReport>(`${name}[${c.j}]:report`, { type: c.event, timeout: '30 minutes' })));
     for (const { payload } of reports) {
-      if (!payload.ok) throw new Error(payload.error);
-      out.push(payload.output);
+      if (payload.ok) { out.push(payload.output); continue; }
+      // One item that still fails after its retries (a part of a page with nothing the model can quote, live run
+      // 3c541da2 on adna.network: 5 of 6 parts answered, part 4 failed 3 times) contributes nothing instead of failing
+      // the run; a superseded run or a rate-limit pause still stops the map, and so does every item failing.
+      const kind = decodeError(payload.error).kind;
+      if (kind === 'superseded' || kind === 'rate' || kind === 'parked') throw new Error(payload.error);
+      failures.push(payload.error);
+      out.push(null);
     }
   }
+  if (failures.length && failures.length === items.length) throw new Error(failures[0]);
   await step.do(`${name}:done`, BOOKKEEPING, async () => { await record(env, ctx.run.id, null, { progress: progressAt(spec, i + 1) }); return null; });
   return out;
 }
