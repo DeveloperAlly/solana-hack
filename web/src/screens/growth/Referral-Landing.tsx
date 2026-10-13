@@ -23,9 +23,11 @@ import type { ReferralLandingData, ScreenProps } from './types';
 
 export function ReferralLanding({ data, state = 'success' }: ScreenProps<ReferralLandingData>) {
   const flow = useReferralClaim();
+  // Opened from a brand's Referral, the friend sees where the inviter is from.
+  const from = data.fromBrand ? ` at ${data.fromBrand}` : '';
   return (
     <PublicFrame
-      title={`${data.inviter} invited you to JamJam`}
+      title={`${data.inviter}${from} invited you to JamJam`}
       tag="COMING SOON"
       intro="JamJam builds your brand, runs it and proves it. Join with this invite and you both get 2 months free."
       meta="Drawn, not built. Defined in: issue #82 (Refer a friend)."

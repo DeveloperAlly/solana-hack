@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { uniqueId } from '../../lib/id';
 import { emailCheck } from './checks';
-import { growthSession, nowIso } from './session';
+import { growthSession } from './session';
+import { nowIso } from '../../lib/time';
 import type { Referral, ReferralData, ReferralStatus } from './types';
 
 export type ReferralFilter = 'all' | ReferralStatus;

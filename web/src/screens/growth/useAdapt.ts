@@ -4,7 +4,8 @@ import { postApprovalInputs } from '../../domain/post';
 import { findPlatform, postLength, type Platform } from '../../config/platforms';
 import { useBrainVersion } from '../../flows/loop/brainVersion';
 import { originalCheck, runChecks, scheduleGate, versionCheck, type CheckResult } from './adaptChecks';
-import { growthSession, nowIso, type AdaptEdits } from './session';
+import { growthSession, type AdaptEdits } from './session';
+import { nowIso } from '../../lib/time';
 import type { AdaptData } from './types';
 
 export type VersionApproval = 'approved' | 'stale' | 'none';

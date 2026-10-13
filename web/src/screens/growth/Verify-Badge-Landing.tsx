@@ -13,20 +13,20 @@
  * loading = checking; error = could not check.
  */
 import { resolveState } from '../resolveState';
-import { Stack, Text } from '../../ui/primitives';
+import { Link, Stack, Text } from '../../ui/primitives';
 import { Columns } from '../../ui/layouts/Columns';
 import { StateView } from '../../ui/composites/StateView';
 import { GrowthCheckBadge } from '../../ui/domain/GrowthCheckBadge';
-import { ScreenLink } from '../../gallery/ScreenLink';
 import { VerifyMatchResult } from '../public-next/components/VerifyMatchResult';
 import { PublicFrame } from './components/PublicFrame';
 import { GrowthMakeYoursCard } from './components/GrowthMakeYoursCard';
-import { growthArtboards } from './paths';
+import { growthArtboards, useGrowthLinks } from './paths';
 import { useVisitedPost } from './useBadge';
 import type { ScreenProps, VerifyBadgeLandingData } from './types';
 
 export function VerifyBadgeLanding({ data, state = 'success' }: ScreenProps<VerifyBadgeLandingData>) {
   const { post, style } = useVisitedPost(data.posts, data.defaultPostId);
+  const links = useGrowthLinks();
   return (
     <PublicFrame
       title="Is this official?"
@@ -48,7 +48,7 @@ export function VerifyBadgeLanding({ data, state = 'success' }: ScreenProps<Veri
                 <Text variant="small" tone="secondary">The badge you clicked</Text>
               </Stack>
               <VerifyMatchResult post={post} />
-              <ScreenLink artboard={growthArtboards.tip}>Tip {post.brand.name} in USDC</ScreenLink>
+              <Link href={links.carry(growthArtboards.tip, { post: post.id })}>Tip {post.brand.name} in USDC</Link>
             </Stack>
           </Columns>
         )}

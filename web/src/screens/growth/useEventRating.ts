@@ -5,7 +5,8 @@ import {
   type AttendanceProof, type AttendanceProofKind, type EventRating, type ProofEvent, type RatingDraftScores, type RatingQuestionId, type RatingScore,
 } from '../../domain/rating';
 import { useGrowthParam } from './paths';
-import { growthSession, nowIso } from './session';
+import { growthSession } from './session';
+import { nowIso } from '../../lib/time';
 import { useBoardEvents } from './useBoardEvents';
 import type { BoardEvent, EventRatingData } from './types';
 

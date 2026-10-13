@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { uniqueId } from '../../lib/id';
 import { emailCheck, seatCheck } from './checks';
-import { growthSession, nowIso, type GrowthSession } from './session';
+import { growthSession, type GrowthSession } from './session';
+import { nowIso } from '../../lib/time';
 import type { Check, Invite, Member, TeamData, TeamRole } from './types';
 
 /** Pending invites: sent here (newest first), then the fixture's, minus any revoked, accepted or declined. */

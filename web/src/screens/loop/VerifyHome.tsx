@@ -6,7 +6,8 @@
  * |---------------|--------------------------------------------------------------------------------------------------|
  * | kpis          | registrations (built: kit and post rows, Registrar on devnet); checks by others and badge visits |
  * |               | (verify lookups, badge referrals): not built                                                      |
- * | registered[]  | GET /api/ledger?brand= (built): kit versions, posts, ambassador posts; approver from posts       |
+ * | registered[]  | GET /api/ledger?brand= (built): kit versions, posts, ambassador posts; approver from posts; plus  |
+ * |               | posts registered this session (flows/registry, this brand's), first                               |
  * | noMatch[]     | verify lookups with no match for this brand (an impersonation signal, owner only): not built     |
  *
  * Registration (a hash and ids, signed by the Registrar) is what is on Solana; approval is recorded in JamJam.
@@ -21,6 +22,10 @@ import { StateView } from '../../ui/composites/StateView';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { PageHeader } from '../../ui/layouts/PageHeader';
 import { LoopFrame } from '../../ui/shells/LoopFrame';
+import { activeBrand } from '../../flows/brand/activeBrand';
+import { useRegisteredPosts } from '../../flows/registry/registeredPosts';
+import { useVerifyLinks } from '../public-next/paths';
+import { formatDateTime } from '../public-next/format';
 import { NoMatchChecks } from './NoMatchChecks';
 import { useLoopLinks } from './paths';
 import type { RegisteredRow, VerifyHomeData } from './types';
@@ -35,7 +40,12 @@ const kinds = [
 export function VerifyHome({ data, state = 'success' }: { data: VerifyHomeData; state?: ScreenState }) {
   const { links, to } = useLoopLinks();
   const [kind, setKind] = useState('all');
-  const rows = data.registered.filter((r) => kind === 'all' || r.kind === kind);
+  const verify = useVerifyLinks();
+  // This brand's posts registered this session (Draft-Review) above its earlier records; Verify checks them by their text.
+  const session = useRegisteredPosts(activeBrand.use()).map((p): RegisteredRow => ({
+    id: p.id, kind: 'post', what: p.label, when: formatDateTime(p.approvedAt), approver: p.approver, record: 'Verify-1-Match', text: p.text,
+  }));
+  const rows = [...session, ...data.registered].filter((r) => kind === 'all' || r.kind === kind);
   return (
     <LoopFrame artboard="Verify-Home" tag="COMING SOON" brandName={data.brandName}>
       <PageHeader
@@ -61,7 +71,7 @@ export function VerifyHome({ data, state = 'success' }: { data: VerifyHomeData; 
               { key: 'what', header: 'What', rowHeader: true },
               { key: 'when', header: 'When' },
               { key: 'approver', header: 'Approved by' },
-              { key: 'record', header: 'Record', cell: (r) => <Link href={to(r.record)}>Check</Link> },
+              { key: 'record', header: 'Record', cell: (r) => <Link href={r.text ? verify.check(r.text) : to(r.record)}>Check</Link> },
             ]}
           />
         </Card>

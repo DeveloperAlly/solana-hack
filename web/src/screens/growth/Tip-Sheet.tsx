@@ -5,7 +5,7 @@
  *
  * | Field           | Source                                                                         | Empty when           |
  * |-----------------|--------------------------------------------------------------------------------|----------------------|
- * | posts[], post   | POST /api/verify -> the matched registered post; the one opened from a badge   | never (falls back)   |
+ * | posts[], post   | POST /api/verify -> the matched registered post; the one a link names (?post=) | that post is not registered |
  * | creator.name    | registrations.brand_id -> brands.name (or the ambassador, for their posts)     | never                |
  * | creator.wallet  | the creator's linked payout wallet (wallets table, ADR-006)                    | not linked: tips off |
  * | feeRate         | pitch deck v2, Business model slide: 3% on tips                                | never                |
@@ -15,6 +15,7 @@
  * waiting for the fan's wallet to sign; error = the tip was not sent.
  */
 import { Button, Stack } from '../../ui/primitives';
+import { EmptyState } from '../../ui/composites/EmptyState';
 import { PublicFrame } from './components/PublicFrame';
 import { GrowthTipSheet } from './components/GrowthTipSheet';
 import { VerifyMatchResult } from '../public-next/components/VerifyMatchResult';
@@ -30,13 +31,19 @@ export function TipSheet({ data, state = 'success' }: ScreenProps<TipSheetData>)
       intro="This post checks out. If you like it, you can tip the creator in USDC."
       meta="Drawn, not built: tips need a wallet transfer that does not exist yet. Defined in: issue #82 (Fan tips in USDC)."
     >
-      <Stack gap={4}>
-        <VerifyMatchResult post={flow.post} />
-        <div>
-          <Button onClick={() => flow.setOpen(true)}>Tip {data.creator.name} in USDC</Button>
-        </div>
-      </Stack>
-      <GrowthTipSheet flow={flow} data={data} />
+      {flow.post ? (
+        <>
+          <Stack gap={4}>
+            <VerifyMatchResult post={flow.post} />
+            <div>
+              <Button onClick={() => flow.setOpen(true)}>Tip {data.creator.name} in USDC</Button>
+            </div>
+          </Stack>
+          <GrowthTipSheet flow={flow} data={data} />
+        </>
+      ) : (
+        <EmptyState title="This post is not registered" body="There is nothing to tip: no registered post has this id. Treat it as unverified." />
+      )}
     </PublicFrame>
   );
 }

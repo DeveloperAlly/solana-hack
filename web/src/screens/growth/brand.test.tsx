@@ -36,10 +36,11 @@ describe('Grow screens follow the active brand', () => {
     expect(screen.getByRole('list', { name: 'Quest submissions' })).toBeInTheDocument();
   });
 
-  it('a screen a first-run brand cannot have yet says so, never showing aDNA\'s', () => {
+  it('Event-Detail on a first-run brand with no events says so, never showing aDNA\'s', () => {
     act(() => selectBrand('gamerslab'));
     render(<MemoryRouter>{screens.find((s) => s.artboard === 'Event-Detail')!.render('success')}</MemoryRouter>);
-    expect(screen.getByRole('heading', { level: 1, name: 'Nothing here for GamersLab yet' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'No events yet' })).toBeInTheDocument();
+    expect(screen.queryByText(/agent tooling night|context clinic/)).toBeNull();
   });
 });
 

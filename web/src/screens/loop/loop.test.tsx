@@ -301,6 +301,32 @@ describe('Brain and Learn-Rules share the Brain', () => {
     expect(leaks).toEqual([]);
   });
 
+  // "JamJam" is allowed everywhere above (the product's name), so the check above alone would miss "Bring people onto
+  // JamJam" under GamersLab. Where a screen names the brand, the active brand's name must be the one it names.
+  it('where a screen names the brand, it names the active brand', () => {
+    const names: Record<string, string> = { adna: 'aDNA', jamjam: 'JamJam', gamerslab: 'GamersLab' };
+    const naming: Record<string, (name: string) => string> = {
+      Today: (n) => `Where ${n} is in the loop`,
+      Brain: (n) => `Everything JamJam knows about ${n}`,
+      'Verify-Home': (n) => `What ${n} has registered on Solana`,
+      'Grow-Home': (n) => `People who post for ${n},`,
+      Events: (n) => `Every event ${n} hosts`,
+      'Invite-Team': (n) => `Bring people onto ${n}.`,
+    };
+    const all = [...screens, ...growthScreens];
+    const wrong: string[] = [];
+    for (const [brand, name] of Object.entries(names)) {
+      act(() => selectBrand(brand));
+      for (const [artboard, phrase] of Object.entries(naming)) {
+        const entry = all.find((s) => s.artboard === artboard)!;
+        const { container, unmount } = renderWithRouter(<GalleryModeContext.Provider value={true}>{entry.render('success')}</GalleryModeContext.Provider>);
+        if (!(container.textContent ?? '').includes(phrase(name))) wrong.push(`${brand} ${artboard}: no "${phrase(name)}"`);
+        unmount();
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+
   it('a brand with no loop data says so, never showing another brand', () => {
     act(() => selectBrand('filmfun'));
     renderWithRouter(screens.find((s) => s.artboard === 'Today')!.render('success'));

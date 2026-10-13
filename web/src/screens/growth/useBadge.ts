@@ -1,5 +1,7 @@
 import type { ApprovedPost, BadgeEmbedData, BadgeStyle } from './types';
 import { growthSession } from './session';
+import { usePublicSession } from './linkedBrand';
+import { useGrowthParam } from './paths';
 
 /** Escapes text for an HTML attribute value, so a brand name with a quote or angle bracket cannot break the snippet. */
 function attr(text: string): string {
@@ -37,9 +39,15 @@ export function useBadgeEmbed(data: BadgeEmbedData): BadgeEmbedFlow {
   };
 }
 
-/** The verified post a visitor arrived at (from a badge): the post picked on Badge-Embed, else the default. */
+/**
+ * The verified post a visitor arrived at: the one the badge link names (`?post=`; undefined when no such post is
+ * registered), else the post picked on Badge-Embed, else the default. The style is the linked brand's pick
+ * (linkedBrand.ts), the outline badge on a standalone visit.
+ */
 export function useVisitedPost(posts: ApprovedPost[], defaultId: string): { post: ApprovedPost | undefined; style: BadgeStyle } {
-  const [session] = growthSession.use();
-  const post = posts.find((p) => p.id === session.badge.postId) ?? posts.find((p) => p.id === defaultId);
+  const [session] = usePublicSession().use();
+  const linked = useGrowthParam('post');
+  const byId = (id: string | null) => posts.find((p) => p.id === id);
+  const post = linked ? byId(linked) : (byId(session.badge.postId) ?? byId(defaultId));
   return { post, style: session.badge.style };
 }

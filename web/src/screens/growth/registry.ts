@@ -27,6 +27,9 @@ import { Quests } from './Quests';
 import { ActiveBrandLoop } from '../loop/ActiveBrandLoop';
 import { resolveState } from '../resolveState';
 import type { BrandVariants, GrowBrandData } from './brandData';
+import type { LinkedBrand } from './linkedBrand';
+import { LinkedBrandScreen } from './components/LinkedBrandScreen';
+import { badgeLandingFor, eventRatingFor, inviteAcceptFor, referralLandingFor, tipSheetFor } from './linkedTargets';
 import { eventRating, eventRatingEmpty, eventsBoard, eventsBoardEmpty } from './board.fixtures';
 import type { RouteTag } from '../../config/routes';
 import type { ScreenProps } from './types';
@@ -91,23 +94,46 @@ function brandEntry<D>(
   };
 }
 
+/**
+ * A public page a brand screen links to (Invite-Accept, Referral-Landing, Verify-Badge-Landing, Tip-Sheet, Event-Rating):
+ * opened with `?brand=` it is that brand's page (linkedTargets.ts), else a standalone visit with its fixture data
+ * (Codex review on PR 111).
+ */
+function publicEntry<D>(
+  artboard: ScreenEntry['artboard'],
+  title: string,
+  screen: FunctionComponent<ScreenProps<D>>,
+  standalone: BrandVariants<D>,
+  linked: (b: LinkedBrand) => BrandVariants<D>,
+  tag: RouteTag = 'COMING SOON',
+): ScreenEntry {
+  return {
+    artboard,
+    page: artboardPages[artboard],
+    title,
+    tag,
+    states: standalone.empty === undefined ? noEmpty : screenStates,
+    render: (state) => createElement(LinkedBrandScreen<D>, { screen, state, tag, standalone, linked }),
+  };
+}
+
 export const screens: ScreenEntry[] = [
   entry('Platforms', 'Platforms: every place a brand can post, by kind', Platforms, platformsCatalog),
   entry('Platform-Detail', 'Platform: plans, posting rules, connect', PlatformDetail, platformDetail),
   brandEntry('Referral', 'Refer a friend: link, offer and referrals', Referral, (g) => g.referral),
-  entry('Referral-Landing', 'Referral landing: what the invited friend sees', ReferralLanding, referralLanding),
+  publicEntry('Referral-Landing', 'Referral landing: what the invited friend sees', ReferralLanding, { success: referralLanding }, referralLandingFor),
   brandEntry('Badge-Embed', 'Check-it badge: preview, style and embed code', BadgeEmbed, (g) => g.badge),
-  entry('Verify-Badge-Landing', 'Verify from a badge, with "Make yours on JamJam"', VerifyBadgeLanding, verifyBadgeLanding, { empty: verifyBadgeLandingEmpty }),
-  entry('Tip-Sheet', 'Tip the creator of a verified post in USDC', TipSheet, tipSheet, { empty: tipSheetNoWallet }),
+  publicEntry('Verify-Badge-Landing', 'Verify from a badge, with "Make yours on JamJam"', VerifyBadgeLanding, { success: verifyBadgeLanding, empty: verifyBadgeLandingEmpty }, badgeLandingFor),
+  publicEntry('Tip-Sheet', 'Tip the creator of a verified post in USDC', TipSheet, { success: tipSheet, empty: tipSheetNoWallet }, tipSheetFor),
   brandEntry('Tips-Received', 'Tips received', TipsReceived, (g) => g.tips),
   brandEntry('Invite-Team', 'Invite a teammate or partner: seats and roles', InviteTeam, (g) => g.team),
-  entry('Invite-Accept', 'Accept an invite', InviteAccept, inviteAccept, { empty: inviteAcceptEmpty }),
+  publicEntry('Invite-Accept', 'Accept an invite', InviteAccept, { success: inviteAccept, empty: inviteAcceptEmpty }, inviteAcceptFor),
   // Loop screens (ADR-012, canvas v21): titles are the canvas board titles without the tag.
   brandEntry('Grow-Home', 'Grow › overview: every way aDNA’s reach grows', GrowHome, (g) => g.growHome),
   brandEntry('Distribute-Adapt', 'Distribute › write once, adapt per platform, schedule', DistributeAdapt, (g) => g.adapt),
   brandEntry('Events', 'Grow › events: from Luma or by hand, each with a content plan', Events, (g) => g.events),
   brandEntry('Event-Detail', 'Grow › one event: plan, people, results', EventDetail, (g) => g.eventDetail),
   entry('Events-Board', 'Public › events board: rated by people who went', EventsBoard, eventsBoard, { empty: eventsBoardEmpty }, 'ROADMAP'),
-  entry('Event-Rating', 'Public › one event’s ratings, and rate it', EventRating, eventRating, { empty: eventRatingEmpty }, 'ROADMAP'),
+  publicEntry('Event-Rating', 'Public › one event’s ratings, and rate it', EventRating, { success: eventRating, empty: eventRatingEmpty }, eventRatingFor, 'ROADMAP'),
   brandEntry('Quests', 'Grow › quests: paid community tasks in USDC', Quests, (g) => g.quests),
 ];

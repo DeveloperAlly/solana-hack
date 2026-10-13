@@ -30,5 +30,17 @@
   {
     "name": "grow-quests-brands",
     "ok": true
+  },
+  {
+    "name": "handoffs-adna",
+    "ok": true
+  },
+  {
+    "name": "handoffs-jamjam",
+    "ok": true
+  },
+  {
+    "name": "handoffs-gamerslab",
+    "ok": true
   }
 ]

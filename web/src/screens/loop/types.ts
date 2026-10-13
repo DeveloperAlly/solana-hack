@@ -51,6 +51,8 @@ export interface RegisteredRow {
   when: string;
   approver: string;
   record: ArtboardName;
+  /** The registered text, when Verify can check it by its words (a post registered this session). */
+  text?: string;
 }
 
 export interface VerifyHomeData {

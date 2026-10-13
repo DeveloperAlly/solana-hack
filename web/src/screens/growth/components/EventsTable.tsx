@@ -4,7 +4,7 @@ import { Badge, Button, Link, Text } from '../../../ui/primitives';
 import { roleLabel, type BrandEvent } from '../../../domain/event';
 import type { Post } from '../../../domain/post';
 import { ambassadorsLabel, eventDay, planReadiness, sourceLine } from '../eventPlan';
-import { useGrowthLinks } from '../paths';
+import { growthArtboards, useGrowthLinks } from '../paths';
 import type { EventsTab } from '../types';
 
 export interface EventsTableProps {
@@ -33,7 +33,7 @@ export function EventsTable({ tab, events, drafts, brainVersion, onClear }: Even
   ];
   const past: DataTableColumn<BrandEvent>[] = [
     { key: 'results', header: 'Results', cell: (e) => (e.results ? `${e.results.postsVerified} posts verified · ${e.results.leads} leads` : 'Not in yet') },
-    { key: 'rate', header: 'Rating', cell: (e) => (e.boardId ? <Link href={links.rating(e.boardId)}>Rate it</Link> : 'Not on the board') },
+    { key: 'rate', header: 'Rating', cell: (e) => (e.boardId ? <Link href={links.fromBrand(growthArtboards.eventRating, { event: e.boardId })}>Rate it</Link> : 'Not on the board') },
   ];
   return (
     <DataTable

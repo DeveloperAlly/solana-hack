@@ -17,18 +17,19 @@
 import { Stack } from '../../ui/primitives';
 import { Columns } from '../../ui/layouts/Columns';
 import { StateView } from '../../ui/composites/StateView';
-import { ScreenLink } from '../../gallery/ScreenLink';
+import { Link } from '../../ui/primitives';
 import { GrowthFrame } from './components/GrowthFrame';
 import { GrowthOfferCard } from './components/GrowthOfferCard';
 import { GrowthReferralList } from './components/GrowthReferralList';
 import { GrowthReferralShare } from './components/GrowthReferralShare';
-import { growthArtboards } from './paths';
+import { growthArtboards, useGrowthLinks } from './paths';
 import { useReferral } from './useReferral';
 import type { ReferralData, ScreenProps } from './types';
 
 export function Referral({ data, state = 'success' }: ScreenProps<ReferralData>) {
   const flow = useReferral(data);
-  const preview = <ScreenLink artboard={growthArtboards.referralLanding}>See what your friend sees</ScreenLink>;
+  const links = useGrowthLinks();
+  const preview = <Link href={links.fromBrand(growthArtboards.referralLanding)}>See what your friend sees</Link>;
   return (
     <GrowthFrame
       artboard="Referral"

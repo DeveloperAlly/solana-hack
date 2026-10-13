@@ -224,6 +224,8 @@ export interface DraftCheck {
 export interface DraftContent {
   title: string;
   context: string;
+  /** The context line opens with the active brand's name (canvas: "aDNA · first post…"), never a fixed one. */
+  namesBrand?: boolean;
   /** Channel name; X has a hard limit counted as X weights it (lib/xLength). */
   channel: string;
   versions: DraftVersion[];

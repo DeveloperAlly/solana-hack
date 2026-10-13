@@ -25,7 +25,7 @@ export interface GrowBrandData {
   growHome: BrandVariants<GrowHomeData>;
   adapt?: BrandVariants<AdaptData>;
   events: BrandVariants<EventsData>;
-  eventDetail?: BrandVariants<EventDetailData>;
+  eventDetail: BrandVariants<EventDetailData>;
   quests: BrandVariants<QuestsData>;
   referral: BrandVariants<ReferralData>;
   badge: BrandVariants<BadgeEmbedData>;
@@ -46,7 +46,7 @@ const adnaFixtures: GrowBrandData = {
 };
 
 /** Applies `f` to a screen's every variant, keeping identity where success and empty are the same object (first run). */
-function mapVariants<D>(v: BrandVariants<D>, f: (d: D) => D): BrandVariants<D> {
+export function mapVariants<D>(v: BrandVariants<D>, f: (d: D) => D): BrandVariants<D> {
   const success = f(v.success);
   return { success, empty: v.empty === v.success ? success : v.empty && f(v.empty), error: v.error && f(v.error) };
 }
@@ -62,7 +62,7 @@ export function withBrand(g: GrowBrandData, brand: string): GrowBrandData {
     ...g,
     growHome: mapVariants(g.growHome, (d) => ({ ...d, brand, events: { ...d.events, brand } })),
     events,
-    eventDetail: g.eventDetail && mapVariants(g.eventDetail, (d) => ({ ...d, brand })),
+    eventDetail: mapVariants(g.eventDetail, (d) => ({ ...d, brand })),
     team: mapVariants(g.team, (d) => ({ ...d, brand })),
     tips: mapVariants(g.tips, (d) => ({ ...d, creator: brand })),
   };
@@ -78,6 +78,8 @@ export function firstRunGrow(name: string): GrowBrandData {
   return withBrand({
     growHome: only(growHomeFirstRun),
     events: only(eventsEmpty),
+    // An empty base, so an event added this session (Events) opens on Event-Detail by its id.
+    eventDetail: only({ ...eventsEmpty, defaultId: '' }),
     quests: only({
       ...questsEmpty,
       suggestions: questsEmpty.suggestions.map((s) => ({ ...s, task: `[A ${s.format} task suggested from the ${name} kit]` })),
