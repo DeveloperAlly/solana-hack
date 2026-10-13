@@ -2,7 +2,7 @@
 type: spec
 status: proposed
 created: 2026-10-06
-updated: 2026-10-12
+updated: 2026-10-13
 last_edited_by: agent
 tags: [ui, components, design-tokens, inventory, dry]
 ---
@@ -153,9 +153,9 @@ Generic combinations; still no JamJam data types.
 | ID | Component | Variants and props | States | Used by |
 |---|---|---|---|---|
 | L1 | AppShell | TopNav + optional SubNav + main + MobileTabBar; skip link; brand switcher slot | desktop, mobile (tab bar), loading (skeleton body) | all hub screens |
-| L2 | TopNav | items from route config (M1); tag badges | active item, collapsed (menu button on narrow screens) | AppShell |
-| L3 | SubNav | children of the active section | active item, hidden (section has no children) | AppShell |
-| L4 | MobileTabBar | items from route config | active item | AppShell on mobile, ambassador mobile |
+| L2 | StageNav (was TopNav) | the one main nav from M9 `config/nav.ts` (ADR-012 decision 2): Today and the six loop steps, a divider, then Inbox and Settings; `current`, `label` (`layouts/StageNav.tsx`) | active stage | AppShell `stage` mode, every loop screen |
+| L3 | StageTabs (was SubNav) | a stage's tabs exactly as the canvas subnav draws them, from M9, on C4 TabNav; one row that scrolls sideways (`layouts/StageTabs.tsx`) | active tab, hidden (Today has no tabs) | AppShell `stage` mode |
+| L4 | MobileTabBar | `label`, `items`, `current` (or matched from the URL); at most five tabs (`layouts/MobileTabBar.tsx`) | active item | AppShell `stage` + `width="phone"` (M9 mobile tabs: Today, Create, Verify, Grow, More), AppFrame `placement: 'tabs'` (ambassador mobile) |
 | L5 | PageHeader | back link, title, meta line, status badges, actions | actions wrap on narrow screens | all screens |
 | L6 | WizardLayout | Stepper (C8) with time estimate ("about 15 minutes in all"), body, footer (Back / Skip for now / Continue), "Save and finish later" in the header, Unverified flag slot (D36) | first step, middle, last step, resumed (opens at last saved step), saving, step error | sign in and domain, Brand Builder intake and gates, campaign v2 |
 | L7 | SplitPane | rail + list + reader | three panes (desktop), list only and reader only (mobile), empty reader | inbox |
@@ -298,19 +298,60 @@ Kept page-specific (not duplicates of each other or of the foundation): SoonHubF
 
 Layer notes: C30, C31 and L11 are new IDs (the next free in their layers). P24 and P25 keep their P IDs but live in `composites/` because they share one drawn bar (`composites/BarTrack.tsx`, internal, hidden from assistive tech) with C22. D51 stays in `domain/`: it is a JamJam data type and composes D57, and a composite may not import a domain pattern (§1, "Layers depend downwards only").
 
+### 6.10 The loop ([ADR-012](https://github.com/DeveloperAlly/solana-hack/pull/86), [issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90))
+Built for the loop screens on the domain types in M10 (`web/src/domain/`). Each reads its data through one typed contract, so layers 2 and 3 of ADR-013 ([PR #88](https://github.com/DeveloperAlly/solana-hack/pull/88)) replace fixtures without changing the component.
+
+| ID | Component (path under `web/src/ui/`) | Variants and props | States | Used by |
+|---|---|---|---|---|
+| D70 | PostLifecycle (`domain/PostLifecycle.tsx`) | `post`, `brainVersion`, per-step `actions`, `variant` full / compact, `label`; a C9 StatusTimeline preset. Steps: drafted, approved, published, verified, amplified, results | per step done / current / failed / blocked (approval stale) / to do | Post-Detail, every post card |
+| D71 | WhyThis (`domain/WhyThis.tsx`) | `provenance` (the draft's one provenance row: kit and Brain versions, evidence ids, rule ids, voice, prompt, model), `brain` (to resolve the ids), `level`, `footer`; shows nothing outside the row | fact or rule no longer in the Brain (named, not dropped) | Post-Detail, Draft-Review |
+| D72 | DecisionQueue (`domain/DecisionQueue.tsx`) | `title`, `count`, `intro`, kind `filter`, `empty`, `footer`, anchor `id` | items, empty (all clear) | Today, M-Today |
+| D73 | QueueItem (`domain/QueueItem.tsx`) | `item` (the queue union: draft, reply, ambassador post, event content, learned rule, campaign decision), `gate` `{ blocking, label }`, `openHref`, `whyHref`, `onAct`, `outcome`, `status`, `surface` row / card; on D1 ApprovalItem | pending, blocked (action disabled, badge says why), stale approval, done | Today, M-Today |
+| D74 | RuleProposal (`domain/RuleProposal.tsx`) | `proposal` (cites outcomes, signal source, evaluator, small-sample flag, Brain version), `gate`, `brainVersion`, `nextVersion`, `citesHref`, `onApprove`, `onReject`, `onTrial`, `onRecheck`, `emphasis` | pending, trial on half of drafts, out of date (Approve blocked, Check it again) | Learn-Rules |
+
+C9 StatusTimeline gains a `blocked` step state (listed in C9 above) for an approval gone stale.
+
+### 6.11 Grow, Distribute and Events on the loop ([ADR-012](https://github.com/DeveloperAlly/solana-hack/pull/86), [issue #90](https://github.com/DeveloperAlly/solana-hack/issues/90))
+Built for Grow-Home, Distribute-Adapt, Events, Event-Detail, Events-Board, Event-Rating and Quests (canvas v21 to v26; `web/src/screens/growth/`). Every one has a CSS module on semantic tokens, a test (render, behaviour, axe at 0) and a workbench example. Every check goes through one `{ blocking, label }` Gate (M10 `approval.ts`).
+
+| ID | Component (path under `web/src/ui/`) | Variants and props | States | Used by |
+|---|---|---|---|---|
+| C36 | GatedButton (`composites/GatedButton.tsx`) | `gate { blocking, label }`, `onClick` or `href`, `variant`, `showPassLabel`; the reason is the button's accessible description | open, blocked (disabled; a blocked link renders as a disabled button) | Distribute-Adapt (Schedule, Approve), Event-Rating (Register), Events (Accept), Quests (Open quest) |
+| D53 | QuestCard (`domain/QuestCard.tsx`) | `task`, `state`, `waiting`, `terms`, `actions`, `selected` | coming soon, open, submitted (n to review), paid (budget reached) | Quests |
+| D90 | GrowAreaCard (`domain/GrowAreaCard.tsx`) | `title`, `body`, `links [{ label, href }]`, `firstAction { text, link }`, `level` | default, first run (teaches its first action) | Grow-Home, Events, Event-Detail, Events-Board |
+| D91 | DistributePlatformPicker (`domain/DistributePlatformPicker.tsx`) | `legend`, `options` (from M2), `value`, `onChange`, `footer` | some chosen, none chosen | Distribute-Adapt |
+| D92 | DistributeVersionCard (`domain/DistributeVersionCard.tsx`) | `platform`, `text`, `length { used, max }`, `check` (Gate), `approval { label, tone, approved }`, `note`, `onSave`, `onApprove`, children (When) | needs approval, approved, stale, blocked (badge and disabled Approve from one Gate), editing | Distribute-Adapt |
+| D93 | DistributeSourcePost (`domain/DistributeSourcePost.tsx`) | `label`, `text`, `onSave`, `approval`, `onApprove`, `staleNote`, `link` | reading, editing, stale versions, original needs approval | Distribute-Adapt |
+| D94 | EventAddForm (`domain/EventAddForm.tsx`) | `roles`, `onSubmit(values)`, `onCancel`; name, place, date, time, role (never pre-selected) | empty, errors (live as fixed) | Events |
+| D95 | EventInviteRow (`domain/EventInviteRow.tsx`) | `name`, `detail`, `roles`, `onAccept(role)`, `onSkip`; on C31 | waiting, choosing a role (Accept gated) | Events |
+| D96 | EventSourceCard (`domain/EventSourceCard.tsx`) | `title`, `status`, `summary`, `facts` (M11, each with its source), `requirement`, `unverified`, `actions` | connected, not connected | Events |
+| D97 | EventPlanPhase (`domain/EventPlanPhase.tsx`) | `title`, `timing`, `items [{ id, status, brief, action (link or button) }]` | published, needs you, blocked, not drafted, after the event | Event-Detail |
+| D98 | EventPeopleCard (`domain/EventPeopleCard.tsx`) | `title`, `people`, `empty`, `link` | people, nobody yet | Event-Detail |
+| D99 | EventResultsCard (`domain/EventResultsCard.tsx`) | `results` (null before the event), `pending`, `link`, `title`; a number not shared reads "Not available" | pending, results | Event-Detail |
+| D100 | EventRatingSummary (`domain/EventRatingSummary.tsx`) | `summary` (N registered, removed, means), `title`; on C22 | rated, no ratings yet | Event-Rating |
+| D101 | EventRatingQuotes (`domain/EventRatingQuotes.tsx`) | `quotes [{ line, meta, registered, reply, earlier, removed }]`, `title`, `empty` | quotes, edited (earlier versions kept), removed (tombstone with date and reason), none | Event-Rating |
+| D102 | EventProofStep (`domain/EventProofStep.tsx`) | `proof` (M12 state machine), `onLuma`, `onEmail`, `onReset` | not proven, proving, proven, failed | Event-Rating |
+| D103 | EventRatingFields (`domain/EventRatingFields.tsx`) | `locked`, `scores` (none pre-selected), `onScore`, `line`, `onLine`, `gate`, `onRegister`, `registerLabel` | locked, filling, ready | Event-Rating |
+| D104 | EventBoardFilters (`domain/EventBoardFilters.tsx`) | `query`, `sort`, `kind` with options and setters, `count` (announced) | all, filtered | Events-Board |
+| D105 | QuestForm (`domain/QuestForm.tsx`) | `initial` (empty or a suggestion from the kit), `onOpen`, `onCancel`; format has no default; budget cap = reward × slots | empty, filling, ready (Open gated) | Quests |
+
 ## 7. Shared config and data modules
 Not visual, but they are what keeps the UI DRY.
 
 | ID | Module | Drives |
 |---|---|---|
 | M1 | Route and nav config: path, label, section, tag (H / E / CS / R), screen | L2, L3, L4, page tag badges, "coming soon" pages |
-| M2 | Channel registry: id, name, icon, character limits, formatting rules (Beautify), capabilities (read, post, DM, post on behalf), verification method | D5, D6, D9, D10, D30, D41 |
+| M2 | Channel registry (`web/src/config/platforms.ts`): id, name, kind, status, planned capabilities, connect method, sourced posting rules, an optional sourced `limit` (X 280 weighted via `lib/xLength.ts`, Threads 500) with `postLength` | D5, D6, D9, D10, D30, D41, D91, D92 |
 | M3 | Voice model: dimensions (with end labels), templates and preset values, channel caps, claims strictness levels ([research 06](./research/06_voice_templates.md)) | D20, D21, D22, D23 |
 | M4 | Brand Kit sections: 17 sections, required flag, gate, exercise, inference sources ([architecture §4](./brand_builder_architecture.md)) | D13, D15, D16, D17, L8 |
 | M5 | Check registry: kinds, thresholds, fix actions | D3, D4, D46 |
 | M6 | Domain types: Brand, Person, Source, Evidence, KitVersion, KitSection, Claim, Voice, Audience, Decision, Registration ([architecture §3](./brand_builder_architecture.md)), plus Draft, Campaign, Payout, Thread, Message, Lead, Persona | all D components |
 | M7 | Data adapters: one interface, `mock` (fixtures for JamJam, aDNA, film.fun, GamersLab) and `live` | all screens |
 | M8 | Formatters: USDC amounts, relative times, receipt URLs, percentages | everywhere |
+| M9 | One navigation, `web/src/config/nav.ts` (ADR-012 decision 2): stages, each stage's tabs, mobile tabs, `homeForPage` (every screen's home from its canvas page) and the shells by role | L1, L2, L3, L4; the one-home, one-shell test |
+| M11 | Event-source registry, `web/src/config/eventSources.ts`, shaped like the platform registry: per source its status, plans, connect method, requirement (Luma: Luma Plus, one API key per calendar) and sourced facts; Eventbrite and similar slot in as one entry each | D96, Events |
+| M12 | Grow domain types, `web/src/domain/`: `event.ts` (EventSource union luma / manual, roles, one plan-template table keyed by role, plan items that reference ordinary drafts, event timing, board kinds), `rating.ts` (append-only ratings: versions with registration hash, removal tombstone; the attendance-proof state machine; the Register gate), `quest.ts` (Quest, states, budget cap, the Open gate) | D94 to D105, D53, Events, Event-Detail, Events-Board, Event-Rating, Quests |
+| M10 | Loop domain types, `web/src/domain/`: `post.ts` (Post, PostLifecycle, DraftProvenance), `brain.ts` (Brain, rules, facts, history; ADR-013 X18), `proposal.ts` (Proposal; ADR-013 N5), `queue.ts` (the approval-queue union and its gates), `approval.ts` (Approval with fingerprint, Gate) | D70 to D74, Today, Post-Detail, Brain, Learn-Rules |
 
 ## 8. Screen-to-component map
 Every screen below is a composition of inventory items only. Tags follow the canvas: H = HACKATHON, H(thin) = HACKATHON (THIN), E = EXPERIMENTAL, CS = COMING SOON, R = ROADMAP. **Slice** is the [mission](../../how/missions/mission_ui_build.md) slice that builds the screen; "batch n" names the canvas rework batch that draws the screen; the slice waits for it.
@@ -354,8 +395,30 @@ Every screen below is a composition of inventory items only. Tags follow the can
 | Amb-3-Generate, M-3 | H | S7 | L10 | D5, D3, D4, C18 (mobile flags) |
 | Amb-4-Publish, M-4 | H | S7 | L10 | D30, D52, D10 |
 | Amb-5a/b/c/d, M-5 | H | S7 | L10 | D29, C2, C11, D32 |
-| Hub-Home | H | S7 | L1 | L5, C12 ×4, D1 (compact) / D40, D24, D25, D18, D47 |
-| Quests | CS | S8 (batch 4) | L1 | D53, C3 |
+| Hub-Home (REPLACED by Today, ADR-012; kept as archive) | H | S7 | L1 | L5, C12 ×4, D1 (compact) / D40, D24, D25, D18, D47 |
+| Today | CS | loop | L1 (`stage` today) | L5, C9 (loop strip), D72, D73 (on D1), C1 ×4 (aside), C35 |
+| M-Today | CS | loop | L1 (`stage` today, `width="phone"`, L4) | D72, D73 (card surface), C35 |
+| Post-Detail | CS | loop | L1 (`stage` create, tab post) | L5, P13 (post picker), D70, D71, C10 (where it went), C31 (amplified by), L9, C35 |
+| Brain | CS | loop | L1 (`stage` brand, tab brain) | L5, C12 ×4, C1, C10 (learned rules with approve and retire), L9, C35 |
+| Learn-Rules | CS | loop | L1 (`stage` learn, tab rules) | L5, D74, C31 (decided), C3, C35 |
+| Verify-Home | CS | loop | L1 (`stage` verify, tab proof) | L5, C12 ×4, P13 (filter), C10, C31 (no-match checks), C35 |
+| Grow-Home | CS | loop | L1 (`stage` grow, tab overview) | L5, C12 ×4 (events and referrals tiles counted from their screens), D90 ×6, C35 |
+| Distribute-Adapt | CS | loop | L1 (`stage` distribute, tab adapt) | L5, C36 (Schedule), D93, D91, D92 per platform, P13 (When), C35 |
+| Events | CS | loop | L1 (`stage` grow, tab events) | L5, D94, D95, C5 (Upcoming / Past), P13 (role), C10, D96, D90, C35 |
+| Event-Detail | CS | loop | L1 (`stage` grow, tab events) | L5, C1 + P13 (role swaps the plan), C12 ×3, D97 per phase, L9, D98, D99, D90, C35 |
+| Events-Board | R | loop | L10 (home Grow) | L5, D104, C10, D90 ×3, C35 |
+| Event-Rating | R | loop | L10 (home Grow) | L5, L9, D100, D101, D102, D103, C1, C35 |
+| Quests | CS | loop | L1 (`stage` grow, tab ambassadors) | L5, D105, C12 ×3, D53, D73 (submissions in the one queue), C3, C35 |
+| Platforms | CS | #82 | L1 | L5, D56, C5 (status filter), C31, C3, C35 |
+| Platform-Detail | CS | #82 | L1 | L5, D56, C1, L9, C32, C35 |
+| Referral | CS | #82 | L1 | L5, D56, C1, L9, C13, C30, C31, C5, C3, C35 |
+| Referral-Landing | CS | #82 | L10 | L5, D56, C1, C30, C29, C35 |
+| Badge-Embed | CS | #82 | L1 | L5, D56, C1, L9, D62, D63, C35 |
+| Verify-Badge-Landing | CS | #82 | L10 | L5, D56, C1, L9, D62, C35 |
+| Tip-Sheet | CS | #82 | L10 | L5, D56, C18, C29 |
+| Tips-Received | CS | #82 | L1 | L5, D56, C12, C10, D32, C3, C35 |
+| Invite-Team | CS | #82 | L1 | L5, D56, C1, L9, C31, P24, C35 |
+| Invite-Accept | CS | #82 | L10 | L5, D56, C1, C11, C29, C35 |
 | Settings: AI model; plan and seats | H(thin) | S8 (batch 4) | L1 | D54, D55 |
 | Leads | E | S8 | L1 | D44, C10, D1 (outreach) |
 | Influencer-Setup / Queue | E | S8 | L1 | D45, D46, D1 (influencer post), D10 |

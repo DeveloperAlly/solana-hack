@@ -12,13 +12,23 @@ on:
       site:
         description: Site to read
         default: https://adna.network
+      source_text:
+        description: Optional real pasted source text; uses the existing paste-source path
+        default: ''
+      resume_brand:
+        description: Recover an existing proof-runner test brand's drafted post; refuses real-user accounts
+        default: ''
+      record_demo:
+        description: Record honest playback of live results and labeled product previews
+        type: boolean
+        default: false
 permissions:
   contents: read
   issues: write
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: web
@@ -27,14 +37,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install recording dependencies
+        if: inputs.record_demo
+        run: npm ci
+      - name: Install Chromium for recording
+        if: inputs.record_demo
+        run: |
+          PLAYWRIGHT_VERSION=$(node -p "require('playwright-core/package.json').version")
+          npx --yes "playwright@$PLAYWRIGHT_VERSION" install --with-deps chromium
       - name: Run the journey against jamjam.tech
         env:
           BASE_URL: https://jamjam.tech
           SITE: ${{ inputs.site }}
+          PASTED_TEXT: ${{ inputs.source_text }}
+          RESUME_BRAND: ${{ inputs.resume_brand }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           PROOF_FILE: proof/journey-e2e.txt
+          RECORD_DEMO: ${{ inputs.record_demo && 'proof/demo' || '' }}
         run: mkdir -p proof && node scripts/journey-e2e.mjs
       - name: Post the proof to issue 4
         if: always()
@@ -44,3 +65,11 @@ jobs:
           test -f proof/journey-e2e.txt || exit 0
           { echo "Journey J0 to J7, end to end against the live deployment at jamjam.tech (whatever revision is deployed there; this run did not check it). Script from commit ${{ github.sha }}, run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}:"; echo; echo '```'; cat proof/journey-e2e.txt; echo '```'; } > "$RUNNER_TEMP/comment.md"
           gh issue comment 4 --repo "${{ github.repository }}" --body-file "$RUNNER_TEMP/comment.md"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: journey-proof-and-demo
+          path: |
+            web/proof/journey-e2e.txt
+            web/proof/demo/
+          if-no-files-found: ignore

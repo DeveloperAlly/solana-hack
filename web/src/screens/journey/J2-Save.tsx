@@ -44,7 +44,7 @@ export function J2Save({ data, state = 'success' }: SaveProps) {
           </Stack>
         }
       >
-        <SaveSignIn sending={state === 'loading'} />
+        <SaveSignIn sending={state === 'loading'} signedInEmail={data.signedInEmail} />
       </Columns>
     </JourneyStepFrame>
   );

@@ -1,0 +1,42 @@
+{
+  "exact": {
+    "official": true,
+    "checked": true,
+    "partial": false,
+    "hash": "sha256:31437df1afa60b6d34a1a11d18192f7139550d754b83b0d46c576764a022d83b",
+    "brand": "alisonhaire.com",
+    "kitVersion": 1,
+    "approvedAt": "2026-10-13T01:59:13.367+00:00",
+    "registeredAt": "2026-10-13T01:59:16.293+00:00",
+    "publishedUrl": null,
+    "explorer": "https://explorer.solana.com/tx/5o6upmmSqhRwBg4BdVGYjafD4vyHrmFQNYC6duTwm271xj1UMjGEXNVN2o9fXQQZZ6sYJA2knTC3F4z6rgY8v9ej?cluster=devnet",
+    "domainVerified": false,
+    "matches": [
+      {
+        "brand": "alisonhaire.com",
+        "kitVersion": 1,
+        "approvedAt": "2026-10-13T01:59:13.367+00:00",
+        "registeredAt": "2026-10-13T01:59:16.293+00:00",
+        "publishedUrl": null,
+        "explorer": "https://explorer.solana.com/tx/5o6upmmSqhRwBg4BdVGYjafD4vyHrmFQNYC6duTwm271xj1UMjGEXNVN2o9fXQQZZ6sYJA2knTC3F4z6rgY8v9ej?cluster=devnet",
+        "domainVerified": false
+      }
+    ],
+    "truncated": false
+  },
+  "exactObservedAt": "not separately captured in response artifact",
+  "edited": {
+    "observedAt": "2026-10-13T02:01:25.260Z",
+    "status": 200,
+    "body": {
+      "official": false,
+      "checked": true,
+      "hash": "sha256:f2a084530ff9b1b38a0eee1a920b3b998c69ca38be866b175b99b7d016389445",
+      "matches": []
+    },
+    "change": "insights → updates",
+    "signedOut": true
+  },
+  "signedOut": true,
+  "scope": "actual native public exact/one-word-edited verification; no domain ownership claimed"
+}

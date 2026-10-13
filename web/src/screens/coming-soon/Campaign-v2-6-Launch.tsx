@@ -48,7 +48,7 @@ export function CampaignLaunch({ data }: { data: CampaignLaunchData; state?: Scr
     { label: 'Spending cap', value: cap },
   ];
   return (
-    <SoonPage header={{ title: 'New campaign: review and launch', definedIn: 'component inventory, Campaign v2 step 6 (C11, D25, C17)' }}>
+    <SoonPage artboard="Campaign-v2-6-Launch" header={{ title: 'New campaign: review and launch', definedIn: 'component inventory, Campaign v2 step 6 (C11, D25, C17)' }}>
       <CampaignStepFrame
         flow={flow}
         title="Review and launch"

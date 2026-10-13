@@ -33,7 +33,7 @@ const lastText = { sent: 'Reply sent.', snoozed: 'Snoozed.', done: 'Marked done.
 export function InboxAll({ data }: { data: InboxData }) {
   const inbox = useInbox(data);
   return (
-    <HubPage section="inbox">
+    <HubPage artboard="Inbox-All">
       <PageHeader badges={<ComingSoonFlag tag="STRETCH" />} title="Inbox" />
       <StatusNote onUndo={inbox.last ? inbox.undoLast : undefined}>{inbox.last && lastText[inbox.last.outcome]}</StatusNote>
       <Columns

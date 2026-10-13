@@ -37,7 +37,7 @@ export function Analytics({ data, state = 'success' }: { data: AnalyticsData; st
   const numbers = data.byRange[range];
   const connect = <AnalyticsConnect connect={data.connect} state={state} />;
   return (
-    <HubPage section="analytics">
+    <HubPage artboard="Analytics">
       <PageHeader
         badges={<><ComingSoonFlag tag="ROADMAP" />{state === 'success' && <SampleFlag />}</>}
         title="What's working"

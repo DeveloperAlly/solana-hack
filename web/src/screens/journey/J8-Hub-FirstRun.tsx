@@ -16,15 +16,15 @@
  * were registered on this visit (useJourneyFlow, derive.ts hubView); the fixture is the default.
  * States: success only (the board draws one state; the hub is never empty by design).
  */
-import { Button, Container, Heading, Stack, Text } from '../../ui/primitives';
+import { Button, Heading, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { SampleFlag } from '../../ui/composites/SampleFlag';
-import { AppShell } from '../../ui/shells/AppShell';
+import { LoopFrame } from '../../ui/shells/LoopFrame';
 import { ComingSoonFlag } from '../../ui/domain/ComingSoonFlag';
 import { JourneyChecklist } from '../../ui/domain/JourneyChecklist';
 import { StatusList } from '../../ui/composites/StatusList';
 import { Columns } from '../../ui/layouts/Columns';
-import { useJourneyHref, useNavHref } from './paths';
+import { useJourneyHref } from './paths';
 import { NEW_DRAFT_ID, useOpenDraft } from '../../flows/drafts/openDraft';
 import { hubView, statusRows } from './derive';
 import { useJourneyFlow } from './useJourneyFlow';
@@ -33,13 +33,10 @@ import type { HubFirstRunData } from './types';
 export function J8HubFirstRun({ data }: { data: HubFirstRunData }) {
   const to = useJourneyHref();
   const openDraft = useOpenDraft();
-  const navHref = useNavHref();
   const { selections } = useJourneyFlow();
   const view = hubView(data, selections);
   return (
-    <AppShell navHref={navHref} activePath={navHref('/home')}>
-      <Container width="app">
-        <Stack gap={6}>
+    <LoopFrame artboard="J8-Hub-FirstRun" brandName={data.brandName}>
           <Stack direction="row" gap={4} align="end" justify="between" wrap>
             <Stack gap={1}>
               <Heading level={1} size="2xl">Welcome, {data.brandName}</Heading>
@@ -66,8 +63,6 @@ export function J8HubFirstRun({ data }: { data: HubFirstRunData }) {
           >
             <JourneyChecklist title="Get set up" items={view.checklist.map(({ target, ...item }) => ({ ...item, href: target && to(target) }))} />
           </Columns>
-        </Stack>
-      </Container>
-    </AppShell>
+    </LoopFrame>
   );
 }

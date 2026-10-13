@@ -1,0 +1,173 @@
+{
+  "observedAt": "2026-10-13T01:57:57.834Z",
+  "httpStatus": 200,
+  "postId": "9a07c251-fa57-8c4a-bfc0-5e6757381565",
+  "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+  "revision": 4,
+  "body": "I think out loud on X and post the longer-form on LinkedIn.\nI work the whole stack, from the protocol layer to the story.\nI turn frontier AI research into product that ships, sells & gets used.\nFollow me for more insights.",
+  "status": "drafted",
+  "kitVersion": 1,
+  "currentClaimMap": {
+    "rev": 4,
+    "items": [
+      {
+        "kind": "factual",
+        "text": "I think out loud on X and post the longer-form on LinkedIn.",
+        "facts": [
+          {
+            "id": "7f35997b-e5b6-8987-aad8-94dcad2b7677",
+            "claim": "I think out loud on X and post the longer-form on LinkedIn.",
+            "quote": "I think out loud on X and post the longer-form on LinkedIn."
+          }
+        ],
+        "status": "supported"
+      },
+      {
+        "kind": "factual",
+        "text": "I work the whole stack, from the protocol layer to the story.",
+        "facts": [
+          {
+            "id": "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+            "claim": "I work the whole stack, from the protocol layer to the story.",
+            "quote": "I work the whole stack, from the protocol layer to the story."
+          }
+        ],
+        "status": "supported"
+      },
+      {
+        "kind": "factual",
+        "text": "I turn frontier AI research into product that ships, sells & gets used.",
+        "facts": [
+          {
+            "id": "6f59aa0f-9cea-8b79-b3db-b742a75b94b7",
+            "claim": "I turn frontier AI research into product that ships, sells & gets used.",
+            "quote": "I turn frontier AI research into product that ships, sells & gets used."
+          }
+        ],
+        "status": "supported"
+      },
+      {
+        "kind": "opinion",
+        "text": "Follow me for more insights.",
+        "facts": [],
+        "status": "opinion"
+      }
+    ],
+    "partial": false,
+    "claimsGate": "5",
+    "unsupported": 0
+  },
+  "currentVerdict": {
+    "at": "2026-10-13T01:53:15.516Z",
+    "judge": "dots-studio/dots-3-note-preview:free",
+    "passed": true,
+    "prompt": {
+      "key": "create.review",
+      "version": 1
+    },
+    "source": "edit",
+    "reasons": [
+      "Formality reads as 5/5; the voice asks for 2/5 (tracked)",
+      "humour reads below its target (tracked)"
+    ],
+    "bodyHash": "sha256:31437df1afa60b6d34a1a11d18192f7139550d754b83b0d46c576764a022d83b",
+    "findings": {
+      "slop": [],
+      "claims": [],
+      "silent": [],
+      "unsupported": []
+    },
+    "generator": "person",
+    "evaluators": {
+      "slop": {
+        "pass": true,
+        "model": null,
+        "score": null,
+        "status": "gate",
+        "reasons": [],
+        "version": 1
+      },
+      "tone": {
+        "pass": false,
+        "model": "dots-studio/dots-3-note-preview:free",
+        "score": 67,
+        "status": "tracked",
+        "reasons": [
+          "humour reads below its target"
+        ],
+        "version": 1
+      },
+      "voice": {
+        "pass": false,
+        "model": null,
+        "score": 80,
+        "status": "tracked",
+        "reasons": [
+          "Formality reads as 5/5; the voice asks for 2/5"
+        ],
+        "version": 1
+      },
+      "claims": {
+        "pass": true,
+        "model": null,
+        "score": null,
+        "status": "gate",
+        "reasons": [],
+        "version": 1
+      },
+      "length": {
+        "pass": true,
+        "model": null,
+        "score": null,
+        "status": "gate",
+        "reasons": [],
+        "version": 1
+      },
+      "policy": {
+        "pass": true,
+        "model": "dots-studio/dots-3-note-preview:free",
+        "score": null,
+        "status": "tracked",
+        "reasons": [],
+        "version": 1
+      },
+      "review": {
+        "pass": true,
+        "model": "dots-studio/dots-3-note-preview:free",
+        "score": null,
+        "status": "gate",
+        "reasons": [],
+        "version": 1
+      },
+      "platform": {
+        "pass": true,
+        "model": null,
+        "score": 100,
+        "status": "gate",
+        "reasons": [],
+        "version": 1
+      },
+      "review_claims": {
+        "pass": true,
+        "model": "dots-studio/dots-3-note-preview:free",
+        "score": null,
+        "status": "gate",
+        "reasons": [],
+        "version": 2
+      }
+    },
+    "failedGates": []
+  },
+  "bodyRestoredExactlyAfterNativeUndo": true,
+  "approvalAbsent": true,
+  "voiceProxy": {
+    "fit": 80,
+    "uncalibrated": true,
+    "formalityMismatchRetained": true
+  },
+  "clarifyOutcome": "422 longer output; no saved polish",
+  "reviewGrade": 96,
+  "scope": "current revision4 source/content review before one explicit approval/registration",
+  "normalizedBodyHash": "sha256:31437df1afa60b6d34a1a11d18192f7139550d754b83b0d46c576764a022d83b",
+  "normalizedHashMatchesOriginalReviewedDraft": true
+}

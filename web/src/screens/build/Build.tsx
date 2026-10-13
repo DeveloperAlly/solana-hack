@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router';
+import { useBrand } from '../../lib/useBrand';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { PublicShell } from '../../ui/shells/PublicShell';
 import { Alert, Box, Button, Choice, Container, Field, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { api, ApiError } from '../../lib/api';
+import { operation } from '../../lib/operation';
 import { CLAIMS_GATE, DIALS, STEPS, templateDials, normaliseVoice, VOICE_TEMPLATES, type Step } from './steps';
 
 // Shapes returned by GET /api/brands/:id (web/worker/api.ts).
@@ -80,38 +82,18 @@ function Progress({ current }: { current: number }) {
 /** Build your brand (S1-S4): loads the owner's brand and walks the intake, gates and kit steps. */
 export function Build() {
   const params = useParams();
+  const [query] = useSearchParams();
+  const creating = query.get('new') === '1';
   const slug = (params['*'] ?? '').split('/')[0] || '';
   const navigate = useNavigate();
-  const [state, setState] = useState<BrandState | null>(null);
-  const [noBrand, setNoBrand] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async (id?: string) => {
-    try {
-      let brandId = id ?? state?.brand.id;
-      if (!brandId) {
-        const me = await api<{ brands: Brand[] }>('/me');
-        if (!me.brands.length) return setNoBrand(true);
-        brandId = me.brands[0].id;
-      }
-      setState(await api<BrandState>(`/brands/${brandId}`));
-      setNoBrand(false);
-    } catch (e) {
-      setError(msg(e));
-    }
-  }, [state?.brand.id]);
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { state, noBrand, error, reload: load } = useBrand();
 
   const index = STEPS.findIndex((s) => s.slug === slug);
   const go = (i: number) => navigate(`/build/${STEPS[Math.max(0, Math.min(STEPS.length - 1, i))].slug}`);
 
   let content;
   if (error && !state && !noBrand) content = <Alert tone="danger" title="Could not load your brand">{error}</Alert>;
-  else if (noBrand) {
+  else if (noBrand || creating) {
     if (slug !== 'basics') return <Navigate to="/build/basics" replace />;
     content = <BasicsStep state={null} onSaved={async (id) => { await load(id); go(1); }} />;
   } else if (!state) content = <Text tone="secondary">Loading your brand…</Text>;
@@ -221,6 +203,8 @@ function SourcesStep({ state, onChange, onNext, onBack }: { state: BrandState; o
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const ctrl = useRef<AbortController | null>(null);
+  useEffect(() => { const c = new AbortController(); ctrl.current = c; return () => c.abort(); }, [state.brand.id]);
 
   async function remove(id: string) {
     setBusy(true);
@@ -244,7 +228,8 @@ function SourcesStep({ state, onChange, onNext, onBack }: { state: BrandState; o
     setError(null);
     setResult(null);
     try {
-      const r = await api<{ facts: number; dropped: number }>(`/brands/${state.brand.id}/sources`, { body: { url } });
+      const signal = ctrl.current!.signal;
+      const r = await operation(() => api<{ facts: number; dropped: number; runId?: string }>(`/brands/${state.brand.id}/sources`, { body: { url }, signal }), signal);
       setResult(`Read it. ${r.facts} fact${r.facts === 1 ? '' : 's'} saved with quotes from the page.`);
       setUrl('');
     } catch (err) {
@@ -274,6 +259,7 @@ function SourcesStep({ state, onChange, onNext, onBack }: { state: BrandState; o
                   {s.title || s.url} · {s.status === 'read' ? `${state.evidence.filter((e) => e.source_id === s.id).length} facts` : s.status}
                   {s.error ? ` (${s.error})` : ''}
                 </Text>
+                {state.evidence.filter(e => e.source_id === s.id).map(e => <Text key={e.id} variant="small">{e.claim}{e.quote && <> — “{e.quote}”</>}</Text>)}
                 <Button variant="secondary" onClick={() => remove(s.id)} disabled={busy} aria-label={`Remove ${s.title || s.url}`}>Remove</Button>
               </Stack>
             </li>
@@ -431,6 +417,7 @@ function SectionStep({ step, state, onChange, onNext, onBack }: { step: Step; st
                     <li key={e.id}>
                       <Text variant="small">
                         {e.origin === 'owner_answer' ? 'Your answer' : 'Source'}: {e.claim}
+                        {e.quote && <> · “{e.quote}”</>}
                         {sourceOf(e.source_id) && <> (<Link href={sourceOf(e.source_id)!.url} external>{sourceOf(e.source_id)!.title || 'page'}</Link>)</>}
                       </Text>
                     </li>

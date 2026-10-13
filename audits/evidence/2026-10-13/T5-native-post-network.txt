@@ -1,0 +1,17 @@
+### Result
+48. [GET] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts?limit=10 => [200] 
+53. [GET] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts?limit=1 => [200] 
+55. [POST] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts => [202] 
+72. [GET] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts => [200] 
+123. [GET] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts?limit=1 => [200] 
+124. [POST] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts/9a07c251-fa57-8c4a-bfc0-5e6757381565/claims
+133. [GET] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts?limit=1 => [200] 
+134. [POST] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts/9a07c251-fa57-8c4a-bfc0-5e6757381565/claims => [200] 
+135. [GET] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts?limit=1 => [200] 
+136. [PUT] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts/9a07c251-fa57-8c4a-bfc0-5e6757381565 => [200] 
+137. [GET] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts?limit=1 => [200] 
+138. [POST] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts/9a07c251-fa57-8c4a-bfc0-5e6757381565/claims => [200] 
+139. [GET] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts?limit=1 => [200] 
+140. [PUT] https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts/9a07c251-fa57-8c4a-bfc0-5e6757381565
+
+Note: 17 static requests not shown, run with --static option to see them.

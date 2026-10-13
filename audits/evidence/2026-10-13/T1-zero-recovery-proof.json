@@ -1,0 +1,31 @@
+{
+  "observedAt": "2026-10-12T23:43:23.136Z",
+  "brandId": "80772f15-f225-4010-b5c1-131e52c8a25c",
+  "runId": "82c4dbe6-1a30-40c7-8065-9d5f0f3bed25",
+  "observedScriptURLs": [
+    "https://jamjam.tech/assets/index-DuDs_NjJ.js"
+  ],
+  "url": "https://jamjam.tech/journey/read",
+  "network": [
+    {
+      "at": "2026-10-12T23:43:16.813Z",
+      "url": "https://jamjam.tech/api/brands/80772f15-f225-4010-b5c1-131e52c8a25c/runs?kind=extract_facts",
+      "status": 200,
+      "runs": []
+    },
+    {
+      "at": "2026-10-12T23:43:17.563Z",
+      "url": "https://jamjam.tech/api/brands/80772f15-f225-4010-b5c1-131e52c8a25c",
+      "status": 200,
+      "evidenceCount": 0,
+      "sources": [
+        {
+          "id": "f8308718-7c91-436a-86d9-77378ad5e691",
+          "status": "read"
+        }
+      ],
+      "activeRun": null
+    }
+  ],
+  "scope": "Completed zero-fact recovery after real browser refresh. Does not prove seamless automatic transition or unknown owner session."
+}

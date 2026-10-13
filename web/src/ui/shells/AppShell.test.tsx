@@ -6,16 +6,16 @@ import { renderWithRouter } from '../../test/render';
 import { AppShell } from './AppShell';
 import { hubNav } from '../../config/routes';
 import { GalleryModeContext } from '../hooks/galleryMode';
+import { expectNoAxeViolations } from '../../test/axe';
 
 const signOut = vi.fn(async () => ({ error: null }));
 vi.mock('../../lib/supabase', () => ({ supabase: { auth: { signOut: () => signOut() } } }));
 
 describe('L1 AppShell', () => {
-  it('shows the hub nav with tags, the brand name and a main landmark', () => {
+  it('shows the canonical main nav on a live hub route with a main landmark', () => {
     renderWithRouter(<AppShell brandName="Acme"><p>content</p></AppShell>, '/home');
-    const nav = screen.getByRole('navigation', { name: 'Hub' });
-    expect(within(nav).getAllByRole('link')).toHaveLength(hubNav.length);
-    expect(screen.getByText('Acme')).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    expect(within(nav).getByRole('link', { name: 'Today' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('main')).toHaveTextContent('content');
     expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute('href', '#main');
   });
@@ -67,5 +67,28 @@ describe('L1 AppShell', () => {
     expect(screen.getByRole('navigation', { name: 'Hub preview, Acme' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it('stage mode: the one main nav with the stage current, its tabs, and no hub nav', async () => {
+    const { container } = renderWithRouter(<AppShell stage="brand" tab="brain" brandSlot={<button type="button">aDNA</button>}>x</AppShell>);
+    expect(screen.queryByRole('navigation', { name: 'Hub' })).toBeNull();
+    const main = screen.getByRole('navigation', { name: 'Main' });
+    expect(within(main).getByRole('link', { name: 'Brand' })).toHaveAttribute('aria-current', 'page');
+    expect(within(screen.getByRole('navigation', { name: 'Brand' })).getByRole('link', { name: 'The Brain' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'aDNA' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+  it('stage mode at phone width: the mobile tab bar instead of the main nav and tabs; More holds Brand', () => {
+    renderWithRouter(<AppShell stage="brand" tab="kit" width="phone">x</AppShell>);
+    expect(screen.queryByRole('navigation', { name: 'Brand' })).toBeNull();
+    const bar = screen.getByRole('navigation', { name: 'Main' });
+    expect(within(bar).getAllByRole('link').map((a) => a.textContent)).toEqual(['Today', 'Create', 'Verify', 'Grow', 'More']);
+    expect(within(bar).getByRole('link', { name: 'More' })).toHaveAttribute('aria-current', 'page');
+  });
+  it('stage mode keeps a given subnav in place of the stage tabs', () => {
+    renderWithRouter(<AppShell stage="create" subnav={<p>custom</p>}>x</AppShell>);
+    expect(screen.getByText('custom')).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Create' })).toBeNull();
   });
 });

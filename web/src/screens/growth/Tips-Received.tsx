@@ -16,7 +16,7 @@
 import { Grid, Stack } from '../../ui/primitives';
 import { StatTile } from '../../ui/composites/StatTile';
 import { StateView } from '../../ui/composites/StateView';
-import { GrowthFrame } from './components/GrowthFrame';
+import { LoopFrame } from './components/LoopFrame';
 import { GrowthTipsTable } from './components/GrowthTipsTable';
 import { formatRate, formatUsdc } from './format';
 import { useTipsReceived } from './useTipsReceived';
@@ -25,8 +25,8 @@ import type { ScreenProps, TipsReceivedData } from './types';
 export function TipsReceived({ data, state = 'success' }: ScreenProps<TipsReceivedData>) {
   const flow = useTipsReceived(data);
   return (
-    <GrowthFrame
-      section="tips"
+    <LoopFrame
+      artboard="Tips-Received"
       title="Tips received"
       tag="COMING SOON"
       intro={`Fans tip your verified posts in USDC, straight to your own wallet. JamJam’s fee is ${formatRate(data.feeRate)}.`}
@@ -46,6 +46,6 @@ export function TipsReceived({ data, state = 'success' }: ScreenProps<TipsReceiv
           <GrowthTipsTable rows={flow.rows} posts={flow.posts} />
         </Stack>
       </StateView>
-    </GrowthFrame>
+    </LoopFrame>
   );
 }

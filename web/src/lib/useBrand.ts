@@ -1,25 +1,29 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api';
+import { useAuth } from './auth';
+import { useLiveBrands } from './liveBrands';
 import type { BrandState } from '../screens/build/Build';
 
-/** Loads the signed-in owner's first brand and its full state (GET /api/me, GET /api/brands/:id). */
+/** Selected live brand; older responses cannot replace a newly selected brand (delivery issue 114). */
 export function useBrand() {
+  const catalog = useLiveBrands();
+  const { session } = useAuth();
   const [state, setState] = useState<BrandState | null>(null);
-  const [noBrand, setNoBrand] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
-  const reload = useCallback(async () => {
+  const generation = useRef(0);
+  const reload = useCallback(async (preferred?: string) => {
+    const id = preferred ?? catalog.id;
+    if (!id) { await catalog.refresh(preferred); return; }
+    const n = ++generation.current;
     try {
-      const me = await api<{ user: { email: string }; brands: { id: string }[] }>('/me');
-      setEmail(me.user.email);
-      if (!me.brands.length) return setNoBrand(true);
-      setState(await api<BrandState>(`/brands/${me.brands[0].id}`));
+      const fresh = await api<BrandState>(`/brands/${id}`);
+      if (n !== generation.current) return;
+      setState(fresh); setError(null);
+      if (preferred) await catalog.refresh(preferred);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not load your brand.');
+      if (n === generation.current) { setState(null); setError(e instanceof ApiError ? e.message : 'Could not load your brand.'); }
     }
-  }, []);
-  useEffect(() => {
-    reload();
-  }, [reload]);
-  return { state, noBrand, error, email, reload };
+  }, [catalog.id, catalog.refresh]);
+  useEffect(() => { setState(null); setError(null); if (catalog.id) void reload(); return () => { generation.current++; }; }, [catalog.id, reload]);
+  return { state: state?.brand.id === catalog.id ? state : null, noBrand: !catalog.loading && !catalog.error && catalog.brands.length === 0, error: catalog.error ?? error, email: session?.user.email ?? '', reload };
 }

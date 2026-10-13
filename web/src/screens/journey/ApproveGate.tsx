@@ -1,5 +1,6 @@
+import { useJourneyTask } from './useJourneyTask';
 import { useState } from 'react';
-import { Button, Text } from '../../ui/primitives';
+import { Alert, Button, Text } from '../../ui/primitives';
 import { InlineForm } from '../../ui/composites/InlineForm';
 import { DecisionGate, type GateDecision } from '../../ui/domain/DecisionGate';
 import { JourneyFactCard } from '../../ui/domain/JourneyFactCard';
@@ -12,8 +13,8 @@ export interface ApproveGateProps {
   /** The person approved it and its inputs changed since: it is pending again. */
   stale: boolean;
   approver: string;
-  onDecide: (decision: GateDecision) => void;
-  onEdit: (draft: string) => void;
+  onDecide: (decision: GateDecision) => void | Promise<void>;
+  onEdit: (draft: string) => void | Promise<void>;
 }
 
 /**
@@ -21,6 +22,7 @@ export interface ApproveGateProps {
  * edit form as content and Edit as an extra action (Approve waits while editing). Composition only, no styles.
  */
 export function ApproveGate({ gate, decision, stale, approver, onDecide, onEdit }: ApproveGateProps) {
+  const task = useJourneyTask();
   const [editing, setEditing] = useState(false);
   return (
     <DecisionGate
@@ -32,17 +34,18 @@ export function ApproveGate({ gate, decision, stale, approver, onDecide, onEdit 
       evidence={gate.evidence.map((f) => <JourneyFactCard key={f.id} fact={f} />)}
       decision={decision}
       approver={approver}
-      onDecide={onDecide}
-      approveDisabled={editing}
+      onDecide={decision => void task.run(() => onDecide(decision))}
+      approveDisabled={editing || task.busy}
       actions={<Button variant="secondary" onClick={() => setEditing(true)} disabled={editing}>Edit</Button>}
     >
+      {task.error && !editing && <Alert tone="danger">{task.error}</Alert>}
       {stale && <Text variant="small" role="status">Its inputs changed since you approved it: check the draft and approve again.</Text>}
       {editing ? (
         <InlineForm
           fields={[{ name: 'draft', label: `${gate.title} draft`, multiline: true, defaultValue: gate.draft, validate: required('The section cannot be empty.') }]}
           submitLabel="Save"
           onCancel={() => setEditing(false)}
-          onSubmit={({ draft }) => { onEdit(draft); setEditing(false); }}
+          busy={task.busy} errors={{ draft: task.error }} onSubmit={({ draft }) => void task.run(() => onEdit(draft), () => setEditing(false))}
         />
       ) : (
         <Text>{gate.draft}</Text>

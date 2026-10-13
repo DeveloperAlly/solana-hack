@@ -1,6 +1,7 @@
+import { useJourneyTask } from './useJourneyTask';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { Button, Text } from '../../ui/primitives';
+import { Alert, Button, Text } from '../../ui/primitives';
 
 export interface JourneyNextButtonProps {
   /** Where it goes once the step is finished. */
@@ -10,7 +11,7 @@ export interface JourneyNextButtonProps {
   /** What is still missing, shown while not ready. */
   hint: string;
   /** Runs before moving on, e.g. to record the choice. */
-  onGo?: () => void;
+  onGo?: () => void | Promise<void>;
   children: ReactNode;
 }
 
@@ -20,11 +21,12 @@ export interface JourneyNextButtonProps {
  * Composition only, no styles.
  */
 export function JourneyNextButton({ href, ready, hint, onGo, children }: JourneyNextButtonProps) {
+  const task = useJourneyTask();
   const navigate = useNavigate();
   return (
     <>
       {!ready && <Text variant="small" tone="secondary" role="status">{hint}</Text>}
-      <Button disabled={!ready} onClick={() => { onGo?.(); navigate(href); }}>{children}</Button>
+      <>{task.error && <Alert tone="danger">{task.error}</Alert>}<Button disabled={!ready || task.busy} onClick={() => void task.run(() => onGo?.(), () => navigate(href))}>{children}</Button></>
     </>
   );
 }

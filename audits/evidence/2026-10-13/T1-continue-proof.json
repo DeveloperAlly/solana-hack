@@ -1,0 +1,36 @@
+{
+  "observedAt": "2026-10-12T23:36:53.682Z",
+  "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+  "runId": "723bc04d-4cdd-41c7-b611-5242b994b8d1",
+  "observedScriptURLs": [
+    "https://jamjam.tech/assets/index-uZGe6PbX.js"
+  ],
+  "afterURL": "https://jamjam.tech/journey/save",
+  "beforeHas12Facts": true,
+  "afterHas12Facts": true,
+  "responses": [
+    {
+      "url": "https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/runs?kind=extract_facts",
+      "status": 200,
+      "runs": []
+    },
+    {
+      "url": "https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268",
+      "status": 200,
+      "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+      "factCount": 12
+    },
+    {
+      "url": "https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/runs?kind=extract_facts",
+      "status": 200,
+      "runs": []
+    },
+    {
+      "url": "https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268",
+      "status": 200,
+      "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+      "factCount": 12
+    }
+  ],
+  "scope": "Actual deployed-site refresh and Continue navigation. Observed older asset; does not validate pending lifecycle deployment. No auth action."
+}

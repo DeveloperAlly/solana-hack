@@ -1,0 +1,43 @@
+{
+  "observedAt": "2026-10-13T00:36:53.357Z",
+  "url": "https://jamjam.tech/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/answers/voice",
+  "status": 200,
+  "request": {
+    "data": {
+      "template": "candid_founder",
+      "claims": "5",
+      "formality": "2",
+      "energy": "3",
+      "humour": "2",
+      "warmth": "3",
+      "sentence_length": "2",
+      "jargon": "2",
+      "emoji": "1",
+      "cta": "3",
+      "sample": "I turn frontier AI research into product that ships, sells & gets used."
+    },
+    "skipped": false
+  },
+  "body": {
+    "answer": {
+      "brand_id": "577c80cf-71df-4654-9ec4-8b34988bf268",
+      "step": "voice",
+      "data": {
+        "cta": "3",
+        "emoji": "1",
+        "claims": "5",
+        "energy": "3",
+        "humour": "2",
+        "jargon": "2",
+        "sample": "I turn frontier AI research into product that ships, sells & gets used.",
+        "warmth": "3",
+        "template": "candid_founder",
+        "formality": "2",
+        "sentence_length": "2"
+      },
+      "skipped": false,
+      "updated_at": "2026-10-13T00:36:52.463+00:00"
+    },
+    "stale": []
+  }
+}

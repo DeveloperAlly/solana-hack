@@ -1,0 +1,36 @@
+{
+  "observedAt": "2026-10-13T00:27:41.562Z",
+  "url": "https://jamjam.tech/journey/confirm",
+  "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+  "ownerMatches": true,
+  "nonAnonymous": true,
+  "factCount": 12,
+  "network": [
+    {
+      "at": "2026-10-13T00:26:56.513Z",
+      "path": "/auth/v1/otp",
+      "status": 200
+    },
+    {
+      "at": "2026-10-13T00:27:30.971Z",
+      "path": "/auth/v1/verify",
+      "status": 303
+    },
+    {
+      "at": "2026-10-13T00:27:32.151Z",
+      "path": "/auth/v1/user",
+      "status": 200
+    },
+    {
+      "at": "2026-10-13T00:27:34.813Z",
+      "path": "/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268",
+      "status": 200
+    },
+    {
+      "at": "2026-10-13T00:27:39.355Z",
+      "path": "/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268",
+      "status": 200
+    }
+  ],
+  "scope": "Actual repeated email journey; same originalbrand12facts refreshed. Signout/anonymousrevocation unproved."
+}

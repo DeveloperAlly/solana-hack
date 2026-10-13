@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../worker/env';
+import { db as engineDb, fakeDbResponse, fakeStep, seedTables } from './engine-harness';
+import { runWorkflow } from '../../worker/engine/runner';
+import { localDeps } from '../../worker/engine/executor';
 
 // First-run journey backend (issue #48; canvas page "Journey (v3)"). Exercised through the real router (handleApi), with
 // Supabase Auth, PostgREST and the model replaced by in-memory fakes, so each test shows allowed and refused cases.
@@ -13,8 +16,8 @@ vi.mock('../../worker/registry', () => ({
   explorerTx: (s: string) => s,
 }));
 const { handleApi } = await import('../../worker/api');
-const { coverage, FIRST_POST_BRIEF, ANON_MAX_SOURCES } = await import('../../worker/journey');
-const { nearestTemplates, voiceAnswerFor, VOICE_TEMPLATES } = await import('../../worker/voice');
+const { coverage, FIRST_POST_BRIEF, ANON_MAX_SOURCES, samplesFrom } = await import('../../worker/journey');
+const { nearestTemplates, voiceAnswerFor, VOICE_TEMPLATES, contrastingTemplates, templateById } = await import('../../worker/voice');
 
 type Row = Record<string, unknown>;
 let tables: Record<string, Row[]>;
@@ -30,6 +33,7 @@ const users: Record<string, { id: string; email?: string; is_anonymous?: boolean
 const env = {
   SUPABASE_URL: 'https://db.test', SUPABASE_SECRET_KEY: 'k', SUPABASE_PUBLISHABLE_KEY: 'pk', REGISTRAR_KEY: '[1]', RPC_URL: 'https://rpc.test', OPENROUTER_API_KEY: 'k',
   PUBLIC_LIMITER: { limit: async () => ({ success: !limited }) },
+  RUN_WORKFLOW: { create: async (o: { id: string }) => { await runWorkflow(env, o.id, fakeStep().api, localDeps); return { id: o.id }; } },
 } as unknown as Env;
 
 let nextId = 0;
@@ -67,11 +71,12 @@ function fakeDb(url: string, init: RequestInit = {}) {
   });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   nextId = 0;
   prompts = [];
   limited = false;
-  tables = {};
+  await seedTables({ brands: [] });
+  tables = engineDb.tables;
   llm = () => ({});
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     if (url.startsWith('https://openrouter.ai')) {
@@ -84,6 +89,7 @@ beforeEach(() => {
       const u = token === 'expiredAnon' ? undefined : users[token];
       return u ? new Response(JSON.stringify(u)) : new Response('{}', { status: 401 });
     }
+    if (url.includes('/rest/v1/rpc/')) return fakeDbResponse(url, init);
     if (url.startsWith('https://db.test')) return new Response(JSON.stringify(fakeDb(url, init)));
     return new Response('<html><title>Acme</title><body>Acme builds bridges for towns. Founded in 2024.</body></html>', { headers: { 'content-type': 'text/html' } });
   }));
@@ -108,6 +114,16 @@ const brandRow = (owner: string, extra: Row = {}) => ({ id: uuid(), owner_id: ow
 const fact = (brand: string, section: string, extra: Row = {}) => ({ id: uuid(), brand_id: brand, section, claim: `${section} fact`, quote: 'Acme builds bridges', origin: 'source', trust: 'owned', review_status: 'approved', source_id: null, created_at: new Date().toISOString(), ...extra });
 
 describe('reading before sign-in (anonymous users, decision D1)', () => {
+  it('enforces the source cap through the generic run endpoint too', async () => {
+    const brand = brandRow('a-1');
+    tables.brands = [brand];
+    tables.sources = Array.from({ length: ANON_MAX_SOURCES }, () => ({ id: uuid(), brand_id: brand.id, url: 'https://acme.test' }));
+    const response = await call('anon', 'POST', `/api/brands/${brand.id}/runs`, { kind: 'extract_facts', url: 'https://acme.test' });
+    expect(response.status).toBe(409);
+    expect(tables.runs).toHaveLength(0);
+    expect(tables.sources).toHaveLength(ANON_MAX_SOURCES);
+  });
+
   it('lets an anonymous visitor create one brand and refuses a second', async () => {
     const first = await call('anon', 'POST', '/api/brands', { name: 'Acme', website: 'https://acme.test' });
     expect(first.status).toBe(201);
@@ -207,15 +223,20 @@ describe('coverage over the kit sections (J1, J3)', () => {
 
 describe('voice by example (J4)', () => {
   const sample = (t: string) => ({ template: t, text: `A paragraph about Acme in the ${t} voice.` });
-  it('round 1 returns three different templates, written only from usable facts', async () => {
+  it('round 1 offers the three most contrasting templates, written only from usable facts', async () => {
     const b = brandRow('p-1');
     tables.brands = [b];
     tables.evidence = [fact(b.id, 'purpose', { claim: 'Acme builds bridges' }), fact(b.id, 'audience', { claim: 'Secret third-party claim', trust: 'third_party', review_status: 'proposed' })];
-    llm = () => ({ samples: [sample('friendly'), sample('friendly'), sample('academic'), sample('not_a_template'), sample('playful')] });
+    const offer = contrastingTemplates(3);
+    expect(new Set(offer).size).toBe(3);
+    // Duplicates and templates that were not offered are skipped.
+    llm = () => ({ samples: [sample(offer[0]), sample(offer[0]), sample('not_a_template'), sample(offer[1]), sample(offer[2])] });
     const res = await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 });
     expect(res.status).toBe(200);
-    expect((res.body.samples as { template: string }[]).map((s) => s.template)).toEqual(['friendly', 'academic', 'playful']);
-    expect((res.body.samples as { answer: Record<string, string> }[])[0].answer).toMatchObject({ template: 'friendly', claims: '4', sample: 'A paragraph about Acme in the friendly voice.' });
+    expect((res.body.samples as { template: string }[]).map((s) => s.template)).toEqual(offer);
+    expect((res.body.samples as { text: string }[]).map((s) => s.text)).toEqual(offer.map((id) => sample(id).text));
+    expect((res.body.samples as { answer: Record<string, string> }[])[0].answer).toMatchObject({ template: offer[0], sample: `A paragraph about Acme in the ${offer[0]} voice.` });
+    for (const id of offer) expect(prompts[0].user).toContain(id);
     expect(prompts[0].user).toContain('Acme builds bridges');
     expect(prompts[0].user).not.toContain('Secret third-party claim');
   });
@@ -245,10 +266,34 @@ describe('voice by example (J4)', () => {
     const b = brandRow('p-1');
     tables.brands = [b];
     tables.evidence = [fact(b.id, 'purpose')];
-    llm = () => ({ samples: [null, 7, 'x', sample('friendly'), sample('academic'), sample('playful')] });
+    const offer = contrastingTemplates(3);
+    llm = () => ({ samples: [null, 7, 'x', ...offer.map(sample)] });
     const res = await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 });
     expect(res.status).toBe(200);
-    expect((res.body.samples as { template: string }[]).map((s) => s.template)).toEqual(['friendly', 'academic', 'playful']);
+    expect((res.body.samples as { template: string }[]).map((s) => s.template)).toEqual(offer);
+  });
+  it('matches a sample by label or by position when the model does not echo the template id', () => {
+    const offer = contrastingTemplates(3);
+    const labels = offer.map((id) => templateById(id)!.label);
+    const byLabel = samplesFrom({ samples: labels.map((l) => ({ template: l.toUpperCase(), text: `In ${l}.` })) }, offer);
+    expect(byLabel.map((s) => s.template)).toEqual(offer);
+    const byPosition = samplesFrom({ samples: offer.map((_, i) => ({ template: `Style ${i + 1}`, text: `Paragraph ${i + 1}.` })) }, offer);
+    expect(byPosition.map((s) => s.text)).toEqual(['Paragraph 1.', 'Paragraph 2.', 'Paragraph 3.']);
+    // A known but unoffered template is skipped, not filed under the offered template in its slot.
+    const other = VOICE_TEMPLATES.find((t) => !offer.includes(t.value))!.value;
+    const mixed = samplesFrom({ samples: [{ template: other, text: 'Wrong voice.' }, { template: offer[1], text: 'B.' }, { template: offer[2], text: 'C.' }] }, offer);
+    expect(mixed.map((s) => s.template)).toEqual([offer[1], offer[2]]);
+  });
+  it('retries once when the first reply is unusable', async () => {
+    const b = brandRow('p-1');
+    tables.brands = [b];
+    tables.evidence = [fact(b.id, 'purpose')];
+    const offer = contrastingTemplates(3);
+    let n = 0;
+    llm = () => (n++ === 0 ? { nothing: true } : { samples: offer.map(sample) });
+    const res = await call('perm', 'POST', `/api/brands/${b.id}/voice/samples`, { round: 1 });
+    expect(res.status).toBe(200);
+    expect(n).toBe(2);
   });
   it('a picked sample is kept in the voice answer but never becomes evidence', async () => {
     const b = brandRow('p-1');
@@ -269,15 +314,20 @@ describe('first post with no brief (J6)', () => {
     const b = brandRow('p-1');
     tables.brands = [b];
     expect((await call('perm', 'POST', `/api/brands/${b.id}/posts`, {})).status).toBe(409);
-    tables.kits = [{ id: uuid(), brand_id: b.id, version: 1, status: 'registered', payload: { brand: { name: 'Acme' }, sections: [{ section: 'voice', body: 'Plain.' }, { section: 'messaging', body: 'Bridges for towns.' }] } }];
+    tables.kits = [{ id: uuid(), brand_id: b.id, version: 1, status: 'registered', payload: { policy: { claims: '4', template: 'plainspoken' }, evidence: [], brand: { name: 'Acme' }, sections: [{ section: 'voice', body: 'Plain.' }, { section: 'messaging', body: 'Bridges for towns.' }] } }];
+    tables.engine_config.push({ key: 'draft_wait_ms', value: 0 });
+    const workflow = env.RUN_WORKFLOW!;
+    env.RUN_WORKFLOW = { create: async (o: { id: string }) => ({ id: o.id }) } as never;
     llm = () => ({ body: 'Acme builds bridges for towns. Talk to us.', voiceFit: 80, platform: 70, notes: [] });
     const res = await call('perm', 'POST', `/api/brands/${b.id}/posts`, {});
-    expect(res.status).toBe(201);
-    expect((res.body.post as { brief: string }).brief).toBe(FIRST_POST_BRIEF);
+    expect(res.status).toBe(202);
+    expect((tables.runs[0].input as { brief: string }).brief).toBe(FIRST_POST_BRIEF);
+    tables.posts = [{ id: uuid(), brand_id: b.id }];
     // Only the first post: a later post with no brief is refused as before, with no model call.
     const calls = prompts.length;
     expect((await call('perm', 'POST', `/api/brands/${b.id}/posts`, { brief: '  ' })).status).toBe(400);
     expect(prompts.length).toBe(calls);
+    env.RUN_WORKFLOW = workflow;
   });
 });
 

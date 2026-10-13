@@ -1,0 +1,140 @@
+{
+  "observedAt": "2026-10-13T01:51:55.589Z",
+  "httpStatus": 200,
+  "postId": "9a07c251-fa57-8c4a-bfc0-5e6757381565",
+  "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+  "rev": 1,
+  "body": "I think out loud on X and post the longer-form on LinkedIn.\nI work the whole stack, from the protocol layer to the story.\nI turn frontier AI research into product that ships, sells & gets used.\nFollow me for more insights.\nUsed by 10,000 brands.",
+  "status": "drafted",
+  "kitVersion": 1,
+  "currentVerdict": {
+    "at": "2026-10-13T01:51:40.552Z",
+    "judge": "dots-studio/dots-3-note-preview:free",
+    "passed": false,
+    "prompt": {
+      "key": "create.review",
+      "version": 1
+    },
+    "source": "edit",
+    "reasons": [
+      "claim \"Used by 10,000 brands.\": cites no usable fact",
+      "claim \"Used by 10,000 brands.\": states something that needs evidence, and is not a supported claim",
+      "reviewer: no evidence for \"Used by 10,000 brands.\"",
+      "Formality reads as 5/5; the voice asks for 2/5 (tracked)"
+    ],
+    "bodyHash": "sha256:d88effff7b08cababe0cf8552de88f3e836cad2f372014835c5d02eec4ac7048",
+    "findings": {
+      "slop": [],
+      "claims": [
+        {
+          "rule": "no_fact",
+          "text": "Used by 10,000 brands.",
+          "detail": "cites no usable fact"
+        },
+        {
+          "rule": "uncovered",
+          "text": "Used by 10,000 brands.",
+          "detail": "states something that needs evidence, and is not a supported claim"
+        }
+      ],
+      "silent": [],
+      "unsupported": [
+        "Used by 10,000 brands."
+      ]
+    },
+    "generator": "person",
+    "evaluators": {
+      "slop": {
+        "pass": true,
+        "model": null,
+        "score": null,
+        "status": "gate",
+        "reasons": [],
+        "version": 1
+      },
+      "tone": {
+        "pass": true,
+        "model": "dots-studio/dots-3-note-preview:free",
+        "score": 100,
+        "status": "tracked",
+        "reasons": [],
+        "version": 1
+      },
+      "voice": {
+        "pass": false,
+        "model": null,
+        "score": 80,
+        "status": "tracked",
+        "reasons": [
+          "Formality reads as 5/5; the voice asks for 2/5"
+        ],
+        "version": 1
+      },
+      "claims": {
+        "pass": false,
+        "model": null,
+        "score": null,
+        "status": "gate",
+        "reasons": [
+          "claim \"Used by 10,000 brands.\": cites no usable fact",
+          "claim \"Used by 10,000 brands.\": states something that needs evidence, and is not a supported claim"
+        ],
+        "version": 1
+      },
+      "length": {
+        "pass": true,
+        "model": null,
+        "score": null,
+        "status": "gate",
+        "reasons": [],
+        "version": 1
+      },
+      "policy": {
+        "pass": true,
+        "model": "dots-studio/dots-3-note-preview:free",
+        "score": null,
+        "status": "tracked",
+        "reasons": [],
+        "version": 1
+      },
+      "review": {
+        "pass": true,
+        "model": "dots-studio/dots-3-note-preview:free",
+        "score": null,
+        "status": "gate",
+        "reasons": [],
+        "version": 1
+      },
+      "platform": {
+        "pass": true,
+        "model": null,
+        "score": 100,
+        "status": "gate",
+        "reasons": [],
+        "version": 1
+      },
+      "review_claims": {
+        "pass": false,
+        "model": "dots-studio/dots-3-note-preview:free",
+        "score": null,
+        "status": "gate",
+        "reasons": [
+          "reviewer: no evidence for \"Used by 10,000 brands.\""
+        ],
+        "version": 2
+      }
+    },
+    "failedGates": [
+      "claims",
+      "review_claims"
+    ]
+  },
+  "actualUi": {
+    "unsupportedCount": 1,
+    "approveAndRegisterDisabled": true,
+    "screenshot": "t5-strict-unsupported-claim-blocked-20261013.png"
+  },
+  "embeddedClaimMapIsStale": true,
+  "scope": "native UI refusal and persisted current verdict; no attempted server approval/register refusal",
+  "independentGrade": 98
+}

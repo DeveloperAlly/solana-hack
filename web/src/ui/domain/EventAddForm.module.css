@@ -1,0 +1,18 @@
+/* D94 EventAddForm: fields in a wrapping grid, actions under them. Tokens only. */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wl-space-4);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--wl-space-12) * 4), 1fr));
+  gap: var(--wl-space-4);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wl-space-2);
+}

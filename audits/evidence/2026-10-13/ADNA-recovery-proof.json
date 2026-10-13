@@ -1,0 +1,197 @@
+{
+  "observedAt": "2026-10-12T23:54:16.826Z",
+  "deliveryMode": "aftercheckpointrecovery",
+  "brandId": "51389118-847e-4784-9dab-3cce8b801f3d",
+  "sourceId": "2043de8a-1193-42cc-8089-02f8bca18af5",
+  "runId": "d04fc7a8-b990-4a98-b386-5c39cb1001c9",
+  "terminal": true,
+  "persistedFactCount": 33,
+  "receiptCount": 33,
+  "runStatus": "done",
+  "progress": {
+    "done": 8,
+    "steps": [
+      {
+        "id": "read",
+        "label": "Reading the source",
+        "status": "done"
+      },
+      {
+        "id": "chunk",
+        "label": "Splitting it into parts",
+        "status": "done"
+      },
+      {
+        "id": "extract",
+        "label": "Finding facts",
+        "status": "done"
+      },
+      {
+        "id": "align",
+        "label": "Checking every quote against the source",
+        "status": "done"
+      },
+      {
+        "id": "batch",
+        "label": "Preparing the support check",
+        "status": "done"
+      },
+      {
+        "id": "support",
+        "label": "Checking each quote supports its fact",
+        "status": "done"
+      },
+      {
+        "id": "decide",
+        "label": "Keeping only supported facts",
+        "status": "done"
+      },
+      {
+        "id": "save",
+        "label": "Saving the facts",
+        "status": "done"
+      }
+    ],
+    "total": 8,
+    "message": null
+  },
+  "error": null,
+  "observedScriptURLs": [
+    "https://jamjam.tech/assets/index-DuDs_NjJ.js"
+  ],
+  "receipts": [
+    {
+      "id": "0070bdd5-4e2a-8be8-8db3-9e76eadd67e6",
+      "hasQuote": true
+    },
+    {
+      "id": "067ac5f4-3fa9-8c1a-bc7d-92e96d17cf6b",
+      "hasQuote": true
+    },
+    {
+      "id": "0ae8a291-fe5f-8665-aa60-333579f02520",
+      "hasQuote": true
+    },
+    {
+      "id": "17d34f06-a7e7-8e31-93df-826b17c3344b",
+      "hasQuote": true
+    },
+    {
+      "id": "27b9aa70-a20c-8b6a-8a93-52bbdc1b3b38",
+      "hasQuote": true
+    },
+    {
+      "id": "2b2bc07a-a1bc-87bb-87ae-7613f30e0dbf",
+      "hasQuote": true
+    },
+    {
+      "id": "30ccd5eb-ec5c-8c06-9039-4b76fbe9f881",
+      "hasQuote": true
+    },
+    {
+      "id": "3a44f17d-669b-823d-a0b7-7b2621fc75a4",
+      "hasQuote": true
+    },
+    {
+      "id": "3d1231d3-de7c-80d6-af67-8cadbf4a1ab3",
+      "hasQuote": true
+    },
+    {
+      "id": "4ed0f605-4e24-8e42-9d78-6ef19a316add",
+      "hasQuote": true
+    },
+    {
+      "id": "5246e4bd-c433-8a5e-8830-33f42d233448",
+      "hasQuote": true
+    },
+    {
+      "id": "5f2c5cda-6879-8626-9f09-4c201ecc16b3",
+      "hasQuote": true
+    },
+    {
+      "id": "5f300772-7ffa-87b1-bac4-e9585b6cbc95",
+      "hasQuote": true
+    },
+    {
+      "id": "6091a403-8252-898a-b12a-53de57770456",
+      "hasQuote": true
+    },
+    {
+      "id": "68728974-b27a-89bb-9984-9db427585096",
+      "hasQuote": true
+    },
+    {
+      "id": "71fe0ae5-d5f4-868c-a021-694d2040d7ea",
+      "hasQuote": true
+    },
+    {
+      "id": "7a155aac-bd42-8b86-9c5e-7c07b791701c",
+      "hasQuote": true
+    },
+    {
+      "id": "85aae0b6-1a9d-8b22-803a-dd1071298b06",
+      "hasQuote": true
+    },
+    {
+      "id": "86fbc545-325c-8664-bc1c-ae14b54079e3",
+      "hasQuote": true
+    },
+    {
+      "id": "afe3dadb-513b-82e7-a878-6109976d323b",
+      "hasQuote": true
+    },
+    {
+      "id": "b0d706cf-ecbc-8006-a6de-25a1a6fd30cf",
+      "hasQuote": true
+    },
+    {
+      "id": "babfa462-b19f-8ad1-a38d-e388a5d2e536",
+      "hasQuote": true
+    },
+    {
+      "id": "c656ac2c-9e1b-8551-a711-81539257b6b4",
+      "hasQuote": true
+    },
+    {
+      "id": "cb9eff9c-cc05-8bc1-987d-e0849770b646",
+      "hasQuote": true
+    },
+    {
+      "id": "d34df472-f851-8200-9f8c-184281dd2f4e",
+      "hasQuote": true
+    },
+    {
+      "id": "d38d2f01-bccf-85ce-b510-51f6a66f0428",
+      "hasQuote": true
+    },
+    {
+      "id": "d67e7646-b6f9-83bd-9004-e19c3aaacb29",
+      "hasQuote": true
+    },
+    {
+      "id": "d72a5508-971e-8edf-ad65-0ceb8833566d",
+      "hasQuote": true
+    },
+    {
+      "id": "d78a1a29-5b01-8b43-89f9-f68bfb740c12",
+      "hasQuote": true
+    },
+    {
+      "id": "e0755b3d-2264-8270-ab35-4f51466181c2",
+      "hasQuote": true
+    },
+    {
+      "id": "ed20a328-ab9d-864e-a52a-e125c6240df4",
+      "hasQuote": true
+    },
+    {
+      "id": "f015013b-4e7c-87fe-a4b8-fd15cf9a03ee",
+      "hasQuote": true
+    },
+    {
+      "id": "f3aaffa2-0300-80cc-b33d-d697351842e1",
+      "hasQuote": true
+    }
+  ],
+  "scope": "33 quoted cards after one checkpoint recovery, retained after refresh; not all uniformly strong standalone brand facts. Original subrequest-limit failure and durable fix remain open."
+}

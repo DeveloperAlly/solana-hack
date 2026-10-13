@@ -37,7 +37,7 @@ export function EngageQueue({ data }: { data: EngageQueueData }) {
   const list = (items: ReplyItem[], empty: string) =>
     items.length ? <Stack gap={4}>{items.map((q) => <ReplyCard key={q.id} item={q} queue={queue} />)}</Stack> : <EmptyState level={3} title={empty} />;
   return (
-    <HubPage section="grow" sub="engagement">
+    <HubPage artboard="Engage-Queue">
       <PageHeader badges={<ComingSoonFlag tag="STRETCH" />} title="Engagement" intro={data.intro} actions={<Button variant="secondary" href={links.engageRules}>Rules, lists and auto-replies</Button>} />
       <Columns
         end={

@@ -1,0 +1,182 @@
+{
+  "observedAt": "2026-10-13T00:36:33.789Z",
+  "url": "https://jamjam.tech/journey/read",
+  "runId": "e3d54338-698f-4f01-b111-fd762769ce3f",
+  "brandId": "80772f15-f225-4010-b5c1-131e52c8a25c",
+  "factCount": 0,
+  "terminalAt": "2026-10-13T00:36:28.215Z",
+  "network": [
+    {
+      "at": "2026-10-13T00:36:02.996Z",
+      "path": "/api/me",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "at": "2026-10-13T00:36:04.828Z",
+      "path": "/api/brands/80772f15-f225-4010-b5c1-131e52c8a25c",
+      "status": 200,
+      "method": "GET",
+      "brand": {
+        "id": "80772f15-f225-4010-b5c1-131e52c8a25c",
+        "factCount": 0
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:05.305Z",
+      "path": "/api/brands/80772f15-f225-4010-b5c1-131e52c8a25c/runs",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "at": "2026-10-13T00:36:09.596Z",
+      "path": "/api/brands/80772f15-f225-4010-b5c1-131e52c8a25c/runs",
+      "status": 202,
+      "method": "POST",
+      "runId": "e3d54338-698f-4f01-b111-fd762769ce3f",
+      "run": {
+        "id": "e3d54338-698f-4f01-b111-fd762769ce3f",
+        "status": "running",
+        "error": null
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:11.423Z",
+      "path": "/api/brands/80772f15-f225-4010-b5c1-131e52c8a25c",
+      "status": 200,
+      "method": "GET",
+      "brand": {
+        "id": "80772f15-f225-4010-b5c1-131e52c8a25c",
+        "factCount": 0
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:11.520Z",
+      "path": "/api/runs/e3d54338-698f-4f01-b111-fd762769ce3f",
+      "status": 200,
+      "method": "GET",
+      "run": {
+        "id": "e3d54338-698f-4f01-b111-fd762769ce3f",
+        "status": "running",
+        "error": null
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:12.859Z",
+      "path": "/api/brands/80772f15-f225-4010-b5c1-131e52c8a25c",
+      "status": 200,
+      "method": "GET",
+      "brand": {
+        "id": "80772f15-f225-4010-b5c1-131e52c8a25c",
+        "factCount": 0
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:14.388Z",
+      "path": "/api/runs/e3d54338-698f-4f01-b111-fd762769ce3f",
+      "status": 200,
+      "method": "GET",
+      "run": {
+        "id": "e3d54338-698f-4f01-b111-fd762769ce3f",
+        "status": "running",
+        "error": null
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:16.220Z",
+      "path": "/api/brands/80772f15-f225-4010-b5c1-131e52c8a25c",
+      "status": 200,
+      "method": "GET",
+      "brand": {
+        "id": "80772f15-f225-4010-b5c1-131e52c8a25c",
+        "factCount": 0
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:18.008Z",
+      "path": "/api/runs/e3d54338-698f-4f01-b111-fd762769ce3f",
+      "status": 200,
+      "method": "GET",
+      "run": {
+        "id": "e3d54338-698f-4f01-b111-fd762769ce3f",
+        "status": "running",
+        "error": null
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:19.355Z",
+      "path": "/api/brands/80772f15-f225-4010-b5c1-131e52c8a25c",
+      "status": 200,
+      "method": "GET",
+      "brand": {
+        "id": "80772f15-f225-4010-b5c1-131e52c8a25c",
+        "factCount": 0
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:22.878Z",
+      "path": "/api/runs/e3d54338-698f-4f01-b111-fd762769ce3f",
+      "status": 200,
+      "method": "GET",
+      "run": {
+        "id": "e3d54338-698f-4f01-b111-fd762769ce3f",
+        "status": "running",
+        "error": null
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:24.216Z",
+      "path": "/api/brands/80772f15-f225-4010-b5c1-131e52c8a25c",
+      "status": 200,
+      "method": "GET",
+      "brand": {
+        "id": "80772f15-f225-4010-b5c1-131e52c8a25c",
+        "factCount": 0
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:28.215Z",
+      "path": "/api/runs/e3d54338-698f-4f01-b111-fd762769ce3f",
+      "status": 200,
+      "method": "GET",
+      "run": {
+        "id": "e3d54338-698f-4f01-b111-fd762769ce3f",
+        "status": "done",
+        "error": null
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:30.050Z",
+      "path": "/api/brands/80772f15-f225-4010-b5c1-131e52c8a25c",
+      "status": 200,
+      "method": "GET",
+      "brand": {
+        "id": "80772f15-f225-4010-b5c1-131e52c8a25c",
+        "factCount": 0
+      }
+    },
+    {
+      "at": "2026-10-13T00:36:31.381Z",
+      "path": "/api/brands/80772f15-f225-4010-b5c1-131e52c8a25c",
+      "status": 200,
+      "method": "GET",
+      "brand": {
+        "id": "80772f15-f225-4010-b5c1-131e52c8a25c",
+        "factCount": 0
+      }
+    }
+  ],
+  "assets": [
+    "https://jamjam.tech/assets/index-B4S7miIg.js"
+  ],
+  "refreshUsed": false,
+  "stableAfterTerminalSeconds": 5,
+  "workflowVersionId": "271f06fe-6d8c-42f6-afdc-f90c137fd11f",
+  "workerDeploymentVersionId": "92b0a6b3-e333-43f9-b940-7ee3e865b803",
+  "deploymentCommit": "dd5e953bda4234582ff7c0ec0684f63653572803",
+  "deploymentRun": "https://github.com/DeveloperAlly/solana-hack/actions/runs/38327244344",
+  "acceptance": "DONE with zero facts automatically renders empty recovery controls without a refresh; no central spinner",
+  "independentGrade": 97,
+  "scope": "Separate negative test brand; does not assert all sources or current owner screenshot fixed. Previous blocked source remains visible.",
+  "screenshotSha256": "b33379273026a62c382cffb827d5674d345f46a211a2cc3987a48916f7cb0a45"
+}

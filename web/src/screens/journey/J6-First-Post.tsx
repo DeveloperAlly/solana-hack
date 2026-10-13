@@ -17,10 +17,12 @@
  * while their evidence survives J3 (derive.ts), and Approve is enabled by the same function that renders the check badges (derive.ts postChecks).
  * States: success only (the board draws one state; its blocked-claim panel is an example inside it).
  */
+import { useJourneyTask } from './useJourneyTask';
 import { useState } from 'react';
-import { Button, Stack, Text } from '../../ui/primitives';
+import { Alert, Button, Stack, Text } from '../../ui/primitives';
 import { StatePanel } from '../../ui/composites/StatePanel';
 import { Card } from '../../ui/composites/Card';
+import { InlineForm } from '../../ui/composites/InlineForm';
 import { Tabs } from '../../ui/composites/Tabs';
 import { JourneyAha } from '../../ui/domain/JourneyAha';
 import { JourneyClaimText } from '../../ui/domain/JourneyClaimText';
@@ -38,7 +40,9 @@ import type { FirstPostData } from './types';
 
 export function J6FirstPost({ data }: { data: FirstPostData }) {
   const to = useJourneyHref();
-  const { selections, actions } = useJourneyFlow('firstPost');
+  const { selections, actions, live } = useJourneyFlow('firstPost');
+  const task = useJourneyTask();
+  const [editing, setEditing] = useState(false);
   const [chosen, setChosen] = useState<string>();
   // Polish actions applied per channel, oldest first; the draft on screen is the last one's revision, else the original.
   const [applied, setApplied] = useState<Record<string, string[]>>({});
@@ -50,7 +54,7 @@ export function J6FirstPost({ data }: { data: FirstPostData }) {
   const claims = draftClaims(draft, data.claims, selections);
   // The evidence panel always describes the draft on screen: the chosen claim if it is in this draft, else its first.
   const claim = claims.find((c) => c.id === chosen) ?? claims[0];
-  const checks = postChecks(data.checks, claims);
+  const checks = live ? { rows: data.checkRows || [], ready: data.approvalReady === true } : postChecks(data.checks, claims);
   const text = draft.segments.map((s) => s.text).join('');
   if (selections.kitRegistered === false) {
     // Drafting needs a registered kit (web/worker/posts.ts returns 409 "register your brand kit first").
@@ -67,17 +71,19 @@ export function J6FirstPost({ data }: { data: FirstPostData }) {
         stackBelow="md"
         end={
           <Stack gap={3}>
-            <JourneyAha n={4}>It's my voice, and every claim is backed.</JourneyAha>
+            <JourneyAha n={4}>{live ? 'Your draft, ready for your review.' : "It's my voice, and every claim is backed."}</JourneyAha>
             <StatusList label="Checks" title surface="card" rows={statusRows(checks.rows)} />
             {claim && <FirstPostClaimPanel claim={claim} />}
-            <Card variant="emphasis" as="div">
+            {!live && <Card variant="emphasis" as="div">
               <Text variant="small"><strong>Example: an unsupported claim is blocked</strong></Text>
               <Text variant="small">"{data.blocked.claim}" {data.blocked.message}</Text>
             </Card>
+            }
+            {data.notice && <Alert tone="warning">{data.notice}</Alert>}
             {/* INTEGRATION: POST /api/brands/:id/posts/:id/approve {rev}, then POST …/register (web/worker/api.ts). */}
             <JourneyNextButton
               href={to('proof')}
-              ready={checks.ready}
+              ready={checks.ready && !editing && !task.busy}
               hint="Every check must pass first: source or remove each unsupported claim, and fix what the slop pass flags."
               onGo={() => actions.approvePost({ channelLabel: draft.label, text })}
             >
@@ -94,7 +100,10 @@ export function J6FirstPost({ data }: { data: FirstPostData }) {
               onChange={actions.setPostChannel}
               items={data.channels.map((c) => ({ id: c.id, label: c.label, panel: <JourneyClaimText segments={c.id === draft.id ? draft.segments : c.segments} selected={claim?.id} onSelect={setChosen} /> }))}
             />
-            <Text variant="caption" tone="secondary">Sample draft for the wireframe. Highlighted = a claim linked to evidence; select one to see it.</Text>
+            <Text variant="caption" tone="secondary">{live ? 'Draft from your registered kit.' : 'Sample draft for the wireframe.'} Highlighted = a claim linked to evidence; select one to see it.</Text>
+            {live && <>{task.error && <Alert tone="danger">{task.error}</Alert>}{editing ? <InlineForm fields={[{ name: 'body', label: 'Edit your post', multiline: true, rows: 8, defaultValue: text, validate: value => value ? null : 'The post cannot be empty.' }]} submitLabel="Save edits" busy={task.busy} errors={{ body: task.error }} onCancel={() => setEditing(false)} onSubmit={({ body }) => void task.run(() => actions.editPost?.(body), () => setEditing(false))} /> : <Button variant="secondary" disabled={task.busy} onClick={() => setEditing(true)}>Edit post</Button>}
+            <PolishBar busy={task.busy} actions={data.polishActions.map(a => ({ id: a, label: a }))} applied={[]} onApply={a => void task.run(() => actions.polishPost?.(a))} onUndo={() => void task.run(() => actions.undoPost?.())} />
+            <Button variant="secondary" disabled={task.busy} onClick={() => void task.run(() => actions.undoPost?.())}>Undo last edit</Button><Button variant="secondary" disabled={task.busy} onClick={() => void task.run(() => actions.reviewPost?.())}>Check claims</Button></>}
             {/* INTEGRATION: POST /api/brands/:id/posts/:id/polish {action, rev}; Undo is POST …/undo {rev}. */}
             {channel.polish && <PolishBar actions={data.polishActions.map((a) => ({ id: a, label: a }))} applied={steps} onApply={(a) => setSteps([...steps, a])} onUndo={() => setSteps(steps.slice(0, -1))} />}
           </Card>

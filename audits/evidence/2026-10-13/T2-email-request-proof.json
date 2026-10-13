@@ -1,0 +1,29 @@
+{
+  "issuedAt": "2026-10-12T23:57:07.578Z",
+  "observedAt": "2026-10-12T23:57:09.994Z",
+  "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+  "codeFieldVisible": true,
+  "assets": [
+    "https://jamjam.tech/assets/index-DuDs_NjJ.js"
+  ],
+  "network": [
+    {
+      "at": "2026-10-12T23:57:05.636Z",
+      "path": "/auth/v1/token",
+      "status": 200
+    },
+    {
+      "at": "2026-10-12T23:57:07.807Z",
+      "path": "/auth/v1/token",
+      "status": 200
+    },
+    {
+      "at": "2026-10-12T23:57:09.835Z",
+      "path": "/auth/v1/user",
+      "status": 200
+    }
+  ],
+  "genuineMailDeliveredAt": "2026-10-12T23:57:10Z",
+  "recipientMatchedOwner": true,
+  "scope": "Actual email request only; no confirmation claim."
+}

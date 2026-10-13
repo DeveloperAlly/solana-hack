@@ -31,7 +31,7 @@ export function InfluencerQueue({ data }: { data: InfluencerQueueData }) {
   const title = persona ? `${persona.name}: this week` : data.title;
   const subtitle = persona ? `${persona.voice} · ${persona.line}` : data.subtitle;
   return (
-    <HubPage section="grow" sub="influencer">
+    <HubPage artboard="Influencer-Queue">
       <Text variant="small" tone="secondary">{data.banner}</Text>
       <PageHeader badges={<ComingSoonFlag tag="EXPERIMENTAL" />} title={title} intro={subtitle} actions={<Button variant="secondary" href={links.influencerSetup}>Persona settings</Button>} />
       <Grid min="md" gap={4}>

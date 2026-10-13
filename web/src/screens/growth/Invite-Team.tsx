@@ -19,7 +19,7 @@ import { Card } from '../../ui/composites/Card';
 import { Columns } from '../../ui/layouts/Columns';
 import { StateView } from '../../ui/composites/StateView';
 import { ScreenLink } from '../../gallery/ScreenLink';
-import { GrowthFrame } from './components/GrowthFrame';
+import { LoopFrame } from './components/LoopFrame';
 import { GrowthInviteForm } from './components/GrowthInviteForm';
 import { GrowthSeatSummary } from './components/GrowthSeatSummary';
 import { GrowthTeamList } from './components/GrowthTeamList';
@@ -30,8 +30,8 @@ import type { ScreenProps, TeamData } from './types';
 export function InviteTeam({ data, state = 'success' }: ScreenProps<TeamData>) {
   const flow = useTeam(data);
   return (
-    <GrowthFrame
-      section="team"
+    <LoopFrame
+      artboard="Invite-Team"
       title="Invite a teammate or partner"
       tag="COMING SOON"
       intro={`Bring people onto ${data.brand}. They write from your kit, and you approve every piece.`}
@@ -50,6 +50,6 @@ export function InviteTeam({ data, state = 'success' }: ScreenProps<TeamData>) {
           </Card>
         </Columns>
       </StateView>
-    </GrowthFrame>
+    </LoopFrame>
   );
 }

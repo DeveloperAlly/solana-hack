@@ -53,26 +53,5 @@ export function useBoardHref(): (key: BoardKey, state?: ScreenState) => string {
   return useCallback((key: BoardKey, state?: ScreenState) => href(boards[key], state), [href]);
 }
 
-export interface SubnavItem {
-  id: string;
-  label: string;
-  board: BoardKey;
-}
-
-/** Hub sub-navigation drawn on Kit-Export (Brand) and Dashboard (Grow), canvas boards of the same names. */
-export const brandSubnav: SubnavItem[] = [
-  { id: 'kit', label: 'Brand kit', board: 'brandBuild' },
-  { id: 'voices', label: 'Voices', board: 'voices' },
-  { id: 'claims', label: 'Claims', board: 'claims' },
-  { id: 'verification', label: 'Verification', board: 'domain' },
-];
-export const growSubnav: SubnavItem[] = [
-  { id: 'engagement', label: 'Engagement', board: 'engageQueue' },
-  { id: 'ambassadors', label: 'Ambassadors', board: 'dashboard' },
-  { id: 'partners', label: 'Partners', board: 'partners' },
-  { id: 'leads', label: 'Leads (experimental)', board: 'leads' },
-  { id: 'influencer', label: 'Influencer (experimental)', board: 'influencer' },
-];
-
 /** Each approval gate's screen, for "approve the gates first" links. */
 export const gateBoards = { purpose: 'gatePurpose', positioning: 'gatePositioning', voice: 'gateVoice' } as const satisfies Record<string, BoardKey>;

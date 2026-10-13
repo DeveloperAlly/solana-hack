@@ -21,7 +21,7 @@ export const routeTagLabels: Record<RouteTag, { label: string; flag: boolean; sh
   ARCHIVED: { label: 'Archived', flag: true },
 };
 export type RouteSection = 'public' | 'onboarding' | 'system' | 'hub';
-export type ScreenId = 'landing' | 'workbench' | 'placeholder' | 'signin' | 'build' | 'create' | 'verify' | 'ledger' | 'home' | 'brand' | 'settings' | 'soon' | 'how' | 'gallery' | 'gallery-screen';
+export type ScreenId = 'landing' | 'workbench' | 'placeholder' | 'signin' | 'build' | 'create' | 'verify' | 'ledger' | 'home' | 'brand' | 'settings' | 'soon' | 'how' | 'gallery' | 'gallery-screen' | 'preview';
 
 export interface RouteDef {
   path: string;
@@ -40,9 +40,13 @@ export const routes: RouteDef[] = [
   { path: '/home', label: 'Home', section: 'hub', tag: 'HACKATHON', screen: 'home' },
   { path: '/brand', label: 'Brand', section: 'hub', tag: 'HACKATHON', screen: 'brand' },
   { path: '/settings', label: 'Settings', section: 'hub', tag: 'HACKATHON', screen: 'settings' },
-  { path: '/grow', label: 'Grow', section: 'hub', tag: 'COMING SOON', screen: 'soon' },
-  { path: '/inbox', label: 'Inbox', section: 'hub', tag: 'COMING SOON', screen: 'soon' },
-  { path: '/analytics', label: 'Analytics', section: 'hub', tag: 'ROADMAP', screen: 'soon' },
+  { path: '/grow', label: 'Grow', section: 'hub', tag: 'COMING SOON', screen: 'preview' },
+  { path: '/inbox', label: 'Inbox', section: 'hub', tag: 'COMING SOON', screen: 'preview' },
+  { path: '/analytics', label: 'Analytics', section: 'hub', tag: 'ROADMAP', screen: 'preview' },
+  { path: '/distribute', label: 'Distribute', section: 'hub', tag: 'COMING SOON', screen: 'preview' },
+  { path: '/verify-home', label: 'Your proof', section: 'hub', tag: 'COMING SOON', screen: 'preview' },
+  { path: '/learn', label: 'Learn', section: 'hub', tag: 'COMING SOON', screen: 'preview' },
+  { path: '/preview/:artboard', label: 'Product preview', section: 'system', tag: 'COMING SOON', screen: 'preview' },
   { path: '/sign-in', label: 'Sign in', section: 'onboarding', tag: 'HACKATHON', screen: 'signin' },
   { path: '/build/*', label: 'Build your brand', section: 'onboarding', tag: 'HACKATHON', screen: 'build' },
   { path: '/system', label: 'Workbench', section: 'system', tag: 'HACKATHON', screen: 'workbench' },

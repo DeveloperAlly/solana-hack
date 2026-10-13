@@ -1,0 +1,387 @@
+{
+  "observedAt": "2026-10-13T01:49:42.053Z",
+  "httpStatus": 200,
+  "post": {
+    "id": "9a07c251-fa57-8c4a-bfc0-5e6757381565",
+    "brand_id": "577c80cf-71df-4654-9ec4-8b34988bf268",
+    "channel": "LinkedIn",
+    "body": "I think out loud on X and post the longer-form on LinkedIn.\nI work the whole stack, from the protocol layer to the story.\nI turn frontier AI research into product that ships, sells & gets used.\nFollow me for more insights.",
+    "status": "drafted",
+    "kit_version": 1,
+    "rev": 0,
+    "created_at": "2026-10-13T01:47:58.390461+00:00"
+  },
+  "claimMap": {
+    "rev": 0,
+    "items": [
+      {
+        "kind": "factual",
+        "text": "I think out loud on X and post the longer-form on LinkedIn.",
+        "facts": [
+          {
+            "id": "7f35997b-e5b6-8987-aad8-94dcad2b7677",
+            "claim": "I think out loud on X and post the longer-form on LinkedIn.",
+            "quote": "I think out loud on X and post the longer-form on LinkedIn."
+          }
+        ],
+        "status": "supported"
+      },
+      {
+        "kind": "factual",
+        "text": "I work the whole stack, from the protocol layer to the story.",
+        "facts": [
+          {
+            "id": "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+            "claim": "I work the whole stack, from the protocol layer to the story.",
+            "quote": "I work the whole stack, from the protocol layer to the story."
+          }
+        ],
+        "status": "supported"
+      },
+      {
+        "kind": "factual",
+        "text": "I turn frontier AI research into product that ships, sells & gets used.",
+        "facts": [
+          {
+            "id": "6f59aa0f-9cea-8b79-b3db-b742a75b94b7",
+            "claim": "I turn frontier AI research into product that ships, sells & gets used.",
+            "quote": "I turn frontier AI research into product that ships, sells & gets used."
+          }
+        ],
+        "status": "supported"
+      },
+      {
+        "kind": "opinion",
+        "text": "Follow me for more insights.",
+        "facts": [],
+        "status": "opinion"
+      }
+    ],
+    "partial": false,
+    "claimsGate": "5",
+    "unsupported": 0
+  },
+  "voice": {
+    "fit": 80,
+    "spec": {
+      "bands": "bands_v1_uncalibrated",
+      "dials": {
+        "cta": 3,
+        "emoji": 1,
+        "energy": 3,
+        "humour": 2,
+        "jargon": 2,
+        "warmth": 3,
+        "formality": 2,
+        "sentence_length": 2
+      },
+      "source": "answer",
+      "version": "voice_spec_v1",
+      "template": "candid_founder"
+    },
+    "finding": [
+      "Formality reads as 5/5; the voice asks for 2/5"
+    ],
+    "evaluator": {
+      "pass": false,
+      "model": null,
+      "score": 80,
+      "status": "tracked",
+      "reasons": [
+        "Formality reads as 5/5; the voice asks for 2/5"
+      ],
+      "version": 1
+    }
+  },
+  "verdict": {
+    "passed": true,
+    "failedGates": [],
+    "bodyHash": "sha256:31437df1afa60b6d34a1a11d18192f7139550d754b83b0d46c576764a022d83b"
+  },
+  "run": {
+    "id": "9d218f52-c65e-4677-a493-a29ba3369fd8",
+    "brand_id": "577c80cf-71df-4654-9ec4-8b34988bf268",
+    "kind": "draft_post",
+    "status": "done",
+    "progress": {
+      "done": 9,
+      "steps": [
+        {
+          "id": "context",
+          "label": "Reading your registered kit",
+          "status": "done"
+        },
+        {
+          "id": "retrieve",
+          "label": "Finding facts and examples",
+          "status": "done"
+        },
+        {
+          "id": "draft",
+          "label": "Writing candidates",
+          "status": "done"
+        },
+        {
+          "id": "measure",
+          "label": "Checking slop, claims, voice and platform",
+          "status": "done"
+        },
+        {
+          "id": "writers",
+          "label": "Reading who wrote each candidate",
+          "status": "done"
+        },
+        {
+          "id": "review",
+          "label": "Independent review",
+          "status": "done"
+        },
+        {
+          "id": "reviewers",
+          "label": "Reading who reviewed",
+          "status": "done"
+        },
+        {
+          "id": "decide",
+          "label": "Choosing the best candidate",
+          "status": "done"
+        },
+        {
+          "id": "save",
+          "label": "Saving the draft and every candidate",
+          "status": "done"
+        }
+      ],
+      "total": 9,
+      "message": null
+    },
+    "output": {
+      "chosen": 1,
+      "passed": true,
+      "postId": "9a07c251-fa57-8c4a-bfc0-5e6757381565"
+    },
+    "created_at": "2026-10-13T01:45:21.811058+00:00",
+    "updated_at": "2026-10-13T01:47:58.941315+00:00"
+  },
+  "steps": [
+    {
+      "step": "context",
+      "attempt": 1,
+      "type": "read",
+      "outcome": "ok",
+      "prompt_key": null,
+      "prompt_version": null,
+      "prompt_hash": null,
+      "model": null,
+      "tokens_in": null,
+      "tokens_out": null,
+      "cost_usd": null,
+      "duration_ms": 509,
+      "error": null,
+      "created_at": "2026-10-13T01:45:29.166522+00:00"
+    },
+    {
+      "step": "retrieve",
+      "attempt": 1,
+      "type": "read",
+      "outcome": "ok",
+      "prompt_key": null,
+      "prompt_version": null,
+      "prompt_hash": null,
+      "model": null,
+      "tokens_in": null,
+      "tokens_out": null,
+      "cost_usd": null,
+      "duration_ms": 259,
+      "error": null,
+      "created_at": "2026-10-13T01:45:29.708791+00:00"
+    },
+    {
+      "step": "draft[1]",
+      "attempt": 1,
+      "type": "llm",
+      "outcome": "ok",
+      "prompt_key": "create.draft",
+      "prompt_version": 1,
+      "prompt_hash": "sha256:c06195951f590bda73f6bcb3659ecbb3c3d899d5a55eb15e38dea85ff574b6f5",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "tokens_in": 2027,
+      "tokens_out": 4518,
+      "cost_usd": 0,
+      "duration_ms": 42999,
+      "error": null,
+      "created_at": "2026-10-13T01:46:18.148342+00:00"
+    },
+    {
+      "step": "draft[0]",
+      "attempt": 1,
+      "type": "llm",
+      "outcome": "ok",
+      "prompt_key": "create.draft",
+      "prompt_version": 1,
+      "prompt_hash": "sha256:c06195951f590bda73f6bcb3659ecbb3c3d899d5a55eb15e38dea85ff574b6f5",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "tokens_in": 2027,
+      "tokens_out": 5665,
+      "cost_usd": 0,
+      "duration_ms": 55588,
+      "error": null,
+      "created_at": "2026-10-13T01:46:30.780048+00:00"
+    },
+    {
+      "step": "draft[2]",
+      "attempt": 1,
+      "type": "llm",
+      "outcome": "ok",
+      "prompt_key": "create.draft",
+      "prompt_version": 1,
+      "prompt_hash": "sha256:c06195951f590bda73f6bcb3659ecbb3c3d899d5a55eb15e38dea85ff574b6f5",
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "tokens_in": 2027,
+      "tokens_out": 5639,
+      "cost_usd": 0,
+      "duration_ms": 70586,
+      "error": null,
+      "created_at": "2026-10-13T01:46:47.276305+00:00"
+    },
+    {
+      "step": "measure",
+      "attempt": 1,
+      "type": "code",
+      "outcome": "ok",
+      "prompt_key": null,
+      "prompt_version": null,
+      "prompt_hash": null,
+      "model": null,
+      "tokens_in": null,
+      "tokens_out": null,
+      "cost_usd": null,
+      "duration_ms": 0,
+      "error": null,
+      "created_at": "2026-10-13T01:46:48.090326+00:00"
+    },
+    {
+      "step": "writers",
+      "attempt": 1,
+      "type": "read",
+      "outcome": "ok",
+      "prompt_key": null,
+      "prompt_version": null,
+      "prompt_hash": null,
+      "model": null,
+      "tokens_in": null,
+      "tokens_out": null,
+      "cost_usd": null,
+      "duration_ms": 261,
+      "error": null,
+      "created_at": "2026-10-13T01:46:48.622211+00:00"
+    },
+    {
+      "step": "review[1]",
+      "attempt": 1,
+      "type": "llm",
+      "outcome": "ok",
+      "prompt_key": "create.review",
+      "prompt_version": 1,
+      "prompt_hash": "sha256:3d3ab49090f5e7da87be96204ccfeaf94942a47708d877177419523f3a614e2d",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "tokens_in": 1881,
+      "tokens_out": 2701,
+      "cost_usd": 0,
+      "duration_ms": 35383,
+      "error": null,
+      "created_at": "2026-10-13T01:47:27.305959+00:00"
+    },
+    {
+      "step": "review[0]",
+      "attempt": 1,
+      "type": "llm",
+      "outcome": "ok",
+      "prompt_key": "create.review",
+      "prompt_version": 1,
+      "prompt_hash": "sha256:3d3ab49090f5e7da87be96204ccfeaf94942a47708d877177419523f3a614e2d",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "tokens_in": 1948,
+      "tokens_out": 5675,
+      "cost_usd": 0,
+      "duration_ms": 65310,
+      "error": null,
+      "created_at": "2026-10-13T01:47:56.510758+00:00"
+    },
+    {
+      "step": "review[2]",
+      "attempt": 1,
+      "type": "llm",
+      "outcome": "ok",
+      "prompt_key": "create.review",
+      "prompt_version": 1,
+      "prompt_hash": "sha256:3d3ab49090f5e7da87be96204ccfeaf94942a47708d877177419523f3a614e2d",
+      "model": "dots-studio/dots-3-note-preview:free",
+      "tokens_in": 1953,
+      "tokens_out": 5551,
+      "cost_usd": 0,
+      "duration_ms": 64403,
+      "error": null,
+      "created_at": "2026-10-13T01:47:56.699638+00:00"
+    },
+    {
+      "step": "reviewers",
+      "attempt": 1,
+      "type": "read",
+      "outcome": "ok",
+      "prompt_key": null,
+      "prompt_version": null,
+      "prompt_hash": null,
+      "model": null,
+      "tokens_in": null,
+      "tokens_out": null,
+      "cost_usd": null,
+      "duration_ms": 252,
+      "error": null,
+      "created_at": "2026-10-13T01:47:57.80042+00:00"
+    },
+    {
+      "step": "decide",
+      "attempt": 1,
+      "type": "code",
+      "outcome": "ok",
+      "prompt_key": null,
+      "prompt_version": null,
+      "prompt_hash": null,
+      "model": null,
+      "tokens_in": null,
+      "tokens_out": null,
+      "cost_usd": null,
+      "duration_ms": 0,
+      "error": null,
+      "created_at": "2026-10-13T01:47:58.076114+00:00"
+    },
+    {
+      "step": "save",
+      "attempt": 1,
+      "type": "write",
+      "outcome": "ok",
+      "prompt_key": null,
+      "prompt_version": null,
+      "prompt_hash": null,
+      "model": null,
+      "tokens_in": null,
+      "tokens_out": null,
+      "cost_usd": null,
+      "duration_ms": 326,
+      "error": null,
+      "created_at": "2026-10-13T01:47:58.670361+00:00"
+    }
+  ],
+  "independentClaimReviewGrade": 96,
+  "native202RequestReceipt": {
+    "entry": 55,
+    "method": "POST",
+    "path": "/api/brands/577c80cf-71df-4654-9ec4-8b34988bf268/posts",
+    "status": 202,
+    "originalCreationRequestCount": 1,
+    "responseBodyRunIdAssociationCaptured": false
+  },
+  "scope": "initial persisted revision0/source-supported claims; voice formality tracked failure retained; no final approval",
+  "nativeDeliveryGrade": 97
+}

@@ -1,0 +1,165 @@
+{
+  "observedReadbackStatus": 200,
+  "brandId": "577c80cf-71df-4654-9ec4-8b34988bf268",
+  "evidence": [
+    {
+      "id": "11cd0bcb-4ae7-8625-b600-275393edffbc",
+      "section": "origin",
+      "claim": "Mechatronics engineer and computer scientist.",
+      "ownerDecision": "confirmed",
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "427079be-5172-87ae-9bdc-054eccc6c104",
+      "section": "purpose",
+      "claim": "I live at the seam between research and reality.",
+      "ownerDecision": "confirmed",
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "4cf29db0-3946-8fb6-b6e6-5de15b97319f",
+      "section": "positioning",
+      "claim": "The throughline never changes. The hardest part of frontier technology is rarely the technology; it is the translation: scoping what is buildable now, shipping it reliably, and telling the story that makes engineers, executives and markets move together.",
+      "ownerDecision": null,
+      "reviewStatus": "rejected",
+      "editedFrom": null
+    },
+    {
+      "id": "5597888e-0c7d-8b7c-b208-708d3c71d407",
+      "section": "purpose",
+      "claim": "I take research-grade AI and turn it into things people can use, buy, and believe in.",
+      "ownerDecision": null,
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+      "section": "positioning",
+      "claim": "I work the whole stack, from the protocol layer to the story.",
+      "ownerDecision": null,
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "6f12bbac-9721-866d-ac50-fa481baa2369",
+      "section": "messaging",
+      "claim": "When I am not shipping, I am reading sci-fi, thinking about robotics and the philosophy of AI, writing, and chasing a properly good cup of coffee.",
+      "ownerDecision": "rejected",
+      "reviewStatus": "rejected",
+      "editedFrom": null
+    },
+    {
+      "id": "6f59aa0f-9cea-8b79-b3db-b742a75b94b7",
+      "section": "purpose",
+      "claim": "I turn frontier AI research into product that ships, sells & gets used.",
+      "ownerDecision": null,
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "7f35997b-e5b6-8987-aad8-94dcad2b7677",
+      "section": "voice",
+      "claim": "I think out loud on X and post the longer-form on LinkedIn.",
+      "ownerDecision": null,
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "96ff84a9-303c-8977-a2de-8cd45be56269",
+      "section": "origin",
+      "claim": "Founder & CEO of Lilypad, a decentralised GPU network for verifiable AI inference across thousands of nodes, open-sourced when I led its wind-down in 2025, and arXiv-published.",
+      "ownerDecision": null,
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "cdd32081-6ca1-8834-b9db-2c73ef071d09",
+      "section": "messaging",
+      "claim": "I am endlessly curious about how minds, biological and artificial, actually work.",
+      "ownerDecision": null,
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "e3604fa5-b4ee-8976-9c06-e71946ac9cac",
+      "section": "origin",
+      "claim": "Previously developer relations and go-to-market at IBM and the Filecoin Foundation, and technical architecture at Accenture.",
+      "ownerDecision": null,
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "f48362e9-3835-8125-aac8-1d457ae39f92",
+      "section": "purpose",
+      "claim": "For eight-plus years I have taken the bleeding edge of AI and infrastructure and shipped it, most recently as founder and CEO of Lilypad, a decentralised GPU compute network for verifiable, trustless AI inference at scale.",
+      "ownerDecision": null,
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "6d3953d4-8fcd-4125-af56-d14d53878b3c",
+      "section": "positioning",
+      "claim": "I translate frontier technology into buildable scope, reliable delivery and stories that align engineers, executives and markets.",
+      "ownerDecision": null,
+      "reviewStatus": "approved",
+      "editedFrom": "4cf29db0-3946-8fb6-b6e6-5de15b97319f"
+    }
+  ],
+  "nativeConfirmations": [
+    {
+      "id": "96ff84a9-303c-8977-a2de-8cd45be56269",
+      "status": 200,
+      "at": "2026-10-13T00:30:44.156+00:00",
+      "sourceUrl": "https://alisonhaire.com/",
+      "quote": "Founder & CEO of Lilypad, a decentralised GPU network for verifiable AI inference across thousands of nodes, open-sourced when I led its wind-down in 2025, and arXiv-published.",
+      "trust": "owned",
+      "section": "origin",
+      "claim": "Founder & CEO of Lilypad, a decentralised GPU network for verifiable AI inference across thousands of nodes, open-sourced when I led its wind-down in 2025, and arXiv-published.",
+      "ownerDecision": "confirmed",
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "5597888e-0c7d-8b7c-b208-708d3c71d407",
+      "status": 200,
+      "at": "2026-10-13T00:30:45.758+00:00",
+      "sourceUrl": "https://alisonhaire.com/",
+      "quote": "I take research-grade AI and turn it into things people can use, buy, and believe in.",
+      "trust": "owned",
+      "section": "purpose",
+      "claim": "I take research-grade AI and turn it into things people can use, buy, and believe in.",
+      "ownerDecision": "confirmed",
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "6b60e562-1f81-8889-a4d9-f5a710ff0eb2",
+      "status": 200,
+      "at": "2026-10-13T00:30:47.74+00:00",
+      "sourceUrl": "https://alisonhaire.com/",
+      "quote": "I work the whole stack, from the protocol layer to the story.",
+      "trust": "owned",
+      "section": "positioning",
+      "claim": "I work the whole stack, from the protocol layer to the story.",
+      "ownerDecision": "confirmed",
+      "reviewStatus": "approved",
+      "editedFrom": null
+    },
+    {
+      "id": "cdd32081-6ca1-8834-b9db-2c73ef071d09",
+      "status": 200,
+      "at": "2026-10-13T00:30:49.526+00:00",
+      "sourceUrl": "https://alisonhaire.com/",
+      "quote": "I am endlessly curious about how minds, biological and artificial, actually work.",
+      "trust": "owned",
+      "section": "messaging",
+      "claim": "I am endlessly curious about how minds, biological and artificial, actually work.",
+      "ownerDecision": "confirmed",
+      "reviewStatus": "approved",
+      "editedFrom": null
+    }
+  ],
+  "scope": "Observed accept/edit/reject and matching persisted decisions only. Full facts/voice/downstreamdrafting unproved."
+}

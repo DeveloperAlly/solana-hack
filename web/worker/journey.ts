@@ -7,8 +7,9 @@ import { db } from './db';
 import { HttpError, type Env } from './env';
 import { SECTIONS, type SectionId } from './kit';
 import { chat, parseJson, SLOP_RULES } from './llm';
+import { loadTaskModels } from './models';
 import { usableFact } from './sources/registry';
-import { nearestTemplates, templateById, voiceAnswerFor, VOICE_TEMPLATES } from './voice';
+import { contrastingTemplates, nearestTemplates, templateById, voiceAnswerFor, type VoiceTemplate } from './voice';
 
 /** Reading before sign-in (decision D1) uses Supabase anonymous users; these caps bound what one anonymous visitor uses. */
 export const ANON_MAX_BRANDS = 1;
@@ -21,7 +22,7 @@ export async function assertCanCreateBrand(env: Env, user: User) {
   if (rows.length >= ANON_MAX_BRANDS) throw new HttpError(409, 'save your brand with your email to start another one');
 }
 
-export async function assertCanAddSource(env: Env, user: User, brandId: string) {
+export async function assertCanAddSource(env: Env, user: Pick<User, 'isAnonymous'>, brandId: string) {
   if (!user.isAnonymous) return;
   const rows = await db.select<{ id: string }>(env, 'sources', `${db.eq('brand_id', brandId)}&select=id&limit=${ANON_MAX_SOURCES + 1}`);
   if (rows.length >= ANON_MAX_SOURCES) throw new HttpError(409, `save your brand with your email to read more than ${ANON_MAX_SOURCES} sources`);
@@ -75,8 +76,8 @@ export interface VoiceSample { template: string; label: string; text: string; an
 
 /**
  * Voice by example (canvas J4, architecture §5 step 6): three short paragraphs about the brand, each in a different
- * template, written only from facts that may enter a kit. Round 1 offers three contrasting templates the model judges
- * plausible for this brand; round 2 offers the round 1 pick and its two nearest neighbours by dial distance.
+ * template, written only from facts that may enter a kit. Round 1 offers the three templates furthest apart on the
+ * dials (contrastingTemplates); round 2 offers the round 1 pick and its two nearest neighbours by dial distance.
  * The pick is saved with the existing Voice answer route, so kitPolicy and Gate 3 work unchanged.
  */
 export async function voiceSamples(env: Env, brand: { id: string; name: string }, round: number, near?: string): Promise<VoiceSample[]> {
@@ -87,29 +88,56 @@ export async function voiceSamples(env: Env, brand: { id: string; name: string }
     if (!near || !templateById(near)) throw new HttpError(400, 'round 2 needs the template picked in round 1');
     candidates = nearestTemplates(near, 3);
   } else {
-    candidates = VOICE_TEMPLATES.map((t) => t.value);
+    candidates = contrastingTemplates(3);
   }
+  const models = (await loadTaskModels(env, ['create.draft']))['create.draft'];
   const facts = evidence.slice(0, 40).map((e) => `- ${e.claim}`).join('\n');
-  const list = candidates.map((id) => `${id}: ${templateById(id)!.label}`).join('\n');
-  const want = round === 2 ? `one paragraph in each of these three templates: ${candidates.join(', ')}` : 'three paragraphs in three clearly different templates from the list that could suit this brand';
-  const system = `You show a brand owner how "${brand.name}" could sound. Write ${want}. Each paragraph is 40 to 70 words introducing the brand, using only the facts given; no numbers, customers or claims that are not in the facts. ${SLOP_RULES} Reply with JSON only: {"samples": [{"template": string, "text": string}]}.`;
-  const { text } = await chat(env, system, `Templates:\n${list}\n\nFacts:\n${facts}`);
-  // Validated at run time: the model's JSON can have any shape. A malformed entry is skipped; too few usable ones is a 502.
-  const samples = (parseJson<unknown>(text) as { samples?: unknown } | null)?.samples;
-  const raw = Array.isArray(samples) ? samples.filter((s): s is { template?: unknown; text?: unknown } => !!s && typeof s === 'object') : [];
-  const seen = new Set<string>();
-  const out: VoiceSample[] = [];
-  for (const s of raw) {
-    const t = typeof s.template === 'string' ? templateById(s.template) : undefined;
-    const body = typeof s.text === 'string' ? s.text.trim().slice(0, 800) : '';
-    if (!t || !body || seen.has(t.value) || !candidates.includes(t.value)) continue;
-    seen.add(t.value);
-    // The picked paragraph is saved as the answer's sample, as the voice form does (normaliseVoice keeps it), so the voice
-    // section is drafted from the example the owner chose, not only the template name and dials.
-    out.push({ template: t.value, label: t.label, text: body, answer: { ...voiceAnswerFor(t.value), sample: body } });
+  const list = candidates.map((id, i) => `${i + 1}. ${id}: ${templateById(id)!.label}`).join('\n');
+  const system = `You show a brand owner how "${brand.name}" could sound. Write exactly three paragraphs, one in each template listed, in the listed order. Each paragraph is 40 to 70 words introducing the brand, using only the facts given; no numbers, customers or claims that are not in the facts. ${SLOP_RULES} Reply with JSON only, no other text: {"samples": [{"template": "<template id from the list>", "text": string}]}.`;
+  // One retry before a 502: live run 38283878925 got an unusable round-1 reply from openrouter/free
+  // (https://github.com/DeveloperAlly/solana-hack/issues/112).
+  let out: VoiceSample[] = [];
+  for (let attempt = 0; attempt < 2 && out.length < 3; attempt++) {
+    const { text } = await chat(env, system, `Templates:\n${list}\n\nFacts:\n${facts}`, { ...(models ? { models } : {}) });
+    try { out = samplesFrom(parseJson<unknown>(text), candidates); }
+    catch (e) { if (!(e instanceof HttpError)) throw e; out = []; }
+    if (out.length < 3) console.warn('voice samples unusable', { round, attempt, usable: out.length });
   }
   if (out.length < 3) throw new HttpError(502, 'the AI model did not return three usable samples, try again');
-  return out.slice(0, 3);
+  return out;
+}
+
+const norm = (v: string) => v.toLowerCase().replace(/[^a-z]+/g, ' ').trim();
+
+/**
+ * Reads the model's samples against the three offered templates; pure. Validated at run time (the reply can have any
+ * shape): each entry is matched to an offered template by id, then label, then (only for a missing template or a generic Style N label)
+ * its position in the list; entries that name an unoffered template, match nothing, repeat a template or have no text are skipped. Returns the samples in the offered order.
+ */
+export function samplesFrom(raw: unknown, candidates: string[]): VoiceSample[] {
+  const samples = (raw as { samples?: unknown } | null)?.samples;
+  const list = Array.isArray(samples) ? samples : [];
+  const offered = candidates.map((id) => templateById(id)!).filter(Boolean) as VoiceTemplate[];
+  const byTemplate = new Map<string, string>();
+  list.forEach((s, i) => {
+    if (!s || typeof s !== 'object') return;
+    const { template, text } = s as { template?: unknown; text?: unknown };
+    const body = typeof text === 'string' ? text.trim().slice(0, 800) : '';
+    if (!body) return;
+    const key = typeof template === 'string' ? norm(template) : '';
+    const named = offered.find((o) => norm(o.value) === key) ?? offered.find((o) => key && norm(o.label) === key);
+    // Unknown explicit IDs must never claim a positional slot (PR #113 discussion_r4250810746).
+    const positional = template == null || template === '' ||
+      (typeof template === 'string' && /^style [1-3]$/i.test(template.trim()) && Number(template.trim().slice(-1)) === i + 1);
+    const t = named ?? (positional ? offered[i] : undefined);
+    if (t && !byTemplate.has(t.value)) byTemplate.set(t.value, body);
+  });
+  // The picked paragraph is saved as the answer's sample, as the voice form does (normaliseVoice keeps it), so the voice
+  // section is drafted from the example the owner chose, not only the template name and dials.
+  return offered.filter((t) => byTemplate.has(t.value)).map((t) => {
+    const body = byTemplate.get(t.value)!;
+    return { template: t.value, label: t.label, text: body, answer: { ...voiceAnswerFor(t.value), sample: body } };
+  });
 }
 
 /** The brief for the first post when the owner gives none (canvas J6: "no blank brief"). */

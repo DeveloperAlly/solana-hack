@@ -245,7 +245,7 @@ describe('Journey screens: other interactions and states', () => {
   it.each([
     ['loading', 'Reading jamjam.tech'],
     ['error', "We couldn't read jamjam.tech"],
-    ['empty', 'Nothing to read on this site yet'],
+    ['empty', 'We found nothing we could quote on jamjam.tech'],
   ] as const)('J1 %s state', (state, heading) => {
     at('read', state);
     expect(screen.getByRole('heading', { level: 2, name: heading })).toBeInTheDocument();

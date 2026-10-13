@@ -20,7 +20,10 @@
  * first post waits (the Worker drafts only from a registered kit). Registering sets kitRegistered in useJourneyFlow.
  */
 import { useNavigate } from 'react-router';
-import { Grid } from '../../ui/primitives';
+import { Alert, Button, Grid, Heading, Text } from '../../ui/primitives';
+import { Card } from '../../ui/composites/Card';
+import { JourneyFactCard } from '../../ui/domain/JourneyFactCard';
+import { useJourneyTask } from './useJourneyTask';
 import { StatusList } from '../../ui/composites/StatusList';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
 import { ApproveGate } from './ApproveGate';
@@ -38,10 +41,12 @@ export interface ApproveKitProps {
 export function J5ApproveKit({ data, state = 'success' }: ApproveKitProps) {
   const navigate = useNavigate();
   const flow = useJourneyFlow('approveKit');
-  const { selections, actions } = flow;
+  const { selections, actions, live } = flow;
   // Each gate as the person left it on J3 and J4 (rejected facts dropped, edits and answers used), else the fixture.
-  const gates = data.gates.map((g) => gateView(g, selections, data.voice));
+  const gates = data.gates.map((g) => live ? g : gateView(g, selections, data.voice));
   // One decision per gate for every screen: an approval counts only while it matches the draft it approved.
+  const supporting = data.supportingSections || [];
+  const unreviewed = supporting.filter(s => !s.approved);
   const decisions = gates.map((g) => flow.gateDecision(g.id, gateFingerprint(g), g.approval));
   return (
     <JourneyStepFrame
@@ -62,15 +67,26 @@ export function J5ApproveKit({ data, state = 'success' }: ApproveKitProps) {
           />
         ))}
       </Grid>
+      {supporting.map(section => <SupportingSection key={section.id} section={section} onApprove={() => { if (!actions.approveSupportingSection) throw new Error('Section approval is unavailable.'); return actions.approveSupportingSection(section.id); }} />)}
       <StatusList label="Also drafted for a quick look" title surface="card" rows={statusRows(data.alsoDrafted)} />
       <ApproveRegisterPanel
         onChain={data.onChain}
         approved={decisions.filter((d) => d.status === 'approved').length}
         total={gates.length}
+        blockedReason={unreviewed.length ? `Review and approve ${unreviewed.map(s => s.title.toLowerCase()).join(", ")} before registering.` : undefined}
         failure={state === 'error' ? data.registration : undefined}
-        onRegister={() => { actions.setKitRegistered(true); navigate(flow.nextHref); }}
-        onRetry={() => actions.setKitRegistered(false)}
+        onRegister={() => { const result = actions.setKitRegistered(true); if (result) return result.then(() => navigate(flow.nextHref)); navigate(flow.nextHref); }}
+        onRetry={async () => { await actions.setKitRegistered(live); if (live) navigate(flow.nextHref); }}
       />
     </JourneyStepFrame>
   );
+}
+
+function SupportingSection({ section, onApprove }: { section: NonNullable<ApproveKitData['supportingSections']>[number]; onApprove: () => Promise<void> }) {
+  const task = useJourneyTask();
+  return <Card><Heading level={2} size="lg">{section.title}</Heading><Text>{section.draft}</Text>
+    {section.evidence.length > 0 && <details><summary>See cited evidence</summary>{section.evidence.map(fact => <JourneyFactCard key={fact.id} fact={fact} />)}</details>}
+    {section.approved ? <Text role="status">Approved</Text> : <Button disabled={task.busy} onClick={() => void task.run(onApprove)}>Approve {section.title.toLowerCase()}</Button>}
+    {task.error && <Alert tone="danger">{task.error}</Alert>}
+  </Card>;
 }

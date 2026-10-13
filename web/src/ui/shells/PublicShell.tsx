@@ -4,15 +4,15 @@ import { publicNav } from '../../config/routes';
 import { Button } from '../primitives/Button';
 import { Logo } from '../brand/Logo';
 import { useAuth } from '../../lib/auth';
+import { usePublicNavHref } from '../hooks/usePublicNavHref';
 import styles from './PublicShell.module.css';
-
-const livePath = (path: string) => path;
 
 export interface PublicShellProps {
   children?: ReactNode;
   /**
    * Maps each nav path (and the logo's "/") to its link target. The screen gallery points them at /screens/<Artboard>
-   * so a composed screen's links stay inside the gallery (issue #48). Defaults to the live routes.
+   * so a composed screen's links stay inside the gallery (issue #48). Default: the live routes, and in the gallery each
+   * path's canvas board (ui/hooks/usePublicNavHref.ts).
    */
   navHref?: (path: string) => string;
   /**
@@ -23,13 +23,15 @@ export interface PublicShellProps {
 }
 
 /** L10 PublicShell: public nav from M1 plus a main slot; optional header actions in place of the links. */
-export function PublicShell({ children, navHref = livePath, actions }: PublicShellProps) {
+export function PublicShell({ children, navHref: given, actions }: PublicShellProps) {
+  const fallback = usePublicNavHref();
+  const navHref = given ?? fallback;
   const links = publicNav.slice(0, -1);
   const { session } = useAuth();
   const signIn = publicNav[publicNav.length - 1];
   const cta = session ? { path: '/home', label: 'Your brand' } : signIn;
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} data-shell="public">
       <a className={styles.skip} href="#main">
         Skip to content
       </a>

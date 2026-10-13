@@ -37,7 +37,7 @@ export function MediaComposer({ data, state = 'success' }: { data: MediaComposer
     if (!empty) navigate(routes.mediaReview);
   };
   return (
-    <SoonPage header={{ title: mediaKindTitles[tab], intro: 'Carousels, image cards and short videos from your kit, in your look.', definedIn: 'canvas board Media-Composer; no backend row yet (proposed in issue #51)' }}>
+    <SoonPage artboard="Media-Composer" header={{ title: mediaKindTitles[tab], intro: 'Carousels, image cards and short videos from your kit, in your look.', definedIn: 'canvas board Media-Composer; no backend row yet (proposed in issue #51)' }}>
       <StateView
         state={state}
         loading={{ title: 'Drafting slides', body: 'Writing each slide from the post, in your voice.' }}

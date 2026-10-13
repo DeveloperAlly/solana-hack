@@ -16,7 +16,7 @@
 import { Button } from '../../ui/primitives';
 import { Columns } from '../../ui/layouts/Columns';
 import { StateView } from '../../ui/composites/StateView';
-import { GrowthFrame } from './components/GrowthFrame';
+import { LoopFrame } from './components/LoopFrame';
 import { GrowthBadgeOptions } from './components/GrowthBadgeOptions';
 import { GrowthBadgePreview } from './components/GrowthBadgePreview';
 import { useBadgeEmbed } from './useBadge';
@@ -25,8 +25,8 @@ import type { BadgeEmbedData, ScreenProps } from './types';
 export function BadgeEmbed({ data, state = 'success' }: ScreenProps<BadgeEmbedData>) {
   const flow = useBadgeEmbed(data);
   return (
-    <GrowthFrame
-      section="badge"
+    <LoopFrame
+      artboard="Badge-Embed"
       title="Check-it badge"
       tag="COMING SOON"
       intro="Put the badge on a verified post. Anyone who clicks it lands on Verify and sees the post is yours."
@@ -42,6 +42,6 @@ export function BadgeEmbed({ data, state = 'success' }: ScreenProps<BadgeEmbedDa
           <GrowthBadgeOptions posts={data.posts} flow={flow} />
         </Columns>
       </StateView>
-    </GrowthFrame>
+    </LoopFrame>
   );
 }

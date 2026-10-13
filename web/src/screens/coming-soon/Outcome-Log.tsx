@@ -27,7 +27,7 @@ const filterOptions = filterOptionsFrom(fitChips);
 
 export function OutcomeLog({ data, state = 'success' }: { data: OutcomeLogData; state?: ScreenState }) {
   return (
-    <SoonPage header={{ title: 'What came in', intro: 'Inbound you can trace to your posts, qualified against your audience, through to the outcome.', definedIn: 'canvas board Outcome-Log; no backend row yet (proposed in issue #51)' }}>
+    <SoonPage artboard="Outcome-Log" header={{ title: 'What came in', intro: 'Inbound you can trace to your posts, qualified against your audience, through to the outcome.', definedIn: 'canvas board Outcome-Log; no backend row yet (proposed in issue #51)' }}>
       {/* INTEGRATION: no endpoint yet (issue #51); rows will come from leads plus registrations attribution. */}
       <DataTable<Outcome>
         caption="Inbound and outcomes"

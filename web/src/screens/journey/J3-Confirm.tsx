@@ -23,6 +23,7 @@ import { SampleFlag } from '../../ui/composites/SampleFlag';
 import { JourneyAha } from '../../ui/domain/JourneyAha';
 import { JourneyFactCard } from '../../ui/domain/JourneyFactCard';
 import { ProgressBar } from '../../ui/composites/ProgressBar';
+import { ConfirmConflictCard } from './ConfirmConflictCard';
 import { ConfirmFactCard } from './ConfirmFactCard';
 import { JourneyNextButton } from './JourneyNextButton';
 import { JourneyStepFrame } from './JourneyStepFrame';
@@ -32,12 +33,12 @@ import type { ConfirmData } from './types';
 
 export function J3Confirm({ data }: { data: ConfirmData }) {
   const to = useJourneyHref();
-  const { selections, actions } = useJourneyFlow('confirm');
-  const decided = data.facts.every((f) => selections.facts[f.id]);
+  const { selections, actions, live } = useJourneyFlow('confirm');
+  const decided = !(data.conflicts?.length) && data.facts.every((f) => selections.facts[f.id]);
   const hint = 'Accept, edit or reject each card first.';
   const confirmed = data.facts.filter((f) => ['accepted', 'edited'].includes(selections.facts[f.id]?.decision ?? '')).length;
   const cards = data.facts.length + 2;
-  const readiness = data.readinessBase + Math.round(((100 - data.readinessBase) * confirmed) / cards);
+  const readiness = live ? data.readinessBase : data.readinessBase + Math.round(((100 - data.readinessBase) * confirmed) / cards);
   return (
     <JourneyStepFrame
       step="confirm"
@@ -51,7 +52,7 @@ export function J3Confirm({ data }: { data: ConfirmData }) {
       }
     >
       <Card as="div">
-        <SampleFlag />
+        {!live && <SampleFlag />}
         <ProgressBar showLabel label={`Kit readiness ${readiness}%`} segments={[{ value: readiness, label: 'Ready' }]} caption="Rises as you confirm. Kit v1 needs the 3 gates; nothing else blocks it." />
       </Card>
       <JourneyAha n={2}>I'm confirming, not typing.</JourneyAha>
@@ -62,12 +63,13 @@ export function J3Confirm({ data }: { data: ConfirmData }) {
             fact={f}
             record={selections.facts[f.id]}
             onDecide={(d, edit) => actions.decideFact(f.id, d, edit)}
-            onUndo={() => actions.undoFact(f.id)}
+            onUndo={live ? undefined : () => actions.undoFact(f.id)}
           />
         ))}
         <JourneyFactCard fact={data.voice} actions={<JourneyNextButton href={to('gapsVoice')} ready={decided} hint={hint}>Pick by example</JourneyNextButton>} />
         <JourneyFactCard fact={data.missing} variant="dashed" />
       </Grid>
+      {data.conflicts?.map(conflict => <ConfirmConflictCard key={conflict.question.id} conflict={conflict} onResolve={resolution => { if (!actions.resolveConflict) throw new Error('Conflict review is unavailable.'); return actions.resolveConflict(conflict.question.id, resolution); }} />)}
       <Text variant="small" tone="secondary">{data.deferredNote}</Text>
     </JourneyStepFrame>
   );

@@ -20,7 +20,6 @@ import { SoonPage } from './SoonPage';
 import { InlineForm } from '../../ui/composites/InlineForm';
 import { List, ListRow } from '../../ui/composites/ListRow';
 import type { ScreenState } from '../../ui/composites/DemoStateSwitcher';
-import { SettingsNav } from './SettingsNav';
 import { StateView } from '../../ui/composites/StateView';
 import { useSoonSession, type AiSource } from './useSoonSession';
 import { useSoonRoutes } from './routes';
@@ -64,7 +63,7 @@ export function SettingsAI({ data, state = 'success' }: { data: SettingsAIData; 
   };
 
   return (
-    <SoonPage header={{ title: 'Settings', intro: 'Which AI model writes for you, and whose key pays for it.', definedIn: 'component inventory D54; backend map, Settings › AI; delivery plan Phase 1' }} nav={<SettingsNav value="ai" />}>
+    <SoonPage artboard="Settings-AI" header={{ title: 'Settings', intro: 'Which AI model writes for you, and whose key pays for it.', definedIn: 'component inventory D54; backend map, Settings › AI; delivery plan Phase 1' }}>
       <StateView state={state} loading={{ title: 'Loading AI settings', body: 'Reading your model sources and key.' }}>
         <Card header={<Heading level={2} size="lg">Model source, in order</Heading>}>
           <List label="Model sources">

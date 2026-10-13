@@ -46,7 +46,7 @@ export function VoiceTemplates({ data, state = 'success' }: { data: VoiceTemplat
     />
   );
   return (
-    <HubPage section="brand" sub="voices">
+    <HubPage artboard="Voice-Templates">
       <PageHeader
         title="Voices"
         intro="A voice is a template plus per-channel overrides. Every template is a preset of the same 9 dimensions: 8 dials and claims strictness as a gate. Your kit can hold several voices."

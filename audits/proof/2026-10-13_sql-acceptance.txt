@@ -1,0 +1,27 @@
+{"version":"PostgreSQL 18.6 (PGlite 0.5.9) on wasm32-unknown-emscripten, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit","digest":"ba9c736f19e7f60b7f6764adb0b7908c0a2b394e09b6c09863528c7f2bc86095"}
+APPLIED 001_spine.sql sha256=837d8d5bee328bb6804cd86afbce125fc0b6db2258f31801cc8bc3b87070816b
+APPLIED 002_posts.sql sha256=00926f8176e0317838bd690e37efa53ddc04f84e92cd09602626ec28d65fff68
+APPLIED 003_posts_registering.sql sha256=67fe2d30efa21e7e2c2bfc039b28c4f2f2734697d73089460ee4557c15f83063
+APPLIED 004_posts_rev.sql sha256=89f29d2d138d527bca3db0e6bf59fda6931ffb0971788f7ac28fe81fd6baac4f
+APPLIED 005_posts_registration_times.sql sha256=879933cb5bb4e0b18a438d49209b5f08ae47abc31c4b221ad176c52fbfab2ed0
+APPLIED 006_posts_last_valid_block_height.sql sha256=ab9f41be1183f448a6b2b68b8ece46f044ef159027a27a532f5b52687bedbb5b
+APPLIED 007_kits_registered_at.sql sha256=5c36e54a7baec174eebbda18604a42798d8157206863f34f882f87f597613ebe
+APPLIED 008_sources_source_text.sql sha256=5fc31e230efbd8c39980ca16d79a8943fedcca46a95ecd7630c1c41dd21bdc9a
+APPLIED 009_evidence_trust.sql sha256=7b0e9fea76aa2ad6511d1a4b574ccc815c845a88265672479cec2ba531ad05bb
+APPLIED 010_evidence_edited_from.sql sha256=829bc8c24e1e4ec745d89afca08e8b6d7c807047028c2ac56cca2f18a9b97177
+APPLIED 011_workflow_engine.sql sha256=596b5fe10aa71326634fc0ac417cd02b999a04fbbbca266e19c17186ba10b9ad
+APPLIED 012_fact_extraction.sql sha256=3bca12f40b1797e65d06dafafae68ceb2fb3bf0301d9f26ebd0e8c4943e60a45
+APPLIED 013_intake_sources.sql sha256=e0ab8e8f2ede26084458a53af01ed38ccafcf137d09fa6265dbcfdf39eb0d4fe
+APPLIED 014_create_intelligence.sql sha256=faaf636d24a0bc58e9e66d0b730b4c7bb978dc96d99b692b4f966aac47b33d61
+PASS corroboration high: {"confidence":"high"}
+PASS rejected corroboration downgrades: {"confidence":"medium"}
+PASS deleted corroboration downgrades: {"confidence":"medium"}
+PASS correction rejects original: {"review_status":"rejected"}
+PASS restoring source removes correction: {"n":0}
+PASS superseded meter refuses PT409
+PASS superseded attempt consumes zero: {"metered_used":1}
+PASS first admission reserves last source slot
+PASS second admission refuses reserved source slot PT429
+PASS released reservation frees source capacity
+Limitations: single-process embedded PostgreSQL 18.6; auth/roles are stubs; no Supabase RLS client integration, concurrent sessions, Cloudflare bindings or chain calls verified here.
+ALL 001–014 migrations applied to embedded PostgreSQL with auth schema and role stubs. No production mutation.

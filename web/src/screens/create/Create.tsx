@@ -1,11 +1,14 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useLiveBrands } from '../../lib/liveBrands';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AppShell } from '../../ui/shells/AppShell';
 import { Alert, Box, Button, Container, Field, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { api, ApiError } from '../../lib/api';
+import { followRun, runMessage, type RunView } from './followRun';
 
+interface ClaimMap { rev: number; partial: boolean; unsupported: number; items: { text: string; status: string; facts: { claim: string; quote: string | null }[] }[] }
 interface Post {
   id: string; brief: string; channel: string | null; body: string; status: string; kit_version: number | null; hash: string | null;
-  checks: { slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit'; policy?: { v?: number; claims: string; unsupported: string[]; blocked?: string[]; passed: boolean } };
+  checks: { claimMap?: ClaimMap; slop?: { passed: boolean; hits: string[] }; voiceFit?: number | null; platform?: number | null; notes?: string[]; history?: unknown[]; lastAction?: string; source?: 'ai' | 'edit'; policy?: { v?: number; claims: string; unsupported: string[]; blocked?: string[]; passed: boolean } };
   signature: string | null; published_url: string | null; rev: number;
 }
 const POLISH = [
@@ -22,6 +25,7 @@ const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went
 
 /** S5 Create (thin): draft a post in the approved voice, check it, approve it, register it. */
 export function Create() {
+  const catalog = useLiveBrands();
   const [brandId, setBrandId] = useState<string | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -31,38 +35,100 @@ export function Create() {
   const [shown, setShown] = useState(20);
   const [more, setMore] = useState(false);
   const [capped, setCapped] = useState(false);
+  // Draft runs still going, by run id, with what to say about each (followRun.ts). Read back from the server on load,
+  // so leaving and coming back resumes following them.
+  const [drafting, setDrafting] = useState<Record<string, string>>({});
+  // Each run of the mount effect owns an AbortController, aborted by its cleanup: leaving the page, or StrictMode's
+  // set-up, clean-up, set-up cycle, stops that run's polling and its requests (PR #99 review). Follows started by a
+  // draft use the controller current at the time.
+  const ctrl = useRef<AbortController | null>(null);
+  const following = useRef(new Map<string, AbortSignal>());
+  const selected = useRef(catalog.id); selected.current = catalog.id;
 
-  async function load(id = brandId, limit = shown) {
-    if (!id) return;
-    const r = await api<{ posts: Post[]; more?: boolean; capped?: boolean }>(`/brands/${id}/posts?limit=${limit}`);
+  async function load(id = brandId, limit = shown, signal = ctrl.current?.signal) {
+    if (!id || !signal || signal.aborted || selected.current !== id) return;
+    const r = await api<{ posts: Post[]; more?: boolean; capped?: boolean }>(`/brands/${id}/posts?limit=${limit}`, { signal });
+    if (signal.aborted || selected.current !== id) return;
     setPosts(r.posts);
     setMore(!!r.more);
     setCapped(!!r.capped);
   }
   useEffect(() => {
-    api<{ brands: { id: string }[] }>('/me')
-      .then(async (me) => {
-        if (!me.brands.length) return setError('Build your brand first, then come back to create.');
-        setBrandId(me.brands[0].id);
-        await load(me.brands[0].id);
+    if (catalog.loading) return;
+    const c = new AbortController();
+    ctrl.current = c;
+    setPosts([]); setDrafting({}); setBrandId(catalog.id); setError(null);
+    setBrief(''); setChannel('LinkedIn'); setBusy(false); setShown(20); setMore(false); setCapped(false);
+    if (!catalog.id) { setError(catalog.error ?? 'Build your brand first, then come back to create.'); return () => c.abort(); }
+    const id = catalog.id;
+    api<{ runs?: { id: string }[] }>(`/brands/${id}/runs?kind=draft_post`, { signal: c.signal })
+      .then(async (going) => {
+        if (c.signal.aborted) return;
+        await load(id, 20, c.signal);
+        for (const r of going.runs ?? []) void follow(r.id, id, c.signal);
       })
-      .catch((e) => setError(msg(e)));
+      .catch((e) => { if (!c.signal.aborted) setError(msg(e)); });
+    return () => c.abort();
+    // The selected ID remounts all draft data and cancels the previous brand's work.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [catalog.id, catalog.loading, catalog.error]);
+
+  /** Follows one draft run to its end, then reloads the list (done) or shows its error (failed), until `signal` aborts. */
+  async function follow(runId: string, id = brandId, signal = ctrl.current?.signal) {
+    if (!signal || signal.aborted || selected.current !== id) return;
+    const already = following.current.get(runId);
+    if (already && !already.aborted) return;
+    following.current.set(runId, signal);
+    const update = (run: RunView) => { if (!signal.aborted && selected.current === id) setDrafting((d) => ({ ...d, [runId]: runMessage(run) })); };
+    try {
+      const end = await followRun(runId, {
+        get: async (rid) => (await api<{ run: RunView }>(`/runs/${rid}`, { signal })).run,
+        sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+        onUpdate: update,
+        cancelled: () => signal.aborted || selected.current !== id,
+      });
+      if (!end || selected.current !== id) return;
+      if (end.status !== 'done') setError(end.error ?? 'Drafting failed. Try again.');
+      await load(id, shown, signal);
+    } catch (err) {
+      if (!signal.aborted && selected.current === id) setError(msg(err));
+    } finally {
+      if (following.current.get(runId) === signal) following.current.delete(runId);
+      if (!signal.aborted && selected.current === id) setDrafting(({ [runId]: _, ...rest }) => rest);
+    }
+  }
+
+  /**
+   * The one path for every call that starts a draft run (the form and Draft again; PR #99 review): a draft that outlasts
+   * the request comes back as a run to follow (202, no post yet), followed with the current effect's controller, and the
+   * list reloads when it ends; a finished draft reloads the list at once.
+   */
+  async function startAndFollow(body: { brief: string; channel: string }) {
+    const id = brandId;
+    const signal = ctrl.current?.signal;
+    if (!id || !signal || signal.aborted || selected.current !== id) return;
+    const r = await api<{ post: Post | null; runId?: string }>(`/brands/${id}/posts`, { body, signal });
+    if (signal.aborted || selected.current !== id) return;
+    if (!r.post && r.runId) void follow(r.runId, id, signal);
+    else await load(id, shown, signal);
+  }
 
   async function draft(e: FormEvent) {
     e.preventDefault();
     if (!brief.trim()) return setError('Say what the post is about.');
+    const id = brandId;
+    const signal = ctrl.current?.signal;
+    if (!id || !signal || signal.aborted || selected.current !== id) return;
+    const current = () => !signal.aborted && selected.current === id;
     setBusy(true);
     setError(null);
     try {
-      await api(`/brands/${brandId}/posts`, { body: { brief, channel } });
-      setBrief('');
-      await load();
+      await startAndFollow({ brief, channel });
+      if (current()) setBrief('');
     } catch (err) {
-      setError(msg(err));
+      if (current()) setError(msg(err));
     } finally {
-      setBusy(false);
+      if (current()) setBusy(false);
     }
   }
 
@@ -84,8 +150,9 @@ export function Create() {
               </Stack>
             </form>
           )}
+          {Object.entries(drafting).map(([id, text]) => <Alert key={id} tone="info">{text}</Alert>)}
           {posts.map((p) => (
-            <PostCard key={p.id} post={p} brandId={brandId!} onChange={() => load()} />
+            <PostCard key={p.id} post={p} brandId={brandId!} onChange={() => load()} redraft={() => startAndFollow({ brief: p.brief, channel: p.channel ?? '' })} />
           ))}
           {more && (
             <Button variant="secondary" onClick={() => { const n = Math.min(shown + 20, 500); setShown(n); load(brandId, n).catch((e) => setError(msg(e))); }}>Show older posts</Button>
@@ -97,7 +164,7 @@ export function Create() {
   );
 }
 
-function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; onChange: () => Promise<void> }) {
+function PostCard({ post, brandId, onChange, redraft }: { post: Post; brandId: string; onChange: () => Promise<void>; redraft: () => Promise<void> }) {
   const [text, setText] = useState(post.body);
   const [url, setUrl] = useState(post.published_url ?? '');
   const [busy, setBusy] = useState<string | null>(null);
@@ -109,6 +176,7 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
   const dirty = post.status === 'drafted' && text.trim() !== post.body;
   const slop = post.checks.slop;
   const hiddenAi = post.status === 'drafted' && !slop?.passed && post.checks.source !== 'edit';
+  const claims = !dirty && post.checks.claimMap?.rev === post.rev ? post.checks.claimMap : null;
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(label);
@@ -187,8 +255,14 @@ function PostCard({ post, brandId, onChange }: { post: Post; brandId: string; on
         {error && <Alert tone="danger">{error}</Alert>}
         <Stack direction="row" gap={3} wrap>
           {post.status !== 'registered' && dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('save', () => api(base, { method: 'PUT', body: { body: text, rev: post.rev } }))}>Save edits</Button>}
-          {hiddenAi && <Button disabled={!!busy} onClick={() => run('redraft', () => api(`/brands/${brandId}/posts`, { body: { brief: post.brief, channel: post.channel ?? '' } }))}>{busy === 'redraft' ? 'Drafting…' : 'Draft again'}</Button>}
+          {hiddenAi && <Button disabled={!!busy} onClick={() => run('redraft', redraft)}>{busy === 'redraft' ? 'Drafting…' : 'Draft again'}</Button>}
           {post.status === 'drafted' && !hiddenAi && !dirty && <Button disabled={!!busy || !slop?.passed} onClick={() => run('approve', () => api(`${base}/approve`, { body: { rev: post.rev } }))}>{busy === 'approve' ? 'Approving…' : 'Approve'}</Button>}
+          {post.status === 'drafted' && !hiddenAi && !dirty && <Button variant="secondary" disabled={!!busy} onClick={() => run('claims', () => api(`${base}/claims`, { body: { rev: post.rev } }))}>{busy === 'claims' ? 'Checking claims…' : 'Check claims and evidence'}</Button>}
+          {claims && <Box padding={4} border="default" radius="box"><Stack gap={2}>
+            <Heading level={3} size="lg">Claims and evidence</Heading>
+            {claims.partial && <Alert tone="warning">The check could not cover all evidence. Approval still requires the server's full gate.</Alert>}
+            {claims.items.map((claim, i) => <Stack key={i} gap={1}><Text>{claim.text} · {claim.status.replace(/_/g, ' ')}</Text>{claim.facts.map((fact, j) => <Text key={j} variant="small">{fact.claim}{fact.quote && <> · “{fact.quote}”</>}</Text>)}</Stack>)}
+          </Stack></Box>}
           {post.status === 'registering' && (
             // A send whose outcome was unknown: the server checks Solana and finishes or reopens it.
             <Button disabled={!!busy} onClick={() => run('register', () => api(`${base}/register`, { body: { publishedUrl: url, rev: post.rev } }))}>{busy === 'register' ? 'Checking Solana…' : 'Check registration'}</Button>

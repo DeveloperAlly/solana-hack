@@ -12,11 +12,13 @@
  * States (canvas note n-main): success = example shown; empty = example hidden (not registered yet); error = an invalid
  * address shows inline under the field. "Site unreachable" is not a Main state: it continues to J1, which offers paste or upload.
  */
+import { useJourneyTask } from './useJourneyTask';
 import { useNavigate } from 'react-router';
 import { PublicShell } from '../../ui/shells/PublicShell';
 import { Badge, Button, Container, Grid, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { InlineForm } from '../../ui/composites/InlineForm';
+import { VideoEmbed } from '../../ui/composites/VideoEmbed';
 import { JourneyQuote } from '../../ui/domain/JourneyQuote';
 import { Columns } from '../../ui/layouts/Columns';
 import { JourneyStepCards } from '../../ui/domain/JourneyStepCards';
@@ -37,6 +39,7 @@ export function Main({ data, state = 'success' }: MainProps) {
   const navHref = useNavHref();
   const navigate = useNavigate();
   const { actions } = useJourneyFlow();
+  const task = useJourneyTask();
   return (
     <PublicShell navHref={navHref}>
       <Container width="app">
@@ -59,11 +62,14 @@ export function Main({ data, state = 'success' }: MainProps) {
                   fields={[{ name: 'site', label: 'Your website', type: 'url', autoComplete: 'url', defaultValue: data.siteDefault, placeholder: data.sitePlaceholder, validate: siteUrl }]}
                   submitLabel="Read my site"
                   validateOnMount={state === 'error'}
-                  onSubmit={({ site }) => { actions.startJourney(site); navigate(to('read')); }}
+                  busy={task.busy}
+                  errors={{ site: task.error }}
+                  onSubmit={({ site }) => void task.run(() => actions.startJourney(site), () => navigate(to('read')))}
                 />
                 <Text variant="small" tone="secondary">
-                  No sign-up to see what we find. No website? <Link href={to('basics')}>Start with a few questions</Link>. No wallet, ever.
+                  No sign-up to see what we find. No website? <Link href={to('basics')}>Start with a few questions</Link>.
                 </Text>
+                <VideoEmbed youtubeId="Eu9afP-0FJ8" title="JamJam demo video" />
               </Stack>
           </Columns>
           <Stack as="section" id="how" gap={5} aria-labelledby="main-how">
@@ -88,7 +94,7 @@ export function Main({ data, state = 'success' }: MainProps) {
           </Card>
           <Stack as="footer" direction="row" gap={5} wrap>
             <Text as="span" variant="small" tone="secondary">jamjam.tech</Text>
-            <Link href={to('proof')}>Check a post</Link>
+            <Link href={navHref('/verify')}>Check a post</Link>
             <Link href={to('ledger')}>Public ledger</Link>
             <Text as="span" variant="small" tone="secondary">Ambassadors: coming soon</Text>
           </Stack>

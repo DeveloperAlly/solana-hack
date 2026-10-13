@@ -1,0 +1,70 @@
+{
+  "runId": "723bc04d-4cdd-41c7-b611-5242b994b8d1",
+  "metadata": [
+    {
+      "step": "read",
+      "type": "fetch",
+      "prompt_key": null,
+      "prompt_version": null,
+      "model": null,
+      "outcome": "ok"
+    },
+    {
+      "step": "chunk",
+      "type": "code",
+      "prompt_key": null,
+      "prompt_version": null,
+      "model": null,
+      "outcome": "ok"
+    },
+    {
+      "step": "extract[0]",
+      "type": "llm",
+      "prompt_key": "extract.facts",
+      "prompt_version": 2,
+      "model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "outcome": "ok"
+    },
+    {
+      "step": "align",
+      "type": "code",
+      "prompt_key": null,
+      "prompt_version": null,
+      "model": null,
+      "outcome": "ok"
+    },
+    {
+      "step": "batch",
+      "type": "code",
+      "prompt_key": null,
+      "prompt_version": null,
+      "model": null,
+      "outcome": "ok"
+    },
+    {
+      "step": "support[0]",
+      "type": "llm",
+      "prompt_key": "extract.check_support",
+      "prompt_version": 1,
+      "model": "dots-studio/dots-3-note-preview:free",
+      "outcome": "ok"
+    },
+    {
+      "step": "decide",
+      "type": "code",
+      "prompt_key": null,
+      "prompt_version": null,
+      "model": null,
+      "outcome": "ok"
+    },
+    {
+      "step": "save",
+      "type": "write",
+      "prompt_key": null,
+      "prompt_version": null,
+      "model": null,
+      "outcome": "ok"
+    }
+  ],
+  "scope": "Retained actual network metadata for this run only; no universal accuracy claim."
+}

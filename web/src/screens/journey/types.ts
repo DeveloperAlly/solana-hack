@@ -121,6 +121,7 @@ export interface ReadData {
 
 /** J2-Save. `linkError` is set when the emailed link came back expired or used. */
 export interface SaveData {
+  signedInEmail?: string;
   brandName: string;
   summary: string;
   saving: JourneySectionStatus[];
@@ -129,6 +130,7 @@ export interface SaveData {
 
 /** J3-Confirm. */
 export interface ConfirmData {
+  conflicts?: { question: JourneyFact; sides: JourneyFact[] }[];
   /** Cards with a quote that the person can accept, edit or reject. */
   facts: JourneyFact[];
   /** Partly found, picked by example on J4. */
@@ -144,6 +146,7 @@ export interface ConfirmData {
 
 /** J4-Gaps-Voice. */
 export interface GapsVoiceData {
+  questions?: { id: string; question: string; optional: boolean; kind: string; step?: string; field?: string; sections: string[] }[];
   brandName: string;
   alternatives: { question: string; hint: string; options: string[]; source: string };
   edgeQuestion: string;
@@ -154,6 +157,7 @@ export interface GapsVoiceData {
 
 /** J5-Approve-Kit. `registration` is set when registering kit v1 failed (Kit-RegisterFailed). */
 export interface ApproveKitData {
+  supportingSections?: { id: string; title: string; draft: string; approved: boolean; evidence: JourneyFact[] }[];
   approver: string;
   /** The J4 voice samples, so the Voice gate can name the person's picks. */
   voice: GapsVoiceData['voice'];
@@ -165,6 +169,9 @@ export interface ApproveKitData {
 
 /** J6-First-Post. */
 export interface FirstPostData {
+  approvalReady?: boolean;
+  checkRows?: JourneyStatusRow[];
+  notice?: string;
   /** Each channel's draft; `polish` holds a sample revision per polish action (what POST …/polish returns). */
   channels: { id: JourneyChannel; label: string; segments: JourneyClaimSegment[]; polish?: Record<string, JourneyClaimSegment[]> }[];
   claims: JourneyClaim[];

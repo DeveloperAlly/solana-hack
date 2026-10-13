@@ -10,6 +10,8 @@ tags: [governance, rules]
 
 These rules bind every agent and human working in this repo.
 
+**Read first at every work cycle and handoff:** [canonical delivery plan](.agentic/how/missions/mission_hackathon_submission.md), [master #38](https://github.com/DeveloperAlly/solana-hack/issues/38), [execution #114](https://github.com/DeveloperAlly/solana-hack/issues/114), and [STATE.md](STATE.md). Reconcile scope before implementation; do not ask the owner to repeat recorded instructions.
+
 1. **Frontmatter and banner.** Every doc under `.agentic/` has YAML frontmatter with `type, status, created, updated, last_edited_by, tags` (plus `supersedes` / `superseded_by` where relevant), and a one-line status banner as the first body line.
 2. **Status values** are exactly: `draft` / `proposed` / `active` / `accepted` / `superseded` / `historical`.
 3. **Superseded docs are kept, never deleted.** They carry `superseded_by` and a banner naming their replacement.

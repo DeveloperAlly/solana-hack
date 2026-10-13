@@ -31,7 +31,7 @@ export function Leads({ data }: { data: LeadsData }) {
   const links = useHubLinks();
   const leads = useLeads(data);
   return (
-    <HubPage section="grow" sub="leads">
+    <HubPage artboard="Leads">
       <Text variant="small" tone="secondary">{data.banner}</Text>
       <PageHeader badges={<ComingSoonFlag tag="EXPERIMENTAL" />} title="Find your customers" intro={data.intro} />
       <Card as="div">
