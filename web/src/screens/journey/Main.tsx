@@ -17,6 +17,7 @@ import { PublicShell } from '../../ui/shells/PublicShell';
 import { Badge, Button, Container, Grid, Heading, Link, Stack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/composites/Card';
 import { InlineForm } from '../../ui/composites/InlineForm';
+import { VideoEmbed } from '../../ui/composites/VideoEmbed';
 import { JourneyQuote } from '../../ui/domain/JourneyQuote';
 import { Columns } from '../../ui/layouts/Columns';
 import { JourneyStepCards } from '../../ui/domain/JourneyStepCards';
@@ -62,8 +63,9 @@ export function Main({ data, state = 'success' }: MainProps) {
                   onSubmit={({ site }) => { actions.startJourney(site); navigate(to('read')); }}
                 />
                 <Text variant="small" tone="secondary">
-                  No sign-up to see what we find. No website? <Link href={to('basics')}>Start with a few questions</Link>. No wallet, ever.
+                  No sign-up to see what we find. No website? <Link href={to('basics')}>Start with a few questions</Link>.
                 </Text>
+                <VideoEmbed youtubeId="Eu9afP-0FJ8" title="JamJam demo video" />
               </Stack>
           </Columns>
           <Stack as="section" id="how" gap={5} aria-labelledby="main-how">
